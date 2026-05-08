@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:iqmarket/screens/post_ad_screen.dart';
 import 'package:iqmarket/services/ad_service.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:iqmarket/models/ad_model.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -25,6 +25,7 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
       'delete_confirm': { 'Русский': 'Удалить это объявление?', 'Қазақша': 'Бұл хабарландыруды өшіру керек пе?', 'Уйғурчә': 'Өчүрәмсиз?' },
       'cancel': { 'Русский': 'Отмена', 'Қазақша': 'Болдырмау', 'Уйғурчә': 'Ван кечиш' },
       'delete': { 'Русский': 'Удалить', 'Қазақша': 'Өшіру', 'Уйғурчә': 'Өчүрүш' },
+      'extend': { 'Русский': 'Продлить', 'Қазақша': 'Ұзарту', 'Уйғурчә': 'Узартиш' },
     };
     return translations[key]?[widget.lang] ?? translations[key]?['Русский'] ?? key;
   }
@@ -49,20 +50,21 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
             unselectedLabelColor: Colors.grey,
           ),
         ),
-        body: StreamBuilder<QuerySnapshot>(
+        body: StreamBuilder<List<AdModel>>(
           stream: AdService.getMyAdsStream(),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
             }
-            if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+            if (!snapshot.hasData || snapshot.data!.isEmpty) {
               return _buildEmptyState();
             }
 
-            final allAds = snapshot.data!.docs;
-            final activeAds = allAds.where((doc) => doc['status'] == 'active' && doc['active'] == true).toList();
-            final pendingAds = allAds.where((doc) => doc['status'] == 'pending').toList();
-            final archivedAds = allAds.where((doc) => doc['status'] == 'archived' || (doc['active'] == false && doc['status'] == 'active')).toList();
+            final allAds = snapshot.data!;
+            // Simplified status logic for now
+            final activeAds = allAds.where((ad) => ad.active).toList();
+            final pendingAds = <AdModel>[]; // Add logic if status field is added to model
+            final archivedAds = allAds.where((ad) => !ad.active).toList();
 
             return TabBarView(
               children: [
@@ -83,26 +85,24 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
     );
   }
 
-  Widget _buildAdsList(List<QueryDocumentSnapshot> ads) {
+  Widget _buildAdsList(List<AdModel> ads) {
     if (ads.isEmpty) return _buildEmptyState();
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: ads.length,
       itemBuilder: (ctx, idx) {
-        final ad = ads[idx].data() as Map<String, dynamic>;
-        final adId = ads[idx].id;
-        return _buildAdCard(adId, ad);
+        return _buildAdCard(ads[idx]);
       },
     );
   }
 
-  Widget _buildAdCard(String id, Map<String, dynamic> ad) {
+  Widget _buildAdCard(AdModel ad) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: Column(
         children: [
@@ -110,21 +110,33 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
             contentPadding: const EdgeInsets.all(12),
             leading: ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: CachedNetworkImage(
-                imageUrl: ad['imageUrl'] ?? '',
-                width: 70, height: 70, fit: BoxFit.cover,
-                placeholder: (context, url) => Container(color: Colors.grey[200]),
-                errorWidget: (context, url, error) => const Icon(Icons.image),
-              ),
+              child: ad.images.isNotEmpty 
+                ? CachedNetworkImage(
+                    imageUrl: ad.images.first,
+                    width: 70, height: 70, fit: BoxFit.cover,
+                    placeholder: (context, url) => Container(color: Colors.grey[200]),
+                    errorWidget: (context, url, error) => const Icon(Icons.image),
+                  )
+                : Container(width: 70, height: 70, color: Colors.grey[200], child: const Icon(Icons.image)),
             ),
-            title: Text(ad['title'] ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 15)),
+            title: Text(ad.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 15)),
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 4),
-                Text(ad['price'] ?? '', style: GoogleFonts.inter(color: const Color(0xFF4A80F0), fontWeight: FontWeight.w900, fontSize: 16)),
+                Text(ad.price, style: GoogleFonts.inter(color: const Color(0xFF4A80F0), fontWeight: FontWeight.w900, fontSize: 16)),
                 const SizedBox(height: 4),
-                Text(ad['location'] ?? '', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                Text(ad.location, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    _miniTag(ad.condition, ad.condition == 'Новый' ? Colors.green : Colors.blueGrey),
+                    if (ad.hasDelivery)
+                      const Padding(padding: EdgeInsets.only(right: 6), child: Icon(Icons.local_shipping_rounded, size: 14, color: Color(0xFF4A80F0))),
+                    if (ad.canExchange)
+                      const Padding(padding: EdgeInsets.only(right: 6), child: Icon(Icons.swap_horizontal_circle_rounded, size: 14, color: Colors.orange)),
+                  ],
+                ),
               ],
             ),
           ),
@@ -134,18 +146,29 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                TextButton.icon(
-                  onPressed: () => _editAd(id, ad),
-                  icon: const Icon(Icons.edit_outlined, size: 18),
-                  label: const Text('Редакт.'),
-                ),
-                TextButton.icon(
-                  onPressed: () => _toggleStatus(id, ad),
-                  icon: Icon(ad['active'] == true ? Icons.archive_outlined : Icons.unarchive_outlined, size: 18),
-                  label: Text(ad['active'] == true ? 'В архив' : 'Активир.'),
-                ),
+                if (ad.expiresAt != null && (ad.expiresAt!.difference(DateTime.now()).inDays <= 3 || !ad.active))
+                  TextButton.icon(
+                    onPressed: () {
+                      AdService.extendAd(ad.id);
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Объявление продлено на 30 дней', style: GoogleFonts.inter()), backgroundColor: Colors.green));
+                    },
+                    icon: const Icon(Icons.update_rounded, size: 18, color: Colors.green),
+                    label: Text(_t('extend'), style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                  ),
+                if (ad.active && (ad.expiresAt == null || ad.expiresAt!.difference(DateTime.now()).inDays > 3))
+                  TextButton.icon(
+                    onPressed: () => _editAd(ad),
+                    icon: const Icon(Icons.edit_outlined, size: 18),
+                    label: const Text('Редакт.'),
+                  ),
+                if (ad.active && (ad.expiresAt == null || ad.expiresAt!.difference(DateTime.now()).inDays > 3))
+                  TextButton.icon(
+                    onPressed: () => AdService.toggleAdStatus(ad.id, !ad.active),
+                    icon: Icon(ad.active ? Icons.archive_outlined : Icons.unarchive_outlined, size: 18),
+                    label: Text(ad.active ? 'В архив' : 'Активир.'),
+                  ),
                 IconButton(
-                  onPressed: () => _confirmDelete(id),
+                  onPressed: () => _confirmDelete(ad.id),
                   icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
                 ),
               ],
@@ -155,6 +178,13 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
       ),
     );
   }
+
+  Widget _miniTag(String label, Color color) => Container(
+    margin: const EdgeInsets.only(right: 6),
+    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+    decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
+    child: Text(label, style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.bold)),
+  );
 
   Widget _buildEmptyState() {
     return Center(
@@ -169,13 +199,8 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
     );
   }
 
-  void _editAd(String id, Map<String, dynamic> ad) {
-    Navigator.push(context, MaterialPageRoute(builder: (ctx) => PostAdScreen(lang: widget.lang, initialAd: {...ad, 'id': id})));
-  }
-
-  void _toggleStatus(String id, Map<String, dynamic> ad) {
-    final currentStatus = ad['active'] ?? false;
-    AdService.toggleAdStatus(id, !currentStatus);
+  void _editAd(AdModel ad) {
+    Navigator.push(context, MaterialPageRoute(builder: (ctx) => PostAdScreen(lang: widget.lang, initialAd: ad)));
   }
 
   void _confirmDelete(String id) {

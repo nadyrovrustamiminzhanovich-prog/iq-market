@@ -14,7 +14,7 @@
         android:label="IQ-Market"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
-        android:enableOnBackInvokedCallback="true">
+        android:enableOnBackInvokedCallback="false">
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -56,10 +56,6 @@
         <intent>
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="https" />
-        </intent>
-        <intent>
-            <action android:name="android.intent.action.VIEW" />
-            <data android:scheme="dgis" />
         </intent>
     </queries>
 </manifest>

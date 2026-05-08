@@ -8,9 +8,8 @@
  *  4. Set webhook: https://api.telegram.org/botTOKEN/setWebhook?url=YOUR_FUNCTION_URL
  */
 
-const functions = require('firebase-functions');
+const functions = require('firebase-functions/v1');
 const admin     = require('firebase-admin');
-const fetch     = require('node-fetch');
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -181,3 +180,141 @@ exports.onVerificationUpdate = functions.firestore
       );
     }
   });
+
+// ─── FIRESTORE TRIGGER: Send FCM when a new message is created ────────────────
+exports.onNewMessage = functions.firestore
+  .document('chats/{chatId}/messages/{msgId}')
+  .onCreate(async (snapshot, context) => {
+    const message = snapshot.data();
+    const chatId = context.params.chatId;
+    const senderId = message.senderId;
+
+    // 1. Get the chat document to find the receiver
+    const chatSnap = await db.collection('chats').doc(chatId).get();
+    if (!chatSnap.exists) return;
+
+    const chatData = chatSnap.data();
+    const users = chatData.users || [];
+    const receiverId = users.find(uid => uid !== senderId);
+
+    if (!receiverId) return;
+
+    // 2. Get receiver's FCM token
+    const userSnap = await db.collection('users').doc(receiverId).get();
+    if (!userSnap.exists) return;
+
+    const receiverToken = userSnap.data().fcmToken;
+    if (!receiverToken) return;
+
+    // 3. Construct and send the message
+    const senderName = chatData[`name_${senderId}`] || 'Пользователь';
+    const adTitle = chatData.adTitle || 'IQ Market';
+
+    const payload = {
+      token: receiverToken,
+      notification: {
+        title: `${senderName} (${adTitle})`,
+        body: message.text,
+      },
+      data: {
+        type: 'chat',
+        chatId: chatId,
+        senderId: senderId,
+        adId: chatData.adId || '',
+        adTitle: chatData.adTitle || '',
+        adImage: chatData.adImage || '',
+        click_action: 'FLUTTER_NOTIFICATION_CLICK',
+      },
+      android: {
+        priority: 'high',
+        notification: {
+          channelId: 'high_importance_channel',
+          sound: 'default',
+        }
+      },
+      apns: {
+        payload: {
+          aps: {
+            sound: 'default',
+            badge: 1,
+          }
+        }
+      }
+    };
+
+    try {
+      await admin.messaging().send(payload);
+      console.log(`Successfully sent message to ${receiverId}`);
+    } catch (error) {
+      console.error('Error sending FCM:', error);
+    }
+  });
+
+// ─── CRON JOB: Check Expired Ads (runs every 24 hours at 3 AM) ────────────────
+exports.checkExpiredAds = functions.pubsub.schedule('0 3 * * *').timeZone('Asia/Almaty').onRun(async (context) => {
+  const now = admin.firestore.Timestamp.now();
+  const warningTimestamp = admin.firestore.Timestamp.fromMillis(Date.now() + (3 * 24 * 60 * 60 * 1000));
+  
+  const batch = db.batch();
+  let expiredCount = 0;
+  let notifyCount = 0;
+
+  try {
+    // 1. Archive expired ads
+    const expiredAdsSnap = await db.collection('ads')
+      .where('expiresAt', '<=', now)
+      .where('status', '==', 'active')
+      .get();
+
+    expiredAdsSnap.forEach((doc) => {
+      batch.update(doc.ref, { status: 'archived', isActive: false });
+      expiredCount++;
+    });
+
+    // 2. Notify users about ads expiring in <= 3 days
+    const expiringAdsSnap = await db.collection('ads')
+      .where('expiresAt', '<=', warningTimestamp)
+      .where('expiresAt', '>', now)
+      .where('status', '==', 'active')
+      .get();
+
+    for (const doc of expiringAdsSnap.docs) {
+      const data = doc.data();
+      if (data.notifiedExpiry === true) continue; // Already notified
+
+      // Mark as notified in the batch
+      batch.update(doc.ref, { notifiedExpiry: true });
+      
+      // Send push notification
+      if (data.userId) {
+        const userSnap = await db.collection('users').doc(data.userId).get();
+        if (userSnap.exists && userSnap.data().fcmToken) {
+          const payload = {
+            token: userSnap.data().fcmToken,
+            notification: {
+              title: 'Объявление скоро истечет ⏳',
+              body: `Срок размещения "${data.title}" истекает менее чем через 3 дня. Продлите его в профиле!`,
+            },
+            data: {
+              type: 'ad_expiring',
+              adId: doc.id,
+              click_action: 'FLUTTER_NOTIFICATION_CLICK',
+            }
+          };
+          admin.messaging().send(payload).then(() => notifyCount++).catch(e => console.error('Push error:', e));
+        }
+      }
+    }
+
+    if (expiredCount > 0 || notifyCount > 0) {
+      await batch.commit();
+      console.log(`Archived ${expiredCount} ads. Sent ${notifyCount} expiry warnings.`);
+    } else {
+      console.log('No expired or expiring ads found today.');
+    }
+  } catch (error) {
+    console.error('Error in checkExpiredAds:', error);
+  }
+
+  return null;
+});
