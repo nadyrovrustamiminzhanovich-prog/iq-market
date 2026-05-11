@@ -59,6 +59,8 @@ dependencies:
   connectivity_plus: ^7.1.1
   infinite_scroll_pagination: ^5.1.1
   firebase_app_check: ^0.4.3
+  firebase_crashlytics: ^4.2.0
+  firebase_performance: ^0.10.0
   fl_chart: ^1.2.0
 
 

@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 
 import 'screens/home/home_screen.dart';
@@ -34,9 +35,24 @@ Future<void> main() async {
       androidProvider: kDebugMode ? AndroidProvider.debug : AndroidProvider.playIntegrity,
       appleProvider: kDebugMode ? AppleProvider.debug : AppleProvider.deviceCheck,
     );
+
+    // Pass all uncaught "fatal" errors from the framework to Crashlytics
+    FlutterError.onError = (errorDetails) {
+      FirebaseCrashlytics.instance.recordFlutterFatalError(errorDetails);
+    };
+
+    // Pass all uncaught asynchronous errors that aren't handled by the Flutter framework to Crashlytics
+    PlatformDispatcher.instance.onError = (error, stack) {
+      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+      return true;
+    };
+
     isFirebaseReady = true;
-  } catch (e) {
+  } catch (e, stack) {
     debugPrint('Critical Firebase Init Error: $e');
+    if (isFirebaseReady) {
+      FirebaseCrashlytics.instance.recordError(e, stack, fatal: true);
+    }
   }
 
   await StorageService.init();

@@ -270,6 +270,8 @@ class _ProductCardState extends State<ProductCard> with SingleTickerProviderStat
     return CachedNetworkImage(
       imageUrl: url, 
       fit: BoxFit.cover, 
+      memCacheWidth: 400, // Оптимизация памяти (не грузим оригинал в RAM)
+      maxWidthDiskCache: 800, // Оптимизация диска
       placeholder: (context, url) => Container(color: const Color(0xFFF1F5F9)), 
       errorWidget: (context, url, error) => _noImage(),
     );
