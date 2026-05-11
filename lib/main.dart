@@ -6,6 +6,8 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'dart:async';
 
 import 'screens/home/home_screen.dart';
 import 'screens/splash_screen.dart';
@@ -16,6 +18,7 @@ import 'providers/taxi_provider.dart';
 import 'providers/app_config_provider.dart';
 import 'theme/app_theme.dart';
 import 'services/auth_service.dart';
+import 'widgets/common/offline_wrapper.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -60,7 +63,7 @@ Future<void> main() async {
   AnalyticsService.logAppOpen();
   
   if (!isFirebaseReady) {
-    runApp(const ErrorApp(message: 'Ошибка подключения к серверу. Проверьте интернет.'));
+    runApp(ErrorApp(message: 'Ошибка подключения к серверу. Проверьте интернет.', onRetry: () => main()));
     return;
   }
 
@@ -70,7 +73,7 @@ Future<void> main() async {
         ChangeNotifierProvider(create: (_) => TaxiProvider()),
         ChangeNotifierProvider(create: (_) => AppConfigProvider()),
       ],
-      child: const MainApp(),
+      child: const OfflineWrapper(child: MainApp()),
     ),
   );
 }
@@ -104,7 +107,8 @@ class MainApp extends StatelessWidget {
 
 class ErrorApp extends StatelessWidget {
   final String message;
-  const ErrorApp({super.key, required this.message});
+  final VoidCallback onRetry;
+  const ErrorApp({super.key, required this.message, required this.onRetry});
 
   @override
   Widget build(BuildContext context) {
@@ -120,7 +124,7 @@ class ErrorApp extends StatelessWidget {
                 const SizedBox(height: 24),
                 Text(message, textAlign: TextAlign.center, style: const TextStyle(fontSize: 16)),
                 const SizedBox(height: 24),
-                ElevatedButton(onPressed: () => main(), child: const Text('Повторить'))
+                ElevatedButton(onPressed: onRetry, child: const Text('Повторить'))
               ],
             ),
           ),

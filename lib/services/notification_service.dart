@@ -302,6 +302,18 @@ class NotificationService {
       );
     }
   }
+  
+  // ===================== TOPICS =====================
+
+  static Future<void> subscribeToTopic(String topic) async {
+    await _messaging.subscribeToTopic(topic);
+    debugPrint('Subscribed to topic: $topic ✅');
+  }
+
+  static Future<void> unsubscribeFromTopic(String topic) async {
+    await _messaging.unsubscribeFromTopic(topic);
+    debugPrint('Unsubscribed from topic: $topic ❌');
+  }
 }
 
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
