@@ -1,17 +1,58 @@
-# iqmarket
+# IQ-Market 🚀
 
-A new Flutter project.
+**IQ-Market** — это современный маркетплейс объявлений и сервис заказа такси, разработанный специально для рынка Казахстана. Приложение сочетает в себе функционал классической торговой площадки и умного помощника на базе искусственного интеллекта.
 
-## Getting Started
+## ✨ Ключевые возможности
 
-This project is a starting point for a Flutter application.
+- **Маркетплейс**: Подача объявлений с фото и видео, умный поиск, фильтрация по городам и категориям.
+- **Умная модерация**: Автоматическая проверка объявлений с помощью ИИ Gemini на соответствие правилам.
+- **IQ Помощник**: Встроенный чат-бот, который помогает покупателям анализировать описание товаров и отвечать на вопросы.
+- **Такси-сервис**: Заказ такси внутри приложения с выбором тарифов.
+- **Безопасные чаты**: Встроенная система обмена сообщениями между покупателем и продавцом.
+- **Telegram Auth**: Быстрая авторизация через официального Telegram-бота.
 
-A few resources to get you started if this is your first Flutter project:
+## 🛠 Технологический стек
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+- **Frontend**: Flutter (Dart)
+- **State Management**: Provider
+- **Backend**: Firebase (Firestore, Auth, Storage, Messaging)
+- **AI**: Google Gemini 1.5 Flash
+- **Security**: Firebase App Check (Play Integrity / Device Check)
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## 🚀 Быстрый старт
+
+1. **Клонируйте репозиторий**:
+   ```bash
+   git clone https://github.com/nadyrovrustamiminzhanovich-prog/iq-market.git
+   ```
+
+2. **Установите зависимости**:
+   ```bash
+   flutter pub get
+   ```
+
+3. **Настройте Firebase**:
+   - Создайте проект в [Firebase Console](https://console.firebase.google.com/).
+   - Добавьте Android и iOS приложения.
+   - Скачайте `google-services.json` и `GoogleService-Info.plist` и разместите их в соответствующих папках.
+
+4. **Настройте API ключи**:
+   Создайте файл `lib/services/api_keys.dart` по следующему шаблону:
+   ```dart
+   class ApiKeys {
+     static const String moderationKey = 'YOUR_GEMINI_KEY';
+     static const String assistantKey = 'YOUR_GEMINI_KEY';
+   }
+   ```
+
+5. **Запустите приложение**:
+   ```bash
+   flutter run
+   ```
+
+## 🔒 Безопасность
+
+Проект использует **Firebase Security Rules** для защиты пользовательских данных и чатов. Весь медиаконтент сжимается перед загрузкой для экономии трафика и ускорения работы.
+
+---
+*Разработано с использованием передовых технологий Flutter и ИИ.*

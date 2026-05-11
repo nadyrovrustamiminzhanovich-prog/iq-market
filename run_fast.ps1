@@ -1,1 +1,0 @@
-﻿flutter run --fast-start

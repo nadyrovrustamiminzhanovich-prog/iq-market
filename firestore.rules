@@ -13,7 +13,7 @@ service cloud.firestore {
 
     // Правила для пользователей
     match /users/{userId} {
-      allow read: if true;
+      allow read: if isSignedIn(); // Защищаем PII пользователей
       allow create: if isSignedIn();
       allow update, delete: if isOwner(userId);
     }
@@ -28,11 +28,18 @@ service cloud.firestore {
 
     // Правила для чатов
     match /chats/{chatId} {
-      allow read, write: if isSignedIn() && (request.auth.uid in resource.data.users || request.resource.data.users.hasAny([request.auth.uid]));
+      // Разрешаем чтение и создание чата только его участникам
+      allow read: if isSignedIn() && (request.auth.uid in resource.data.users);
+      allow create: if isSignedIn() && (request.auth.uid in request.resource.data.users);
+      allow update: if isSignedIn() && (request.auth.uid in resource.data.users);
       
       match /messages/{messageId} {
+        // Читать сообщения может только участник чата
         allow read: if isSignedIn() && (request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.users);
-        allow create: if isSignedIn();
+        // Писать может только участник чата от своего имени
+        allow create: if isSignedIn() 
+          && (request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.users)
+          && request.resource.data.senderId == request.auth.uid;
         allow delete: if isSignedIn() && isOwner(resource.data.senderId);
       }
     }

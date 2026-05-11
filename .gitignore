@@ -24,7 +24,8 @@ migrate_working_dir/
 .dart_tool/
 .pub-cache/
 .pub/
-/build/
+build/
+**/build/
 /coverage/
 
 # Node/Firebase related
@@ -35,6 +36,15 @@ firebug.log
 firebase-debug.log
 firestore-debug.log
 ui-debug.log
+
+# Служебные скрипты и черновики
+fix*.dart
+find*.dart
+run_fast.ps1
+scratch/
+recovered.json
+build_log.txt
+current_analysis.txt
 
 # Symbolication related
 app.*.symbols
@@ -55,14 +65,7 @@ app.*.map.json
 **/*.keystore
 .env
 
-# Временные файлы и логи
-build_log.txt
-current_analysis.txt
-recovered.json
-
 # Директории
 .gradle_home/
-build/
 .vscode/
-.idea/
 .metadata
