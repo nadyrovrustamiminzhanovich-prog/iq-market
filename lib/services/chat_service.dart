@@ -100,13 +100,13 @@ class ChatService {
 
   static Future<void> sendOffer({
     required AdModel ad,
-    required String price,
+    required double price,
   }) async {
     final uid = UserService.currentUid;
     if (uid == null) return;
 
     final chatId = getChatId(ad.userId);
-    final text = 'Предложение цены: $price';
+    final text = 'Предложение цены: ${price.toInt()} ₸';
     
     final messageData = {
       'senderId': uid,

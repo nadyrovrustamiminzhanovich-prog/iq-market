@@ -38,8 +38,9 @@ class UserService {
           'email': email ?? user.email ?? '',
           'phone': phone ?? user.phoneNumber ?? '',
           'photoUrl': photoUrl ?? user.photoURL ?? '',
-          'accountType': accountType ?? 'Личный', // Default account type
+          'accountType': accountType ?? 'user', // Standardized
           'isVerified': isVerified,
+          'status': 'active',
           'registrationDate': FieldValue.serverTimestamp(),
           'reviewsCount': 0,
           'rating': 5.0,
@@ -114,7 +115,7 @@ class UserService {
   /// Admin: Toggle Admin role
   static Future<void> toggleUserAdmin(String uid, bool isAdmin) async {
     try {
-      await users.doc(uid).update({'accountType': isAdmin ? 'admin' : 'Личный'});
+      await users.doc(uid).update({'accountType': isAdmin ? 'admin' : 'user'});
     } catch (e) {
       debugPrint('Error toggling admin role: $e');
     }
@@ -130,6 +131,18 @@ class UserService {
     } catch (e) {
       debugPrint('Error getting user by id: $e');
       return null;
+    }
+  }
+
+  /// Delete user data (for compliance/deletion)
+  static Future<void> deleteUserData() async {
+    final uid = currentUid;
+    if (uid == null) return;
+    try {
+      await users.doc(uid).delete();
+      debugPrint('User data deleted for $uid ✅');
+    } catch (e) {
+      debugPrint('Error deleting user data: $e');
     }
   }
 }

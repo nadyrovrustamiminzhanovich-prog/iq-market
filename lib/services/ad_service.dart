@@ -101,7 +101,7 @@ class AdService {
       id: initialAdId ?? '',
       title: title,
       description: description,
-      price: price,
+      price: double.tryParse(price.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0.0,
       category: category,
       images: imageUrls,
       videoUrl: videoUrl,
@@ -287,15 +287,13 @@ class AdService {
       for (var userDoc in usersSnapshot.docs) {
         final userId = userDoc.id;
         // Отправляем уведомление через наш NotificationService
-        await _db.collection('notifications').add({
-          'userId': userId,
-          'title': 'Цена снижена! 🔥',
-          'body': 'Товар "$title" теперь стоит $newPrice. Самое время забрать его!',
-          'timestamp': FieldValue.serverTimestamp(),
-          'isRead': false,
-          'type': 'price_drop',
-          'data': {'adId': adId}
-        });
+        await NotificationService.saveNotificationToFirestore(
+          uid: userId,
+          title: 'Цена снижена! 🔥',
+          body: 'Товар "$title" теперь стоит $newPrice. Самое время забрать его!',
+          type: 'price_drop',
+          data: {'adId': adId},
+        );
       }
     } catch (e) {
       debugPrint('Error notifying price drop: $e');

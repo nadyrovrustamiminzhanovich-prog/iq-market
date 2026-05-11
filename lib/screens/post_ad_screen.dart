@@ -311,10 +311,11 @@ class _PostAdScreenState extends State<PostAdScreen> {
 
     setState(() => _isLoading = true);
     try {
+      final priceClean = _priceController.text.replaceAll(RegExp(r'[^0-9]'), '');
       final id = await AdService.uploadAndPublishAd(
         title: _titleController.text,
         description: _descriptionController.text,
-        price: _selectedCategory == 'Отдам даром' ? '0 ₸' : '${_priceController.text} ₸',
+        price: _selectedCategory == 'Отдам даром' ? '0' : priceClean,
         category: _selectedCategory,
         location: _selectedLocation,
         images: _imageFiles,
@@ -407,9 +408,12 @@ class _PostAdScreenState extends State<PostAdScreen> {
 
   void _showPreview() {
     // Basic preview
+    final priceClean = _priceController.text.replaceAll(RegExp(r'[^0-9]'), '');
     final ad = AdModel(
       id: 'p', title: _titleController.text, description: _descriptionController.text,
-      price: '${_priceController.text} ₸', category: _selectedCategory, images: _imageFiles.map((f)=>f.path).toList(),
+      price: double.tryParse(priceClean) ?? 0.0, 
+      category: _selectedCategory, 
+      images: _imageFiles.map((f)=>f.path).toList(),
       userId: 'u', userName: 'Вы', userEmail: '', timestamp: DateTime.now(), location: _selectedLocation,
     );
     Navigator.push(context, MaterialPageRoute(builder: (context) => ProductDetailsScreen(ad: ad, lang: widget.lang, onReport: (_){}, heroPrefix: 'p_')));

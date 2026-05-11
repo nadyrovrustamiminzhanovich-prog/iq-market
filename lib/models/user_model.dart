@@ -11,7 +11,8 @@ class UserModel {
   final DateTime registrationDate;
   final int reviewsCount;
   final double rating;
-  final String location; // Новое поле для синхронизации города
+  final String location;
+  final String status; // 'active' or 'banned'
 
   UserModel({
     required this.uid,
@@ -25,6 +26,7 @@ class UserModel {
     this.reviewsCount = 0,
     this.rating = 5.0,
     this.location = 'Чунджа',
+    this.status = 'active',
   });
 
   factory UserModel.fromMap(Map<String, dynamic> map, String id) {
@@ -40,6 +42,7 @@ class UserModel {
       reviewsCount: map['reviewsCount'] ?? 0,
       rating: (map['rating'] as num?)?.toDouble() ?? 5.0,
       location: map['location'] ?? 'Чунджа',
+      status: map['status'] ?? 'active',
     );
   }
 
@@ -56,6 +59,7 @@ class UserModel {
       'reviewsCount': reviewsCount,
       'rating': rating,
       'location': location,
+      'status': status,
     };
   }
 }
