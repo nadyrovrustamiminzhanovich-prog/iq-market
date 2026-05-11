@@ -50,9 +50,12 @@ class AdService {
       else if (result.contains('REJECTED')) moderationVerdict = 'REJECTED';
     } catch (e) {
       debugPrint('[AdService] Gemini failed: $e');
+      // If AI fails, we allow manual review instead of blocking
     }
 
-    if (moderationVerdict == 'REJECTED') throw Exception('Объявление отклонено системой модерации ИИ');
+    if (moderationVerdict == 'REJECTED') {
+      throw Exception('Объявление отклонено ИИ за нарушение правил. Проверьте текст и фото.');
+    }
 
     // 2. Загрузка фото со сжатием
     List<String> imageUrls = [];
@@ -62,13 +65,20 @@ class AdService {
       final file = images[i];
       final targetPath = p.join(tempDir.path, 'comp_${DateTime.now().millisecondsSinceEpoch}_$i.jpg');
       
-      // Качество 85 - идеальный баланс между размером и четкостью
-      final compressed = await FlutterImageCompress.compressAndGetFile(
-        file.absolute.path, targetPath, quality: 85, minWidth: 1280, minHeight: 1280
-      );
-      
-      final url = await FileService.uploadFile(File(compressed?.path ?? file.path), 'ads/images');
-      if (url != null) imageUrls.add(url);
+      try {
+        final compressed = await FlutterImageCompress.compressAndGetFile(
+          file.absolute.path, targetPath, quality: 85, minWidth: 1280, minHeight: 1280
+        );
+        
+        final url = await FileService.uploadFile(File(compressed?.path ?? file.path), 'ads/images');
+        if (url != null) {
+          imageUrls.add(url);
+        } else {
+          throw Exception('Не удалось загрузить фото ${i+1}');
+        }
+      } catch (e) {
+        throw Exception('Ошибка при обработке фото: $e');
+      }
     }
 
     // 3. Загрузка видео со сжатием
@@ -163,21 +173,38 @@ class AdService {
   }
 
   /// Get active ads paginated for infinite scroll
-  static Future<Map<String, dynamic>> getActiveAdsPaginated({DocumentSnapshot? startAfter, int limit = 20}) async {
+  static Future<Map<String, dynamic>> getActiveAdsPaginated({
+    DocumentSnapshot? startAfter, 
+    int limit = 20,
+    String? category,
+    String? city,
+    String? searchQuery,
+  }) async {
     try {
-      // NOTE: This query requires a Composite Index in Firestore: 
-      // Collection: ads | Fields: active (Asc), status (Asc), timestamp (Desc)
       Query query = _adsCollection
           .where('active', isEqualTo: true)
           .where('status', isEqualTo: 'active')
-          .orderBy('timestamp', descending: true)
-          .limit(limit);
+          .orderBy('timestamp', descending: true);
+
+      if (category != null && category != 'Все') {
+        query = query.where('category', isEqualTo: category);
+      }
+      
+      if (city != null && city != 'Все') {
+        query = query.where('location', isEqualTo: city);
+      }
+
+      // Note: Full-text search is limited in Firestore. 
+      // For simple "contains", we usually fetch more and filter client-side 
+      // or use a 3rd party like Algolia. 
+      // For Beta, we'll fetch and then apply search filter if needed, 
+      // but ideally we'd use Firestore's >= and <= for prefix matching if possible.
 
       if (startAfter != null) {
         query = query.startAfterDocument(startAfter);
       }
 
-      final snapshot = await query.get();
+      final snapshot = await query.limit(limit).get();
       final ads = snapshot.docs
           .map((doc) => AdModel.fromMap(doc.data() as Map<String, dynamic>, doc.id))
           .toList();

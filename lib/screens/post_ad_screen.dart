@@ -277,8 +277,35 @@ class _PostAdScreenState extends State<PostAdScreen> {
   }
 
   Future<void> _handlePublish() async {
-    if (_titleController.text.isEmpty || _priceController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Заполните обязательные поля')));
+    if (_titleController.text.length < 5) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Заголовок должен быть не менее 5 символов')));
+      return;
+    }
+
+    if (_descriptionController.text.length < 20) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Описание слишком короткое (мин. 20 симв.)')));
+      return;
+    }
+
+    if (_selectedCategory == 'all' || _selectedCategory.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Выберите категорию')));
+      return;
+    }
+
+    final priceClean = _priceController.text.replaceAll(RegExp(r'[^0-9]'), '');
+    final priceVal = double.tryParse(priceClean) ?? 0;
+    if (_selectedCategory != 'Отдам даром' && priceVal <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Укажите корректную цену')));
+      return;
+    }
+
+    if (_imageFiles.isEmpty && widget.initialAd == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Добавьте хотя бы одно фото')));
+      return;
+    }
+
+    if (_selectedLocation.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Выберите город')));
       return;
     }
 

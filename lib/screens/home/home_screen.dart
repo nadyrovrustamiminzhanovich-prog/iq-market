@@ -21,6 +21,8 @@ import 'package:iqmarket/screens/taxi/taxi_service_screen.dart';
 import 'package:iqmarket/screens/admin/admin_panel_screen.dart';
 import 'package:iqmarket/theme/app_theme.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class IQMarketHome extends StatefulWidget {
   const IQMarketHome({super.key});
@@ -45,10 +47,38 @@ class _IQMarketHomeState extends State<IQMarketHome> {
   late stt.SpeechToText _speech;
   bool _isListening = false;
 
+  static const _pageSize = 20;
+  final PagingController<DocumentSnapshot?, AdModel> _pagingController = PagingController(firstPageKey: null);
+
   @override
   void initState() {
     super.initState();
     _speech = stt.SpeechToText();
+    _pagingController.addPageRequestListener((pageKey) {
+      _fetchPage(pageKey);
+    });
+  }
+
+  Future<void> _fetchPage(DocumentSnapshot? pageKey) async {
+    try {
+      final result = await AdService.getActiveAdsPaginated(
+        startAfter: pageKey,
+        limit: _pageSize,
+        category: _selectedCategory,
+        city: _selectedCity,
+        searchQuery: _searchQuery,
+      );
+      final List<AdModel> newItems = result['ads'];
+      final isLastPage = newItems.length < _pageSize;
+      if (isLastPage) {
+        _pagingController.appendLastPage(newItems);
+      } else {
+        final nextPageKey = result['lastDocument'];
+        _pagingController.appendPage(newItems, nextPageKey);
+      }
+    } catch (error) {
+      _pagingController.error = error;
+    }
   }
 
   @override
@@ -75,13 +105,28 @@ class _IQMarketHomeState extends State<IQMarketHome> {
 
   Widget _buildHomePage() => Consumer<AppConfigProvider>(
     builder: (context, config, _) => RefreshIndicator(
-      onRefresh: () async => setState(() { _selectedCategory = 'Все'; _searchQuery = ''; _searchController.clear(); }),
+    onRefresh: () async {
+      _pagingController.refresh();
+      setState(() { 
+        _selectedCategory = 'Все'; 
+        _searchQuery = ''; 
+        _selectedCity = null;
+        _searchController.clear(); 
+      });
+    },
       child: CustomScrollView(
         controller: _scrollController,
         slivers: [
           _buildAppBar(config),
           SliverToBoxAdapter(child: TaxiCardHome(onTap: () => _navToTaxi(config))),
-          SliverToBoxAdapter(child: CategoriesHome(selectedCategoryId: _selectedCategory, onCategorySelected: (cat) => setState(() => _selectedCategory = cat), onTaxiTap: () => _navToTaxi(config))),
+          SliverToBoxAdapter(child: CategoriesHome(
+            selectedCategoryId: _selectedCategory, 
+            onCategorySelected: (cat) => setState(() {
+              _selectedCategory = cat;
+              _pagingController.refresh();
+            }), 
+            onTaxiTap: () => _navToTaxi(config)
+          )),
           SliverToBoxAdapter(child: _sectionHeader('Рекомендуем')),
           SliverToBoxAdapter(child: _buildRecs(config)),
           SliverToBoxAdapter(child: _sectionHeader('Новые объявления')),
@@ -104,47 +149,76 @@ class _IQMarketHomeState extends State<IQMarketHome> {
       preferredSize: const Size.fromHeight(64),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-        child: SearchBarHome(controller: _searchController, onChanged: (v) => setState(() => _searchQuery = v), onMicTap: _listen, onFilterTap: _showFilters),
+        child: SearchBarHome(
+          controller: _searchController, 
+          onChanged: (v) {
+            setState(() => _searchQuery = v);
+            _pagingController.refresh();
+          }, 
+          onMicTap: _listen, 
+          onFilterTap: _showFilters
+        ),
       ),
     ),
   );
 
-  Widget _buildAdsGrid(AppConfigProvider config) => StreamBuilder<List<AdModel>>(
-    stream: AdService.getActiveAdsStream(),
-    builder: (context, snapshot) {
-      if (snapshot.hasError) {
-        return const SliverToBoxAdapter(
-          child: Center(
-            child: Padding(
-              padding: EdgeInsets.all(40),
-              child: Column(
-                children: [
-                  Icon(Icons.error_outline, color: Colors.red),
-                  SizedBox(height: 8),
-                  Text('Ошибка загрузки объявлений'),
-                ],
-              ),
+  Widget _buildAdsGrid(AppConfigProvider config) => SliverPadding(
+    padding: const EdgeInsets.symmetric(horizontal: 16),
+    sliver: PagedSliverGrid<DocumentSnapshot?, AdModel>(
+      pagingController: _pagingController,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2, 
+        mainAxisSpacing: 16, 
+        crossAxisSpacing: 16, 
+        childAspectRatio: 0.75
+      ),
+      builderDelegate: PagedChildBuilderDelegate<AdModel>(
+        itemBuilder: (context, item, index) => ProductCard(
+          ad: item, 
+          heroPrefix: 'home_', 
+          onTap: () => _showDetails(item),
+          isFavorite: config.isFavorite(item.id),
+          onToggleFavorite: () => config.toggleFavorite(item.id),
+        ),
+        firstPageProgressIndicatorBuilder: (_) => SliverGrid(
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2, mainAxisSpacing: 16, crossAxisSpacing: 16, childAspectRatio: 0.75
+          ),
+          delegate: SliverChildBuilderDelegate(
+            (context, i) => const ProductCardSkeleton(),
+            childCount: 6,
+          ),
+        ),
+        newPageProgressIndicatorBuilder: (_) => const Center(
+          child: Padding(
+            padding: EdgeInsets.symmetric(vertical: 32),
+            child: CircularProgressIndicator(),
+          ),
+        ),
+        noItemsFoundIndicatorBuilder: (_) => const Center(
+          child: Padding(
+            padding: EdgeInsets.all(40),
+            child: Text('Ничего не найдено'),
+          ),
+        ),
+        errorIndicatorBuilder: (_) => Center(
+          child: Padding(
+            padding: const EdgeInsets.all(40),
+            child: Column(
+              children: [
+                const Icon(Icons.error_outline, color: Colors.red),
+                const SizedBox(height: 8),
+                const Text('Ошибка загрузки объявлений'),
+                TextButton(
+                  onPressed: () => _pagingController.refresh(),
+                  child: const Text('Попробовать снова'),
+                ),
+              ],
             ),
           ),
-        );
-      }
-      if (!snapshot.hasData) return const SliverToBoxAdapter(child: Center(child: CircularProgressIndicator()));
-      final ads = _filterAds(snapshot.data!);
-      if (ads.isEmpty) return const SliverToBoxAdapter(child: Center(child: Padding(padding: EdgeInsets.all(40), child: Text('Ничего не найдено'))));
-      
-      return SliverPadding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        sliver: SliverGrid(
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, mainAxisSpacing: 16, crossAxisSpacing: 16, childAspectRatio: 0.75),
-          delegate: SliverChildBuilderDelegate((context, i) => ProductCard(
-            ad: ads[i], heroPrefix: 'home_', 
-            onTap: () => _showDetails(ads[i]),
-            isFavorite: config.isFavorite(ads[i].id),
-            onToggleFavorite: () => config.toggleFavorite(ads[i].id),
-          ), childCount: ads.length),
         ),
-      );
-    },
+      ),
+    ),
   );
 
   List<AdModel> _filterAds(List<AdModel> ads) {
@@ -162,7 +236,10 @@ class _IQMarketHomeState extends State<IQMarketHome> {
       builder: (context) => HomeFilterSheet(
         currentSort: _sortBy, minPrice: _minPrice, maxPrice: _maxPrice, condition: _selectedCondition, city: _selectedCity,
         onApply: (sort, min, max, cond, city) {
-          setState(() { _sortBy = sort; _minPrice = min; _maxPrice = max; _selectedCondition = cond; _selectedCity = city; });
+          setState(() { 
+            _sortBy = sort; _minPrice = min; _maxPrice = max; _selectedCondition = cond; _selectedCity = city; 
+          });
+          _pagingController.refresh();
           Navigator.pop(context);
         },
       ),
