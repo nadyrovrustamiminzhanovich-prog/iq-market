@@ -24,7 +24,11 @@ class TaxiProvider extends ChangeNotifier {
   String _lastName = "IQ";
   String _phone = "+7 701 000 11 22";
   bool _notifEnabled = true;
+  String? _telegramChatId;
+  bool _isTelegramVerified = false;
   int _maxPrice = 0; // 0 = no limit
+  String _comment = "";
+  String get comment => _comment;
   String get driverCar => _driverCar;
   String get driverPlate => _driverPlate;
   bool get isVehicleVerified => _isVehicleVerified;
@@ -58,6 +62,8 @@ class TaxiProvider extends ChangeNotifier {
   String get phone => _phone;
   bool get notifEnabled => _notifEnabled;
   int get maxPrice => _maxPrice;
+  String? get telegramChatId => _telegramChatId;
+  bool get isTelegramVerified => _isTelegramVerified;
 
   TaxiTheme get theme => TaxiTheme(_isDarkGlobal);
 
@@ -222,14 +228,20 @@ class TaxiProvider extends ChangeNotifier {
     _driverPlate = prefs.getString('taxi_plate') ?? "777 BBA 05";
     _isVehicleVerified = prefs.getBool('taxi_verified') ?? false;
     _notifEnabled = prefs.getBool('taxi_notif') ?? true;
+    _telegramChatId = prefs.getString('taxi_tg_chat_id');
+    _isTelegramVerified = _telegramChatId != null;
     notifyListeners();
   }
 
   Future<void> _save(String k, dynamic v) async {
     final prefs = await SharedPreferences.getInstance();
-    if (v is String) await prefs.setString(k, v);
-    if (v is bool) await prefs.setBool(k, v);
-    if (v is int) await prefs.setInt(k, v);
+    if (v == null) {
+      await prefs.remove(k);
+    } else {
+      if (v is String) await prefs.setString(k, v);
+      if (v is bool) await prefs.setBool(k, v);
+      if (v is int) await prefs.setInt(k, v);
+    }
   }
 
   void setLanguage(String lang) {
@@ -254,6 +266,11 @@ class TaxiProvider extends ChangeNotifier {
 
   void setLoginStatus(bool status) {
     _isLoggedIn = status;
+    if (!status) {
+      _telegramChatId = null;
+      _isTelegramVerified = false;
+      _save('taxi_tg_chat_id', null);
+    }
     _save('taxi_logged_in', _isLoggedIn);
     notifyListeners();
   }
@@ -309,6 +326,15 @@ class TaxiProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setTelegramAuth(String chatId) {
+    _telegramChatId = chatId;
+    _isTelegramVerified = true;
+    _isLoggedIn = true;
+    _save('taxi_tg_chat_id', chatId);
+    _save('taxi_logged_in', true);
+    notifyListeners();
+  }
+
   void updateCarInfo(String car, String plate) {
     _driverCar = car;
     _driverPlate = plate;
@@ -353,4 +379,10 @@ class TaxiProvider extends ChangeNotifier {
     }
     notifyListeners();
   }
+
+  void setComment(String v) {
+    _comment = v;
+    notifyListeners();
+  }
 }
+

@@ -12,7 +12,8 @@ import 'package:provider/provider.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-import 'package:iqmarket/services/telegram_service.dart';
+import 'package:iqmarket/services/telegram_bot_service.dart';
+import 'package:iqmarket/services/auth_service.dart';
 import 'package:iqmarket/data/kazakhstan_locations.dart';
 import 'package:iqmarket/screens/chat_screen.dart';
 import 'package:iqmarket/providers/taxi_provider.dart';
@@ -32,6 +33,8 @@ import 'package:iqmarket/widgets/taxi/taxi_driver_card.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:iqmarket/widgets/taxi/taxi_ui_components.dart';
 import 'package:iqmarket/widgets/auth/taxi_auth_form.dart';
+import 'package:iqmarket/models/ad_model.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class TaxiServiceScreen extends StatefulWidget {
   final String lang;
@@ -71,22 +74,37 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
     final taxiProvider = Provider.of<TaxiProvider>(context);
     final t = taxiProvider.theme;
 
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: taxiProvider.isDarkGlobal ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
-      child: Scaffold(
+    return PopScope(
+      canPop: true,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        Navigator.of(context).pop();
+      },
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: taxiProvider.isDarkGlobal ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
+        child: Scaffold(
         key: _scaffoldKey,
         backgroundColor: t.bg,
         drawer: _sideMenu(taxiProvider, t),
         body: Column(
           children: [
             _topBar(t),
-            _premiumSelector(taxiProvider, t),
             Expanded(
               child: taxiProvider.loading
                   ? _loader(t)
-                  : (taxiProvider.tab == 0 ? _passengerView(taxiProvider, t) : _driverView(taxiProvider, t)),
+                  : ListView(
+                      padding: EdgeInsets.zero,
+                      physics: const BouncingScrollPhysics(),
+                      children: [
+                        _newHeader(taxiProvider, t),
+                        _premiumSelector(taxiProvider, t),
+                        taxiProvider.tab == 0 ? _passengerView(taxiProvider, t) : _driverView(taxiProvider, t),
+                      ],
+                    ),
             )
           ],
+        ),
+
         ),
       ),
     );
@@ -95,41 +113,126 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
   Widget _loader(TaxiTheme t) => Center(child: CircularProgressIndicator(color: t.lime));
 
   Widget _topBar(TaxiTheme t) => AppBar(
-        backgroundColor: t.bg,
+        backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-          color: t.text,
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text(
-          Provider.of<TaxiProvider>(context, listen: false).translate('title').toUpperCase(),
-          style: GoogleFonts.inter(
-            fontSize: 18, 
-            fontWeight: FontWeight.w900, 
-            color: t.text, 
-            letterSpacing: 2,
+        leading: Container(
+          margin: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF1F5F9),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: IconButton(
+            icon: const Icon(Icons.menu_rounded, size: 22),
+            color: const Color(0xFF1E293B),
+            onPressed: () => _scaffoldKey.currentState?.openDrawer(),
           ),
         ),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFF4A80F0),
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: [
+                  BoxShadow(color: const Color(0xFF4A80F0).withValues(alpha: 0.3), blurRadius: 8, offset: const Offset(0, 2))
+                ],
+              ),
+              child: Text(
+                'IQ',
+                style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 1),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'TAXI',
+              style: GoogleFonts.inter(
+                fontSize: 18, 
+                fontWeight: FontWeight.w900, 
+                color: const Color(0xFF1E293B), 
+                letterSpacing: 1,
+              ),
+            ),
+          ],
+        ),
+
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+            color: const Color(0xFF1E293B),
+            onPressed: () => Navigator.of(context).maybePop(),
+          ),
+          const SizedBox(width: 8),
+        ],
       );
 
-  Widget _premiumSelector(TaxiProvider provider, TaxiTheme t) => Container(
-    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-    padding: const EdgeInsets.all(6),
-    decoration: BoxDecoration(
-      color: t.card,
-      borderRadius: BorderRadius.circular(24),
-      border: Border.all(color: t.border),
-      boxShadow: [
-        BoxShadow(color: t.accent.withValues(alpha: 0.03), blurRadius: 15, offset: const Offset(0, 5))
+  Widget _newHeader(TaxiProvider provider, TaxiTheme t) => Container(
+    padding: const EdgeInsets.fromLTRB(20, 20, 0, 10),
+    child: Stack(
+      children: [
+        SizedBox(
+          width: MediaQuery.of(context).size.width * 0.55,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Межгород и\nмежду сёлами',
+                style: GoogleFonts.inter(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                  color: const Color(0xFF1E293B),
+                  height: 1.1,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Поездки с комфортом на любые расстояния',
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  color: const Color(0xFF64748B),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        Positioned(
+          right: 25,
+          top: 15,
+          child: Transform.flip(
+            flipX: true,
+            child: Image.asset(
+              'assets/images/taxi_car.png',
+              width: 130,
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+            ),
+          ),
+        ),
+
+
+
+
       ],
     ),
+  );
+
+
+  Widget _premiumSelector(TaxiProvider provider, TaxiTheme t) => Container(
+    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+    decoration: BoxDecoration(
+      color: const Color(0xFFF1F5F9),
+      borderRadius: BorderRadius.circular(28),
+    ),
+    padding: const EdgeInsets.all(4),
     child: Row(
       children: [
         TaxiRoleCard(
           label: provider.translate('pass'),
-          icon: LineIcons.user,
+          icon: Icons.person_rounded,
           isSelected: provider.tab == 0,
           t: t,
           onTap: () {
@@ -137,10 +240,9 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
             provider.setTab(0);
           },
         ),
-        const SizedBox(width: 6),
         TaxiRoleCard(
           label: provider.translate('drive'),
-          icon: LineIcons.car,
+          icon: Icons.directions_car_rounded,
           isSelected: provider.tab == 1,
           t: t,
           onTap: () {
@@ -151,6 +253,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
       ],
     ),
   );
+
 
 
   Widget _sideMenu(TaxiProvider provider, TaxiTheme t) => Drawer(
@@ -228,162 +331,147 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
   }
 
   void _showVerifyDialog(TaxiProvider provider, TaxiTheme t) {
-    int mode = 0;
-    int step = 0;
-    int seconds = 59;
-    Timer? timer;
-    bool isError = false;
+    int step = 0; // 0: Choice, 1: Telegram Link, 2: OTP
     bool isReq = false;
-    String genCode = "";
+    String? sessionToken;
+    String? capturedChatId;
+    String? serverOtp;
+    StreamSubscription? sessionSub;
 
     showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (_) => StatefulBuilder(
-            builder: (ctx, ss) => AlertDialog(
-                  backgroundColor: t.card,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-                  title: Text(provider.translate('auth'), style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 20)),
-                  content: Column(mainAxisSize: MainAxisSize.min, children: [
-                    if (mode == 0) ...[
-                      const SizedBox(height: 10),
-                      Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                        _socialAuthBtn(t, 'https://cdn-icons-png.flaticon.com/512/300/300221.png', 'Google', () async {
-                          ss(() => isReq = true);
-                          await Future.delayed(const Duration(seconds: 2));
-                          ss(() => isReq = false);
-                          Navigator.pop(context);
-                          provider.setLoginStatus(true);
-                        }),
-                        const SizedBox(width: 40),
-                        _socialAuthBtn(t, 'https://cdn-icons-png.flaticon.com/512/2111/2111646.png', 'Telegram',
-                            () => ss(() => mode = 1)),
-                      ]),
-                      const SizedBox(height: 20),
-                    ] else if (step == 0) ...[
-                      Text(mode == 1 ? 'Telegram' : 'Email',
-                          style: GoogleFonts.inter(color: t.sub, fontWeight: FontWeight.w600)),
-                      const SizedBox(height: 16),
-                      Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                          decoration: BoxDecoration(
-                              color: t.bg, borderRadius: BorderRadius.circular(16), border: Border.all(color: t.border)),
-                          child: TextField(
-                              controller: _phC,
-                              keyboardType: TextInputType.phone,
-                              style: GoogleFonts.inter(color: t.text, fontWeight: FontWeight.bold, fontSize: 18, letterSpacing: 1),
-                              decoration: InputDecoration(
-                                  border: InputBorder.none,
-                                  prefixIcon: Padding(
-                                    padding: const EdgeInsets.only(right: 12),
-                                    child: Container(
-                                      padding: const EdgeInsets.all(8),
-                                      decoration: BoxDecoration(color: t.lime.withValues(alpha: 0.1), shape: BoxShape.circle),
-                                      child: Icon(mode == 1 ? Icons.phone_android_rounded : Icons.email_outlined, color: t.lime, size: 20),
-                                    ),
-                                  ),
-                                  hintText: mode == 1 ? '+7 (7__) ___-__-__' : 'email@example.com',
-                                  hintStyle: GoogleFonts.inter(color: t.sub.withValues(alpha: 0.7))))),
-                      if (mode == 1)
-                        Padding(
-                            padding: const EdgeInsets.only(top: 12),
-                            child: Text('Мы отправим код подтверждения в ваше приложение Telegram',
-                                textAlign: TextAlign.center,
-                                style: GoogleFonts.inter(color: t.text, fontSize: 13, fontWeight: FontWeight.w600))),
-                    ] else ...[
-                      Text('Получите бесплатный код в нашем боте 🤖',
-                          textAlign: TextAlign.center, style: GoogleFonts.inter(color: t.text, fontWeight: FontWeight.w600, fontSize: 14)),
-                      const SizedBox(height: 12),
-                      GestureDetector(
-                          onTap: () => launchUrl(Uri.parse(TaxiConstants.botUrl)),
-                          child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                              decoration: BoxDecoration(
-                                  color: t.lime.withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: t.lime)),
-                              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                                Icon(LineIcons.telegram, color: t.lime, size: 18),
-                                const SizedBox(width: 8),
-                                Text('ОТКРЫТЬ БОТА ${TaxiConstants.botUsername}',
-                                    style: GoogleFonts.inter(color: t.lime, fontWeight: FontWeight.bold, fontSize: 11))
-                              ]))),
-                      const SizedBox(height: 24),
-                      TextField(
-                          controller: _codeC,
-                          textAlign: TextAlign.center,
-                          keyboardType: TextInputType.number,
-                          maxLength: 4,
-                          style: GoogleFonts.inter(
-                              color: isError ? t.error : t.accent,
-                              fontSize: 36,
-                              letterSpacing: 12,
-                              fontWeight: FontWeight.w900),
-                          decoration: InputDecoration(
-                              border: InputBorder.none,
-                              counterText: "",
-                              hintText: "••••",
-                              hintStyle: GoogleFonts.inter(color: t.sub.withValues(alpha: 0.2)))),
-                      if (isError)
-                        Text('ОШИБКА: Неверный код ❌',
-                            style: GoogleFonts.inter(color: Colors.redAccent, fontSize: 14, fontWeight: FontWeight.w600)),
-                      const SizedBox(height: 16),
-                      Text('Введите 4 цифры из сообщения бота',
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.inter(color: t.text.withValues(alpha: 0.9), fontSize: 13, fontWeight: FontWeight.bold)),
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, ss) {
+          return AlertDialog(
+            backgroundColor: t.card,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(32)),
+            contentPadding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (step == 0) ...[
+                  Text('Выберите способ входа', style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w800, color: t.text)),
+                  const SizedBox(height: 12),
+                  Text('Для использования сервиса такси необходима авторизация', textAlign: TextAlign.center, style: GoogleFonts.inter(fontSize: 13, color: t.sub, fontWeight: FontWeight.w500)),
+                  const SizedBox(height: 32),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _authMethodBtn(t, 'Google', Icons.g_mobiledata_rounded, Colors.redAccent, () {
+                        ss(() => isReq = true);
+                        AuthService.signInWithGoogle().then((user) {
+                          if (user != null) {
+                            provider.setLoginStatus(true);
+                            Navigator.pop(ctx);
+                          }
+                          if (ctx.mounted) ss(() => isReq = false);
+                        });
+                      }),
+                      _authMethodBtn(t, 'Telegram', LineIcons.telegram, const Color(0xFF24A1DE), () async {
+                        ss(() => isReq = true);
+                        sessionToken = await TelegramBotService.startAuthSession();
+                        ss(() {
+                          step = 1;
+                          isReq = false;
+                        });
+                        // Start listening for chat_id linkage
+                        sessionSub = TelegramBotService.watchSession(sessionToken!).listen((snap) {
+                          if (!snap.exists) return;
+                          final data = snap.data();
+                          if (data != null && data['chat_id'] != null) {
+                            capturedChatId = data['chat_id'];
+                            serverOtp = data['otp'];
+                            if (ctx.mounted) {
+                              ss(() => step = 2);
+                            }
+                          }
+                        });
+                      }),
                     ],
-                    if (isReq) const Padding(padding: EdgeInsets.only(top: 20), child: LinearProgressIndicator())
-                  ]),
-                  actions: [
-                    TextButton(
-                        onPressed: () {
-                          timer?.cancel();
-                          Navigator.pop(context);
-                        },
-                        child: Text(provider.translate('cancel').toUpperCase(), style: GoogleFonts.inter(color: t.sub))),
-                    if (mode != 0)
-                      ElevatedButton(
-                          onPressed: isReq
-                              ? null
-                              : () async {
-                                  if (step == 0) {
-                                    ss(() => isReq = true);
-                                    genCode = TelegramAuthService.generateCode();
-                                    TelegramAuthService.sendOtp(_phC.text, genCode, TaxiConstants.telegramAuthChatId);
-
-                                    await Future.delayed(const Duration(seconds: 1));
-                                    ss(() {
-                                      step = 1;
-                                      isReq = false;
-                                    });
-                                    timer = Timer.periodic(const Duration(seconds: 1), (t) {
-                                      if (seconds > 0) {
-                                        if (ctx.mounted) ss(() => seconds--);
-                                      } else {
-                                        t.cancel();
-                                      }
-                                    });
-                                  } else {
-                                    if (_codeC.text == genCode) {
-                                      timer?.cancel();
-                                      Navigator.pop(context);
-                                      provider.setLoginStatus(true);
-                                      _codeC.clear();
-                                    } else {
-                                      ss(() {
-                                        isError = true;
-                                        _codeC.clear();
-                                      });
-                                      HapticFeedback.vibrate();
-                                    }
-                                  }
-                                },
-                          style: ElevatedButton.styleFrom(
-                              backgroundColor: t.accent, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
-                          child: Text(step == 0 ? provider.translate('next') : provider.translate('verify_btn')))
-                  ],
-                )));
+                  ),
+                ] else if (step == 1) ...[
+                  const Icon(LineIcons.telegram, size: 64, color: Color(0xFF24A1DE)),
+                  const SizedBox(height: 24),
+                  Text('Свяжите аккаунт', style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w800, color: t.text)),
+                  const SizedBox(height: 12),
+                  Text('Мы открыли наш бот в Telegram. Нажмите «Старт», чтобы получить код подтверждения.', textAlign: TextAlign.center, style: GoogleFonts.inter(fontSize: 13, color: t.sub, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 24),
+                  const CircularProgressIndicator(strokeWidth: 2),
+                  const SizedBox(height: 24),
+                  TextButton(
+                    onPressed: () => launchUrl(Uri.parse('https://t.me/iq_market_bot?start=$sessionToken')),
+                    child: Text('ОТКРЫТЬ ТЕЛЕГРАМ ЕЩЕ РАЗ', style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 12, color: const Color(0xFF24A1DE))),
+                  ),
+                ] else if (step == 2) ...[
+                  Text('Введите код', style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w900, color: t.text)),
+                  const SizedBox(height: 8),
+                  Text('Бот отправил вам секретный код', style: GoogleFonts.inter(fontSize: 13, color: t.sub, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 32),
+                  TextField(
+                    controller: _codeC,
+                    textAlign: TextAlign.center,
+                    keyboardType: TextInputType.number,
+                    maxLength: 6,
+                    style: GoogleFonts.inter(fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: 8, color: t.accent),
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: t.border)),
+                      counterText: "",
+                      hintText: "••••••",
+                      hintStyle: TextStyle(color: t.sub.withValues(alpha: 0.3)),
+                    ),
+                    onChanged: (val) {
+                      if (val.length == 6) {
+                        if (val == serverOtp) {
+                          sessionSub?.cancel();
+                          provider.setTelegramAuth(capturedChatId!);
+                          Navigator.pop(ctx);
+                        } else {
+                          HapticFeedback.vibrate();
+                          _codeC.clear();
+                        }
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 24),
+                  Text('Код из 6 цифр', style: GoogleFonts.inter(fontSize: 12, color: t.sub, fontWeight: FontWeight.bold)),
+                ],
+                if (isReq) const Padding(padding: EdgeInsets.only(top: 24), child: LinearProgressIndicator()),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  sessionSub?.cancel();
+                  Navigator.pop(ctx);
+                },
+                child: Text('ОТМЕНА', style: GoogleFonts.inter(color: t.sub, fontWeight: FontWeight.w700, fontSize: 13)),
+              ),
+            ],
+          );
+        },
+      ),
+    );
   }
+
+  Widget _authMethodBtn(TaxiTheme t, String label, IconData icon, Color color, VoidCallback onTap) => GestureDetector(
+    onTap: onTap,
+    child: Column(
+      children: [
+        Container(
+          width: 80, height: 80,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            shape: BoxShape.circle,
+            border: Border.all(color: color.withValues(alpha: 0.2), width: 2),
+          ),
+          child: Icon(icon, color: color, size: 36),
+        ),
+        const SizedBox(height: 12),
+        Text(label, style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w800, color: t.text)),
+      ],
+    ),
+  );
 
   Widget _socialAuthBtn(TaxiTheme t, String url, String l, VoidCallback onTap) => GestureDetector(
         onTap: onTap,
@@ -412,60 +500,76 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
 
   Widget _passengerView(TaxiProvider provider, TaxiTheme t) {
     final drivers = provider.filteredDrives;
-    return ListView(
-        physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+    return Column(
         children: [
           _complexForm(provider, t),
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
           // Section header with count badge
-          Row(children: [
-            Container(width: 4, height: 20, decoration: BoxDecoration(color: t.lime, borderRadius: BorderRadius.circular(4))),
-            const SizedBox(width: 10),
-            Expanded(child: Text(provider.translate('drivers'),
-                style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: t.sub, letterSpacing: 1.2))),
-            Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: t.lime.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(24)),
-                child: Text('${drivers.length} ${provider.translate('found')}',
-                    style: GoogleFonts.inter(color: t.lime, fontWeight: FontWeight.w800, fontSize: 12)))
-          ]),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    provider.translate('drivers'),
+                    style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w800, color: const Color(0xFF1E293B)),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () {},
+                  child: Text(
+                    'Смотреть все',
+                    style: GoogleFonts.inter(color: const Color(0xFF4A80F0), fontWeight: FontWeight.w600, fontSize: 13),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
           const SizedBox(height: 12),
           if (drivers.isEmpty)
             Container(
-                margin: const EdgeInsets.only(top: 20),
+                margin: const EdgeInsets.all(20),
                 padding: const EdgeInsets.all(32),
-                decoration: BoxDecoration(color: t.card, borderRadius: BorderRadius.circular(28), border: Border.all(color: t.border)),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(28), border: Border.all(color: const Color(0xFFF1F5F9))),
                 child: Column(children: [
-                  Icon(LineIcons.car, color: t.accent.withValues(alpha: 0.5), size: 48),
+                  Icon(LineIcons.car, color: const Color(0xFF4A80F0).withValues(alpha: 0.5), size: 48),
                   const SizedBox(height: 16),
                   Text(provider.translate('no_drivers'),
                       textAlign: TextAlign.center,
-                      style: GoogleFonts.inter(color: t.sub, fontSize: 15, fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 8),
-                  Text(provider.translate('try_change_city'),
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.inter(color: t.sub.withValues(alpha: 0.6), fontSize: 13)),
+                      style: GoogleFonts.inter(color: const Color(0xFF64748B), fontSize: 15, fontWeight: FontWeight.w600)),
                 ]))
           else
-            ...drivers.map((d) => TaxiDriverCard(
-              provider: provider,
-              t: t,
-              driver: d,
-              onShowProfile: () => _showUserProfile(provider, t, d['name'] ?? 'Водитель', d['img'] ?? '', d['car'] ?? '', true),
-              onCall: () => launchUrl(Uri.parse('tel:${d['phone'] ?? ''}')),
-              onChat: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(ad: {
-                'seller': d['name'] ?? 'Водитель', 
-                'img': d['img'] ?? '', 
-                'phone': d['phone'] ?? '', 
-                'title': '${d['from'] ?? ''} → ${d['to'] ?? ''}', 
-                'price': d['price'] ?? 0
-              }))),
-              onNegotiate: () => _showNegotiateDialog(provider, t, {'price': d['price'] ?? 0, 'name': d['name'] ?? 'Водитель'}),
-            )),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Column(
+                children: drivers.map((d) => TaxiDriverCard(
+                  provider: provider,
+                  t: t,
+                  driver: d,
+                  onShowProfile: () => _showUserProfile(provider, t, d['name'] ?? 'Водитель', d['img'] ?? '', d['car'] ?? '', true),
+                  onCall: () => launchUrl(Uri.parse('tel:${d['phone'] ?? ''}')),
+                  onChat: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(ad: AdModel(
+                    id: 'taxi_${d['name']}_${DateTime.now().millisecondsSinceEpoch}',
+                    title: '${d['from'] ?? ''} → ${d['to'] ?? ''}',
+                    description: 'Taxi Trip',
+                    price: '${d['price'] ?? 0} ₸',
+                    category: 'Taxi',
+                    images: d['img'] != null && d['img'].toString().isNotEmpty ? [d['img']] : [],
+                    userId: 'taxi_driver',
+                    userName: d['name'] ?? 'Водитель',
+                    userEmail: '',
+                    timestamp: DateTime.now(),
+                    location: d['from'] ?? '',
+                  )))),
+                  onNegotiate: () => _showNegotiateDialog(provider, t, {'price': d['price'] ?? 0, 'name': d['name'] ?? 'Водитель'}),
+                )).toList(),
+              ),
+            ),
           const SizedBox(height: 100)
         ]);
   }
+
 
   Widget _driverView(TaxiProvider provider, TaxiTheme t) {
     final orders = provider.filteredOrders;
@@ -510,11 +614,11 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
               },
               onDecline: () {
                 if (!provider.isLoggedIn) return _showVerifyDialog(provider, t);
-                NotificationService.show(context, 'Отказ', provider.translate('offer_declined'), isSuccess: false);
+                NotificationService.notify(context, 'Отказ', provider.translate('offer_declined'), isSuccess: false);
               },
               onAccept: () {
                 if (!provider.isLoggedIn) return _showVerifyDialog(provider, t);
-                NotificationService.show(context, 'Принято', provider.translate('order_accepted'), isSuccess: true);
+                NotificationService.notify(context, 'Принято', provider.translate('order_accepted'), isSuccess: true);
               },
             )),
       const SizedBox(height: 100)
@@ -646,72 +750,91 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
 
   Widget _complexForm(TaxiProvider provider, TaxiTheme t) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: t.card,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: t.border),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 20, offset: const Offset(0, 8))
+          BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 20, offset: const Offset(0, 10))
         ],
+        border: Border.all(color: const Color(0xFFF1F5F9)),
       ),
       child: Column(
         children: [
           Container(
             decoration: BoxDecoration(
-              color: t.bg.withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: t.border),
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(20),
             ),
             child: Stack(
-              alignment: Alignment.centerLeft,
               children: [
                 Positioned(
-                  left: 31,
-                  top: 40,
-                  bottom: 40,
-                  child: Container(width: 1.5, color: t.accent.withValues(alpha: 0.3)),
+                  left: 21,
+                  top: 30,
+                  bottom: 30,
+                  child: Container(
+                    width: 1.5,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF4A80F0).withValues(alpha: 0.3),
+                    ),
+                  ),
                 ),
                 Column(children: [
                   _routeRow(t, provider.translate('from'), provider.from, true, provider),
-                  Padding(padding: const EdgeInsets.symmetric(horizontal: 50), child: Divider(height: 1, color: t.border)),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 50, right: 10),
+                    child: Divider(height: 1, color: const Color(0xFFE2E8F0)),
+                  ),
                   _routeRow(t, provider.translate('to'), provider.to, false, provider),
                 ]),
+                Positioned(
+                  right: 15,
+                  top: 0,
+                  bottom: 0,
+                  child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: const Color(0xFFF1F5F9)),
+                      ),
+                      child: const Icon(Icons.swap_vert_rounded, color: Color(0xFF4A80F0), size: 20),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           Row(children: [
-            Expanded(child: _miniBtn(t, LineIcons.calendar, 
-              provider.selDate == 'today' ? provider.translate('today') : 
+            Expanded(child: _miniBtn(t, Icons.calendar_today_rounded, 
+              provider.selDate == 'today' ? 'Дата' : 
               provider.selDate == 'tomorrow' ? provider.translate('tomorrow') : 
               provider.selDate == 'yesterday' ? provider.translate('yesterday') : 
               provider.selDate, () => _pickDate(provider, t))),
+
             const SizedBox(width: 8),
-            Expanded(child: _miniBtn(t, LineIcons.clock, provider.selTime == 'time' ? provider.translate('time') : provider.selTime, () => _pickTime(provider, t))),
+            Expanded(child: _miniBtn(t, Icons.access_time_rounded, provider.selTime == 'time' ? provider.translate('time') : provider.selTime, () => _pickTime(provider, t))),
             if (provider.tab == 0) ...[
               const SizedBox(width: 8),
-              Expanded(child: _miniBtn(t, LineIcons.users, '${provider.passCnt} ${provider.translate('seats')}', () => _pickPass(provider, t))),
+              Expanded(child: _miniBtn(t, Icons.group_rounded, 'Место', () => _pickPass(provider, t))),
             ],
           ]),
-          if (provider.tab == 0) ...[
-            const SizedBox(height: 12),
-            _priceInputField(t, provider),
-          ],
           const SizedBox(height: 16),
-          _actBtn(t, provider.tab == 0 ? provider.translate('search') : 'ПОИСК ЗАКАЗОВ 🔍', t.accent, () {
+          _miniBtn(t, Icons.chat_bubble_outline_rounded, provider.comment.isEmpty ? 'Комментарий к заказу' : provider.comment, () => _showCommentDialog(provider, t), h: 54),
+
+          const SizedBox(height: 24),
+
+          _actBtn(t, 'ПОЕХАЛИ!', const Color(0xFF4A80F0), () {
             HapticFeedback.heavyImpact();
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-              content: Text(provider.tab == 0 ? provider.translate('msg_searching') : 'Обновляем список подходящих заказов...'),
-              backgroundColor: t.accent,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-            ));
           })
         ],
       ),
     );
   }
+
 
   Widget _routeRow(TaxiTheme t, String label, String val, bool isF, TaxiProvider provider) => GestureDetector(
       onTap: () {
@@ -719,47 +842,52 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
         _openPicker(t, isF, provider);
       },
       child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
           color: Colors.transparent,
           child: Row(children: [
             Container(
-              width: 24,
-              height: 24,
+              width: 20,
+              height: 20,
               decoration: BoxDecoration(
-                color: isF ? t.accent : Colors.transparent,
+                color: isF ? const Color(0xFF4A80F0) : Colors.white,
                 shape: BoxShape.circle,
-                border: Border.all(color: t.accent, width: 2),
+                border: Border.all(color: const Color(0xFF4A80F0), width: 2),
               ),
-              child: isF ? const Center(child: Icon(Icons.circle, color: Colors.white, size: 8)) : null,
+              child: isF ? const Center(child: Icon(Icons.circle, color: Colors.white, size: 6)) : null,
             ),
             const SizedBox(width: 16),
             Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(label.toUpperCase(), style: GoogleFonts.inter(fontSize: 9, color: t.sub, fontWeight: FontWeight.w900, letterSpacing: 1.5)),
+              Text(label, style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF94A3B8), fontWeight: FontWeight.w500)),
               const SizedBox(height: 2),
-              Text(val, style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w700, color: t.text))
+              Text(val, style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w700, color: const Color(0xFF1E293B)))
             ])),
-            Icon(Icons.unfold_more_rounded, color: t.sub.withValues(alpha: 0.3), size: 18)
           ])));
 
-  Widget _miniBtn(TaxiTheme t, IconData i, String v, VoidCallback onTap) => GestureDetector(
+
+  Widget _miniBtn(TaxiTheme t, IconData i, String v, VoidCallback onTap, {double h = 44}) => GestureDetector(
       onTap: () {
         HapticFeedback.lightImpact();
         onTap();
       },
       child: Container(
-          height: 48,
+          height: h,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
           decoration: BoxDecoration(
-              color: t.card2.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(16), border: Border.all(color: t.border)),
-          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Icon(i, color: t.accent, size: 16),
-            const SizedBox(width: 6),
+              color: Colors.white, 
+              borderRadius: BorderRadius.circular(12), 
+              border: Border.all(color: const Color(0xFFF1F5F9))),
+          child: Row(mainAxisAlignment: MainAxisAlignment.start, children: [
+            Icon(i, color: const Color(0xFF4A80F0), size: 16),
+            const SizedBox(width: 8),
             Flexible(
                 child: Text(v,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.inter(color: t.text, fontWeight: FontWeight.w700, fontSize: 12)))
+                    style: GoogleFonts.inter(color: const Color(0xFF1E293B), fontWeight: FontWeight.w600, fontSize: 12)))
           ])));
+
+
 
   Widget _priceInputField(TaxiTheme t, TaxiProvider provider) => Container(
       height: 56,
@@ -791,26 +919,24 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
           Text('₸', style: GoogleFonts.inter(color: t.accent, fontWeight: FontWeight.w900, fontSize: 20)),
       ]));
 
-  Widget _actBtn(TaxiTheme t, String l, Color c, VoidCallback onTap) => GestureDetector(
-      onTap: onTap,
-      child: Container(
-          width: double.infinity,
-          height: 56,
-          decoration: BoxDecoration(
-            color: c,
-            borderRadius: BorderRadius.circular(18),
-            boxShadow: [BoxShadow(color: c.withValues(alpha: 0.4), blurRadius: 20, offset: const Offset(0, 6))],
+  Widget _actBtn(TaxiTheme t, String l, Color c, VoidCallback onTap) => SizedBox(
+        width: double.infinity,
+        height: 54,
+        child: ElevatedButton(
+          onPressed: onTap,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF4A80F0),
+            foregroundColor: Colors.white,
+            elevation: 0,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           ),
-          child: Center(
-              child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(l.toUpperCase(),
-                  style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 15, letterSpacing: 1.5)),
-              const SizedBox(width: 10),
-              const Icon(Icons.rocket_launch_rounded, color: Colors.white, size: 22),
-            ],
-          ))));
+          child: Text(
+            l.toUpperCase(),
+            style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 15, letterSpacing: 0.5),
+          ),
+        ),
+      );
+
 
   void _openPicker(TaxiTheme t, bool isF, TaxiProvider provider) {
     String q = '';
@@ -818,26 +944,37 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
         context: context,
         isScrollControlled: true,
         backgroundColor: t.bg,
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
         builder: (_) => StatefulBuilder(
             builder: (ctx, ss) => SizedBox(
                 height: MediaQuery.of(context).size.height * 0.8,
                 child: Column(children: [
+                  const SizedBox(height: 12),
+                  Container(width: 40, height: 4, decoration: BoxDecoration(color: t.border, borderRadius: BorderRadius.circular(10))),
+                  const SizedBox(height: 20),
                   Padding(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
                       child: TextField(
                           onChanged: (v) => ss(() => q = v),
-                          style: GoogleFonts.inter(color: t.text),
-                          decoration:
-                              InputDecoration(hintText: provider.translate('search_hint'), hintStyle: GoogleFonts.inter(color: t.sub)))),
+                          style: GoogleFonts.inter(color: t.text, fontWeight: FontWeight.w700),
+                          decoration: InputDecoration(
+                              hintText: provider.translate('search_hint'),
+                              hintStyle: GoogleFonts.inter(color: t.sub.withValues(alpha: 0.5)),
+                              prefixIcon: Icon(Icons.search_rounded, color: t.accent),
+                              filled: true,
+                              fillColor: t.card,
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                              contentPadding: const EdgeInsets.symmetric(vertical: 0)))),
+                  const SizedBox(height: 10),
                   Expanded(
                       child: ListView(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
                           children: () {
                             var all = KazakhstanLocations.hierarchy.entries
                                 .expand((e) => e.value)
                                 .where((c) => c.toLowerCase().contains(q.toLowerCase()))
                                 .toList();
                             if (q.isEmpty) {
-                              // Put defaults at top
                               all.remove('Чунджа');
                               all.remove('Алматы');
                               all.insert(0, 'Чунджа');
@@ -845,7 +982,8 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                             }
                             return all.map((city) =>
                                     ListTile(
-                                        title: Text(city, style: GoogleFonts.inter(color: t.text)),
+                                        leading: const Icon(Icons.location_on_rounded, size: 20, color: Color(0xFF4A80F0)),
+                                        title: Text(city, style: GoogleFonts.inter(color: t.text, fontWeight: FontWeight.w600)),
                                         onTap: () {
                                           if (isF) {
                                             provider.setFrom(city);
@@ -857,6 +995,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                           } ()))
                 ]))));
   }
+
 
   Future<void> _pickDate(TaxiProvider provider, TaxiTheme t) async {
     final d = await showDatePicker(
@@ -938,7 +1077,53 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
             ]));
   }
 
+  void _showCommentDialog(TaxiProvider provider, TaxiTheme t) {
+    final TextEditingController ctrl = TextEditingController(text: provider.comment);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: t.bg,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom, left: 24, right: 24, top: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: t.border, borderRadius: BorderRadius.circular(10)))),
+            const SizedBox(height: 24),
+            Text('Комментарий к заказу', style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: t.text, fontSize: 18)),
+            const SizedBox(height: 8),
+            Text('Напишите пожелания (например, чемодан, детское кресло)', style: GoogleFonts.inter(color: t.sub, fontSize: 13)),
+            const SizedBox(height: 20),
+            TextField(
+              controller: ctrl,
+              maxLength: 300,
+              maxLines: 4,
+              autofocus: true,
+              style: GoogleFonts.inter(color: t.text),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: t.card,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                hintText: 'Введите текст...',
+                hintStyle: GoogleFonts.inter(color: t.sub.withValues(alpha: 0.5)),
+              ),
+            ),
+            const SizedBox(height: 20),
+            _actBtn(t, 'СОХРАНИТЬ', const Color(0xFF4A80F0), () {
+              provider.setComment(ctrl.text);
+              Navigator.pop(context);
+            }),
+            const SizedBox(height: 30),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _showNegotiateDialog(TaxiProvider provider, TaxiTheme t, Map<String, dynamic> d) {
+
     int myPrice = d['price'] - 500;
     showModalBottomSheet(
         context: context,
@@ -960,7 +1145,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                       GestureDetector(
                           onTap: () {
                             HapticFeedback.lightImpact();
-                            ss(() => myPrice -= 200);
+                            ss(() => myPrice -= 100);
                           },
                           child: _circleBtn(t, Icons.remove)),
                       const SizedBox(width: 30),
@@ -970,19 +1155,20 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                       GestureDetector(
                           onTap: () {
                             HapticFeedback.lightImpact();
-                            ss(() => myPrice += 200);
+                            ss(() => myPrice += 100);
                           },
                           child: _circleBtn(t, Icons.add)),
+
                     ]),
                     const SizedBox(height: 40),
                     GestureDetector(
                       onTap: () async {
                         Navigator.pop(context);
-                        NotificationService.show(context, 'Предложение отправлено', '${provider.translate('offer_sent')} ($myPrice ₸)', isSuccess: true);
+                        NotificationService.notify(context, 'Предложение отправлено', '${provider.translate('offer_sent')} ($myPrice ₸)', isSuccess: true);
                         
                         await Future.delayed(const Duration(seconds: 3));
                         if (mounted) {
-                          NotificationService.show(context, 'Ответ водителя', '${d['name']} ${provider.translate('driver_agrees')} $myPrice ₸!', isSuccess: true);
+                          NotificationService.notify(context, 'Ответ водителя', '${d['name']} ${provider.translate('driver_agrees')} $myPrice ₸!', isSuccess: true);
                         }
                       },
                       child: Container(

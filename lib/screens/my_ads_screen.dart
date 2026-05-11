@@ -130,7 +130,8 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
                 const SizedBox(height: 6),
                 Row(
                   children: [
-                    _miniTag(ad.condition, ad.condition == 'Новый' ? Colors.green : Colors.blueGrey),
+                    if (ad.condition != null && ad.condition!.isNotEmpty)
+                      _miniTag(ad.condition!, ad.condition == 'Новый' ? Colors.green : Colors.blueGrey),
                     if (ad.hasDelivery)
                       const Padding(padding: EdgeInsets.only(right: 6), child: Icon(Icons.local_shipping_rounded, size: 14, color: Color(0xFF4A80F0))),
                     if (ad.canExchange)

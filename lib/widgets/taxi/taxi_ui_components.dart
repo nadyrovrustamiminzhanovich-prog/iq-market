@@ -50,37 +50,31 @@ class TaxiRoleCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color activeColor = t.accent;
-    
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOutCubic,
-          height: 46,
+          height: 48,
           decoration: BoxDecoration(
-            color: isSelected ? activeColor : Colors.transparent,
-            borderRadius: BorderRadius.circular(15),
-            boxShadow: isSelected ? [
-              BoxShadow(color: activeColor.withValues(alpha: 0.3), blurRadius: 12, offset: const Offset(0, 4))
-            ] : [],
+            color: isSelected ? const Color(0xFF4A80F0) : const Color(0xFFF1F5F9),
+            borderRadius: BorderRadius.circular(24),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
                 icon, 
-                color: isSelected ? Colors.white : t.sub, 
-                size: 20
+                color: isSelected ? Colors.white : const Color(0xFF64748B), 
+                size: 18
               ),
               const SizedBox(width: 8),
               Text(
                 label,
                 style: GoogleFonts.inter(
-                  fontSize: 13,
-                  fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                  color: isSelected ? Colors.white : t.sub,
+                  fontSize: 14,
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                  color: isSelected ? Colors.white : const Color(0xFF64748B),
                 ),
               ),
             ],
@@ -90,3 +84,4 @@ class TaxiRoleCard extends StatelessWidget {
     );
   }
 }
+

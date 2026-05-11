@@ -4,11 +4,17 @@ import 'package:iqmarket/screens/product_details_screen.dart';
 import 'package:iqmarket/screens/chat_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:screen_protector/screen_protector.dart';
+import 'package:iqmarket/models/ad_model.dart';
+import 'package:iqmarket/models/review_model.dart';
+import 'package:iqmarket/services/review_service.dart';
+import 'package:iqmarket/screens/leave_review_screen.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:intl/intl.dart';
 
 class SellerProfileScreen extends StatefulWidget {
-  final Map<String, dynamic> seller;
+  final AdModel seller;
   final String lang;
-  final List<Map<String, dynamic>> sellerAds;
+  final List<AdModel> sellerAds;
 
   const SellerProfileScreen({
     super.key,
@@ -29,12 +35,10 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
       'reviews': { 'Русский': 'Отзывы покупателей', 'Қазақша': 'Сатып алушылар пікірлері', 'Уйғурчә': 'Сетивалғучилар пикирлири' },
       'sales': { 'Русский': 'Продаж', 'Қазақша': 'Сатылым', 'Уйғурчә': 'Сетиш' },
       'rating': { 'Русский': 'Рейтинг', 'Қазақша': 'Рейтинг', 'Уйғурчә': 'Рейтинг' },
-      'response_time': { 'Русский': 'Время ответа', 'Қазақша': 'Жауап беру уақыты', 'Уйғурчә': 'Җавап бериш вақти' },
-      'fast': { 'Русский': 'Очень быстро', 'Қазақша': 'Өте жылдам', 'Уйғурчә': 'Наһайити тез' },
-      'verified': { 'Русский': 'Верифицирован', 'Қазақша': 'Расталған', 'Уйғурчә': 'Тәкшүрүлгән' },
-      'member_since': { 'Русский': 'На IQ-Market с 12.05.2023', 'Қазақша': '12.05.2023 жылдан бастап IQ-Market-те', 'Уйғурчә': '12.05.2023-жилдин башлап IQ-Market-тә' },
+      'member_since': { 'Русский': 'На IQ-Market с 2023', 'Қазақша': '2023 жылдан бастап IQ-Market-те', 'Уйғурчә': '2023-жилдин башлап IQ-Market-тә' },
       'call': { 'Русский': 'Позвонить', 'Қазақша': 'Қоңырау шалу', 'Уйғурчә': 'Телефон қилиш' },
-      'message': { 'Русский': 'Написать', 'Қазақша': 'Жазу', 'Уйғурчә': 'Йезиш' },
+      'message': { 'Русский': 'Написать', 'Қазақша': 'Йезиш' },
+      'leave_review': { 'Русский': 'Оставить отзыв', 'Қазақша': 'Пікір қалдыру', 'Уйғурчә': 'Пикир қалдуруш' },
     };
     return translations[key]?[widget.lang] ?? translations[key]?['Русский'] ?? key;
   }
@@ -42,7 +46,7 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FB),
+      backgroundColor: const Color(0xFFF1F5F9),
       body: CustomScrollView(
         physics: const BouncingScrollPhysics(),
         slivers: [
@@ -52,8 +56,9 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
               children: [
                 _buildStatsSection(),
                 _buildAdsSection(),
-                _buildReviewsSection(),
-                const SizedBox(height: 100),
+                _buildReviewsHeader(),
+                _buildReviewsList(),
+                const SizedBox(height: 120),
               ],
             ),
           ),
@@ -64,7 +69,7 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
   }
 
   Widget _buildSliverAppBar() => SliverAppBar(
-    expandedHeight: 280,
+    expandedHeight: 240,
     pinned: true,
     backgroundColor: const Color(0xFF4A80F0),
     leading: IconButton(
@@ -75,7 +80,7 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
       background: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFF4A80F0), Color(0xFF00D2FF)],
+            colors: [Color(0xFF4A80F0), Color(0xFF1E293B)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -83,64 +88,24 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const SizedBox(height: 60),
-                GestureDetector(
-                  onTap: () async {
-                    if (widget.seller['image_url'] != null) {
-                      await ScreenProtector.preventScreenshotOn();
-                      showDialog(
-                        context: context,
-                        builder: (context) => Dialog(
-                          backgroundColor: Colors.transparent,
-                          insetPadding: EdgeInsets.zero,
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              GestureDetector(
-                                onTap: () => Navigator.pop(context),
-                                child: Container(color: Colors.black.withValues(alpha: 0.95), width: double.infinity, height: double.infinity),
-                              ),
-                              Hero(
-                                tag: 'seller_avatar',
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(20),
-                                  child: Image.network(widget.seller['image_url'], fit: BoxFit.contain),
-                                ),
-                              ),
-                              Positioned(
-                                top: 50,
-                                right: 25,
-                                child: IconButton(
-                                  icon: const Icon(Icons.close_rounded, color: Colors.white, size: 32),
-                                  onPressed: () => Navigator.pop(context),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ).then((_) => ScreenProtector.preventScreenshotOff());
-                    }
-                  },
-                  child: Hero(tag: 'seller_avatar', child: _buildAvatar()),
+            const SizedBox(height: 40),
+            _buildAvatar(),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  widget.seller.userName,
+                  style: GoogleFonts.inter(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900),
                 ),
-                const SizedBox(height: 15),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      widget.seller['name'] ?? 'Кайнар',
-                      style: GoogleFonts.inter(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900),
-                    ),
-                    if (widget.seller['isVerified'] ?? true) ...[
-                      const SizedBox(width: 8),
-                      const Icon(Icons.verified_rounded, color: Colors.white, size: 22),
-                    ],
-                  ],
-                ),
-            const SizedBox(height: 5),
+                const SizedBox(width: 8),
+                const Icon(Icons.verified_rounded, color: Color(0xFF10B981), size: 20),
+              ],
+            ),
+            const SizedBox(height: 4),
             Text(
               _t('member_since'),
-              style: GoogleFonts.inter(color: Colors.white.withValues(alpha: 0.8), fontSize: 13, fontWeight: FontWeight.w600),
+              style: GoogleFonts.inter(color: Colors.white.withValues(alpha: 0.7), fontSize: 13, fontWeight: FontWeight.w500),
             ),
           ],
         ),
@@ -148,39 +113,38 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
     ),
   );
 
-  Widget _buildAvatar() => Container(
-    padding: const EdgeInsets.all(4),
-    decoration: BoxDecoration(
-      shape: BoxShape.circle,
-      border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 2),
-    ),
-    child: CircleAvatar(
-      radius: 50,
-      backgroundColor: Colors.white.withValues(alpha: 0.2),
-      child: widget.seller['image_url'] != null
-        ? ClipRRect(
-            borderRadius: BorderRadius.circular(50),
-            child: Image.network(widget.seller['image_url'], fit: BoxFit.cover, width: 100, height: 100),
-          )
-        : Text(
-            (widget.seller['name'] ?? 'K')[0].toUpperCase(),
-            style: const TextStyle(fontSize: 40, fontWeight: FontWeight.w900, color: Colors.white),
-          ),
+  Widget _buildAvatar() => Hero(
+    tag: 'seller_avatar',
+    child: Container(
+      width: 90, height: 90,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 4),
+        image: widget.seller.images.isNotEmpty
+            ? (widget.seller.images.isNotEmpty 
+                ? DecorationImage(image: CachedNetworkImageProvider(widget.seller.images.first), fit: BoxFit.cover)
+                : null)
+            : null,
+      ),
+      child: widget.seller.images.isEmpty
+          ? const Icon(Icons.person, color: Colors.white, size: 40)
+          : null,
     ),
   );
 
   Widget _buildStatsSection() => Container(
-    margin: const EdgeInsets.all(20),
-    padding: const EdgeInsets.all(24),
+    margin: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+    padding: const EdgeInsets.all(20),
     decoration: BoxDecoration(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(30),
-      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 20, offset: const Offset(0, 10))],
+      borderRadius: BorderRadius.circular(24),
+      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))],
     ),
     child: Row(
       mainAxisAlignment: MainAxisAlignment.spaceAround,
       children: [
         _statItem('4.9', _t('rating'), Icons.star_rounded, Colors.amber),
+        Container(width: 1, height: 30, color: const Color(0xFFF1F5F9)),
         _statItem('38', _t('sales'), Icons.shopping_bag_rounded, const Color(0xFF4A80F0)),
       ],
     ),
@@ -188,11 +152,15 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
 
   Widget _statItem(String value, String label, IconData icon, Color color) => Column(
     children: [
-      Icon(icon, color: color, size: 24),
-      const SizedBox(height: 8),
-      Text(value, style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w900, color: const Color(0xFF1A1D1E))),
-      const SizedBox(height: 2),
-      Text(label, style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.grey.shade500)),
+      Row(
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(width: 6),
+          Text(value, style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A))),
+        ],
+      ),
+      const SizedBox(height: 4),
+      Text(label, style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF64748B))),
     ],
   );
 
@@ -200,53 +168,58 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(_t('active_ads'), style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w900, color: const Color(0xFF1A1D1E))),
-            Text('${widget.sellerAds.length}', style: TextStyle(color: Colors.grey.shade400, fontWeight: FontWeight.w900)),
-          ],
-        ),
+        padding: const EdgeInsets.fromLTRB(24, 32, 24, 16),
+        child: Text(_t('active_ads'), style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w800)),
       ),
       SizedBox(
-        height: 260,
-        child: ListView.builder(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.only(left: 24, right: 10),
-          physics: const BouncingScrollPhysics(),
-          itemCount: widget.sellerAds.length,
-          itemBuilder: (context, index) => _adCard(widget.sellerAds[index]),
-        ),
+        height: 220,
+        child: widget.sellerAds.isEmpty 
+          ? Center(child: Text('Нет активных объявлений', style: GoogleFonts.inter(color: Colors.grey)))
+          : ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              physics: const BouncingScrollPhysics(),
+              itemCount: widget.sellerAds.length,
+              itemBuilder: (context, index) => _adCard(widget.sellerAds[index]),
+            ),
       ),
     ],
   );
 
-  Widget _adCard(Map<String, dynamic> ad) => GestureDetector(
-    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProductDetailsScreen(ad: ad, onReport: (_) {}, lang: widget.lang))),
+  Widget _adCard(AdModel ad) => GestureDetector(
+    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProductDetailsScreen(ad: ad, onReport: (_) {}, lang: widget.lang, heroPrefix: 'seller_'))),
     child: Container(
-      width: 170,
-      margin: const EdgeInsets.only(right: 14, bottom: 20, top: 10),
+      width: 160,
+      margin: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 10, offset: const Offset(0, 5))],
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-            child: Image.network(ad['image_url'] ?? ad['image'], height: 130, width: 170, fit: BoxFit.cover, errorBuilder: (c,e,s) => Container(color: Colors.grey.shade200, child: const Icon(Icons.broken_image))),
+          Hero(
+            tag: 'seller_ad-image-${ad.id}',
+            child: ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              child: ad.images.isNotEmpty 
+                ? CachedNetworkImage(
+                    imageUrl: ad.images.isNotEmpty ? ad.images.first : '',
+                    height: 120, width: 160, fit: BoxFit.cover,
+                    errorWidget: (context, url, error) => const Icon(Icons.image),
+                  )
+                : Container(height: 120, color: const Color(0xFFF1F5F9)),
+            ),
           ),
           Padding(
             padding: const EdgeInsets.all(12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(ad['title'], maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 13)),
+                Text(ad.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 13)),
                 const SizedBox(height: 4),
-                Text(ad['price'], style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 14, color: const Color(0xFF4A80F0))),
+                Text(ad.price, style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 14, color: Colors.black)),
               ],
             ),
           ),
@@ -255,124 +228,98 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
     ),
   );
 
-  Widget _buildReviewsSection() => Padding(
-    padding: const EdgeInsets.all(24),
+  Widget _buildReviewsHeader() => Padding(
+    padding: const EdgeInsets.fromLTRB(24, 32, 24, 16),
+    child: Text(_t('reviews'), style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w800)),
+  );
+
+  Widget _buildReviewsList() => StreamBuilder<List<ReviewModel>>(
+    stream: ReviewService.getUserReviewsStream(widget.seller.userId),
+    builder: (context, snapshot) {
+      if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+      final reviews = snapshot.data!;
+      if (reviews.isEmpty) return Center(child: Padding(padding: const EdgeInsets.all(32), child: Text('Пока нет отзывов', style: GoogleFonts.inter(color: Colors.grey))));
+      
+      return Column(
+        children: reviews.map((r) => _reviewItem(r)).toList(),
+      );
+    },
+  );
+
+  Widget _reviewItem(ReviewModel r) => Container(
+    margin: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+    padding: const EdgeInsets.all(20),
+    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24)),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(_t('reviews'), style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w900, color: const Color(0xFF1A1D1E))),
-        const SizedBox(height: 20),
-        _reviewItem('Алия', 'Отличный продавец, все честно и быстро!', 5, '15.01.2024', 'iPhone 15 Pro Max'),
-        _reviewItem('Максат', 'Товар соответствует описанию. Рекомендую!', 5, '08.01.2024', 'Toyota Camry 70'),
-      ],
-    ),
-  );
-
-  Widget _reviewItem(String name, String text, int rating, String date, String adTitle) => GestureDetector(
-    onTap: () {
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Text('Отзыв от $name', style: GoogleFonts.inter(fontWeight: FontWeight.w900)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(children: List.generate(5, (i) => Icon(Icons.star_rounded, size: 18, color: i < rating ? Colors.amber : Colors.grey.shade300))),
-              const SizedBox(height: 12),
-              Text(text, style: GoogleFonts.inter(fontSize: 14, height: 1.5, color: Colors.grey.shade800)),
-              const SizedBox(height: 16),
-              Text('К объявлению: $adTitle', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF4A80F0))),
-              const SizedBox(height: 4),
-              Text(date, style: GoogleFonts.inter(fontSize: 12, color: Colors.grey.shade500)),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('ЗАКРЫТЬ', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF4A80F0))),
-            ),
+        Row(
+          children: [
+            Text(r.fromUserName, style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 14)),
+            const Spacer(),
+            Text(DateFormat('dd.MM.yyyy').format(r.timestamp), style: GoogleFonts.inter(fontSize: 11, color: Colors.grey)),
           ],
         ),
-      );
-    },
-    child: Container(
-      margin: const EdgeInsets.only(bottom: 15),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 8, offset: const Offset(0, 2))],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text(name, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
-              const SizedBox(width: 10),
-              Text(date, style: TextStyle(color: Colors.grey.shade400, fontSize: 11, fontWeight: FontWeight.w600)),
-              const Spacer(),
-              Row(children: List.generate(5, (i) => Icon(Icons.star_rounded, size: 14, color: i < rating ? Colors.amber : Colors.grey.shade300))),
-            ],
+        const SizedBox(height: 8),
+        Row(
+          children: List.generate(5, (i) => Icon(
+            i < r.rating ? Icons.star_rounded : Icons.star_outline_rounded,
+            size: 16, color: Colors.amber,
+          )),
+        ),
+        const SizedBox(height: 12),
+        Text(r.comment, style: GoogleFonts.inter(fontSize: 14, color: const Color(0xFF334155), height: 1.5)),
+        
+        if (r.images.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 80,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: r.images.length,
+              itemBuilder: (context, i) => Container(
+                width: 80,
+                margin: const EdgeInsets.only(right: 8),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  image: DecorationImage(image: CachedNetworkImageProvider(r.images[i]), fit: BoxFit.cover),
+                ),
+              ),
+            ),
           ),
-          const SizedBox(height: 10),
-          Text(adTitle, style: const TextStyle(color: Color(0xFF4A80F0), fontSize: 12, fontWeight: FontWeight.w800)),
-          const SizedBox(height: 6),
-          Text(text, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.grey.shade700, fontSize: 13, height: 1.4, fontWeight: FontWeight.w500)),
         ],
-      ),
+      ],
     ),
   );
 
   Widget _buildBottomActions() => Container(
     padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 20, offset: const Offset(0, -5))],
-    ),
+    decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 20, offset: const Offset(0, -5))]),
     child: Row(
       children: [
         Expanded(
-          child: ElevatedButton.icon(
-            onPressed: () {
-              Navigator.push(context, MaterialPageRoute(builder: (context) => ChatScreen(
-                ad: widget.sellerAds.isNotEmpty ? widget.sellerAds[0] : {
-                  'title': 'Интересуюсь вашими товарами',
-                  'price': '...',
-                  'seller': widget.seller['name'] ?? 'Продавец',
-                  'images': []
-                }
-              )));
-            },
-            icon: const Icon(Icons.chat_bubble_rounded, size: 20),
-            label: Text(_t('message')),
+          child: ElevatedButton(
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(ad: widget.seller))),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF4A80F0),
               foregroundColor: Colors.white,
-              minimumSize: const Size(0, 55),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+              minimumSize: const Size(0, 56),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               elevation: 0,
             ),
+            child: Text(_t('message'), style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16)),
           ),
         ),
         const SizedBox(width: 12),
-        Container(
-          decoration: BoxDecoration(
-            color: const Color(0xFF10B981).withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(18),
-          ),
-          child: IconButton(
-            icon: const Icon(Icons.call_rounded, color: Color(0xFF10B981)),
-            onPressed: () async {
-              final Uri launchUri = Uri(scheme: 'tel', path: widget.seller['phone'] ?? '+77770001122');
-              if (await canLaunchUrl(launchUri)) {
-                await launchUrl(launchUri);
-              }
-            },
-            padding: const EdgeInsets.all(15),
+        InkWell(
+          onTap: () async {
+            final uri = Uri.parse('tel:${widget.seller.userPhone ?? '+77000000000'}');
+            if (await canLaunchUrl(uri)) await launchUrl(uri);
+          },
+          child: Container(
+            height: 56, width: 56,
+            decoration: BoxDecoration(color: const Color(0xFF10B981), borderRadius: BorderRadius.circular(16)),
+            child: const Icon(Icons.phone_rounded, color: Colors.white, size: 24),
           ),
         ),
       ],

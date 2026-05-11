@@ -1,38 +1,45 @@
-import 'dart:io';
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:intl/intl.dart';
-import 'package:google_fonts/google_fonts.dart';
-
-// Единый цвет цены для всех карточек
-const _kPriceColor = Color(0xFF4A80F0);
+import 'package:flutter/services.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import 'package:iqmarket/models/ad_model.dart';
+import 'dart:io';
 
 class ProductCard extends StatefulWidget {
-  final Map<String, dynamic> ad;
-  final bool isFavorite;
-  final VoidCallback onToggleFavorite;
+  final AdModel ad;
   final VoidCallback onTap;
-  final String lang;
+  final VoidCallback onToggleFavorite;
+  final bool isFavorite;
   final double? width;
+  final String? heroPrefix;
 
   const ProductCard({
     super.key,
     required this.ad,
-    required this.isFavorite,
-    required this.onToggleFavorite,
     required this.onTap,
-    required this.lang,
+    required this.onToggleFavorite,
+    required this.isFavorite,
     this.width,
+    this.heroPrefix,
   });
 
   @override
   State<ProductCard> createState() => _ProductCardState();
 }
 
-class _ProductCardState extends State<ProductCard> {
-  final PageController _pageCtrl = PageController();
+class _ProductCardState extends State<ProductCard> with SingleTickerProviderStateMixin {
+  late PageController _pageCtrl;
   int _currentPage = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageCtrl = PageController();
+  }
 
   @override
   void dispose() {
@@ -40,206 +47,285 @@ class _ProductCardState extends State<ProductCard> {
     super.dispose();
   }
 
-  String _formatAdDate(DateTime date) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final yesterday = DateTime(now.year, now.month, now.day - 1);
-    final adDate = DateTime(date.year, date.month, date.day);
-    final String time = DateFormat('HH:mm').format(date);
-
-    if (adDate == today) {
-      return widget.lang == 'Қазақша'
-          ? 'Бүгін, $time'
-          : widget.lang == 'Уйғурчә'
-              ? 'Бүгүн, $time'
-              : 'Сегодня, $time';
-    } else if (adDate == yesterday) {
-      return widget.lang == 'Қазақша'
-          ? 'Кеше, $time'
-          : widget.lang == 'Уйғурчә'
-              ? 'Түнүгүн, $time'
-              : 'Вчера, $time';
-    } else {
-      return DateFormat('dd.MM.yyyy, HH:mm').format(date);
-    }
-  }
-
-  List<String> _getImageList() {
-    final ad = widget.ad;
-    final List<String> result = [];
-
-    // Собираем все изображения: images[], image_url, image
-    if (ad['images'] is List) {
-      for (final img in ad['images'] as List) {
-        if (img != null && img.toString().isNotEmpty) result.add(img.toString());
-      }
-    }
-    final single = ad['image_url'] ?? ad['image'];
-    if (single != null && single.toString().isNotEmpty && !result.contains(single.toString())) {
-      result.add(single.toString());
-    }
-    return result;
-  }
-
   @override
   Widget build(BuildContext context) {
     final ad = widget.ad;
-    final DateTime? timestamp = ad['timestamp'] as DateTime?;
-    final images = _getImageList();
-    final hasVideo = ad['video_url'] != null;
+    final images = ad.images;
     final hasMultiple = images.length > 1;
+    final isFree = ad.price == '0 ₸' || ad.category == 'Отдам даром';
 
-    final colorScheme = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return GestureDetector(
-      onTap: widget.onTap,
-      child: Container(
-        width: widget.width,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── Фото ─────────────────────────────────────────
-            Stack(
+    return Container(
+      width: widget.width,
+      margin: const EdgeInsets.only(bottom: 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Фото Блок (Свайп работает здесь) ──
+          Expanded(
+            flex: 62,
+            child: Stack(
+              fit: StackFit.expand,
               children: [
-                ClipRRect(
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                  child: SizedBox(
-                    height: widget.width != null ? widget.width! * 0.8 : 140,
-                    width: double.infinity,
-                    child: images.isEmpty
-                        ? _buildImageFile(ad)
-                        : (hasMultiple
-                            ? PageView.builder(
-                                controller: _pageCtrl,
-                                itemCount: images.length,
-                                onPageChanged: (p) => setState(() => _currentPage = p),
-                                itemBuilder: (_, i) => _buildNetworkImage(images[i]),
-                              )
-                            : _buildNetworkImage(images.first)),
+                GestureDetector(
+                  onTap: widget.onTap,
+                  behavior: HitTestBehavior.opaque,
+                  child: images.isEmpty
+                      ? _noImage()
+                      : (hasMultiple
+                          ? PageView.builder(
+                              controller: _pageCtrl,
+                              itemCount: images.length,
+                              physics: const BouncingScrollPhysics(),
+                              onPageChanged: (p) => setState(() => _currentPage = p),
+                              itemBuilder: (_, i) {
+                                final img = _buildImage(images[i]);
+                                if (i == 0) {
+                                  return Hero(
+                                    tag: '${widget.heroPrefix ?? ''}ad-image-${ad.id}',
+                                    child: img,
+                                  );
+                                }
+                                return img;
+                              },
+                            )
+                          : Hero(
+                              tag: '${widget.heroPrefix ?? ''}ad-image-${ad.id}',
+                              child: _buildImage(images.first),
+                            )),
+                ),
+
+                // Градиент сверху для значков
+                Positioned(
+                  top: 0, left: 0, right: 0,
+                  height: 60,
+                  child: IgnorePointer(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [Colors.black.withValues(alpha: 0.2), Colors.transparent],
+                        ),
+                      ),
+                    ),
                   ),
                 ),
 
-                // Кнопка избранного (в белом круге)
+                // Бейдж "Новый"
+                if (DateTime.now().difference(ad.timestamp).inDays < 3)
+                  Positioned(
+                    top: 10, left: 10,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF4A80F0),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text('НОВОЕ', style: GoogleFonts.inter(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w900)),
+                    ),
+                  ),
+
+                // Индикаторы страниц (точки)
+                if (hasMultiple)
+                  Positioned(
+                    bottom: 10, left: 10,
+                    child: Row(
+                      children: List.generate(images.length, (index) => Container(
+                        width: 5, height: 5,
+                        margin: const EdgeInsets.symmetric(horizontal: 2),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: _currentPage == index ? Colors.white : Colors.white.withValues(alpha: 0.4),
+                        ),
+                      )),
+                    ),
+                  ),
+
+                // Кнопка избранного (Сердечко) - ВЕРХНИЙ ПРАВЫЙ УГОЛ
                 Positioned(
                   top: 8, right: 8,
                   child: GestureDetector(
-                    onTap: widget.onToggleFavorite,
+                    onTap: () {
+                      HapticFeedback.mediumImpact();
+                      widget.onToggleFavorite();
+                    },
                     child: Container(
                       padding: const EdgeInsets.all(6),
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.9),
                         shape: BoxShape.circle,
+                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4)],
                       ),
                       child: Icon(
-                        widget.isFavorite
-                            ? Icons.favorite_rounded
-                            : Icons.favorite_outline_rounded,
-                        color: widget.isFavorite ? const Color(0xFFEF4444) : const Color(0xFF1E293B),
+                        widget.isFavorite ? Icons.favorite_rounded : Icons.favorite_outline_rounded,
+                        color: widget.isFavorite ? const Color(0xFFEF4444) : const Color(0xFF0F172A),
                         size: 18,
                       ),
                     ),
                   ),
                 ),
-
-                // Бейдж видео
-                if (hasVideo)
-                  Positioned(
-                    top: 8, left: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.4),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.play_circle_outline_rounded, color: Colors.white, size: 14),
-                          const SizedBox(width: 4),
-                          Text(
-                            widget.lang == 'Русский' ? 'Видео' : 'Видео',
-                            style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
               ],
             ),
+          ),
 
-            // ── Контент ───────────────────────────────────────
+          // ── Инфо Блок ──────────────────
+          GestureDetector(
+            onTap: widget.onTap,
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: const BoxDecoration(color: Colors.white),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    isFree ? 'Бесплатно' : _formatPrice(ad.price),
+                    style: GoogleFonts.inter(
+                      fontSize: 17, 
+                      fontWeight: FontWeight.w900, 
+                      color: isFree ? const Color(0xFF10B981) : const Color(0xFF4A80F0),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    ad.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFF1E293B), height: 1.2),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(child: _metaInfo(ad.location.isEmpty || ad.location == 'Шонжы' ? 'Чунджа' : ad.location, Icons.location_on_rounded, color: const Color(0xFF4A80F0))),
+                      const SizedBox(width: 4),
+                      Expanded(child: _metaInfo(_formatRelativeDate(ad.timestamp), Icons.access_time_filled_rounded)),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    ).animate().fadeIn(duration: 400.ms, curve: Curves.easeOut).slideY(begin: 0.05, end: 0, duration: 400.ms, curve: Curves.easeOut);
+  }
+
+  Widget _metaInfo(String text, IconData icon, {Color? color}) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+    decoration: BoxDecoration(
+      color: (color ?? const Color(0xFF64748B)).withValues(alpha: 0.05),
+      borderRadius: BorderRadius.circular(4),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 8, color: color ?? const Color(0xFF94A3B8)),
+        const SizedBox(width: 3),
+        Flexible(
+          child: Text(
+            text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.inter(fontSize: 9, color: color?.withValues(alpha: 0.8) ?? const Color(0xFF64748B), fontWeight: FontWeight.w700),
+          ),
+        ),
+      ],
+    ),
+  );
+
+  String _formatPrice(String price) {
+    final numStr = price.replaceAll(RegExp(r'[^0-9]'), '');
+    final num = int.tryParse(numStr);
+    return num != null ? '${NumberFormat.decimalPattern('ru').format(num)} ₸' : price;
+  }
+
+  String _formatRelativeDate(DateTime dt) {
+    final now = DateTime.now();
+    if (dt.day == now.day && dt.month == now.month && dt.year == now.year) {
+      return 'Сегодня ${dt.hour}:${dt.minute.toString().padLeft(2, '0')}';
+    }
+    final yesterday = now.subtract(const Duration(days: 1));
+    if (dt.day == yesterday.day && dt.month == yesterday.month && dt.year == yesterday.year) {
+      return 'Вчера ${dt.hour}:${dt.minute.toString().padLeft(2, '0')}';
+    }
+    return '${dt.day} ${['','янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек'][dt.month]}';
+  }
+
+  Widget _buildImage(String url) {
+    if (url.isEmpty) return _noImage();
+    if (url.startsWith('/') || url.startsWith('file')) {
+      return Image.file(File(url), fit: BoxFit.cover);
+    }
+    if (!url.startsWith('http')) return _noImage();
+    return CachedNetworkImage(
+      imageUrl: url, 
+      fit: BoxFit.cover, 
+      placeholder: (context, url) => Container(color: const Color(0xFFF1F5F9)), 
+      errorWidget: (context, url, error) => _noImage(),
+    );
+  }
+
+  Widget _noImage() => Container(color: const Color(0xFFF8FAFC), child: const Center(child: Icon(Icons.image_outlined, color: Colors.grey, size: 24)));
+}
+
+class ProductCardSkeleton extends StatelessWidget {
+  final double? width;
+  const ProductCardSkeleton({super.key, this.width});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: width,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Shimmer.fromColors(
+        baseColor: const Color(0xFFF1F5F9),
+        highlightColor: Colors.white,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             Expanded(
+              flex: 60,
+              child: Container(
+                width: double.infinity,
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                ),
+              ),
+            ),
+            Expanded(
+              flex: 40,
               child: Padding(
-                padding: const EdgeInsets.all(10),
+                padding: const EdgeInsets.all(12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      (ad['title'] ?? '').toString(),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.inter(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                        height: 1.2,
-                        color: const Color(0xFF1E293B),
-                      ),
-                    ),
+                    Container(width: 80, height: 18, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4))),
+                    const SizedBox(height: 8),
+                    Container(width: double.infinity, height: 14, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4))),
                     const Spacer(),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        (ad['price'] ?? '').toString(),
-                        style: GoogleFonts.inter(
-                          color: const Color(0xFF4A80F0),
-                          fontWeight: FontWeight.w900,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
                     Row(
                       children: [
-                        const Icon(Icons.location_on_rounded, size: 10, color: Color(0xFF94A3B8)),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            (ad['location'] ?? '').toString(),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.inter(
-                              color: const Color(0xFF64748B),
-                              fontSize: 10,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
+                        Container(width: 50, height: 10, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4))),
+                        const SizedBox(width: 8),
+                        Container(width: 40, height: 10, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4))),
                       ],
                     ),
-                    if (timestamp != null) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        _formatAdDate(timestamp),
-                        style: GoogleFonts.inter(
-                          color: const Color(0xFF94A3B8),
-                          fontSize: 9,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
                   ],
                 ),
               ),
@@ -249,37 +335,4 @@ class _ProductCardState extends State<ProductCard> {
       ),
     );
   }
-
-  Widget _buildNetworkImage(String url) {
-    return CachedNetworkImage(
-      imageUrl: url,
-      fit: BoxFit.cover,
-      width: double.infinity,
-      placeholder: (_, __) => Shimmer.fromColors(
-        baseColor: Colors.grey[200]!,
-        highlightColor: Colors.grey[100]!,
-        child: Container(color: Colors.white, height: 140),
-      ),
-      errorWidget: (_, __, ___) => _noImage(),
-    );
-  }
-
-  Widget _buildImageFile(Map<String, dynamic> ad) {
-    if (ad['image_file'] != null) {
-      return Image.file(
-        ad['image_file'] as File,
-        fit: BoxFit.cover,
-        width: double.infinity,
-      );
-    }
-    return _noImage();
-  }
-
-  Widget _noImage() => Container(
-    width: double.infinity,
-    color: const Color(0xFFF1F5F9),
-    child: Center(
-      child: Icon(Icons.image_not_supported_outlined, size: 32, color: Colors.grey[300]),
-    ),
-  );
 }

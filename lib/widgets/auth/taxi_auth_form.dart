@@ -1,13 +1,11 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:line_icons/line_icons.dart';
 import 'package:iqmarket/providers/taxi_provider.dart';
 import 'package:iqmarket/theme/taxi_theme.dart';
-import 'package:flutter/services.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:iqmarket/services/user_service.dart';
 import 'package:iqmarket/services/auth_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
 
 class TaxiAuthForm extends StatefulWidget {
   final TaxiProvider provider;

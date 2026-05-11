@@ -3,13 +3,14 @@ import 'dart:math';
 import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:iqmarket/services/api_keys.dart';
 
 class TelegramBotService {
   // ─── BOT CONFIG ─────────────────────────────────────────────────────────────
-  static const String _botToken = '8783045401:AAGn1YNV367UTchmc68ANpSNNrIGPTP_Eag';
-  static const String _botUsername = 'iq_market_bot'; // YOUR BOT @username
+  static const String _botToken = ApiKeys.telegramBotToken;
+  static const String _botUsername = 'IQ_Taxi_bot'; // YOUR BOT @username
   // Replace with your own Telegram chat_id (get it from @userinfobot)
-  static const String _adminChatId = '5555555555';
+  static const String _adminChatId = '1910159480';
   static const String _api = 'https://api.telegram.org/bot$_botToken';
 
   // ─── HELPERS ────────────────────────────────────────────────────────────────
@@ -37,6 +38,9 @@ class TelegramBotService {
       'chat_id': null,
       'otp': null,
     });
+    // Wait a bit to ensure Firestore is synced before bot accesses it
+    await Future.delayed(const Duration(milliseconds: 1000));
+    
     // Open bot via Telegram deep link — bot will capture chat_id from /start <token>
     final botUrl = 'https://t.me/$_botUsername?start=$token';
     await launchUrl(Uri.parse(botUrl), mode: LaunchMode.externalApplication);

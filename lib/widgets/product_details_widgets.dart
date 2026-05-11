@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
-import 'package:url_launcher/url_launcher.dart';
+
+import 'package:iqmarket/models/ad_model.dart';
 
 class ProductDetailsHeader extends StatelessWidget {
   final Map<String, dynamic> ad;
@@ -184,7 +185,7 @@ class ProductSellerCard extends StatelessWidget {
 }
 
 class ProductLocationSection extends StatelessWidget {
-  final Map<String, dynamic> ad;
+  final AdModel ad;
   final String Function(String) translate;
 
   const ProductLocationSection({super.key, required this.ad, required this.translate});
@@ -192,56 +193,42 @@ class ProductLocationSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final city = ad['location'] ?? '';
-    final street = ad['street'] ?? '';
-    final house = ad['house'] ?? '';
-    final fullAddress = "$city${street.isNotEmpty ? ', $street' : ''}${house.isNotEmpty ? ', $house' : ''}";
+    final city = ad.location.isEmpty ? 'Чунджа' : ad.location;
 
+    
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: theme.colorScheme.onSurface.withValues(alpha: 0.05)),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 20, offset: const Offset(0, 8))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 20, offset: const Offset(0, 8))],
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.location_on_rounded, color: Color(0xFF4A80F0), size: 24),
-              const SizedBox(width: 12),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(color: const Color(0xFF4A80F0).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(14)),
+                child: const Icon(Icons.location_on_rounded, color: Color(0xFF4A80F0), size: 22),
+              ),
+              const SizedBox(width: 16),
               Expanded(
-                child: Text(fullAddress, style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16, color: theme.colorScheme.onSurface)),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(translate('location_title'), style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: theme.colorScheme.onSurface.withValues(alpha: 0.5), letterSpacing: 0.5)),
+                    const SizedBox(height: 2),
+                    Text(city, style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16, color: theme.colorScheme.onSurface)),
+                  ],
+                ),
               ),
             ],
-          ),
-          const SizedBox(height: 20),
-          GestureDetector(
-            onTap: () => _open2GIS(fullAddress),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: const Color(0xFF4A80F0).withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.map_rounded, color: Color(0xFF4A80F0), size: 20),
-                  const SizedBox(width: 10),
-                  Text(translate('open_2gis'), style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: const Color(0xFF4A80F0), fontSize: 14)),
-                ],
-              ),
-            ),
           ),
         ],
       ),
     );
-  }
-
-  Future<void> _open2GIS(String address) async {
-    final url = Uri.parse("https://2gis.kz/search/${Uri.encodeComponent(address)}");
-    if (await canLaunchUrl(url)) await launchUrl(url, mode: LaunchMode.externalApplication);
   }
 }

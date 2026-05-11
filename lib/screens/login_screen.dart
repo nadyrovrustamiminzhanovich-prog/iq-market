@@ -2,15 +2,15 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
-import 'package:google_sign_in/google_sign_in.dart';
+
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:sign_in_with_apple/sign_in_with_apple.dart';
+
 import 'package:iqmarket/data/legal_texts.dart';
-import 'package:iqmarket/services/telegram_bot_service.dart';
+
 import 'package:iqmarket/services/storage_service.dart';
 import 'package:provider/provider.dart';
 import 'package:iqmarket/providers/taxi_provider.dart';
-import 'package:iqmarket/main.dart';
+import 'package:iqmarket/screens/home/home_screen.dart';
 import 'package:iqmarket/translations/login_strings.dart';
 import 'package:iqmarket/widgets/auth/auth_components.dart';
 import 'package:iqmarket/services/user_service.dart';
@@ -35,10 +35,9 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _showPassword = false;
   bool _showConfirmPassword = false;
 
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+
   String? _tgSessionToken;
-  bool _waitingForBot = false;
-  bool _isEmailVerified = true; // For UI state if needed
+
 
   late final TapGestureRecognizer _tosRecognizer;
   late final TapGestureRecognizer _privacyRecognizer;
@@ -188,9 +187,9 @@ class _LoginScreenState extends State<LoginScreen> {
             const SizedBox(height: 25),
             const Icon(Icons.lock_reset_rounded, color: Color(0xFF4A80F0), size: 54),
             const SizedBox(height: 20),
-            Text(_t('forgot_pwd_title') ?? 'Восстановление пароля', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
+            Text(_t('forgot_pwd_title'), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
             const SizedBox(height: 10),
-            Text(_t('forgot_pwd_desc') ?? 'Введите ваш Email, и мы отправим ссылку для смены пароля', textAlign: TextAlign.center, style: const TextStyle(color: Colors.black54, fontSize: 13, height: 1.5)),
+            Text(_t('forgot_pwd_desc'), textAlign: TextAlign.center, style: const TextStyle(color: Colors.black54, fontSize: 13, height: 1.5)),
             const SizedBox(height: 25),
             AuthField(hint: _t('email_hint'), icon: Icons.email_outlined, controller: resetEmailC, keyboardType: TextInputType.emailAddress),
             const SizedBox(height: 25),
@@ -202,7 +201,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 }
               },
               style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4A80F0), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
-              child: Text(_t('send_link') ?? 'Отправить ссылку', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Colors.white)),
+              child: Text(_t('send_link'), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Colors.white)),
             )),
             const SizedBox(height: 15),
           ]),
@@ -241,7 +240,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   // ===================== TELEGRAM BOT (Session-based) =====================
   void _handleTelegramLogin() async {
-    setState(() { _isLoading = true; _waitingForBot = true; });
+    setState(() { _isLoading = true; });
     try {
       // 1. Create Firestore session + open bot with deep link
       _tgSessionToken = await AuthService.startTelegramSession();
@@ -298,7 +297,7 @@ class _LoginScreenState extends State<LoginScreen> {
             const Text('Откройте Telegram', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
             const SizedBox(height: 10),
             const Text(
-              'Нажмите кнопку «Старт» в боте @iq_market_bot.\n\nКод придёт автоматически — вводить Chat ID не нужно.',
+              'Нажмите кнопку «Старт» в боте @IQ_Taxi_bot.\n\nКод придёт автоматически — вводить Chat ID не нужно.\n\n⏳ Код действителен 5 минут.',
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.black54, fontSize: 13, height: 1.5),
             ),
@@ -309,7 +308,7 @@ class _LoginScreenState extends State<LoginScreen> {
               const Text('Связь установлена, ожидаем код...', style: TextStyle(color: Color(0xFF0088CC), fontWeight: FontWeight.bold)),
             const SizedBox(height: 28),
             TextButton(
-              onPressed: () { Navigator.pop(ctx); setState(() => _waitingForBot = false); },
+              onPressed: () { Navigator.pop(ctx); setState(() => {}); },
               child: const Text('Отмена', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
             ),
             const SizedBox(height: 10),
@@ -331,9 +330,11 @@ class _LoginScreenState extends State<LoginScreen> {
       ]),
       content: Column(mainAxisSize: MainAxisSize.min, children: [
         Text(_t('tg_otp_desc'), style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+        const SizedBox(height: 10),
+        const Text('⏳ Код действителен 5 минут', style: TextStyle(color: Colors.orange, fontSize: 11, fontWeight: FontWeight.bold)),
         const SizedBox(height: 20),
         TextField(controller: otpCtrl, keyboardType: TextInputType.number, textAlign: TextAlign.center, maxLength: 6, style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: 8, color: isError ? Colors.red : Colors.black), decoration: InputDecoration(counterText: '', hintText: '••••••', hintStyle: TextStyle(color: Colors.grey[300], fontSize: 32), border: InputBorder.none)),
-        if (isError) Text(_t('err_invalid_otp'), style: const TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.bold)),
+        if (isError) Text('❌ Неверный код. Попробуйте еще раз', style: const TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.bold)),
       ]),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: Text(_t('cancel'), style: TextStyle(color: Colors.grey[500], fontWeight: FontWeight.bold))),
@@ -341,7 +342,7 @@ class _LoginScreenState extends State<LoginScreen> {
           onPressed: () async {
             if (otpCtrl.text == _generatedCode) {
               Navigator.pop(context);
-              await _finalizeLogin('Telegram User', isVerified: true);
+              await _finalizeLogin('Telegram User', isVerified: true, accountType: 'driver');
             } else {
               ss(() { isError = true; otpCtrl.clear(); });
             }
@@ -354,34 +355,48 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   // ===================== FINALIZE =====================
-  Future<void> _finalizeLogin(String name, {String? email, String? photoUrl, bool isVerified = false}) async {
+  Future<void> _finalizeLogin(String name, {String? email, String? photoUrl, bool isVerified = false, String? accountType}) async {
     // 1. Сохраняем в Firebase Firestore
     await UserService.syncUserAfterLogin(
       name: name,
       email: email,
       photoUrl: photoUrl,
       isVerified: isVerified,
+      accountType: accountType,
     );
     
-    // 2. Для обратной совместимости пока оставляем локальные стораджи (уберем их позже)
-    StorageService.saveProfile(name, photoUrl, false, 'Личный', isVerified: isVerified);
+    // 2. Локальное сохранение
+    StorageService.saveProfile(name, photoUrl, false, accountType ?? 'Личный', isVerified: isVerified);
     if (email != null) StorageService.setString('user_email', email);
     StorageService.setBool('taxi_logged_in', true);
     
     if (mounted) {
       Provider.of<TaxiProvider>(context, listen: false).setLoginStatus(true);
       Provider.of<TaxiProvider>(context, listen: false).loadPreferences();
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const IQMarketHome()));
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => IQMarketHome()));
     }
   }
 
   // ===================== BUILD =====================
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FB),
-      appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0, leading: IconButton(icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.black87), onPressed: () => Navigator.pop(context))),
-      body: Stack(children: [
+    return PopScope(
+      canPop: true,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        Navigator.of(context).pop();
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF8F9FB),
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.black87),
+            onPressed: () => Navigator.of(context).maybePop(),
+          ),
+        ),
+        body: Stack(children: [
         SafeArea(child: SingleChildScrollView(physics: const BouncingScrollPhysics(), padding: const EdgeInsets.symmetric(horizontal: 24), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           const SizedBox(height: 10),
           Text(_t('welcome'), style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: Color(0xFF1A1D1E), letterSpacing: -0.5)),
@@ -435,6 +450,27 @@ class _LoginScreenState extends State<LoginScreen> {
             const SizedBox(width: 30),
             AuthSocialButton(url: 'https://cdn-icons-png.flaticon.com/512/2111/2111646.png', onTap: _handleTelegramLogin),
           ]),
+          const SizedBox(height: 15),
+          Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0088CC).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.verified_rounded, color: Color(0xFF0088CC), size: 16),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Вход через Telegram дает статус Водителя ✅',
+                    style: TextStyle(color: const Color(0xFF0088CC), fontSize: 11, fontWeight: FontWeight.w800),
+                  ),
+                ],
+              ),
+            ),
+          ),
 
           const SizedBox(height: 40),
           Center(child: GestureDetector(onTap: () => setState(() { _isLogin = !_isLogin; _passwordController.clear(); _confirmPasswordController.clear(); }), child: RichText(text: TextSpan(text: _isLogin ? _t('no_acc') : _t('have_acc'), style: const TextStyle(color: Colors.black87, fontSize: 15, fontWeight: FontWeight.w600), children: [TextSpan(text: _isLogin ? _t('reg_tab') : _t('login_tab'), style: const TextStyle(color: Color(0xFF4A80F0), fontWeight: FontWeight.w900))])))),
@@ -443,7 +479,9 @@ class _LoginScreenState extends State<LoginScreen> {
           const SizedBox(height: 40),
         ]))),
         if (_isLoading) Container(color: Colors.black.withValues(alpha: 0.3), child: const Center(child: CircularProgressIndicator(color: Color(0xFF4A80F0), strokeWidth: 3))),
-      ]),
+          ],
+        ),
+      ),
     );
   }
 

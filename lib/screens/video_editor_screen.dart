@@ -34,6 +34,9 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
     await _trimmer.saveTrimmedVideo(
       startValue: _startValue,
       endValue: _endValue,
+      videoFolderName: "IQMarket_Videos",
+      videoFileName: "trimmed_${DateTime.now().millisecondsSinceEpoch}",
+      storageDir: StorageDir.temporaryDirectory,
       onSave: (String? outputPath) {
         setState(() => _progressVisibility = false);
         if (outputPath != null) {

@@ -1,14 +1,141 @@
+import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:video_compress/video_compress.dart';
 import 'package:iqmarket/models/ad_model.dart';
 import 'package:iqmarket/services/file_service.dart';
+import 'package:iqmarket/services/notification_service.dart';
+import 'package:iqmarket/services/gemini_service.dart';
+import 'package:iqmarket/services/user_service.dart';
 
 class AdService {
   static final FirebaseFirestore _db = FirebaseFirestore.instance;
   static final FirebaseAuth _auth = FirebaseAuth.instance;
 
   static CollectionReference get _adsCollection => _db.collection('ads');
+
+  /// Высокоуровневый метод для загрузки медиа и публикации объявления
+  static Future<String> uploadAndPublishAd({
+    required String title,
+    required String description,
+    required String price,
+    required String category,
+    required String location,
+    required List<File> images,
+    File? video,
+    String? condition,
+    bool bargain = false,
+    bool exchange = false,
+    bool delivery = false,
+    Map<String, dynamic>? extraFields,
+    String? initialAdId,
+    Function(String)? onStatusUpdate,
+    required String lang,
+  }) async {
+    final user = _auth.currentUser;
+    if (user == null) throw Exception('Пользователь не авторизован');
+
+    // 1. ИИ Модерация
+    if (onStatusUpdate != null) onStatusUpdate('Проверка модерации ИИ...');
+    String moderationVerdict = 'MANUAL_REVIEW';
+    try {
+      final gemini = GeminiService();
+      gemini.init(lang);
+      final result = await gemini.checkContent(title, description, images);
+      if (result.contains('APPROVED')) moderationVerdict = 'APPROVED';
+      else if (result.contains('REJECTED')) moderationVerdict = 'REJECTED';
+    } catch (e) {
+      debugPrint('[AdService] Gemini failed: $e');
+    }
+
+    if (moderationVerdict == 'REJECTED') throw Exception('Объявление отклонено системой модерации ИИ');
+
+    // 2. Загрузка фото со сжатием
+    List<String> imageUrls = [];
+    final tempDir = await getTemporaryDirectory();
+    for (int i = 0; i < images.length; i++) {
+      if (onStatusUpdate != null) onStatusUpdate('Сжатие фото ${i + 1}/${images.length}...');
+      final file = images[i];
+      final targetPath = p.join(tempDir.path, 'comp_${DateTime.now().millisecondsSinceEpoch}_$i.jpg');
+      
+      // Качество 85 - идеальный баланс между размером и четкостью
+      final compressed = await FlutterImageCompress.compressAndGetFile(
+        file.absolute.path, targetPath, quality: 85, minWidth: 1280, minHeight: 1280
+      );
+      
+      final url = await FileService.uploadFile(File(compressed?.path ?? file.path), 'ads/images');
+      if (url != null) imageUrls.add(url);
+    }
+
+    // 3. Загрузка видео со сжатием
+    String? videoUrl;
+    if (video != null) {
+      if (onStatusUpdate != null) onStatusUpdate('Оптимизация видео...');
+      final mediaInfo = await VideoCompress.compressVideo(
+        video.path, quality: VideoQuality.MediumQuality, deleteOrigin: false
+      );
+      final fileToUpload = (mediaInfo != null && mediaInfo.path != null) ? File(mediaInfo.path!) : video;
+      videoUrl = await FileService.uploadFile(fileToUpload, 'ads/videos');
+    }
+
+    // 4. Подготовка данных
+    final userData = await UserService.getUserById(user.uid);
+    final isAdmin = userData?.accountType == 'admin';
+    final isApproved = moderationVerdict == 'APPROVED' || isAdmin;
+
+    final adModel = AdModel(
+      id: initialAdId ?? '',
+      title: title,
+      description: description,
+      price: price,
+      category: category,
+      images: imageUrls,
+      videoUrl: videoUrl,
+      userId: user.uid,
+      userName: user.displayName ?? 'Пользователь',
+      userEmail: user.email ?? '',
+      userPhone: user.phoneNumber ?? '',
+      timestamp: DateTime.now(),
+      location: location,
+      condition: condition,
+      isBargainAllowed: bargain,
+      canExchange: exchange,
+      hasDelivery: delivery,
+      active: isApproved,
+      status: isApproved ? 'active' : 'pending',
+      extraFields: extraFields,
+      expiresAt: DateTime.now().add(const Duration(days: 30)),
+    );
+
+    // 5. Сохранение
+    if (onStatusUpdate != null) onStatusUpdate('Сохранение...');
+    if (initialAdId != null) {
+      await updateAd(initialAdId, adModel.toMap());
+      return initialAdId;
+    } else {
+      final id = await createAd(adModel);
+      return id ?? '';
+    }
+  }
+
+  /// Get a single ad by ID
+  static Future<AdModel?> getAdById(String id) async {
+    try {
+      final doc = await _adsCollection.doc(id).get();
+      if (doc.exists) {
+        return AdModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Error getting ad by ID: $e');
+      return null;
+    }
+  }
+
 
   /// Create a new advertisement in Firestore
   static Future<String?> createAd(AdModel ad) async {
@@ -97,12 +224,57 @@ class AdService {
   /// Update an existing ad
   static Future<void> updateAd(String adId, Map<String, dynamic> updates) async {
     try {
+      // 1. Получаем текущее состояние объявления перед обновлением
+      final doc = await _adsCollection.doc(adId).get();
+      if (!doc.exists) return;
+      final oldAd = AdModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
+
+      // 2. Выполняем обновление
       await _adsCollection.doc(adId).update(updates);
+
+      // 3. Логика уведомления о снижении цены
+      if (updates.containsKey('price')) {
+        final double? oldPrice = double.tryParse(oldAd.price.replaceAll(RegExp(r'[^0-9.]'), ''));
+        final double? newPrice = double.tryParse(updates['price'].toString().replaceAll(RegExp(r'[^0-9.]'), ''));
+
+        if (oldPrice != null && newPrice != null && newPrice < oldPrice) {
+          updates['oldPrice'] = oldAd.price; // Сохраняем старую цену для красоты в UI
+          _notifyPriceDrop(adId, oldAd.title, updates['price'].toString());
+        }
+
+      }
     } catch (e) {
       debugPrint('Error updating ad: $e');
       rethrow;
     }
   }
+
+  /// Внутренний метод для поиска "фанатов" товара и отправки уведомлений
+  static Future<void> _notifyPriceDrop(String adId, String title, String newPrice) async {
+    try {
+      // Ищем всех пользователей, у которых этот adId в списке избранного
+      final usersSnapshot = await _db.collection('users')
+          .where('favoriteIds', arrayContains: adId)
+          .get();
+
+      for (var userDoc in usersSnapshot.docs) {
+        final userId = userDoc.id;
+        // Отправляем уведомление через наш NotificationService
+        await _db.collection('notifications').add({
+          'userId': userId,
+          'title': 'Цена снижена! 🔥',
+          'body': 'Товар "$title" теперь стоит $newPrice. Самое время забрать его!',
+          'timestamp': FieldValue.serverTimestamp(),
+          'isRead': false,
+          'type': 'price_drop',
+          'data': {'adId': adId}
+        });
+      }
+    } catch (e) {
+      debugPrint('Error notifying price drop: $e');
+    }
+  }
+
 
   /// Delete an ad and its associated files
   static Future<void> deleteAd(String adId) async {
@@ -139,8 +311,6 @@ class AdService {
       await _adsCollection.doc(adId).update({
         'active': true,
         'status': 'active',
-        'expiresAt': FieldValue.serverTimestamp(), // Firestore will update this, then we use a Cloud Function, OR we can set exact date:
-        // Actually, FieldValue.serverTimestamp doesn't add 30 days. We pass Date directly.
         'expiresAt': Timestamp.fromDate(DateTime.now().add(const Duration(days: 30))),
         'notifiedExpiry': false, // Reset notification flag
       });
@@ -153,12 +323,49 @@ class AdService {
   /// Approve an ad (for admin)
   static Future<void> approveAd(String adId) async {
     try {
+      final doc = await _adsCollection.doc(adId).get();
+      if (!doc.exists) return;
+      final ad = AdModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
+
       await _adsCollection.doc(adId).update({
         'status': 'active',
         'active': true,
       });
+
+      // Отправляем уведомление владельцу
+      await NotificationService.saveNotificationToFirestore(
+        uid: ad.userId,
+        title: 'Объявление одобрено! ✅',
+        body: 'Ваше объявление "${ad.title}" прошло модерацию и теперь доступно всем пользователям.',
+        type: 'ad_approved',
+        data: {'adId': adId},
+      );
     } catch (e) {
       debugPrint('Error approving ad: $e');
+      rethrow;
+    }
+  }
+
+  /// Reject and delete an ad (for admin)
+  static Future<void> rejectAd(String adId, {String reason = 'Нарушение правил размещения'}) async {
+    try {
+      final doc = await _adsCollection.doc(adId).get();
+      if (!doc.exists) return;
+      final ad = AdModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
+
+      // Отправляем уведомление об отклонении
+      await NotificationService.saveNotificationToFirestore(
+        uid: ad.userId,
+        title: 'Объявление отклонено ❌',
+        body: 'Ваше объявление "${ad.title}" было отклонено модератором. Причина: $reason',
+        type: 'ad_rejected',
+        data: {'adId': adId, 'reason': reason},
+      );
+
+      // Удаляем само объявление
+      await deleteAd(adId);
+    } catch (e) {
+      debugPrint('Error rejecting ad: $e');
       rethrow;
     }
   }

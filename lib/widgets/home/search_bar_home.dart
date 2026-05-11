@@ -4,11 +4,15 @@ import 'package:google_fonts/google_fonts.dart';
 class SearchBarHome extends StatelessWidget {
   final TextEditingController controller;
   final Function(String) onChanged;
+  final VoidCallback onMicTap;
+  final VoidCallback onFilterTap;
 
   const SearchBarHome({
     super.key, 
     required this.controller,
     required this.onChanged,
+    required this.onMicTap,
+    required this.onFilterTap,
   });
 
   @override
@@ -19,13 +23,15 @@ class SearchBarHome extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03), 
+            color: Colors.black.withValues(alpha: 0.02), 
             blurRadius: 10, 
             offset: const Offset(0, 4)
           ),
         ],
+
       ),
       child: Row(
         children: [
@@ -44,22 +50,27 @@ class SearchBarHome extends StatelessWidget {
               onChanged: onChanged,
             ),
           ),
-          Icon(
-            Icons.mic_none_rounded, 
-            color: const Color(0xFF4A80F0).withValues(alpha: 0.7), 
-            size: 22
+          IconButton(
+            onPressed: onMicTap,
+            icon: Icon(
+              Icons.mic_none_rounded, 
+              color: const Color(0xFF4A80F0).withValues(alpha: 0.7), 
+              size: 20
+            ),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
           ),
-          const SizedBox(width: 12),
-          const VerticalDivider(
-            width: 1, 
-            indent: 12, 
-            endIndent: 12, 
-            color: Color(0xFFF1F5F9)
+          const SizedBox(width: 4), // Меньше отступ
+          IconButton(
+            onPressed: onFilterTap,
+            icon: const Icon(Icons.tune_rounded, color: Color(0xFF4A80F0), size: 18),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
           ),
-          const SizedBox(width: 12),
-          const Icon(Icons.tune_rounded, color: Color(0xFF4A80F0), size: 20),
+          const SizedBox(width: 4), // Отступ от края
         ],
       ),
     );
+
   }
 }

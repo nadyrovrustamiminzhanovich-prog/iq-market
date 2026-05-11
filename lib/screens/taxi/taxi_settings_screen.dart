@@ -28,16 +28,82 @@ class TaxiSettingsScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          _sectionHeader(t, 'Аккаунт'),
+          _telegramTile(taxiProvider, t),
+          const SizedBox(height: 24),
+          _sectionHeader(t, 'Приложение'),
           _tile(t, Icons.notifications_none, taxiProvider.translate('notif'), _notif(taxiProvider)),
           _tile(t, Icons.dark_mode_outlined, taxiProvider.translate('theme'), _themeS(taxiProvider)),
-          const Divider(),
+          const Divider(height: 32),
+          _sectionHeader(t, 'Язык / Тіл'),
           _l(t, 'Русский', 'ru', taxiProvider),
           _l(t, 'Қазақша', 'kz', taxiProvider),
           _l(t, 'Уйғурчә', 'uyg', taxiProvider),
+          if (taxiProvider.isLoggedIn) ...[
+            const SizedBox(height: 32),
+            _logoutBtn(taxiProvider, t),
+          ]
         ],
       ),
     );
   }
+
+  Widget _sectionHeader(dynamic t, String title) => Padding(
+    padding: const EdgeInsets.only(left: 16, bottom: 8, top: 8),
+    child: Text(title.toUpperCase(), style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w800, color: t.sub, letterSpacing: 1)),
+  );
+
+  Widget _telegramTile(TaxiProvider p, dynamic t) {
+    final isLinked = p.isTelegramVerified;
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: t.card,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: isLinked ? Colors.blue.withValues(alpha: 0.2) : t.border),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(color: const Color(0xFF24A1DE).withValues(alpha: 0.1), shape: BoxShape.circle),
+            child: const Icon(Icons.telegram, color: Color(0xFF24A1DE)),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Telegram', style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: t.text)),
+                Text(isLinked ? 'Аккаунт привязан' : 'Не привязано', style: GoogleFonts.inter(fontSize: 12, color: t.sub)),
+              ],
+            ),
+          ),
+          if (!isLinked)
+            TextButton(
+              onPressed: () {}, // Triggered via auth dialog in main screen
+              child: const Text('ПРИВЯЗАТЬ'),
+            )
+          else
+            const Icon(Icons.check_circle_rounded, color: Colors.green, size: 20),
+        ],
+      ),
+    );
+  }
+
+  Widget _logoutBtn(TaxiProvider p, dynamic t) => SizedBox(
+    width: double.infinity,
+    child: TextButton.icon(
+      onPressed: () => p.setLoginStatus(false),
+      icon: const Icon(Icons.logout_rounded, color: Colors.redAccent, size: 18),
+      label: Text('ВЫЙТИ ИЗ АККАУНТА', style: GoogleFonts.inter(color: Colors.redAccent, fontWeight: FontWeight.w800, fontSize: 12)),
+      style: TextButton.styleFrom(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: Colors.redAccent, width: 0.5)),
+      ),
+    ),
+  );
 
   Widget _tile(dynamic t, IconData i, String title, Widget a) => ListTile(
     leading: Icon(i, color: t.lime),
@@ -47,13 +113,15 @@ class TaxiSettingsScreen extends StatelessWidget {
 
   Widget _notif(TaxiProvider provider) => Switch(
     value: provider.notifEnabled,
-    activeColor: provider.theme.lime,
+    activeThumbColor: provider.theme.lime,
+    activeTrackColor: provider.theme.lime.withValues(alpha: 0.5),
     onChanged: (v) => provider.setNotifEnabled(v),
   );
 
   Widget _themeS(TaxiProvider provider) => Switch(
     value: provider.isDarkGlobal,
-    activeColor: provider.theme.accent,
+    activeThumbColor: provider.theme.accent,
+    activeTrackColor: provider.theme.accent.withValues(alpha: 0.5),
     onChanged: (v) => provider.toggleTheme(),
   );
 

@@ -5,6 +5,7 @@ import 'package:iqmarket/theme/taxi_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:iqmarket/providers/taxi_provider.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 
 class TaxiProfileScreen extends StatefulWidget {
   final TaxiTheme t;
@@ -18,6 +19,11 @@ class _TaxiProfileScreenState extends State<TaxiProfileScreen> {
   late TextEditingController _fnC;
   late TextEditingController _lnC;
   late TextEditingController _phC;
+  final _phoneMask = MaskTextInputFormatter(
+    mask: '+7 (###) ###-##-##',
+    filter: {"#": RegExp(r'[0-9]')},
+    type: MaskAutoCompletionType.lazy,
+  );
 
   @override
   void initState() {
@@ -141,6 +147,8 @@ class _TaxiProfileScreenState extends State<TaxiProfileScreen> {
         ),
         child: TextField(
           controller: c,
+          inputFormatters: c == _phC ? [_phoneMask] : null,
+          keyboardType: c == _phC ? TextInputType.phone : TextInputType.text,
           style: GoogleFonts.inter(color: widget.t.text, fontWeight: FontWeight.w600),
           decoration: const InputDecoration(border: InputBorder.none),
         ),

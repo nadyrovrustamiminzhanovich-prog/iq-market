@@ -19,12 +19,14 @@ class AdModel {
   final String location;
   final String? userPhone;
   final bool isBargainAllowed;
-  final String condition;
+  final String? condition;
   final bool canExchange;
   final bool hasDelivery;
   final Map<String, dynamic>? extraFields;
   final DateTime? expiresAt;
   final bool notifiedExpiry;
+  final String? oldPrice;
+
 
   AdModel({
     required this.id,
@@ -45,13 +47,15 @@ class AdModel {
     this.active = true,
     this.location = '',
     this.isBargainAllowed = false,
-    this.condition = 'Б/у',
+    this.condition,
     this.canExchange = false,
     this.hasDelivery = false,
     this.extraFields,
     this.expiresAt,
     this.notifiedExpiry = false,
+    this.oldPrice,
   });
+
 
   // Превращаем Map из Firebase в объект AdModel (Безопасно!)
   factory AdModel.fromMap(Map<String, dynamic> map, String docId) {
@@ -74,13 +78,15 @@ class AdModel {
       active: map['active'] ?? true,
       location: map['location'] ?? '',
       isBargainAllowed: map['isBargainAllowed'] ?? false,
-      condition: map['condition'] ?? 'Б/у',
+      condition: map['condition'],
       canExchange: map['canExchange'] ?? false,
       hasDelivery: map['hasDelivery'] ?? false,
       extraFields: map['extraFields'] as Map<String, dynamic>?,
       expiresAt: (map['expiresAt'] as Timestamp?)?.toDate(),
       notifiedExpiry: map['notifiedExpiry'] ?? false,
+      oldPrice: map['oldPrice'],
     );
+
   }
 
   // Превращаем объект обратно в Map для сохранения в Firebase
@@ -109,6 +115,8 @@ class AdModel {
       'extraFields': extraFields,
       'expiresAt': expiresAt != null ? Timestamp.fromDate(expiresAt!) : FieldValue.serverTimestamp(), // Will be properly set in post_ad_screen
       'notifiedExpiry': notifiedExpiry,
+      'oldPrice': oldPrice,
     };
+
   }
 }

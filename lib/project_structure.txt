@@ -1,0 +1,40 @@
+IQ-Market Project Structure (Refactored - Phase 2)
+
+lib/
+|-- main.dart (App Entry & Init)
+|-- data/
+|   |-- kazakhstan_locations.dart
+|   |-- legal_texts.dart
+|   |-- ai_prompts.dart
+|   |-- category_data.dart
+|-- models/
+|   |-- ad_model.dart
+|   |-- user_model.dart
+|   |-- message_model.dart
+|-- providers/
+|   |-- taxi_provider.dart
+|   |-- app_config_provider.dart
+|-- screens/
+|   |-- home/
+|   |   |-- home_screen.dart
+|   |-- ai_assistant_screen.dart (Refactored)
+|   |-- post_ad_screen.dart (Refactored: Decomposed)
+|   |-- chat_screen.dart (Refactored: Decomposed)
+|   |-- ...
+|-- services/
+|   |-- ad_service.dart
+|   |-- gemini_service.dart
+|   |-- ...
+|-- theme/
+|   |-- app_theme.dart
+|   |-- taxi_theme.dart
+|-- widgets/
+|   |-- post_ad/ (New: Decomposed components)
+|   |   |-- post_ad_components.dart
+|   |   |-- category_specs_widgets.dart
+|   |-- chat/ (New: Decomposed components)
+|   |   |-- chat_bubbles.dart
+|   |   |-- chat_input.dart
+|   |   |-- chat_headers.dart
+|   |   |-- chat_background_painter.dart
+|   |-- ...

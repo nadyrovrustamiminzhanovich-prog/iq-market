@@ -18,6 +18,14 @@ class StorageService {
   static Future<void> setInt(String key, int value) async => await _prefs.setInt(key, value);
   static int? getInt(String key) => _prefs.getInt(key);
 
+  static Future<bool> setStringList(String key, List<String> value) {
+    return _prefs.setStringList(key, value);
+  }
+
+  static List<String>? getStringList(String key) {
+    return _prefs.getStringList(key);
+  }
+
   // Специальные методы для профиля
   static Future<void> saveProfile(String name, String? imagePath, bool isBioEnabled, String accType, {bool isVerified = false}) async {
     await _prefs.setString('user_name', name);

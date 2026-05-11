@@ -1,30 +1,36 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import 'package:iqmarket/models/ad_model.dart';
+import 'package:iqmarket/providers/app_config_provider.dart';
+import 'package:iqmarket/services/ad_service.dart';
+import 'package:iqmarket/widgets/product_card.dart';
 
-class FavoritesScreen extends StatelessWidget {
-  final List<Map<String, dynamic>> favoriteAds;
-  final Function(Map<String, dynamic>) onUnfavorite;
-  final Function(Map<String, dynamic>) onShowDetails;
+class FavoritesScreen extends StatefulWidget {
   final String lang;
   final Map<String, Map<String, dynamic>> themes;
   final String currentTheme;
+  final Function(AdModel) onShowDetails;
 
   const FavoritesScreen({
     super.key, 
-    required this.favoriteAds, 
-    required this.onUnfavorite,
-    required this.onShowDetails,
     required this.lang,
     required this.themes,
     required this.currentTheme,
+    required this.onShowDetails,
   });
 
-  bool get _isDark => currentTheme == 'Dark';
-  Color get _bgColor => themes[currentTheme]?['background'] ?? const Color(0xFFF1F5F9);
-  Color get _surfaceColor => themes[currentTheme]?['surface'] ?? Colors.white;
-  Color get _txtColor => themes[currentTheme]?['text'] ?? const Color(0xFF1A1D1E);
-  Color get _subtxtColor => themes[currentTheme]?['subtext'] ?? const Color(0xFF64748B);
-  Color get _primaryColor => themes[currentTheme]?['primary'] ?? const Color(0xFF4A80F0);
+  @override
+  State<FavoritesScreen> createState() => _FavoritesScreenState();
+}
+
+class _FavoritesScreenState extends State<FavoritesScreen> {
+  bool get _isDark => widget.currentTheme == 'Dark';
+  Color get _bgColor => widget.themes[widget.currentTheme]?['background'] ?? const Color(0xFFF1F5F9);
+  Color get _surfaceColor => widget.themes[widget.currentTheme]?['surface'] ?? Colors.white;
+  Color get _txtColor => widget.themes[widget.currentTheme]?['text'] ?? const Color(0xFF1A1D1E);
+  Color get _subtxtColor => widget.themes[widget.currentTheme]?['subtext'] ?? const Color(0xFF64748B);
+  Color get _primaryColor => widget.themes[widget.currentTheme]?['primary'] ?? const Color(0xFF4A80F0);
 
   String _t(String key) {
     final translations = {
@@ -36,88 +42,62 @@ class FavoritesScreen extends StatelessWidget {
         'Уйғурчә': 'Дөләтләрни йоқитип қоймаслиқ үчүн талланғанларға қошуш' 
       },
     };
-    return translations[key]?[lang] ?? translations[key]?['Русский'] ?? key;
+    return translations[key]?[widget.lang] ?? translations[key]?['Русский'] ?? key;
   }
 
   @override
   Widget build(BuildContext context) {
+    final favoriteIds = context.watch<AppConfigProvider>().favoriteIds.toList();
+
     return Scaffold(
       backgroundColor: _bgColor,
       appBar: AppBar(
         backgroundColor: _surfaceColor,
         elevation: 0,
+        centerTitle: true,
         leading: IconButton(
           icon: Icon(Icons.arrow_back_ios_new, color: _txtColor, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(_t('title'), style: GoogleFonts.inter(color: _txtColor, fontWeight: FontWeight.w900, fontSize: 18)),
       ),
-      body: favoriteAds.isEmpty 
+      body: favoriteIds.isEmpty 
         ? _buildEmptyState()
-        : GridView.builder(
-            padding: const EdgeInsets.all(16),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              crossAxisSpacing: 16,
-              mainAxisSpacing: 16,
-              childAspectRatio: 0.75,
-            ),
-            itemCount: favoriteAds.length,
-            itemBuilder: (context, index) => _buildAdCard(context, favoriteAds[index]),
-          ),
-    );
-  }
+        : FutureBuilder<List<AdModel>>(
+            future: AdService.getAdsByIds(favoriteIds),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              
+              final ads = snapshot.data ?? [];
+              if (ads.isEmpty) return _buildEmptyState();
 
-  Widget _buildAdCard(BuildContext context, Map<String, dynamic> ad) {
-    return GestureDetector(
-      onTap: () => onShowDetails(ad),
-      child: Container(
-        decoration: BoxDecoration(
-          color: _surfaceColor,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: _isDark ? _txtColor.withValues(alpha: 0.1) : Colors.transparent),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 5))],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Stack(
-                children: [
-                  ClipRRect(
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                    child: Image.network(ad['images'][0], fit: BoxFit.cover, width: double.infinity),
-                  ),
-                  Positioned(
-                    top: 8, right: 8,
-                    child: GestureDetector(
-                      onTap: () => onUnfavorite(ad),
-                      child: Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                        child: const Icon(Icons.favorite_rounded, color: Colors.red, size: 18),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(ad['price'], style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 16, color: _primaryColor)),
-                  const SizedBox(height: 4),
-                  Text(ad['title'], maxLines: 2, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 13, color: _txtColor)),
-                  const SizedBox(height: 4),
-                  Text(ad['location'], style: GoogleFonts.inter(color: _subtxtColor, fontSize: 11, fontWeight: FontWeight.w500)),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
+              return GridView.builder(
+                padding: const EdgeInsets.all(16),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  childAspectRatio: 0.58,
+                ),
+                itemCount: ads.length,
+                itemBuilder: (context, index) {
+                  final ad = ads[index];
+                  return ProductCard(
+                    heroPrefix: 'fav_',
+                    ad: ad,
+                    onTap: () => widget.onShowDetails(ad),
+                    onToggleFavorite: () {
+                      context.read<AppConfigProvider>().toggleFavorite(ad.id);
+                      setState(() {}); // Refresh future
+                    },
+                    isFavorite: true,
+                  );
+                },
+              );
+            },
+          ),
     );
   }
 

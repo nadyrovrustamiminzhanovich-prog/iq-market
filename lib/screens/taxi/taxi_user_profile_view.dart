@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:screen_protector/screen_protector.dart';
 import 'package:iqmarket/theme/taxi_theme.dart';
 import 'package:iqmarket/screens/chat_screen.dart';
+import 'package:iqmarket/models/ad_model.dart';
 
 class TaxiProfileViewScreen extends StatefulWidget {
   final Map<String, dynamic> user;
@@ -247,7 +248,7 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
     ),
     child: Row(
       children: [
-        const Icon(Icons.star_rounded, color: const Color(0xFFF59E0B), size: 20),
+        const Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 20),
         const SizedBox(width: 4),
         Text(
           rate,
@@ -368,7 +369,19 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
             LineIcons.comment, 
             t.card, 
             t.accent,
-            () => Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(ad: {'seller': u['name'], 'title': 'Taxi Trip', 'phone': u['phone'] ?? ''})))
+            () => Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(ad: AdModel(
+                id: 'taxi_user_${u['name']}_${DateTime.now().millisecondsSinceEpoch}',
+                title: 'Taxi Trip',
+                description: 'User profile chat',
+                price: 'Taxi',
+                category: 'Taxi',
+                images: u['img'] != null && u['img'].toString().isNotEmpty ? [u['img']] : [],
+                userId: 'taxi_user',
+                userName: u['name'] ?? 'User',
+                userEmail: '',
+                timestamp: DateTime.now(),
+                location: '',
+              ))))
           ),
         ),
         const SizedBox(width: 16),
@@ -443,7 +456,7 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
               Center(
                 child: InteractiveViewer(
                   child: Hero(
-                    tag: 'pfp_full',
+                    tag: 'taxi_p_${widget.user['name']}',
                     child: Image.network(
                       imageUrl,
                       fit: BoxFit.contain,

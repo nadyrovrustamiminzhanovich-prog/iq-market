@@ -12,6 +12,7 @@ import 'package:iqmarket/screens/profile_settings_screen.dart';
 import 'package:iqmarket/screens/help_center_screen.dart';
 import 'package:iqmarket/screens/notifications_screen.dart';
 import 'package:iqmarket/screens/favorites_screen.dart';
+import 'package:iqmarket/models/ad_model.dart';
 import 'package:iqmarket/screens/login_screen.dart';
 import 'package:iqmarket/screens/legal_info_screen.dart';
 import 'package:screen_protector/screen_protector.dart';
@@ -21,13 +22,14 @@ import 'package:iqmarket/screens/admin/admin_panel_screen.dart';
 import 'package:iqmarket/widgets/profile/profile_components.dart';
 import 'package:iqmarket/translations/profile_strings.dart';
 import 'package:iqmarket/services/auth_service.dart';
+import 'package:iqmarket/models/user_model.dart';
 
 class ProfileScreen extends StatefulWidget {
-  final List<Map<String, dynamic>> allAds;
-  final List<Map<String, dynamic>> favoriteAds;
+  final List<AdModel> allAds;
+  final List<AdModel> favoriteAds;
   final Function(int) onDeleteAd;
   final Function(int) onApproveAd;
-  final Function(int, Map<String, dynamic>) onUpdateAd;
+  final Function(int, AdModel) onUpdateAd;
   final Function(String, File?, bool, String, String) onUpdateProfile;
   final String currentName;
   final File? currentImage;
@@ -35,7 +37,7 @@ class ProfileScreen extends StatefulWidget {
   final String accType;
   final String lang;
   final Function(String) onToggleFavorite;
-  final Function(Map<String, dynamic>) onShowProductDetails;
+  final Function(AdModel) onShowProductDetails;
   final bool isGuest;
   final VoidCallback? onLogout;
   final String currentTheme;
@@ -157,19 +159,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _bgColor,
-      body: StreamBuilder<DocumentSnapshot>(
+      body: StreamBuilder<UserModel?>(
         stream: UserService.getUserStream(),
         builder: (context, snapshot) {
-          Map<String, dynamic> userData = {};
-          if (snapshot.hasData && snapshot.data!.exists) {
-            userData = snapshot.data!.data() as Map<String, dynamic>;
-            _localName = userData['name'] ?? _localName;
-            _isVerified = userData['isVerified'] ?? _isVerified;
-            _localAccType = userData['accountType'] ?? _localAccType;
+          final user = snapshot.data;
+          if (user != null) {
+            _localName = user.name;
+            _isVerified = user.isVerified;
+            _localAccType = user.accountType;
           }
 
-          final String displayName = _isGuest ? 'Гость' : (userData['name'] ?? _localName);
-          final String photoUrl = userData['photoUrl'] ?? '';
+          final String displayName = _isGuest ? 'Гость' : (user?.name ?? _localName);
+          final String photoUrl = user?.photoUrl ?? '';
 
           return CustomScrollView(
             physics: const BouncingScrollPhysics(),
@@ -179,18 +180,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 pinned: true,
                 elevation: 0,
                 backgroundColor: const Color(0xFF4A80F0),
-                leading: Padding(
+                leading: Navigator.canPop(context) ? Padding(
                   padding: const EdgeInsets.only(left: 16),
                   child: Center(
                     child: Container(
                       decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)),
                       child: IconButton(
                         icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 18),
-                        onPressed: () => Navigator.pop(context),
+                        onPressed: () => Navigator.maybePop(context),
                       ),
                     ),
                   ),
-                ),
+                ) : null,
                 actions: [
                   Padding(
                     padding: const EdgeInsets.only(right: 16),
@@ -237,9 +238,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 child: CircleAvatar(
                                   radius: 54,
                                   backgroundColor: const Color(0xFFF1F5F9),
-                                  backgroundImage: photoUrl.isNotEmpty 
+                                  backgroundImage: (photoUrl.isNotEmpty && photoUrl.startsWith('http')) 
                                     ? NetworkImage(photoUrl) as ImageProvider
                                     : (_localImage != null ? FileImage(_localImage!) : null),
+
                                   child: (photoUrl.isEmpty && _localImage == null) 
                                     ? (displayName.trim().isNotEmpty 
                                         ? Text(displayName.trim().split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join('').toUpperCase(), 
@@ -277,15 +279,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     ],
                     const SizedBox(height: 25),
-                    _buildStatsBar(userData),
+                    _buildStatsBar(user),
                     const SizedBox(height: 25),
+                    if (_isGuest) ...[
+                      _buildAuthButton(context),
+                      const SizedBox(height: 25),
+                    ],
                     _buildVerificationSection(),
                     const SizedBox(height: 25),
                     _buildSimplifiedMenu(),
                     const Spacer(),
-                    const SizedBox(height: 40),
-                    _buildLogoutButton(context),
-                    const SizedBox(height: 40),
+                    const SizedBox(height: 20),
+                    if (!_isGuest) _buildAuthButton(context),
+                    const SizedBox(height: 20),
                   ],
                 ),
               ),
@@ -298,9 +304,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
 
 
-  Widget _buildStatsBar(Map<String, dynamic> data) {
-    final String rating = (data['rating'] ?? 5.0).toString();
-    final String reviews = (data['reviewsCount'] ?? 0).toString();
+  Widget _buildStatsBar(UserModel? user) {
+    final String rating = (user?.rating ?? 5.0).toString();
+    final String reviews = (user?.reviewsCount ?? 0).toString();
     
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -435,7 +441,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 // Bot Link
                 ElevatedButton.icon(
                   onPressed: () async {
-                    final url = Uri.parse('https://t.me/iq_market_bot');
+                    final url = Uri.parse('https://t.me/IQ_Taxi_bot');
                     if (await canLaunchUrl(url)) await launchUrl(url, mode: LaunchMode.externalApplication);
                   },
                   icon: const Icon(Icons.telegram_rounded),
@@ -590,12 +596,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         }),
         _buildListItem(Icons.favorite_border_rounded, _t('favorites'), () {
           Navigator.push(context, MaterialPageRoute(builder: (context) => FavoritesScreen(
-            favoriteAds: widget.favoriteAds,
-            onUnfavorite: (ad) => widget.onToggleFavorite(ad['id']),
-            onShowDetails: widget.onShowProductDetails,
             lang: _localLang,
             themes: widget.themes,
             currentTheme: _currentTheme,
+            onShowDetails: widget.onShowProductDetails,
           )));
         }),
         _buildListItem(Icons.history_rounded, _t('history'), () => _openMyAds()),
@@ -690,13 +694,40 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
 
-  Widget _buildLogoutButton(BuildContext context) {
-    if (_isGuest) return const SizedBox.shrink();
+  Widget _buildAuthButton(BuildContext context) {
+    if (_isGuest) {
+      return Center(
+        child: ElevatedButton(
+          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const LoginScreen())).then((_) {
+            setState(() => _isGuest = !UserService.isLoggedIn);
+          }),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF4A80F0),
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+            elevation: 4,
+          ),
+          child: FittedBox(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.login_rounded, size: 20),
+                const SizedBox(width: 10),
+                Text('ВОЙТИ ИЛИ СОЗДАТЬ АККАУНТ', style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 13)),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+    
     return Center(
       child: TextButton(
-        onPressed: () {
+        onPressed: () async {
+          await AuthService.signOut();
           if (widget.onLogout != null) widget.onLogout!();
-          setState(() => _isGuest = true); // Переключаемся в гостевой режим на месте
+          setState(() => _isGuest = true); 
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(_t('logout_confirm')),

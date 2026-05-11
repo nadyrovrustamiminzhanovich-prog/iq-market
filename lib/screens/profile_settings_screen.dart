@@ -10,6 +10,8 @@ import 'package:iqmarket/services/location_service.dart';
 import 'package:iqmarket/screens/legal_info_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
+import 'package:provider/provider.dart';
+import 'package:iqmarket/providers/app_config_provider.dart';
 import 'package:iqmarket/services/translation_service.dart';
 
 class ProfileSettingsScreen extends StatefulWidget {
@@ -43,7 +45,7 @@ class ProfileSettingsScreen extends StatefulWidget {
 class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   late TextEditingController _nameController;
   final _emailController = TextEditingController(text: "alex@example.com");
-  final _cityController = TextEditingController(text: "Чунджа (Шонжы)");
+  late TextEditingController _cityController;
   final _phoneController = TextEditingController(text: "7089007030");
   
   final _phoneMask = MaskTextInputFormatter(
@@ -70,7 +72,9 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   @override
   void initState() {
     super.initState();
+    final config = Provider.of<AppConfigProvider>(context, listen: false);
     _nameController = TextEditingController(text: widget.currentName);
+    _cityController = TextEditingController(text: config.city);
     _isNotificationsEnabled = true;
     _isFaceIdEnabled = widget.isBioEnabled;
     _selectedLanguage = widget.lang;
@@ -111,6 +115,14 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
               onPressed: () async {
                 final String? imagePathToSave = _newImage?.path ?? widget.profileImagePath;
                 await StorageService.saveProfile(_nameController.text, imagePathToSave, _isFaceIdEnabled, _accountType);
+                
+                // Sync with global config
+                if (mounted) {
+                  final config = Provider.of<AppConfigProvider>(context, listen: false);
+                  config.setLanguage(_selectedLanguage);
+                  config.setCity(_cityController.text);
+                }
+
                 widget.onSave(_nameController.text, _newImage, _isFaceIdEnabled, _accountType, _selectedLanguage);
                 Navigator.pop(context);
               },
@@ -449,7 +461,8 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
         ),
         Switch.adaptive(
           value: value, 
-          activeColor: _primaryColor, 
+          activeThumbColor: _primaryColor,
+          activeTrackColor: _primaryColor.withValues(alpha: 0.5),
           onChanged: onChanged,
         ),
       ],
@@ -867,7 +880,8 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                             setModalState(() => selectedParent = item);
                           } else {
                             setState(() => _cityController.text = item); 
-                            StorageService.setString('user_location', item);
+                            final config = Provider.of<AppConfigProvider>(context, listen: false);
+                            config.setCity(item);
                             Navigator.pop(context); 
                           }
                         },

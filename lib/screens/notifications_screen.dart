@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:iqmarket/screens/chat_screen.dart';
 import 'package:iqmarket/screens/product_details_screen.dart';
+import 'package:iqmarket/models/ad_model.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:iqmarket/models/notification_model.dart';
+import 'package:iqmarket/services/notification_service.dart';
+import 'package:iqmarket/services/chat_service.dart';
+import 'package:iqmarket/services/user_service.dart';
+import 'package:intl/intl.dart';
 
 class NotificationsScreen extends StatefulWidget {
   final String lang;
@@ -13,28 +19,6 @@ class NotificationsScreen extends StatefulWidget {
 
 class _NotificationsScreenState extends State<NotificationsScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final Set<String> _selectedChats = {};
-  
-  List<Map<String, dynamic>> _chats = [
-    {
-      'seller': 'Ерлан',
-      'ad_title': 'iPhone 13 Pro Max',
-      'last_msg': 'Добрый день! Да, еще продаю. Обращайтесь...',
-      'time': '14:30',
-      'unread': 1,
-      'image': 'https://images.unsplash.com/photo-1632661674596-df8be070a5c5?auto=format&fit=crop&w=150&q=80',
-      'price': '350 000',
-    },
-    {
-      'seller': 'Айдос',
-      'ad_title': 'Мебель для гостиной',
-      'last_msg': 'Вы: Торг уместен?',
-      'time': 'Вчера',
-      'unread': 0,
-      'image': 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=150&q=80',
-      'price': '120 000',
-    },
-  ];
 
   @override
   void initState() {
@@ -75,15 +59,22 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
+        centerTitle: true,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF1A1D1E), size: 20),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(_t('center'), style: const TextStyle(color: Color(0xFF1A1D1E), fontWeight: FontWeight.w900, fontSize: 18)),
+        actions: [
+          TextButton(
+            onPressed: () => NotificationService.markAllAsRead(),
+            child: Text(_t('mark_all'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF4A80F0))),
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: const Color(0xFF4A80F0),
@@ -108,213 +99,54 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
   }
 
   Widget _buildNotificationsTab() {
-    return ListView(
-      physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-      children: [
-        _buildDayHeader(_t('today')),
-        _buildNotificationItem(
-          title: 'Срок объявления истекает',
-          body: 'Осталось 3 дня до переноса "Toyota Camry 70" в архив. Продлите его сейчас!',
-          time: 'Только что',
-          icon: Icons.history_rounded,
-          color: const Color(0xFFF43F5E),
-          isUnread: true,
-        ),
-        _buildNotificationItem(
-          title: 'Модерация пройдена',
-          body: 'Ваше объявление "iPhone 13 Pro" успешно опубликовано и активно.',
-          time: '12 минут назад',
-          icon: Icons.check_circle_rounded,
-          color: const Color(0xFF10B981),
-          isUnread: true,
-        ),
-        const SizedBox(height: 25),
-        _buildDayHeader(_t('yesterday')),
-        _buildNotificationItem(
-          title: 'Новое сообщение',
-          body: 'Руслан интересуется состоянием товара в вашем объявлении.',
-          time: 'Вчера, 21:40',
-          icon: Icons.chat_bubble_rounded,
-          color: const Color(0xFF4A80F0),
-          isUnread: false,
-        ),
-      ],
-    );
-  }
+    return StreamBuilder<List<NotificationModel>>(
+      stream: NotificationService.getNotificationsStream(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+        final notifications = snapshot.data ?? [];
+        if (notifications.isEmpty) return _buildEmptyState(Icons.notifications_none_rounded, 'Уведомлений пока нет');
 
-  Widget _buildChatsTab() {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: _selectedChats.isNotEmpty ? AppBar(
-        backgroundColor: const Color(0xFF1E293B),
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.close_rounded, color: Colors.white),
-          onPressed: () => setState(() => _selectedChats.clear()),
-        ),
-        title: Text('${_selectedChats.length} выделено', style: const TextStyle(color: Colors.white, fontSize: 18)),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.delete_outline_rounded, color: Colors.white),
-            onPressed: () {
-              setState(() {
-                _chats.removeWhere((chat) => _selectedChats.contains(chat['seller']));
-                _selectedChats.clear();
-              });
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Чат удален'), behavior: SnackBarBehavior.floating),
-              );
-            },
-          ),
-        ],
-      ) : null,
-      body: ListView.separated(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      itemCount: _chats.length,
-      separatorBuilder: (context, index) => const Divider(height: 1, indent: 80, endIndent: 20, color: Colors.black12),
-      itemBuilder: (context, index) {
-        final chat = _chats[index];
-        final isSelected = _selectedChats.contains(chat['seller']);
-        return InkWell(
-          onLongPress: () {
-            HapticFeedback.mediumImpact();
-            setState(() => _selectedChats.add(chat['seller']));
+        return ListView.builder(
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+          itemCount: notifications.length,
+          itemBuilder: (context, index) {
+            final notif = notifications[index];
+            return Dismissible(
+              key: Key(notif.id),
+              direction: DismissDirection.endToStart,
+              onDismissed: (direction) => NotificationService.deleteNotification(notif.id),
+              background: Container(
+                alignment: Alignment.centerRight,
+                padding: const EdgeInsets.only(right: 20),
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(color: Colors.redAccent, borderRadius: BorderRadius.circular(20)),
+                child: const Icon(Icons.delete_outline_rounded, color: Colors.white),
+              ),
+              child: _buildNotificationItem(notif),
+            );
           },
-          onTap: () {
-            if (_selectedChats.isNotEmpty) {
-              setState(() {
-                if (isSelected) _selectedChats.remove(chat['seller']);
-                else _selectedChats.add(chat['seller']);
-              });
-            } else {
-              Navigator.push(context, MaterialPageRoute(builder: (context) => ChatScreen(
-              ad: {
-                'title': chat['ad_title'],
-                'price': chat['price'],
-                'seller': chat['seller'],
-                'images': [chat['image']]
-              }
-            )));
-            }
-          },
-          child: Container(
-            color: isSelected ? const Color(0xFF4A80F0).withValues(alpha: 0.1) : (chat['unread'] > 0 ? const Color(0xFF4A80F0).withValues(alpha: 0.05) : Colors.transparent),
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-            child: Row(
-              children: [
-                Stack(
-                  children: [
-                    Container(
-                      width: 55, height: 55,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
-                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)],
-                      ),
-                      child: ClipOval(
-                        child: Icon(Icons.person_outline_rounded, size: 28, color: Colors.grey[400]),
-                      ),
-                    ),
-                    if (chat['unread'] > 0)
-                      Positioned(
-                        right: 0, bottom: 0,
-                        child: Container(
-                          width: 14, height: 14,
-                          decoration: BoxDecoration(color: const Color(0xFF22C55E), shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)),
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(width: 15),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Flexible(child: Text((chat['seller'] ?? 'Собеседник').toString(), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16))),
-                          Text((chat['time'] ?? '').toString(), style: TextStyle(color: (chat['unread'] ?? 0) > 0 ? const Color(0xFF4A80F0) : Colors.grey[500], fontSize: 12, fontWeight: (chat['unread'] ?? 0) > 0 ? FontWeight.bold : FontWeight.normal)),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text((chat['ad_title'] ?? '').toString(), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Color(0xFF4A80F0), fontSize: 13, fontWeight: FontWeight.w600)),
-                      const SizedBox(height: 2),
-                      Row(
-                        children: [
-                          if ((chat['last_msg'] ?? '').toString().startsWith('Вы:'))
-                            const Padding(padding: EdgeInsets.only(right: 4), child: Icon(Icons.done_all_rounded, size: 14, color: Color(0xFF00E5FF))),
-                          Expanded(child: Text((chat['last_msg'] ?? '').toString().replaceAll('Вы: ', ''), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.grey[600], fontSize: 14))),
-                          if (chat['unread'] > 0)
-                            Container(
-                              margin: const EdgeInsets.only(left: 8),
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(color: const Color(0xFF4A80F0), borderRadius: BorderRadius.circular(10)),
-                              child: Text(chat['unread'].toString(), style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
-                            ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
         );
       },
-    ),
     );
   }
 
-  Widget _buildDayHeader(String title) => Padding(
-    padding: const EdgeInsets.only(left: 4, bottom: 16),
-    child: Text(
-      title,
-      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.grey, letterSpacing: 1.5),
-    ),
-  );
-
-  Widget _buildNotificationItem({
-    required String title,
-    required String body,
-    required String time,
-    required IconData icon,
-    required Color color,
-    required bool isUnread,
-  }) => Container(
-    margin: const EdgeInsets.only(bottom: 16),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(24),
-      boxShadow: [
-        BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 20, offset: const Offset(0, 5)),
-      ],
-    ),
-    child: ClipRRect(
-      borderRadius: BorderRadius.circular(24),
+  Widget _buildNotificationItem(NotificationModel notif) {
+    final icon = _getIconForType(notif.type);
+    final color = _getColorForType(notif.type);
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10, offset: const Offset(0, 4))],
+      ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => ProductDetailsScreen(
-              lang: widget.lang,
-              ad: {
-                'id': 'notif_1',
-                'title': title.contains('Camry') ? 'Toyota Camry 70' : 'iPhone 13 Pro',
-                'price': title.contains('Camry') ? '15 500 000 ₸' : '450 000 ₸',
-                'seller': 'Продавец',
-                'images': [
-                  'https://images.unsplash.com/photo-1621007947382-bb3c3994e3fb?auto=format&fit=crop&w=800&q=80'
-                ],
-                'description': body,
-                'location': 'Алматы',
-                'category': 'Авто'
-              },
-              onReport: (id) {},
-            )));
-          },
+          borderRadius: BorderRadius.circular(20),
+          onTap: () => _handleNotificationTap(notif),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Row(
@@ -324,22 +156,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
                   alignment: Alignment.topRight,
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Icon(icon, color: color, size: 24),
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+                      child: Icon(icon, color: color, size: 22),
                     ),
-                    if (isUnread)
+                    if (!notif.isRead)
                       Container(
-                        width: 10,
-                        height: 10,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF4A80F0),
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 2),
-                        ),
+                        width: 10, height: 10,
+                        decoration: BoxDecoration(color: const Color(0xFF4A80F0), shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)),
                       ),
                   ],
                 ),
@@ -351,39 +175,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Expanded(
-                            child: Text(
-                              title,
-                              style: TextStyle(
-                                fontWeight: isUnread ? FontWeight.w900 : FontWeight.w800,
-                                fontSize: 15,
-                                color: const Color(0xFF1A1D1E),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            time,
-                            style: TextStyle(
-                              color: isUnread ? const Color(0xFF4A80F0) : Colors.grey,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+                          Text(notif.title, style: TextStyle(fontWeight: notif.isRead ? FontWeight.w700 : FontWeight.w900, fontSize: 15, color: const Color(0xFF1A1D1E))),
+                          Text(_formatTimestamp(notif.timestamp), style: TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold)),
                         ],
                       ),
-                      const SizedBox(height: 6),
-                      Text(
-                        body,
-                        style: TextStyle(
-                          color: Colors.black.withValues(alpha: 0.5),
-                          fontSize: 13,
-                          height: 1.4,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                      const SizedBox(height: 4),
+                      Text(notif.body, style: TextStyle(color: const Color(0xFF64748B), fontSize: 13, height: 1.4), maxLines: 2, overflow: TextOverflow.ellipsis),
                     ],
                   ),
                 ),
@@ -392,6 +189,186 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
           ),
         ),
       ),
-    ),
     );
+  }
+
+  void _handleNotificationTap(NotificationModel notif) async {
+    await NotificationService.markAsRead(notif.id);
+    
+    if (notif.type == 'chat' && notif.data != null) {
+      final String adId = notif.data!['adId'] ?? '';
+      final String adTitle = notif.data!['adTitle'] ?? 'Объявление';
+      final String adImage = notif.data!['adImage'] ?? '';
+      final String senderId = notif.data!['senderId'] ?? '';
+      final String senderName = notif.data!['senderName'] ?? 'Пользователь';
+
+      if (senderId.isNotEmpty && mounted) {
+        final ad = AdModel(
+          id: adId, title: adTitle, description: '', price: '', category: '',
+          images: adImage.isNotEmpty ? [adImage] : [], userId: senderId, userName: senderName,
+          userEmail: '', timestamp: DateTime.now(), location: '',
+        );
+        Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(ad: ad)));
+      }
+    }
+  }
+
+  Widget _buildChatsTab() {
+    final uid = UserService.currentUid;
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: ChatService.getChatListStream(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+        final chats = snapshot.data ?? [];
+        if (chats.isEmpty) return _buildEmptyState(Icons.chat_bubble_outline_rounded, 'Чатов пока нет');
+
+        return ListView.builder(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          itemCount: chats.length,
+          itemBuilder: (context, index) {
+            final chat = chats[index];
+            final String lastMsg = chat['lastMessage'] ?? '';
+            final Timestamp? ts = chat['lastTimestamp'] as Timestamp?;
+            final String time = ts != null ? _formatTimestamp(ts.toDate()) : '';
+            final int unreadCount = chat['unreadCount_$uid'] ?? 0;
+            final String adTitle = chat['adTitle'] ?? 'Объявление';
+            final String adImage = chat['adImage'] ?? '';
+            final List users = chat['users'] ?? [];
+            final String otherId = users.firstWhere((id) => id != uid, orElse: () => '');
+            final String otherName = chat['name_$otherId'] ?? 'Пользователь';
+
+            final ad = AdModel(
+              id: chat['adId'] ?? '', title: adTitle, description: '', price: '', category: '',
+              images: adImage.isNotEmpty ? [adImage] : [], userId: otherId, userName: otherName,
+              userEmail: '', timestamp: DateTime.now(), location: '',
+            );
+
+            return _buildChatItem(ad, lastMsg, time, unreadCount, chat, uid ?? '');
+
+
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildChatItem(AdModel ad, String lastMsg, String time, int unreadCount, Map<String, dynamic> chat, String uid) {
+    return InkWell(
+      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(ad: ad))),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        decoration: BoxDecoration(
+          color: unreadCount > 0 ? const Color(0xFF4A80F0).withValues(alpha: 0.03) : Colors.transparent,
+          border: const Border(bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 58, height: 58,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: const Color(0xFFF1F5F9), width: 2),
+                image: (ad.images.isNotEmpty && ad.images.first.startsWith('http')) 
+                  ? DecorationImage(image: NetworkImage(ad.images.first), fit: BoxFit.cover)
+                  : null,
+              ),
+              child: (ad.images.isEmpty || !ad.images.first.startsWith('http')) 
+                  ? const Icon(Icons.person, color: Colors.grey) 
+                  : null,
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(ad.userName, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFF1A1D1E))),
+                      Text(time, style: TextStyle(color: unreadCount > 0 ? const Color(0xFF4A80F0) : Colors.grey, fontSize: 11, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(ad.title, style: const TextStyle(color: Color(0xFF4A80F0), fontSize: 12, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          lastMsg, 
+                          maxLines: 1, 
+                          overflow: TextOverflow.ellipsis, 
+                          style: TextStyle(
+                            color: const Color(0xFF64748B), 
+                            fontSize: 14, 
+                            fontWeight: unreadCount > 0 ? FontWeight.bold : FontWeight.normal
+                          )
+                        ),
+                      ),
+                      if (chat['lastSenderId'] == uid) ...[
+                        const SizedBox(width: 4),
+                        Icon(
+                          chat['isRead'] == true ? Icons.done_all_rounded : Icons.done_rounded, 
+                          size: 16, 
+                          color: chat['isRead'] == true ? const Color(0xFF4A80F0) : Colors.grey[400]
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            if (unreadCount > 0)
+              Container(
+                margin: const EdgeInsets.only(left: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(color: const Color(0xFF4A80F0), borderRadius: BorderRadius.circular(10)),
+                child: Text('$unreadCount', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+
+  Widget _buildEmptyState(IconData icon, String text) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 80, color: Colors.grey[200]),
+          const SizedBox(height: 16),
+          Text(text, style: TextStyle(color: Colors.grey[400], fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
+  }
+
+  IconData _getIconForType(String type) {
+    switch (type) {
+      case 'chat': return Icons.chat_bubble_rounded;
+      case 'driver_verified': return Icons.verified_user_rounded;
+      case 'system': return Icons.info_rounded;
+      case 'order': return Icons.shopping_bag_rounded;
+      default: return Icons.notifications_rounded;
+    }
+  }
+
+  Color _getColorForType(String type) {
+    switch (type) {
+      case 'chat': return const Color(0xFF4A80F0);
+      case 'driver_verified': return const Color(0xFF10B981);
+      case 'system': return Colors.grey;
+      case 'order': return Colors.orange;
+      default: return const Color(0xFF4A80F0);
+    }
+  }
+
+  String _formatTimestamp(DateTime dt) {
+    final now = DateTime.now();
+    if (now.day == dt.day && now.month == dt.month && now.year == dt.year) return DateFormat('HH:mm').format(dt);
+    if (now.difference(dt).inDays < 7) return DateFormat('EEE').format(dt);
+    return DateFormat('dd.MM.yyyy').format(dt);
+  }
 }

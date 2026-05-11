@@ -4,8 +4,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:iqmarket/theme/taxi_theme.dart';
 import 'package:iqmarket/screens/chat_screen.dart';
-
+import 'package:iqmarket/models/ad_model.dart';
 import 'package:provider/provider.dart';
+
 import 'package:iqmarket/providers/taxi_provider.dart';
 
 class TaxiSupportScreen extends StatelessWidget {
@@ -43,7 +44,19 @@ class TaxiSupportScreen extends StatelessWidget {
           Text(provider.translate('contact_us'), style: GoogleFonts.inter(color: t.text, fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
           _sBtn(LineIcons.robot, provider.translate('ai_assistant'), t.accent, () {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(ad: {'seller': 'IQ Taxi AI', 'title': provider.translate('ai_assistant_sub'), 'price': 'Online'})));
+            Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(ad: AdModel(
+                id: 'support_ai',
+                title: provider.translate('ai_assistant_sub'),
+                description: 'AI Support Assistant',
+                price: 'Online',
+                category: 'Support',
+                images: [],
+                userId: 'support_bot',
+                userName: 'IQ Taxi AI',
+                userEmail: '',
+                timestamp: DateTime.now(),
+                location: 'System',
+              ))));
           }),
           _sBtn(LineIcons.headset, provider.translate('whatsapp_support'), t.accent, () => launchUrl(Uri.parse('https://wa.me/77089007030'))),
           _sBtn(LineIcons.comments, provider.translate('write_complaint'), t.accent, () async {

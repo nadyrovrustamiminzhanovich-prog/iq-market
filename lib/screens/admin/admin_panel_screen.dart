@@ -1,57 +1,70 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:iqmarket/screens/admin/admin_ads_screen.dart';
 import 'package:iqmarket/screens/admin/admin_users_screen.dart';
 import 'package:iqmarket/screens/admin/admin_notifications_screen.dart';
+import 'package:iqmarket/screens/admin/admin_reports_screen.dart';
+import 'package:iqmarket/screens/admin/admin_dashboard_screen.dart';
+
+
 
 class AdminPanelScreen extends StatelessWidget {
   const AdminPanelScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    
     return Scaffold(
-      backgroundColor: colorScheme.surface,
+      backgroundColor: const Color(0xFFF8FAFC), // Светлый фон (Slate 50)
       appBar: AppBar(
-        title: Text('Панель управления', style: GoogleFonts.inter(fontWeight: FontWeight.w900)),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        title: Text('IQ УПРАВЛЕНИЕ', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: const Color(0xFF0F172A), letterSpacing: 1)),
         centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, color: Color(0xFF0F172A), size: 20),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildStatCard(context, 'Активные объявления', '1,248', PhosphorIcons.newspaper(), Colors.blue),
-            const SizedBox(height: 15),
-            _buildStatCard(context, 'Новые пользователи', '+84 сегодня', PhosphorIcons.users(), Colors.green),
-            const SizedBox(height: 30),
-            Text('Инструменты', style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w900)),
-            const SizedBox(height: 15),
-            _buildAdminTile(
-              context, 
-              'Модерация объявлений', 
-              'Проверка и удаление контента', 
-              PhosphorIcons.shieldCheck(), 
-              Colors.orange,
-              () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminAdsScreen())),
+            _buildHeader(),
+            const SizedBox(height: 32),
+            
+            // Сетка статистики (Light Glass)
+            Row(
+              children: [
+                _buildQuickStat('АКТИВНЫЕ', FirebaseFirestore.instance.collection('ads').where('active', isEqualTo: true).count().get(), PhosphorIcons.chartLineUp(), const Color(0xFF4A80F0)),
+                const SizedBox(width: 16),
+                _buildQuickStat('ПОЛЬЗОВАТЕЛИ', FirebaseFirestore.instance.collection('users').count().get(), PhosphorIcons.usersThree(), const Color(0xFF8B5CF6)),
+              ],
             ),
-            _buildAdminTile(
-              context, 
-              'Пользователи', 
-              'Бан, верификация и статистика', 
-              PhosphorIcons.userList(), 
-              Colors.purple,
-              () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminUsersScreen())),
-            ),
-            _buildAdminTile(
-              context, 
-              'Push-уведомления', 
-              'Рассылка на все устройства', 
-              PhosphorIcons.paperPlaneTilt(), 
-              Colors.blue,
-              () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminNotificationsScreen())),
+            
+            const SizedBox(height: 40),
+            Text('ИНСТРУМЕНТЫ', style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w800, color: Colors.grey[400], letterSpacing: 1.5)),
+            const SizedBox(height: 20),
+            
+            // Сетка инструментов
+            GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: 2,
+              mainAxisSpacing: 16,
+              crossAxisSpacing: 16,
+              childAspectRatio: 0.9,
+              children: [
+                _buildToolCard(context, 'Аналитика', 'Пульс рынка', PhosphorIcons.chartPieSlice(), Colors.teal, () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminDashboardScreen()))),
+                _buildToolCard(context, 'Модерация', 'Контроль контента', PhosphorIcons.shieldCheck(), Colors.orange, () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminAdsScreen()))),
+                _buildToolCard(context, 'Юзеры', 'Сообщество', PhosphorIcons.userList(), Colors.indigo, () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminUsersScreen()))),
+                _buildToolCard(context, 'Рассылка', 'Push-уведомления', PhosphorIcons.paperPlaneTilt(), Colors.pink, () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminNotificationsScreen()))),
+                _buildToolCard(context, 'Жалобы', 'Конфликты', PhosphorIcons.warningCircle(), Colors.red, () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminReportsScreen()))),
+              ],
             ),
           ],
         ),
@@ -59,52 +72,83 @@ class AdminPanelScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildStatCard(BuildContext context, String title, String value, PhosphorIconData icon, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(12)),
-            child: Icon(icon, color: Colors.white, size: 24),
-          ),
-          const SizedBox(width: 15),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: color)),
-              Text(value, style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w900)),
-            ],
-          ),
-        ],
+  Widget _buildHeader() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Добро пожаловать', style: GoogleFonts.outfit(fontSize: 28, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A))),
+        const SizedBox(height: 4),
+        Row(
+          children: [
+            const CircleAvatar(radius: 4, backgroundColor: Color(0xFF10B981)),
+            const SizedBox(width: 8),
+            Text('СИСТЕМА ОНЛАЙН', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: const Color(0xFF10B981))),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildQuickStat(String label, Future<AggregateQuerySnapshot> future, IconData icon, Color color) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(28),
+          boxShadow: [BoxShadow(color: color.withOpacity(0.05), blurRadius: 20, offset: const Offset(0, 10))],
+          border: Border.all(color: color.withOpacity(0.1)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: color, size: 28),
+            const SizedBox(height: 20),
+            FutureBuilder<AggregateQuerySnapshot>(
+              future: future,
+              builder: (context, snapshot) {
+                final val = snapshot.hasData ? snapshot.data!.count.toString() : '...';
+                return Text(val, style: GoogleFonts.outfit(fontSize: 24, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A)));
+              }
+            ),
+            Text(label, style: GoogleFonts.outfit(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.grey[400], letterSpacing: 0.5)),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildAdminTile(BuildContext context, String title, String subtitle, PhosphorIconData icon, Color color, VoidCallback onTap) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      elevation: 0,
-      color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-      child: ListTile(
-        onTap: onTap,
-        contentPadding: const EdgeInsets.all(16),
-        leading: Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(color: color.withValues(alpha: 0.1), shape: BoxShape.circle),
-          child: Icon(icon, color: color),
+  Widget _buildToolCard(BuildContext context, String title, String subtitle, IconData icon, Color color, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(28),
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 15, offset: const Offset(0, 5))],
+          border: Border.all(color: Colors.grey.withOpacity(0.05)),
         ),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
-        subtitle: Text(subtitle, style: const TextStyle(fontSize: 12)),
-        trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
+                child: Icon(icon, color: color, size: 24),
+              ),
+              const SizedBox(height: 16),
+              Text(title, style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A))),
+              const SizedBox(height: 4),
+              Text(subtitle, textAlign: TextAlign.center, style: GoogleFonts.outfit(fontSize: 10, color: Colors.grey[500])),
+            ],
+          ),
+        ),
       ),
     );
   }
 }
+
+
+

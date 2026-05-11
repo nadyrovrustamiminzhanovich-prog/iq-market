@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:iqmarket/models/user_model.dart';
 
 class UserService {
   static final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -20,6 +21,7 @@ class UserService {
     String? photoUrl,
     String? phone,
     bool isVerified = false,
+    String? accountType,
   }) async {
     final user = _auth.currentUser;
     if (user == null) return;
@@ -36,18 +38,20 @@ class UserService {
           'email': email ?? user.email ?? '',
           'phone': phone ?? user.phoneNumber ?? '',
           'photoUrl': photoUrl ?? user.photoURL ?? '',
-          'accountType': 'Личный', // Default account type
+          'accountType': accountType ?? 'Личный', // Default account type
           'isVerified': isVerified,
           'registrationDate': FieldValue.serverTimestamp(),
           'reviewsCount': 0,
           'rating': 5.0,
         });
       } else {
-        // Update existing user profile with fresh data from provider (e.g., Google/Apple)
-        // We only update non-destructive fields to not overwrite user edits
+        // Update existing user profile
         Map<String, dynamic> updates = {};
         if (photoUrl != null && photoUrl.isNotEmpty) updates['photoUrl'] = photoUrl;
         if (email != null && email.isNotEmpty) updates['email'] = email;
+        if (isVerified) updates['isVerified'] = true;
+        if (accountType != null) updates['accountType'] = accountType;
+        
         if (updates.isNotEmpty) {
           await docRef.update(updates);
         }
@@ -58,12 +62,15 @@ class UserService {
   }
 
   /// Get user data stream for real-time updates in UI
-  static Stream<DocumentSnapshot> getUserStream() {
+  static Stream<UserModel?> getUserStream() {
     final uid = currentUid;
     if (uid == null) {
-      return const Stream.empty();
+      return Stream.value(null);
     }
-    return users.doc(uid).snapshots();
+    return users.doc(uid).snapshots().map((doc) {
+      if (!doc.exists) return null;
+      return UserModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
+    });
   }
 
   /// Update specific fields in user profile
@@ -76,6 +83,53 @@ class UserService {
     } catch (e) {
       debugPrint('Error updating user profile: $e');
       rethrow;
+    }
+  }
+
+  /// Get all users (Admin only)
+  static Stream<List<UserModel>> getAllUsersStream() {
+    return users.orderBy('registrationDate', descending: true).snapshots().map((snapshot) => 
+      snapshot.docs.map((doc) => UserModel.fromMap(doc.data() as Map<String, dynamic>, doc.id)).toList()
+    );
+  }
+
+  /// Admin: Toggle user verification status
+  static Future<void> toggleUserVerification(String uid, bool isVerified) async {
+    try {
+      await users.doc(uid).update({'isVerified': isVerified});
+    } catch (e) {
+      debugPrint('Error toggling user verification: $e');
+    }
+  }
+
+  /// Admin: Toggle user ban status
+  static Future<void> toggleUserBan(String uid, bool isBanned) async {
+    try {
+      await users.doc(uid).update({'status': isBanned ? 'banned' : 'active'});
+    } catch (e) {
+      debugPrint('Error toggling user ban: $e');
+    }
+  }
+
+  /// Admin: Toggle Admin role
+  static Future<void> toggleUserAdmin(String uid, bool isAdmin) async {
+    try {
+      await users.doc(uid).update({'accountType': isAdmin ? 'admin' : 'Личный'});
+    } catch (e) {
+      debugPrint('Error toggling admin role: $e');
+    }
+  }
+
+
+  /// Get user by ID (for seller info)
+  static Future<UserModel?> getUserById(String uid) async {
+    try {
+      final doc = await users.doc(uid).get();
+      if (!doc.exists) return null;
+      return UserModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
+    } catch (e) {
+      debugPrint('Error getting user by id: $e');
+      return null;
     }
   }
 }
