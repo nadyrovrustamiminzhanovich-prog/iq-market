@@ -19,7 +19,7 @@ dependencies:
   firebase_auth: ^6.4.0
   cloud_firestore: ^6.3.0
   google_sign_in: ^7.2.0
-  sign_in_with_apple: ^7.0.1
+  sign_in_with_apple: ^8.0.0
   mask_text_input_formatter: ^2.9.0
   image_picker: ^1.1.2
   url_launcher: ^6.3.0
@@ -52,15 +52,15 @@ dependencies:
   flutter_local_notifications: ^21.0.0
   gal: ^2.3.2
   pro_image_editor: ^12.4.4
-  share_plus: ^10.1.0
+  share_plus: ^12.0.2
   lottie: ^3.1.2
   flutter_animate: ^4.5.0
   video_compress: ^3.1.4
   connectivity_plus: ^7.1.1
   infinite_scroll_pagination: ^5.1.1
   firebase_app_check: ^0.4.3
-  firebase_crashlytics: ^4.2.0
-  firebase_performance: ^0.10.0
+  firebase_crashlytics: ^5.2.1
+  firebase_performance: ^0.11.4
   fl_chart: ^1.2.0
 
 
