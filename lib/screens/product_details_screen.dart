@@ -192,7 +192,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
 
   void _shareAd() {
     final String text = 'IQ-Market: ${widget.ad.title}\n'
-        'Цена: ${widget.ad.price}\n'
+        'Цена: ${_formatPrice(widget.ad.price)}\n'
         'Город: ${widget.ad.location}\n\n'
         'Посмотри это объявление в приложении IQ-Market! 🔥';
     Share.share(text);
@@ -205,7 +205,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     final hasVideo = widget.ad.videoUrl != null && widget.ad.videoUrl!.startsWith('http');
 
     final int itemCount = images.length + (hasVideo ? 1 : 0);
-    final isFree = widget.ad.price == '0 ₸' || widget.ad.category == 'Отдам даром';
+    final isFree = widget.ad.price == 0.0 || widget.ad.category == 'Отдам даром';
 
     return PopScope(
       canPop: true,
@@ -772,8 +772,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   );
 
   void _showBargainDialog() {
-    final priceStr = widget.ad.price.replaceAll(RegExp(r'[^0-9]'), '');
-    final currentPrice = double.tryParse(priceStr) ?? 0;
+    final currentPrice = widget.ad.price;
     final controller = TextEditingController(text: currentPrice > 0 ? (currentPrice * 0.9).toInt().toString() : '');
     
     showModalBottomSheet(
@@ -810,7 +809,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
               children: [
                 Icon(Icons.info_outline_rounded, size: 14, color: Colors.grey[400]),
                 const SizedBox(width: 6),
-                Text('Минимальная цена: ${_formatPrice((currentPrice * 0.7).toInt().toString())}', 
+                Text('Минимальная цена: ${_formatPrice(currentPrice * 0.7)}', 
                   style: TextStyle(color: Colors.grey[400], fontSize: 12)),
               ],
             ),
@@ -844,7 +843,9 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   Widget _backButton() => Padding(padding: const EdgeInsets.all(8.0), child: _circleButton(Icons.arrow_back_ios_new_rounded, () => Navigator.of(context).maybePop()));
   Widget _circleButton(IconData icon, VoidCallback onTap) => CircleAvatar(backgroundColor: Colors.black.withValues(alpha: 0.4), radius: 20, child: IconButton(icon: Icon(icon, size: 18, color: Colors.white), onPressed: onTap, padding: EdgeInsets.zero));
   Widget _favoriteButton() => Consumer<AppConfigProvider>(builder: (context, config, _) => CircleAvatar(backgroundColor: Colors.black.withValues(alpha: 0.4), radius: 20, child: IconButton(icon: Icon(config.isFavorite(widget.ad.id) ? Icons.favorite_rounded : Icons.favorite_border_rounded, size: 20, color: config.isFavorite(widget.ad.id) ? const Color(0xFFEF4444) : Colors.white), onPressed: () => config.toggleFavorite(widget.ad.id), padding: EdgeInsets.zero)));
-  String _formatPrice(String price) { final numStr = price.replaceAll(RegExp(r'[^0-9]'), ''); final num = int.tryParse(numStr); return num != null ? '${NumberFormat.decimalPattern('ru').format(num)} ₸' : price; }
+  String _formatPrice(double price) { 
+    return price > 0 ? '${NumberFormat.decimalPattern('ru').format(price.toInt())} ₸' : 'Договорная'; 
+  }
   String _formatFullDate(DateTime dt) {
     final now = DateTime.now();
     final timeStr = '${dt.hour}:${dt.minute.toString().padLeft(2, '0')}';

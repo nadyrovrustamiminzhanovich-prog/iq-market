@@ -4,7 +4,7 @@ class AdModel {
   final String id;
   final String title;
   final String description;
-  final String price;
+  final double price;
   final String category;
   final List<String> images;
   final String? videoUrl;
@@ -63,7 +63,7 @@ class AdModel {
       id: docId,
       title: map['title'] ?? 'Без названия',
       description: map['description'] ?? '',
-      price: map['price'] ?? '0 ₸',
+      price: double.tryParse(map['price'].toString().replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0.0,
       category: map['category'] ?? 'Другое',
       images: (map['images'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
       videoUrl: map['video_url'],

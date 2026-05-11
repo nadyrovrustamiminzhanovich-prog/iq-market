@@ -47,18 +47,15 @@ class AuthService {
 
   static Future<UserCredential?> signInWithGoogle() async {
     try {
-      // Используем динамический вызов, чтобы обойти странную ошибку компиляции в данной среде
-      // при сохранении работоспособности плагина v7.2.0
-      // В v7.2.0 метод signIn() заменен на authenticate()
-      // Используем dynamic bypass если компилятор не видит новый метод в данной среде
-      final dynamic googleUser = await (_googleSignIn as dynamic).authenticate();
+      // ИСПОЛЬЗУЕМ ТИПИЗИРОВАННЫЙ API (Убираем dynamic)
+      final googleUser = await _googleSignIn.signIn();
       if (googleUser == null) return null;
 
-      final dynamic googleAuth = await (googleUser as dynamic).authentication;
+      final googleAuth = await googleUser.authentication;
       
       final credential = GoogleAuthProvider.credential(
-        accessToken: (googleAuth as dynamic).accessToken,
-        idToken: (googleAuth as dynamic).idToken,
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
       );
 
       return await _auth.signInWithCredential(credential);

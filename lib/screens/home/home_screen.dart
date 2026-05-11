@@ -112,6 +112,22 @@ class _IQMarketHomeState extends State<IQMarketHome> {
   Widget _buildAdsGrid(AppConfigProvider config) => StreamBuilder<List<AdModel>>(
     stream: AdService.getActiveAdsStream(),
     builder: (context, snapshot) {
+      if (snapshot.hasError) {
+        return const SliverToBoxAdapter(
+          child: Center(
+            child: Padding(
+              padding: EdgeInsets.all(40),
+              child: Column(
+                children: [
+                  Icon(Icons.error_outline, color: Colors.red),
+                  SizedBox(height: 8),
+                  Text('Ошибка загрузки объявлений'),
+                ],
+              ),
+            ),
+          ),
+        );
+      }
       if (!snapshot.hasData) return const SliverToBoxAdapter(child: Center(child: CircularProgressIndicator()));
       final ads = _filterAds(snapshot.data!);
       if (ads.isEmpty) return const SliverToBoxAdapter(child: Center(child: Padding(padding: EdgeInsets.all(40), child: Text('Ничего не найдено'))));

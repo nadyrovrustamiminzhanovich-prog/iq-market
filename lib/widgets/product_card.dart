@@ -52,7 +52,7 @@ class _ProductCardState extends State<ProductCard> with SingleTickerProviderStat
     final ad = widget.ad;
     final images = ad.images;
     final hasMultiple = images.length > 1;
-    final isFree = ad.price == '0 ₸' || ad.category == 'Отдам даром';
+    final isFree = ad.price == 0.0 || ad.category == 'Отдам даром';
 
     return Container(
       width: widget.width,
@@ -245,10 +245,8 @@ class _ProductCardState extends State<ProductCard> with SingleTickerProviderStat
     ),
   );
 
-  String _formatPrice(String price) {
-    final numStr = price.replaceAll(RegExp(r'[^0-9]'), '');
-    final num = int.tryParse(numStr);
-    return num != null ? '${NumberFormat.decimalPattern('ru').format(num)} ₸' : price;
+  String _formatPrice(double price) {
+    return price > 0 ? '${NumberFormat.decimalPattern('ru').format(price.toInt())} ₸' : 'Договорная';
   }
 
   String _formatRelativeDate(DateTime dt) {

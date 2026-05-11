@@ -19,62 +19,97 @@ import 'services/auth_service.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
+  bool isFirebaseReady = false;
   try {
     await Firebase.initializeApp();
-    
-    // 1. ИСПРАВЛЯЕМ СПАМ: Инициализируем аналитику ПЕРЕД использованием
-    // Мы вызываем метод init() (если он есть) или логируем открытие
     await AnalyticsService.init(); 
-
     await AuthService.init();
+    
     FirebaseFirestore.instance.settings = const Settings(
       persistenceEnabled: true,
       cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
     );
 
-    // 2. ИСПРАВЛЯЕМ ОШИБКУ 403: 
-    // Добавляем принудительный запуск в режиме отладки для Android
     await FirebaseAppCheck.instance.activate(
       androidProvider: kDebugMode ? AndroidProvider.debug : AndroidProvider.playIntegrity,
       appleProvider: kDebugMode ? AppleProvider.debug : AppleProvider.deviceCheck,
     );
-
+    isFirebaseReady = true;
   } catch (e) {
-    debugPrint('Firebase Init Error: $e');
+    debugPrint('Critical Firebase Init Error: $e');
   }
 
   await StorageService.init();
   NotificationService.init();
-  
-  // Лог открытия теперь пойдет после инициализации
   AnalyticsService.logAppOpen();
   
+  if (!isFirebaseReady) {
+    runApp(const ErrorApp(message: 'Ошибка подключения к серверу. Проверьте интернет.'));
+    return;
+  }
+
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => TaxiProvider()),
         ChangeNotifierProvider(create: (_) => AppConfigProvider()),
       ],
-      child: MaterialApp(
-        title: 'IQ-Market',
-        navigatorKey: NotificationService.navigatorKey,
-        home: SplashScreen(nextScreen: IQMarketHome()),
-        debugShowCheckedModeBanner: false,
-        navigatorObservers: [AnalyticsService.observer],
-        themeMode: ThemeMode.light,
-        theme: AppTheme.lightTheme,
-        localizationsDelegates: const [
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
-        supportedLocales: const [
-          Locale('ru', 'RU'),
-          Locale('kk', 'KZ'),
-          Locale('en', 'US'),
-        ],
-        locale: const Locale('ru', 'RU'),
-      ),
+      child: const MainApp(),
     ),
   );
 }
+
+class MainApp extends StatelessWidget {
+  const MainApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'IQ-Market',
+      navigatorKey: NotificationService.navigatorKey,
+      home: SplashScreen(nextScreen: const IQMarketHome()),
+      debugShowCheckedModeBanner: false,
+      navigatorObservers: [AnalyticsService.observer],
+      theme: AppTheme.lightTheme,
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('ru', 'RU'),
+        Locale('kk', 'KZ'),
+        Locale('en', 'US'),
+      ],
+      locale: const Locale('ru', 'RU'),
+    );
+  }
+}
+
+class ErrorApp extends StatelessWidget {
+  final String message;
+  const ErrorApp({super.key, required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      home: Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.cloud_off_rounded, size: 80, color: Colors.redAccent),
+                const SizedBox(height: 24),
+                Text(message, textAlign: TextAlign.center, style: const TextStyle(fontSize: 16)),
+                const SizedBox(height: 24),
+                ElevatedButton(onPressed: () => main(), child: const Text('Повторить'))
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
