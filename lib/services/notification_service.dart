@@ -314,6 +314,28 @@ class NotificationService {
     await _messaging.unsubscribeFromTopic(topic);
     debugPrint('Unsubscribed from topic: $topic ❌');
   }
+
+  // ===================== SUBSCRIPTION MANAGER =====================
+
+  static Future<void> toggleCategorySubscription(String category, bool subscribe) async {
+    // Normalize category name for topic (no spaces, lowercase)
+    final topic = 'cat_${category.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_')}';
+    if (subscribe) {
+      await subscribeToTopic(topic);
+    } else {
+      await unsubscribeFromTopic(topic);
+    }
+    
+    // Save preference to Firestore for persistence across devices
+    final uid = UserService.currentUid;
+    if (uid != null) {
+      await FirebaseFirestore.instance.collection('users').doc(uid).set({
+        'subscriptions': {
+          category: subscribe,
+        }
+      }, SetOptions(merge: true));
+    }
+  }
 }
 
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {

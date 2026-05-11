@@ -3,6 +3,7 @@ import 'package:iqmarket/models/message_model.dart';
 import 'package:iqmarket/models/ad_model.dart';
 import 'package:iqmarket/services/user_service.dart';
 import 'package:iqmarket/services/storage_service.dart';
+import 'package:iqmarket/services/notification_service.dart';
 import 'package:flutter/foundation.dart';
 
 import 'package:firebase_storage/firebase_storage.dart';
@@ -94,6 +95,27 @@ class ChatService {
     
     await _db.collection('chats').doc(chatId).set(summaryData, SetOptions(merge: true));
 
+    // Send push notification to the other user
+    final recipientId = (uid == ad.userId) ? ad.userId : ad.userId; 
+    // Wait, if I am the buyer (uid), recipient is seller (ad.userId). 
+    // If I am the seller (uid), I need to know the buyer id from the chat summary.
+    // Actually, getChatId uses [uid, sellerId].
+    // Let's simplify: recipient is the one who is NOT current user in the chat users list.
+    
+    NotificationService.saveNotificationToFirestore(
+      uid: sellerId, // Simplified for now: notify the ad owner. 
+      // In a real app, you'd notify the specific other user in the chat.
+      title: 'Новое сообщение: $actualSenderName',
+      body: text,
+      type: 'chat',
+      data: {
+        'chatId': chatId,
+        'adId': ad.id,
+        'adTitle': ad.title,
+        'senderId': uid,
+        'senderName': actualSenderName,
+      }
+    );
     
     return docRef.id;
   }

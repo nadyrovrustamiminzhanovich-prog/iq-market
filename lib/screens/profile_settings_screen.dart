@@ -175,6 +175,9 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
               _buildClickableItem(_t('change_phone'), () => _showChangePhoneDialog(), Icons.phone_android_rounded),
             ]),
             const SizedBox(height: 30),
+            _buildSectionTitle('Связанные аккаунты'),
+            _buildLinkedAccountsSection(),
+            const SizedBox(height: 30),
             _buildSectionTitle(_t('security')),
             _buildSettingsCard([
               _buildSwitchItem(_t('push_label'), _isNotificationsEnabled, (v) => setState(() => _isNotificationsEnabled = v), Icons.notifications_active_rounded),
@@ -544,6 +547,88 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
               }
             },
             child: Text(_t('delete_confirm'), style: GoogleFonts.inter(color: const Color(0xFFEF4444), fontWeight: FontWeight.w900)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLinkedAccountsSection() {
+    final user = FirebaseAuth.instance.currentUser;
+    final providers = user?.providerData.map((p) => p.providerId).toList() ?? [];
+    
+    final isGoogleLinked = providers.contains('google.com');
+    final isEmailLinked = providers.contains('password');
+
+    return _buildSettingsCard([
+      _buildLinkedItem(
+        'Google', 
+        isGoogleLinked ? 'Подключено' : 'Нажмите, чтобы связать',
+        isGoogleLinked ? Icons.check_circle_rounded : Icons.add_link_rounded,
+        isGoogleLinked ? const Color(0xFF10B981) : _subtxtColor,
+        isGoogleLinked ? null : () async {
+          try {
+            await AuthService.linkWithGoogle();
+            setState(() {});
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Аккаунты успешно связаны!')));
+          } catch (e) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ошибка: $e')));
+          }
+        }
+      ),
+      _buildDivider(),
+      _buildLinkedItem(
+        'Email', 
+        isEmailLinked ? user?.email ?? 'Подключено' : 'Привязать почту',
+        isEmailLinked ? Icons.check_circle_rounded : Icons.alternate_email_rounded,
+        isEmailLinked ? const Color(0xFF10B981) : _subtxtColor,
+        isEmailLinked ? null : () => _showLinkEmailDialog()
+      ),
+    ]);
+  }
+
+  Widget _buildLinkedItem(String title, String sub, IconData icon, Color color, VoidCallback? onTap) => ListTile(
+    onTap: onTap,
+    leading: Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(15)),
+      child: Icon(icon, color: color, size: 20),
+    ),
+    title: Text(title, style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 14, color: _txtColor)),
+    subtitle: Text(sub, style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 11, color: color.withValues(alpha: 0.7))),
+    trailing: onTap != null ? Icon(Icons.arrow_forward_ios_rounded, color: _subtxtColor.withValues(alpha: 0.3), size: 14) : null,
+  );
+
+  void _showLinkEmailDialog() {
+    final emailC = TextEditingController();
+    final passC = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: _surfaceColor,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        title: Text('Привязать Email', style: GoogleFonts.inter(fontWeight: FontWeight.w900)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(controller: emailC, decoration: const InputDecoration(hintText: 'Email')),
+            TextField(controller: passC, obscureText: true, decoration: const InputDecoration(hintText: 'Пароль')),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Отмена')),
+          ElevatedButton(
+            onPressed: () async {
+              try {
+                await AuthService.linkWithEmail(emailC.text, passC.text);
+                Navigator.pop(context);
+                setState(() {});
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Email успешно привязан!')));
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ошибка: $e')));
+              }
+            },
+            child: const Text('Связать'),
           ),
         ],
       ),

@@ -35,6 +35,11 @@ class AuthService {
     return await _auth.signInWithEmailAndPassword(email: email, password: password);
   }
 
+  static Future<void> linkEmailAccount(String email, String password) async {
+    final credential = EmailAuthProvider.credential(email: email, password: password);
+    await _auth.currentUser?.linkWithCredential(credential);
+  }
+
   static Future<void> resetPassword(String email) async {
     await _auth.sendPasswordResetEmail(email: email);
   }
@@ -96,6 +101,36 @@ class AuthService {
 
   static Stream<DocumentSnapshot<Map<String, dynamic>>> watchTelegramSession(String token) {
     return TelegramBotService.watchSession(token);
+  }
+
+  // ===================== ACCOUNT LINKING =====================
+
+  static Future<UserCredential?> linkWithGoogle() async {
+    try {
+      final googleUser = await _googleSignIn.signIn();
+      if (googleUser == null) return null;
+
+      final googleAuth = await googleUser.authentication;
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      return await _auth.currentUser?.linkWithCredential(credential);
+    } catch (e) {
+      debugPrint('Link Google Error: $e');
+      rethrow;
+    }
+  }
+
+  static Future<UserCredential?> linkWithEmail(String email, String password) async {
+    try {
+      final credential = EmailAuthProvider.credential(email: email, password: password);
+      return await _auth.currentUser?.linkWithCredential(credential);
+    } catch (e) {
+      debugPrint('Link Email Error: $e');
+      rethrow;
+    }
   }
 
   // ===================== UTILS =====================
