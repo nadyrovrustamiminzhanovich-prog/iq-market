@@ -1,0 +1,53 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Помощники
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    // Правила для пользователей
+    match /users/{userId} {
+      allow read: if true;
+      allow create: if isSignedIn();
+      allow update, delete: if isOwner(userId);
+    }
+
+    // Правила для объявлений
+    match /ads/{adId} {
+      allow read: if true;
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && (isOwner(resource.data.userId) || request.auth.token.admin == true);
+      allow delete: if isSignedIn() && (isOwner(resource.data.userId) || request.auth.token.admin == true);
+    }
+
+    // Правила для чатов
+    match /chats/{chatId} {
+      allow read, write: if isSignedIn() && (request.auth.uid in resource.data.users || request.resource.data.users.hasAny([request.auth.uid]));
+      
+      match /messages/{messageId} {
+        allow read: if isSignedIn() && (request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.users);
+        allow create: if isSignedIn();
+        allow delete: if isSignedIn() && isOwner(resource.data.senderId);
+      }
+    }
+
+    // Правила для отзывов
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn() && isOwner(resource.data.fromUserId);
+    }
+    
+    // Правила для жалоб
+    match /reports/{reportId} {
+      allow create: if isSignedIn();
+      allow read: if false; // Только админы через консоль
+    }
+  }
+}
