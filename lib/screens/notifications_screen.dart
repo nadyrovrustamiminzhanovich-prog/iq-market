@@ -238,7 +238,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
             final String otherName = chat['name_$otherId'] ?? 'Пользователь';
 
             final ad = AdModel(
-              id: chat['adId'] ?? '', title: adTitle, description: '', price: '', category: '',
+              id: chat['adId'] ?? '', title: adTitle, description: '', price: 0.0, category: '',
               images: adImage.isNotEmpty ? [adImage] : [], userId: otherId, userName: otherName,
               userEmail: '', timestamp: DateTime.now(), location: '',
             );

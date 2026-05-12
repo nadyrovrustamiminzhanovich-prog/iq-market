@@ -80,7 +80,7 @@ class ChatsListScreen extends StatelessWidget {
               final String sellerName = chat['name_$sellerId'] ?? 'Пользователь';
               
               final ad = AdModel(
-                id: adId, title: adTitle, description: '', price: '', category: '',
+                id: chat['adId'] ?? '', title: adTitle, description: '', price: 0.0, category: '',
                 images: adImage.isNotEmpty ? [adImage] : [], userId: sellerId, userName: sellerName,
                 userEmail: '', timestamp: DateTime.now(), location: '',
               );

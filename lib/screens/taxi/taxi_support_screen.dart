@@ -48,7 +48,7 @@ class TaxiSupportScreen extends StatelessWidget {
                 id: 'support_ai',
                 title: provider.translate('ai_assistant_sub'),
                 description: 'AI Support Assistant',
-                price: 'Online',
+                price: 0.0,
                 category: 'Support',
                 images: [],
                 userId: 'support_bot',

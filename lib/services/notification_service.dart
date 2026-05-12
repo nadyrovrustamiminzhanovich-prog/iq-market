@@ -138,7 +138,7 @@ class NotificationService {
       id: adId,
       title: adTitle,
       description: '',
-      price: '',
+      price: 0.0,
       category: '',
       images: adImage.isNotEmpty ? [adImage] : [],
       userId: senderId,

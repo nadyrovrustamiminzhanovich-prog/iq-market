@@ -664,7 +664,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
 
     try {
       final gemini = GeminiService();
-      gemini.init(widget.lang, useAssistantKey: true);
+      gemini.init();
 
       
       final prompt = "Твоя роль: Помощник покупателя на маркетплейсе IQ-Market. "

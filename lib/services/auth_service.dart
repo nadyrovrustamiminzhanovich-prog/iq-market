@@ -7,16 +7,12 @@ import 'package:iqmarket/services/telegram_bot_service.dart';
 
 class AuthService {
   static final FirebaseAuth _auth = FirebaseAuth.instance;
-  static final google.GoogleSignIn _googleSignIn = google.GoogleSignIn.instance;
+  static final google.GoogleSignIn _googleSignIn = google.GoogleSignIn(
+    serverClientId: "984873146578-ers7tbn7972bk4g0qoufq28kq3ttsgbn.apps.googleusercontent.com",
+  );
 
   static Future<void> init() async {
-    try {
-      await _googleSignIn.initialize(
-        serverClientId: "984873146578-ers7tbn7972bk4g0qoufq28kq3ttsgbn.apps.googleusercontent.com",
-      );
-    } catch (e) {
-      debugPrint('Google Sign-In Init Error: $e');
-    }
+    // Initialization is now handled in the constructor
   }
 
   static User? get currentUser => _auth.currentUser;

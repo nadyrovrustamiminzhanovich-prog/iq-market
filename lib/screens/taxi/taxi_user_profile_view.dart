@@ -373,7 +373,7 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
                 id: 'taxi_user_${u['name']}_${DateTime.now().millisecondsSinceEpoch}',
                 title: 'Taxi Trip',
                 description: 'User profile chat',
-                price: 'Taxi',
+                price: 0.0,
                 category: 'Taxi',
                 images: u['img'] != null && u['img'].toString().isNotEmpty ? [u['img']] : [],
                 userId: 'taxi_user',

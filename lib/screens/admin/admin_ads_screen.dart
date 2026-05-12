@@ -214,7 +214,7 @@ class _AdminAdsScreenState extends State<AdminAdsScreen> with SingleTickerProvid
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Expanded(child: Text(ad.title, style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A)))),
-                        Text(ad.price, style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w900, color: const Color(0xFF6366F1))),
+                        Text('${ad.price.toInt()} ₸', style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w900, color: const Color(0xFF6366F1))),
                       ],
                     ),
                     const SizedBox(height: 4),
@@ -338,6 +338,4 @@ class _AdminAdsScreenState extends State<AdminAdsScreen> with SingleTickerProvid
       ),
     );
   }
-}
-
 

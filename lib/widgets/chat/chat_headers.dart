@@ -113,7 +113,7 @@ class ChatAdInfoBar extends StatelessWidget {
         const SizedBox(width: 10),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(ad.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.white)),
-          Text(ad.price, style: const TextStyle(color: Color(0xFF4A80F0), fontWeight: FontWeight.w900, fontSize: 11)),
+          Text('${ad.price.toInt()} ₸', style: const TextStyle(color: Color(0xFF4A80F0), fontWeight: FontWeight.w900, fontSize: 11)),
         ])),
         TextButton(
           onPressed: () {

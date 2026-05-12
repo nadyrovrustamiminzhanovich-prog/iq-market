@@ -13,6 +13,7 @@ import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import 'package:provider/provider.dart';
 import 'package:iqmarket/providers/app_config_provider.dart';
 import 'package:iqmarket/services/translation_service.dart';
+import 'package:iqmarket/services/auth_service.dart';
 
 class ProfileSettingsScreen extends StatefulWidget {
   final String currentName;

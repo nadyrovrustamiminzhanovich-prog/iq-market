@@ -124,7 +124,7 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 4),
-                Text(ad.price, style: GoogleFonts.inter(color: const Color(0xFF4A80F0), fontWeight: FontWeight.w900, fontSize: 16)),
+                Text('${ad.price.toInt()} ₸', style: GoogleFonts.inter(color: const Color(0xFF4A80F0), fontWeight: FontWeight.w900, fontSize: 16)),
                 const SizedBox(height: 4),
                 Text(ad.location, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
                 const SizedBox(height: 6),
