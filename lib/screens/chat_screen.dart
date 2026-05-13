@@ -122,7 +122,11 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   void _scrollToBottom() {
     if (_scrollController.hasClients) {
-      _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
     }
   }
 
@@ -202,7 +206,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                   if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator(color: Color(0xFF4A80F0)));
                   final messages = snapshot.data ?? [];
                   if (messages.isEmpty) return _buildEmptyState();
-                  return _buildMessageList(messages, myBubbleColor, otherBubbleColor);
+                  return _buildMessageList(messages.reversed.toList(), myBubbleColor, otherBubbleColor);
                 },
               ),
             ),
@@ -266,19 +270,26 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   Widget _buildMessageList(List<MessageModel> messages, Color myColor, Color otherColor) {
     final groupedItems = <dynamic>[];
-    DateTime? lastDate;
-    for (var msg in messages) {
-      final date = DateTime(msg.timestamp.year, msg.timestamp.month, msg.timestamp.day);
-      if (lastDate == null || date != lastDate) {
-        groupedItems.add(date);
-        lastDate = date;
-      }
+    
+    for (int i = 0; i < messages.length; i++) {
+      final msg = messages[i];
       groupedItems.add(msg);
+      
+      final date = DateTime(msg.timestamp.year, msg.timestamp.month, msg.timestamp.day);
+      final nextMsg = (i + 1 < messages.length) ? messages[i + 1] : null;
+      final nextDate = nextMsg != null 
+          ? DateTime(nextMsg.timestamp.year, nextMsg.timestamp.month, nextMsg.timestamp.day) 
+          : null;
+      
+      if (nextDate == null || date != nextDate) {
+        groupedItems.add(date);
+      }
     }
 
     return ListView.builder(
       controller: _scrollController,
-      padding: const EdgeInsets.fromLTRB(10, 110, 10, 100), 
+      reverse: true,
+      padding: const EdgeInsets.fromLTRB(10, 10, 10, 110), 
       itemCount: groupedItems.length,
       itemBuilder: (context, index) {
         final item = groupedItems[index];

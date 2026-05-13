@@ -88,7 +88,7 @@ class _PostAdScreenState extends State<PostAdScreen> {
   void _fillFromAd(AdModel ad) {
     _titleController.text = ad.title;
     _descriptionController.text = ad.description;
-    _priceController.text = ad.price.replaceAll(RegExp(r'[^0-9]'), '');
+    _priceController.text = ad.price.toInt().toString();
     _selectedCategory = ad.category;
     _selectedLocation = ad.location;
     _condition = ad.condition;

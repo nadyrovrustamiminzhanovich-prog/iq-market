@@ -73,7 +73,7 @@ Future<void> main() async {
         ChangeNotifierProvider(create: (_) => TaxiProvider()),
         ChangeNotifierProvider(create: (_) => AppConfigProvider()),
       ],
-      child: const OfflineWrapper(child: MainApp()),
+      child: const MainApp(),
     ),
   );
 }
@@ -86,6 +86,7 @@ class MainApp extends StatelessWidget {
     return MaterialApp(
       title: 'IQ-Market',
       navigatorKey: NotificationService.navigatorKey,
+      builder: (context, child) => OfflineWrapper(child: child!),
       home: SplashScreen(nextScreen: const IQMarketHome()),
       debugShowCheckedModeBanner: false,
       navigatorObservers: [AnalyticsService.observer],

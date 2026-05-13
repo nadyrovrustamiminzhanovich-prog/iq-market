@@ -204,7 +204,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
 
       if (senderId.isNotEmpty && mounted) {
         final ad = AdModel(
-          id: adId, title: adTitle, description: '', price: '', category: '',
+          id: adId, title: adTitle, description: '', price: 0.0, category: '',
           images: adImage.isNotEmpty ? [adImage] : [], userId: senderId, userName: senderName,
           userEmail: '', timestamp: DateTime.now(), location: '',
         );

@@ -219,7 +219,7 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
               children: [
                 Text(ad.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 13)),
                 const SizedBox(height: 4),
-                Text(ad.price, style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 14, color: Colors.black)),
+                Text(_formatPrice(ad.price), style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 14, color: Colors.black)),
               ],
             ),
           ),
@@ -325,4 +325,8 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
       ],
     ),
   );
+
+  String _formatPrice(double price) {
+    return price > 0 ? '${NumberFormat.decimalPattern('ru').format(price.toInt())} ₸' : 'Договорная';
+  }
 }

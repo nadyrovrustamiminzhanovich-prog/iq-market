@@ -664,7 +664,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
 
     try {
       final gemini = GeminiService();
-      gemini.init();
+      gemini.init(widget.lang);
 
       
       final prompt = "Твоя роль: Помощник покупателя на маркетплейсе IQ-Market. "
@@ -825,7 +825,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                   }
                   
                   Navigator.pop(context);
-                  await ChatService.sendOffer(ad: widget.ad, price: '${controller.text} ₸');
+                  await ChatService.sendOffer(ad: widget.ad, price: offeredPrice);
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Предложение отправлено! Проверьте чат.')));
                     Navigator.push(context, MaterialPageRoute(builder: (context) => ChatScreen(ad: widget.ad)));

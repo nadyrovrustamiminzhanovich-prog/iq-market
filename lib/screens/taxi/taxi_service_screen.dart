@@ -553,7 +553,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                     id: 'taxi_${d['name']}_${DateTime.now().millisecondsSinceEpoch}',
                     title: '${d['from'] ?? ''} → ${d['to'] ?? ''}',
                     description: 'Taxi Trip',
-                    price: '${d['price'] ?? 0} ₸',
+                    price: double.tryParse(d['price']?.toString() ?? '0') ?? 0.0,
                     category: 'Taxi',
                     images: d['img'] != null && d['img'].toString().isNotEmpty ? [d['img']] : [],
                     userId: 'taxi_driver',

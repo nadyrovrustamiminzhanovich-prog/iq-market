@@ -269,7 +269,7 @@ exports.checkExpiredAds = functions.pubsub.schedule('0 3 * * *').timeZone('Asia/
       .get();
 
     expiredAdsSnap.forEach((doc) => {
-      batch.update(doc.ref, { status: 'archived', isActive: false });
+      batch.update(doc.ref, { status: 'archived', active: false });
       expiredCount++;
     });
 

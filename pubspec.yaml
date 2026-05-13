@@ -57,7 +57,7 @@ dependencies:
   flutter_animate: ^4.5.0
   video_compress: ^3.1.4
   connectivity_plus: ^7.1.1
-  infinite_scroll_pagination: ^5.1.1
+  infinite_scroll_pagination: ^4.1.0
   firebase_app_check: ^0.4.3
   firebase_crashlytics: ^5.2.1
   firebase_performance: ^0.11.4

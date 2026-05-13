@@ -53,8 +53,9 @@ class AdService {
       // If AI fails, we allow manual review instead of blocking
     }
 
-    if (moderationVerdict == 'REJECTED') {
-      throw Exception('Объявление отклонено ИИ за нарушение правил. Проверьте текст и фото.');
+    if (moderationVerdict.startsWith('REJECTED')) {
+      final reason = moderationVerdict.replaceFirst('REJECTED:', '').trim();
+      throw Exception('Объявление отклонено ИИ за нарушение правил.\nПричина: ${reason.isEmpty ? "Нарушение политики контента" : reason}');
     }
 
     // 2. Загрузка фото со сжатием
@@ -165,6 +166,7 @@ class AdService {
   static Stream<List<AdModel>> getActiveAdsStream() {
     return _adsCollection
         .orderBy('timestamp', descending: true)
+        .limit(100) // Берем только 100 последних для ленты, чтобы не тормозило
         .snapshots()
         .map((snapshot) => snapshot.docs
             .map((doc) => AdModel.fromMap(doc.data() as Map<String, dynamic>, doc.id))
@@ -205,9 +207,17 @@ class AdService {
       }
 
       final snapshot = await query.limit(limit).get();
-      final ads = snapshot.docs
+      List<AdModel> ads = snapshot.docs
           .map((doc) => AdModel.fromMap(doc.data() as Map<String, dynamic>, doc.id))
           .toList();
+
+      // Клиентская фильтрация для поиска (временное решение до интеграции Algolia/Elastic)
+      if (searchQuery != null && searchQuery.isNotEmpty) {
+        ads = ads.where((ad) => 
+          ad.title.toLowerCase().contains(searchQuery.toLowerCase()) || 
+          ad.description.toLowerCase().contains(searchQuery.toLowerCase())
+        ).toList();
+      }
       
       return {
         'ads': ads,
@@ -261,7 +271,7 @@ class AdService {
 
       // 3. Логика уведомления о снижении цены
       if (updates.containsKey('price')) {
-        final double? oldPrice = double.tryParse(oldAd.price.replaceAll(RegExp(r'[^0-9.]'), ''));
+        final double? oldPrice = oldAd.price;
         final double? newPrice = double.tryParse(updates['price'].toString().replaceAll(RegExp(r'[^0-9.]'), ''));
 
         if (oldPrice != null && newPrice != null && newPrice < oldPrice) {
@@ -410,12 +420,18 @@ class AdService {
 
   /// Search ads by query
   static Future<List<AdModel>> searchAds(String query) async {
-    final snapshot = await _adsCollection.get();
+    // Ограничиваем выборку для поиска, так как Firestore не поддерживает полнотекстовый поиск напрямую
+    final snapshot = await _adsCollection
+        .where('active', isEqualTo: true)
+        .where('status', isEqualTo: 'active')
+        .orderBy('timestamp', descending: true)
+        .limit(100) // Ищем среди последних 100
+        .get();
+        
     return snapshot.docs
         .map((doc) => AdModel.fromMap(doc.data() as Map<String, dynamic>, doc.id))
-        .where((ad) => ad.active && ad.status == 'active' && 
-               (ad.title.toLowerCase().contains(query.toLowerCase()) || 
-                ad.description.toLowerCase().contains(query.toLowerCase())))
+        .where((ad) => ad.title.toLowerCase().contains(query.toLowerCase()) || 
+                       ad.description.toLowerCase().contains(query.toLowerCase()))
         .toList();
   }
 

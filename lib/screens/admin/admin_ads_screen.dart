@@ -338,4 +338,5 @@ class _AdminAdsScreenState extends State<AdminAdsScreen> with SingleTickerProvid
       ),
     );
   }
+}
 

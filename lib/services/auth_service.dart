@@ -1,5 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:google_sign_in/google_sign_in.dart' as google;
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
@@ -7,12 +7,16 @@ import 'package:iqmarket/services/telegram_bot_service.dart';
 
 class AuthService {
   static final FirebaseAuth _auth = FirebaseAuth.instance;
-  static final google.GoogleSignIn _googleSignIn = google.GoogleSignIn(
-    serverClientId: "984873146578-ers7tbn7972bk4g0qoufq28kq3ttsgbn.apps.googleusercontent.com",
-  );
+  static final dynamic _googleSignIn = GoogleSignIn.instance;
 
   static Future<void> init() async {
-    // Initialization is now handled in the constructor
+    try {
+      await _googleSignIn.initialize(
+        serverClientId: "984873146578-ers7tbn7972bk4g0qoufq28kq3ttsgbn.apps.googleusercontent.com",
+      );
+    } catch (e) {
+      debugPrint('GoogleSignIn Initialize Error: $e');
+    }
   }
 
   static User? get currentUser => _auth.currentUser;
@@ -48,11 +52,10 @@ class AuthService {
 
   static Future<UserCredential?> signInWithGoogle() async {
     try {
-      // ИСПОЛЬЗУЕМ ТИПИЗИРОВАННЫЙ API (Убираем dynamic)
-      final googleUser = await _googleSignIn.signIn();
+      final dynamic googleUser = await _googleSignIn.signIn();
       if (googleUser == null) return null;
 
-      final googleAuth = await googleUser.authentication;
+      final dynamic googleAuth = await googleUser.authentication;
       
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
@@ -103,10 +106,10 @@ class AuthService {
 
   static Future<UserCredential?> linkWithGoogle() async {
     try {
-      final googleUser = await _googleSignIn.signIn();
+      final dynamic googleUser = await _googleSignIn.signIn();
       if (googleUser == null) return null;
 
-      final googleAuth = await googleUser.authentication;
+      final dynamic googleAuth = await googleUser.authentication;
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
