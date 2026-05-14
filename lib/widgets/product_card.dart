@@ -60,6 +60,7 @@ class _ProductCardState extends State<ProductCard> with SingleTickerProviderStat
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.grey.withValues(alpha: 0.15), width: 1),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
@@ -82,7 +83,44 @@ class _ProductCardState extends State<ProductCard> with SingleTickerProviderStat
                   onTap: widget.onTap,
                   behavior: HitTestBehavior.opaque,
                   child: images.isEmpty
-                      ? _noImage()
+                      ? (ad.videoUrl != null && ad.videoUrl!.startsWith('http')
+                          // Video-only ad: show black background with play icon
+                          ? Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                Container(color: const Color(0xFF0F172A)),
+                                Center(
+                                  child: Container(
+                                    width: 50, height: 50,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withValues(alpha: 0.2),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(color: Colors.white.withValues(alpha: 0.5), width: 2),
+                                    ),
+                                    child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 30),
+                                  ),
+                                ),
+                                Positioned(
+                                  bottom: 10, left: 10,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF4A80F0),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.videocam_rounded, color: Colors.white, size: 12),
+                                        SizedBox(width: 4),
+                                        Text('ВИДЕО', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w900)),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            )
+                          : _noImage())
                       : (hasMultiple
                           ? PageView.builder(
                               controller: _pageCtrl,

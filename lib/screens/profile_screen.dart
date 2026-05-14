@@ -18,11 +18,13 @@ import 'package:iqmarket/screens/legal_info_screen.dart';
 import 'package:screen_protector/screen_protector.dart';
 import 'dart:async';
 import 'package:iqmarket/screens/chats_list_screen.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:iqmarket/screens/admin/admin_panel_screen.dart';
 import 'package:iqmarket/widgets/profile/profile_components.dart';
 import 'package:iqmarket/translations/profile_strings.dart';
 import 'package:iqmarket/services/auth_service.dart';
 import 'package:iqmarket/models/user_model.dart';
+import 'package:iqmarket/constants/app_constants.dart';
 
 class ProfileScreen extends StatefulWidget {
   final List<AdModel> allAds;
@@ -157,6 +159,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+
     return Scaffold(
       backgroundColor: _bgColor,
       body: StreamBuilder<UserModel?>(
@@ -180,18 +183,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 pinned: true,
                 elevation: 0,
                 backgroundColor: const Color(0xFF4A80F0),
-                leading: Navigator.canPop(context) ? Padding(
+                leading: Padding(
                   padding: const EdgeInsets.only(left: 16),
                   child: Center(
                     child: Container(
                       decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)),
                       child: IconButton(
                         icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 18),
-                        onPressed: () => Navigator.maybePop(context),
+                        onPressed: () => Navigator.of(context).pop(),
                       ),
                     ),
                   ),
-                ) : null,
+                ),
                 actions: [
                   Padding(
                     padding: const EdgeInsets.only(right: 16),
@@ -272,7 +275,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.verified_rounded, color: const Color(0xFF4A80F0), size: 20),
+                          const Icon(Icons.verified_rounded, color: Color(0xFF4A80F0), size: 20),
                           const SizedBox(width: 6),
                           Text(_t('badge_verified'), style: GoogleFonts.inter(color: const Color(0xFF4A80F0), fontWeight: FontWeight.bold, fontSize: 13)),
                         ],
@@ -282,15 +285,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     _buildStatsBar(user),
                     const SizedBox(height: 25),
                     if (_isGuest) ...[
-                      _buildAuthButton(context),
+                      _buildGuestBanner(),
                       const SizedBox(height: 25),
                     ],
-                    _buildVerificationSection(),
-                    const SizedBox(height: 25),
+                    if (!_isGuest) ...[
+                      _buildVerificationSection(),
+                      const SizedBox(height: 25),
+                    ],
                     _buildSimplifiedMenu(),
                     const Spacer(),
                     const SizedBox(height: 20),
-                    if (!_isGuest) _buildAuthButton(context),
+                    if (!_isGuest) _buildLogoutButton(context),
                     const SizedBox(height: 20),
                   ],
                 ),
@@ -609,11 +614,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _buildListItem(Icons.description_outlined, _t('legal'), () {
           Navigator.push(context, MaterialPageRoute(builder: (context) => LegalInfoScreen(lang: _localLang)));
         }),
-        _buildListItem(Icons.security_rounded, 'Безопасность', _showSecurityDialog),
+        ...(() {
+          final user = FirebaseAuth.instance.currentUser;
+          final providers = user?.providerData.map((p) => p.providerId).toList() ?? [];
+          final isEmailUser = providers.contains('password');
+          
+          return [
+            if (isEmailUser)
+              _buildListItem(Icons.security_rounded, 'Безопасность', _showSecurityDialog),
+          ];
+        }()),
         if (_localAccType == 'admin')
           _buildListItem(Icons.admin_panel_settings_outlined, 'Admin Panel', () {
             Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminPanelScreen()));
           }),
+        const Divider(height: 32, thickness: 1, indent: 20, endIndent: 20),
+        _buildListItem(Icons.star_rate_rounded, 'Оценить приложение', _openStore),
+        _buildListItem(Icons.info_outline_rounded, 'О приложении', _showAboutDialog),
       ],
     ),
   );
@@ -866,6 +883,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  void _handleLogout() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Выйти из аккаунта?'),
+        content: const Text('Вы уверены, что хотите выйти?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('ОТМЕНА')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('ВЫЙТИ', style: TextStyle(color: Colors.red))),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      await AuthService.signOut();
+      if (mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+          (route) => false,
+        );
+      }
+    }
+  }
+
   void _showLocalError(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.redAccent));
   }
@@ -881,6 +922,169 @@ class _ProfileScreenState extends State<ProfileScreen> {
         filled: true,
         fillColor: _subtxtColor.withValues(alpha: 0.05),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+      ),
+    );
+  }
+  Widget _buildGuestBanner() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: const Color(0xFF4A80F0).withValues(alpha: 0.1)),
+        boxShadow: [BoxShadow(color: const Color(0xFF4A80F0).withValues(alpha: 0.05), blurRadius: 20, offset: const Offset(0, 10))],
+      ),
+      child: Column(
+        children: [
+          const Icon(Icons.person_add_rounded, size: 48, color: Color(0xFF4A80F0)),
+          const SizedBox(height: 16),
+          Text(
+            'Присоединяйтесь!',
+            style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A)),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Войдите в профиль, чтобы публиковать объявления, общаться в чатах и сохранять избранное.',
+            style: GoogleFonts.inter(fontSize: 14, color: const Color(0xFF64748B), height: 1.5),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LoginScreen())),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF4A80F0),
+                foregroundColor: Colors.white,
+                minimumSize: const Size(0, 56),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                elevation: 0,
+              ),
+              child: const Text('ВОЙТИ В АККАУНТ', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLogoutButton(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: SizedBox(
+        width: double.infinity,
+        child: OutlinedButton.icon(
+          onPressed: () => _handleLogout(),
+          icon: const Icon(Icons.logout_rounded, color: Colors.redAccent),
+          label: const Text('ВЫЙТИ ИЗ АККАУНТА', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w900)),
+          style: OutlinedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 18),
+            side: const BorderSide(color: Colors.redAccent),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _circleButton(IconData icon, VoidCallback onTap) {
+    return Container(
+      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)),
+      child: IconButton(
+        icon: Icon(icon, color: Colors.white, size: 18),
+        onPressed: onTap,
+      ),
+    );
+  }
+
+  void _openStore() async {
+    final appId = "com.iqmarket.app";
+    final url = Platform.isAndroid 
+        ? Uri.parse("https://play.google.com/store/apps/details?id=$appId")
+        : Uri.parse("https://apps.apple.com/app/id64748B"); // Replace with real iOS ID when available
+    
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    } else {
+      _showLocalError('Не удалось открыть магазин приложений');
+    }
+  }
+
+  void _showAboutDialog() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(32),
+        decoration: BoxDecoration(
+          color: _surfaceColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(40)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: _subtxtColor.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(10))),
+            const SizedBox(height: 32),
+            const Icon(Icons.copyright_rounded, size: 64, color: Color(0xFF4A80F0)),
+            const SizedBox(height: 24),
+            Text(
+              'Авторское право',
+              style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w900, color: _txtColor),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: _primaryColor.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: _primaryColor.withValues(alpha: 0.1)),
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    'Основатель и Главный разработчик:\n${AppConstants.copyrightOwner}',
+                    style: GoogleFonts.inter(fontSize: 16, height: 1.4, color: _txtColor, fontWeight: FontWeight.w900),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Программный комплекс ${AppConstants.appName}, включая уникальные алгоритмы, архитектуру и дизайн, является объектом интеллектуальной собственности. Любое незаконное копирование, декомпиляция или использование преследуется по закону.',
+                    style: GoogleFonts.inter(fontSize: 13, height: 1.5, color: _subtxtColor, fontWeight: FontWeight.w500),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 20),
+                  const Divider(),
+                  const SizedBox(height: 12),
+                  Text(
+                    '© ${AppConstants.copyrightYear} ${AppConstants.appName}. All Rights Reserved.\nВсе права защищены.\n\nВерсия ${AppConstants.fullVersionString}',
+                    style: GoogleFonts.inter(fontSize: 11, color: _subtxtColor.withValues(alpha: 0.6), fontWeight: FontWeight.w700, letterSpacing: 0.5),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 32),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _primaryColor,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(0, 56),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  elevation: 0,
+                ),
+                child: const Text('ПОНЯТНО', style: TextStyle(fontWeight: FontWeight.w900)),
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
+        ),
       ),
     );
   }

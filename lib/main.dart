@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
@@ -62,6 +63,15 @@ Future<void> main() async {
   NotificationService.init();
   AnalyticsService.logAppOpen();
   
+  // Load saved language
+  final savedLang = StorageService.getString('app_lang') ?? 'Русский';
+  final localeMap = {
+    'Русский': const Locale('ru', 'RU'),
+    'Қазақша': const Locale('kk', 'KZ'),
+    'Уйғурчә': const Locale('en', 'US'), // Assuming English fallback for Uyghur if not fully supported by system locales
+  };
+  final initialLocale = localeMap[savedLang] ?? const Locale('ru', 'RU');
+  
   if (!isFirebaseReady) {
     runApp(ErrorApp(message: 'Ошибка подключения к серверу. Проверьте интернет.', onRetry: () => main()));
     return;
@@ -71,7 +81,7 @@ Future<void> main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => TaxiProvider()),
-        ChangeNotifierProvider(create: (_) => AppConfigProvider()),
+        ChangeNotifierProvider(create: (_) => AppConfigProvider()..setLocale(initialLocale)),
       ],
       child: const MainApp(),
     ),
@@ -83,10 +93,52 @@ class MainApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final config = Provider.of<AppConfigProvider>(context);
+    
     return MaterialApp(
       title: 'IQ-Market',
       navigatorKey: NotificationService.navigatorKey,
-      builder: (context, child) => OfflineWrapper(child: child!),
+      builder: (context, child) {
+        // Global Error Boundary - World Class Professional approach
+        ErrorWidget.builder = (FlutterErrorDetails details) {
+          return Material(
+            child: Container(
+              color: Colors.white,
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error_outline_rounded, color: Colors.redAccent, size: 64),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Упс! Что-то пошло не так',
+                    style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.w900),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Мы уже получили отчет и работаем над исправлением.',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.outfit(color: Colors.grey[600]),
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: () => Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(builder: (_) => const IQMarketHome()),
+                      (route) => false,
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF4A80F0),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: const Text('Вернуться на главную', style: TextStyle(color: Colors.white)),
+                  ),
+                ],
+              ),
+            ),
+          );
+        };
+        return OfflineWrapper(child: child!);
+      },
       home: SplashScreen(nextScreen: const IQMarketHome()),
       debugShowCheckedModeBanner: false,
       navigatorObservers: [AnalyticsService.observer],
@@ -101,7 +153,7 @@ class MainApp extends StatelessWidget {
         Locale('kk', 'KZ'),
         Locale('en', 'US'),
       ],
-      locale: const Locale('ru', 'RU'),
+      locale: config.locale,
     );
   }
 }

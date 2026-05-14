@@ -149,3 +149,63 @@ class AuthSocialButton extends StatelessWidget {
     );
   }
 }
+class AuthSocialLongButton extends StatelessWidget {
+  final String label;
+  final Widget icon;
+  final VoidCallback onTap;
+  final Color? color;
+  final Color? textColor;
+  final bool isDark;
+
+  const AuthSocialLongButton({
+    super.key,
+    required this.label,
+    required this.icon,
+    required this.onTap,
+    this.color,
+    this.textColor,
+    this.isDark = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        height: 56,
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: color ?? (isDark ? Colors.black : Colors.white),
+          borderRadius: BorderRadius.circular(18),
+          border: isDark ? null : Border.all(color: Colors.grey.shade200, width: 1.5),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            )
+          ],
+        ),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Positioned(
+              left: 20,
+              child: icon,
+            ),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                color: textColor ?? (isDark ? Colors.white : Colors.black87),
+                letterSpacing: 0.3,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

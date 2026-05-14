@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -47,6 +48,7 @@ class _IQMarketHomeState extends State<IQMarketHome> {
 
   late stt.SpeechToText _speech;
   bool _isListening = false;
+  Timer? _searchDebounce;
 
   static const _pageSize = 20;
   
@@ -92,7 +94,8 @@ class _IQMarketHomeState extends State<IQMarketHome> {
   void dispose() {
     _searchController.dispose();
     _scrollController.dispose();
-    _pagingController.dispose(); // Не забываем удалять контроллер
+    _pagingController.dispose();
+    _searchDebounce?.cancel();
     super.dispose();
   }
 
@@ -135,8 +138,8 @@ class _IQMarketHomeState extends State<IQMarketHome> {
             }), 
             onTaxiTap: () => _navToTaxi(config)
           )),
-          SliverToBoxAdapter(child: _sectionHeader('Рекомендуем')),
-          SliverToBoxAdapter(child: _buildRecs(config)),
+          // SliverToBoxAdapter(child: _sectionHeader('Рекомендуем')),
+          // SliverToBoxAdapter(child: _buildRecs(config)),
           SliverToBoxAdapter(child: _sectionHeader('Новые объявления')),
           _buildAdsGrid(config),
           const SliverPadding(padding: EdgeInsets.only(bottom: 100)),
@@ -160,8 +163,13 @@ class _IQMarketHomeState extends State<IQMarketHome> {
         child: SearchBarHome(
           controller: _searchController, 
           onChanged: (v) {
-            setState(() => _searchQuery = v);
-            _pagingController.refresh();
+            _searchDebounce?.cancel();
+            _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+              if (mounted) {
+                setState(() => _searchQuery = v);
+                _pagingController.refresh();
+              }
+            });
           }, 
           onMicTap: _listen, 
           onFilterTap: _showFilters
@@ -171,14 +179,14 @@ class _IQMarketHomeState extends State<IQMarketHome> {
   );
 
   Widget _buildAdsGrid(AppConfigProvider config) => SliverPadding(
-    padding: const EdgeInsets.symmetric(horizontal: 16),
+    padding: const EdgeInsets.symmetric(horizontal: 12),
     sliver: PagedSliverGrid<DocumentSnapshot?, AdModel>(
       pagingController: _pagingController,
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2, 
-        mainAxisSpacing: 16, 
-        crossAxisSpacing: 16, 
-        childAspectRatio: 0.75
+        mainAxisSpacing: 10, 
+        crossAxisSpacing: 10, 
+        childAspectRatio: 0.68
       ),
       builderDelegate: PagedChildBuilderDelegate<AdModel>(
         itemBuilder: (context, item, index) => ProductCard(
@@ -191,11 +199,11 @@ class _IQMarketHomeState extends State<IQMarketHome> {
         // В версии 5.1.1 параметры переименованы
         firstPageProgressIndicatorBuilder: (_) => Column(
           children: List.generate(3, (index) => const Padding(
-            padding: EdgeInsets.only(bottom: 16),
+            padding: EdgeInsets.only(bottom: 10),
             child: Row(
               children: [
                 Expanded(child: ProductCardSkeleton()),
-                SizedBox(width: 16),
+                SizedBox(width: 10),
                 Expanded(child: ProductCardSkeleton()),
               ],
             ),
@@ -317,19 +325,60 @@ class _IQMarketHomeState extends State<IQMarketHome> {
     stream: UserService.getUserStream(),
     builder: (context, snapshot) {
       final isAdmin = snapshot.data?.accountType == 'admin';
-      return BottomNavigationBar(
-        currentIndex: _currentIndex > 4 && !isAdmin ? 0 : (_currentIndex > 5 ? 0 : _currentIndex),
-        onTap: (i) => setState(() => _currentIndex = i),
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: const Color(0xFF4A80F0),
-        items: [
-          const BottomNavigationBarItem(icon: Icon(Icons.home_rounded), label: 'Главная'),
-          const BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_outline), label: 'Чаты'),
-          const BottomNavigationBarItem(icon: Icon(Icons.add_circle, size: 40, color: Color(0xFF4A80F0)), label: ''),
-          const BottomNavigationBarItem(icon: Icon(Icons.favorite_outline), label: 'Избранное'),
-          const BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Профиль'),
-          if (isAdmin) const BottomNavigationBarItem(icon: Icon(Icons.admin_panel_settings_outlined), label: 'Админ'),
-        ],
+      return Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border(top: BorderSide(color: Colors.grey.withValues(alpha: 0.1), width: 1)),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, -5))
+          ],
+        ),
+        child: BottomNavigationBar(
+          currentIndex: _currentIndex > 4 && !isAdmin ? 0 : (_currentIndex > 5 ? 0 : _currentIndex),
+          onTap: (i) {
+            if (i == 2) {
+              // World-Class UX: Navigate to Add Ad as a full page
+              final config = Provider.of<AppConfigProvider>(context, listen: false);
+              Navigator.push(context, MaterialPageRoute(builder: (_) => PostAdScreen(lang: config.language)));
+            } else if (i == 4) {
+              // World-Class UX: Navigate to Profile as a full page
+              final config = Provider.of<AppConfigProvider>(context, listen: false);
+              Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileScreen(
+                allAds: const [], 
+                favoriteAds: const [], 
+                onDeleteAd: (_){}, 
+                onApproveAd: (_){}, 
+                onUpdateAd: (_,__){}, 
+                onUpdateProfile: (a,b,c,d,e){}, 
+                currentName: snapshot.data?.name ?? 'Гость', 
+                isBioEnabled: false, 
+                accType: snapshot.data?.accountType ?? 'user', 
+                lang: config.language, 
+                onToggleFavorite: (id) => config.toggleFavorite(id), 
+                onShowProductDetails: _showDetails, 
+                currentTheme: 'Light', 
+                themes: AppTheme.homeThemes, 
+                onThemeChanged: (t){},
+                isGuest: snapshot.data == null,
+              )));
+            } else {
+              setState(() => _currentIndex = i);
+            }
+          },
+          type: BottomNavigationBarType.fixed,
+          selectedItemColor: const Color(0xFF4A80F0),
+          unselectedItemColor: const Color(0xFF94A3B8),
+          elevation: 0,
+          backgroundColor: Colors.white,
+          items: [
+            const BottomNavigationBarItem(icon: Icon(Icons.home_rounded), label: 'Главная'),
+            const BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_outline), label: 'Чаты'),
+            const BottomNavigationBarItem(icon: Icon(Icons.add_circle, size: 40, color: Color(0xFF4A80F0)), label: ''),
+            const BottomNavigationBarItem(icon: Icon(Icons.favorite_outline), label: 'Избранное'),
+            const BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Профиль'),
+            if (isAdmin) const BottomNavigationBarItem(icon: Icon(Icons.admin_panel_settings_outlined), label: 'Админ'),
+          ],
+        ),
       );
     }
   );
@@ -338,25 +387,9 @@ class _IQMarketHomeState extends State<IQMarketHome> {
     final config = Provider.of<AppConfigProvider>(context, listen: false);
     switch (_currentIndex) {
       case 1: return const ChatsListScreen();
-      case 2: return PostAdScreen(lang: config.language);
+      case 2: return const SizedBox.shrink(); // Moved to Navigator.push
       case 3: return FavoritesScreen(lang: config.language, themes: AppTheme.homeThemes, currentTheme: 'Light', onShowDetails: _showDetails);
-      case 4: return ProfileScreen(
-        allAds: const [], 
-        favoriteAds: const [], 
-        onDeleteAd: (_){}, 
-        onApproveAd: (_){}, 
-        onUpdateAd: (_,__){}, 
-        onUpdateProfile: (a,b,c,d,e){}, 
-        currentName: 'User', 
-        isBioEnabled: false, 
-        accType: 'User', 
-        lang: config.language, 
-        onToggleFavorite: (id) => config.toggleFavorite(id), 
-        onShowProductDetails: _showDetails, 
-        currentTheme: 'Light', 
-        themes: AppTheme.homeThemes, 
-        onThemeChanged: (t){}
-      );
+      case 4: return const SizedBox.shrink(); // Moved to Navigator.push
       case 5: return const AdminPanelScreen();
       default: return const SizedBox.shrink();
     }

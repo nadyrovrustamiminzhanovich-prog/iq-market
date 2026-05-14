@@ -7,10 +7,18 @@ class AppConfigProvider with ChangeNotifier {
   String _language = StorageService.getString('language') ?? 'Русский';
   String _city = StorageService.getString('user_location') ?? 'Чунджа';
   Set<String> _favoriteIds = Set<String>.from(StorageService.getStringList('favorites') ?? []);
+  Locale _locale = const Locale('ru', 'RU');
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   AppConfigProvider() {
     _loadFavoritesFromFirestore();
+  }
+
+  Locale get locale => _locale;
+
+  void setLocale(Locale loc) {
+    _locale = loc;
+    notifyListeners();
   }
 
   String get language => _language;

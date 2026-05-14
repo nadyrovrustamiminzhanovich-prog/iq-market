@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:iqmarket/models/review_model.dart';
+import 'package:iqmarket/services/notification_service.dart';
 
 class ReviewService {
   static final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -41,8 +42,18 @@ class ReviewService {
   }
 
   /// Delete a review
-  static Future<void> deleteReview(String reviewId, String toUserId) async {
+  static Future<void> deleteReview(String reviewId, String toUserId, {String? reason}) async {
     await _db.collection('reviews').doc(reviewId).delete();
+    
+    if (reason != null) {
+      NotificationService.saveNotificationToFirestore(
+        uid: toUserId,
+        title: 'Отзыв удален 🗑️',
+        body: 'Один из ваших отзывов был удален модератором. Причина: $reason',
+        type: 'ad_rejected',
+      );
+    }
+
     // Пересчитываем рейтинг пользователя после удаления
     await _updateUserRating(toUserId);
   }
@@ -56,18 +67,20 @@ class ReviewService {
         .where('toUserId', isEqualTo: userId)
         .get();
     
-    if (snapshot.docs.isEmpty) return;
-
-    double totalRating = 0;
-    for (var doc in snapshot.docs) {
-      totalRating += (doc.data()['rating'] ?? 0).toDouble();
-    }
+    int count = snapshot.docs.length;
+    double avgRating = 0;
     
-    double avgRating = totalRating / snapshot.docs.length;
+    if (count >= 5) {
+      double totalRating = 0;
+      for (var doc in snapshot.docs) {
+        totalRating += (doc.data()['rating'] ?? 0).toDouble();
+      }
+      avgRating = totalRating / count;
+    }
 
     await _db.collection('users').doc(userId).set({
       'rating': avgRating,
-      'reviewsCount': snapshot.docs.length,
+      'reviewsCount': count,
     }, SetOptions(merge: true));
 
   }

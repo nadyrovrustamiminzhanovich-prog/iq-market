@@ -29,21 +29,12 @@ class ChatService {
         .collection('chats')
         .doc(chatId)
         .collection('messages')
-        // Убираем orderBy, чтобы не требовать индексы в Firebase
+        .orderBy('timestamp', descending: false)
         .snapshots()
         .map((snapshot) {
-          final messages = snapshot.docs
+          return snapshot.docs
             .map((doc) => MessageModel.fromMap(doc.data() as Map<String, dynamic>, doc.id))
             .toList();
-          
-          // Сортируем локально по времени
-          messages.sort((a, b) {
-            if (a.timestamp == null) return 1;
-            if (b.timestamp == null) return -1;
-            return a.timestamp!.compareTo(b.timestamp!);
-          });
-          
-          return messages;
         });
   }
 
@@ -95,16 +86,14 @@ class ChatService {
     
     await _db.collection('chats').doc(chatId).set(summaryData, SetOptions(merge: true));
 
-    // Send push notification to the other user
-    final recipientId = (uid == ad.userId) ? ad.userId : ad.userId; 
-    // Wait, if I am the buyer (uid), recipient is seller (ad.userId). 
-    // If I am the seller (uid), I need to know the buyer id from the chat summary.
-    // Actually, getChatId uses [uid, sellerId].
-    // Let's simplify: recipient is the one who is NOT current user in the chat users list.
-    
+    // Identify the recipient correctly
+    // If the sender is the one in ad.userId, we need the other person from the chat.
+    // In our app, ChatScreen always ensures ad.userId is the 'other' person.
+    // But for robustness, we should ideally fetch the chat summary or pass recipientId.
+    final recipientId = sellerId; // Based on ChatScreen's current implementation
+
     NotificationService.saveNotificationToFirestore(
-      uid: sellerId, // Simplified for now: notify the ad owner. 
-      // In a real app, you'd notify the specific other user in the chat.
+      uid: recipientId,
       title: 'Новое сообщение: $actualSenderName',
       body: text,
       type: 'chat',
@@ -193,6 +182,23 @@ class ChatService {
         'lastMessage': responseText,
         'lastTimestamp': FieldValue.serverTimestamp(),
       });
+
+      // Notify the recipient about offer status change
+      // We need to find who sent the offer originally. 
+      // It's the 'senderId' of the message with messageId.
+      final offerSenderId = adData['senderId'];
+      if (offerSenderId != null) {
+        NotificationService.saveNotificationToFirestore(
+          uid: offerSenderId,
+          title: status == 'accepted' ? 'Предложение принято! ✅' : 'Предложение отклонено ❌',
+          body: 'Продавец ответил на ваше предложение по товару "${adData['adTitle'] ?? 'объявлению'}"',
+          type: 'chat',
+          data: {
+            'chatId': chatId,
+            'adId': adData['adId'] ?? '',
+          },
+        );
+      }
     }
   }
 

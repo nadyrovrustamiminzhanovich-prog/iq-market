@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:iqmarket/models/user_model.dart';
+import 'package:iqmarket/services/ad_service.dart';
+import 'package:iqmarket/services/notification_service.dart';
 
 class UserService {
   static final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -43,7 +45,7 @@ class UserService {
           'status': 'active',
           'registrationDate': FieldValue.serverTimestamp(),
           'reviewsCount': 0,
-          'rating': 5.0,
+          'rating': 0.0,
         });
       } else {
         // Update existing user profile
@@ -98,6 +100,16 @@ class UserService {
   static Future<void> toggleUserVerification(String uid, bool isVerified) async {
     try {
       await users.doc(uid).update({'isVerified': isVerified});
+      
+      // Notify user about verification status
+      NotificationService.saveNotificationToFirestore(
+        uid: uid,
+        title: isVerified ? 'Профиль подтвержден! ✅' : 'Статус подтверждения изменен',
+        body: isVerified 
+          ? 'Поздравляем! Ваш профиль успешно прошел проверку и получил статус подтвержденного.' 
+          : 'Ваш статус верификации был обновлен администратором.',
+        type: 'driver_verified', // Using this type for icon/color
+      );
     } catch (e) {
       debugPrint('Error toggling user verification: $e');
     }
@@ -107,6 +119,15 @@ class UserService {
   static Future<void> toggleUserBan(String uid, bool isBanned) async {
     try {
       await users.doc(uid).update({'status': isBanned ? 'banned' : 'active'});
+      
+      if (isBanned) {
+        NotificationService.saveNotificationToFirestore(
+          uid: uid,
+          title: 'Ваш аккаунт заблокирован ❌',
+          body: 'Ваш профиль был заблокирован администратором за нарушение правил сообщества.',
+          type: 'ad_rejected',
+        );
+      }
     } catch (e) {
       debugPrint('Error toggling user ban: $e');
     }
@@ -139,8 +160,13 @@ class UserService {
     final uid = currentUid;
     if (uid == null) return;
     try {
+      // 1. Delete all ads, images and videos first
+      await AdService.deleteUserAds(uid);
+      
+      // 2. Delete the user profile doc
       await users.doc(uid).delete();
-      debugPrint('User data deleted for $uid ✅');
+      
+      debugPrint('User data and ads deleted for $uid ✅');
     } catch (e) {
       debugPrint('Error deleting user data: $e');
     }

@@ -9,11 +9,25 @@ import 'package:iqmarket/screens/admin/admin_users_screen.dart';
 import 'package:iqmarket/screens/admin/admin_notifications_screen.dart';
 import 'package:iqmarket/screens/admin/admin_reports_screen.dart';
 import 'package:iqmarket/screens/admin/admin_dashboard_screen.dart';
+import 'package:iqmarket/services/ad_service.dart';
+import 'package:iqmarket/services/user_service.dart';
 
 
 
-class AdminPanelScreen extends StatelessWidget {
+class AdminPanelScreen extends StatefulWidget {
   const AdminPanelScreen({super.key});
+
+  @override
+  State<AdminPanelScreen> createState() => _AdminPanelScreenState();
+}
+
+class _AdminPanelScreenState extends State<AdminPanelScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Глобальная чистка архива (раз в месяц), если зашел админ
+    AdService.runGlobalCleanupIfNeeded();
+  }
 
   @override
   Widget build(BuildContext context) {

@@ -14,6 +14,13 @@ class MyAdsScreen extends StatefulWidget {
 }
 
 class _MyAdsScreenState extends State<MyAdsScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Проверка своих объявлений на истечение при входе в раздел
+    AdService.checkMyAdsLifecycle();
+  }
+
   String _t(String key) {
     final translations = {
       'title': { 'Русский': 'Мои объявления', 'Қазақша': 'Менің хабарландыруларым', 'Уйғурчә': 'Мениң еланлирим' },

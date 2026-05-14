@@ -13,7 +13,6 @@ import 'package:iqmarket/screens/product_details_screen.dart';
 import 'package:iqmarket/screens/video_trimmer_screen.dart';
 import 'package:iqmarket/utils/formatters.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:video_trimmer/video_trimmer.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/services.dart';
@@ -141,9 +140,9 @@ class _PostAdScreenState extends State<PostAdScreen> {
                     onSubCategorySelected: (sub) => setState(() { _selectedSubCategory = sub; _saveDraft(); }),
                   ),
                   const SizedBox(height: 30),
-                  _buildFormFields(),
-                  const SizedBox(height: 30),
                   _buildCategorySpecs(),
+                  const SizedBox(height: 30),
+                  _buildFormFields(),
                   const SizedBox(height: 30),
                   _buildOptions(),
                   const SizedBox(height: 40),
@@ -299,10 +298,6 @@ class _PostAdScreenState extends State<PostAdScreen> {
       return;
     }
 
-    if (_imageFiles.isEmpty && widget.initialAd == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Добавьте хотя бы одно фото')));
-      return;
-    }
 
     if (_selectedLocation.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Выберите город')));

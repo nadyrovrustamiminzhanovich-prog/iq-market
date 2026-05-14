@@ -408,14 +408,82 @@ class AdService {
   /// Get recommended ads
   static Stream<List<AdModel>> getRecommendationsStream() {
     return _adsCollection
+        .where('active', isEqualTo: true)
+        .where('status', isEqualTo: 'active')
         .orderBy('timestamp', descending: true)
         .limit(20)
         .snapshots()
         .map((snapshot) => snapshot.docs
             .map((doc) => AdModel.fromMap(doc.data() as Map<String, dynamic>, doc.id))
-            .where((ad) => ad.active && ad.status == 'active')
-            .take(10)
             .toList());
+  }
+
+  /// === СИСТЕМА ЖИЗНЕННОГО ЦИКЛА ОБЪЯВЛЕНИЙ ===
+
+  /// 1. Проверка и уведомление пользователей об истечении (для юзера)
+  static Future<void> checkMyAdsLifecycle() async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) return;
+
+    final now = DateTime.now();
+    final threeDaysFromNow = now.add(const Duration(days: 3));
+
+    // Находим активные объявления, которые скоро истекут
+    final snapshot = await _adsCollection
+        .where('userId', isEqualTo: uid)
+        .where('status', isEqualTo: 'active')
+        .where('notifiedExpiry', isEqualTo: false)
+        .get();
+
+    for (var doc in snapshot.docs) {
+      final ad = AdModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
+      if (ad.expiresAt != null && ad.expiresAt!.isBefore(threeDaysFromNow)) {
+        // Отправляем уведомление
+        await NotificationService.saveNotificationToFirestore(
+          uid: uid,
+          title: 'Срок объявления истекает! ⏳',
+          body: 'Ваше объявление "${ad.title}" скоро будет перенесено в архив. Продлите его, чтобы не потерять просмотры.',
+          type: 'price_drop',
+          data: {'adId': ad.id},
+        );
+        // Помечаем, что уведомили
+        await doc.reference.update({'notifiedExpiry': true});
+      }
+      
+      // Если уже истекло — переносим в архив автоматически
+      if (ad.expiresAt != null && ad.expiresAt!.isBefore(now)) {
+        await toggleAdStatus(ad.id, false);
+      }
+    }
+  }
+
+  /// 2. Глобальная ежемесячная чистка (запускается админом)
+  static Future<void> runGlobalCleanupIfNeeded() async {
+    final user = await UserService.getUserById(_auth.currentUser?.uid ?? '');
+    if (user?.accountType != 'admin') return;
+
+    final settingsDoc = _db.collection('settings').doc('lifecycle');
+    final snap = await settingsDoc.get();
+    
+    DateTime lastCleanup = DateTime(2024);
+    if (snap.exists) {
+      lastCleanup = (snap.data()?['lastCleanup'] as Timestamp).toDate();
+    }
+
+    // Если прошло больше 30 дней с последней чистки
+    if (DateTime.now().difference(lastCleanup).inDays >= 30) {
+      debugPrint('[LIFECYCLE] Starting monthly cleanup...');
+      
+      // Удаляем старые архивные объявления (которым больше 30 дней в архиве)
+      int deletedCount = await cleanupOldArchivedAds();
+      
+      await settingsDoc.set({
+        'lastCleanup': FieldValue.serverTimestamp(),
+        'lastDeletedCount': deletedCount,
+      }, SetOptions(merge: true));
+      
+      debugPrint('[LIFECYCLE] Cleanup finished. Deleted: $deletedCount');
+    }
   }
 
   /// Search ads by query
@@ -462,6 +530,39 @@ class AdService {
     } catch (e) {
       debugPrint('Error fetching ads by IDs: $e');
       return [];
+    }
+  }
+
+  /// Clean up old archived ads (older than 90 days) to save space
+  static Future<int> cleanupOldArchivedAds() async {
+    try {
+      final ninetyDaysAgo = DateTime.now().subtract(const Duration(days: 90));
+      final snapshot = await _adsCollection
+          .where('status', isEqualTo: 'archived')
+          .where('timestamp', isLessThan: Timestamp.fromDate(ninetyDaysAgo))
+          .get();
+
+      int deletedCount = 0;
+      for (var doc in snapshot.docs) {
+        await deleteAd(doc.id);
+        deletedCount++;
+      }
+      return deletedCount;
+    } catch (e) {
+      debugPrint('Error cleaning up archived ads: $e');
+      return 0;
+    }
+  }
+  /// Delete all ads by a specific user (for account deletion)
+  static Future<void> deleteUserAds(String userId) async {
+    try {
+      final snapshot = await _adsCollection.where('userId', isEqualTo: userId).get();
+      for (var doc in snapshot.docs) {
+        await deleteAd(doc.id);
+      }
+      debugPrint('All ads for user $userId deleted ✅');
+    } catch (e) {
+      debugPrint('Error deleting user ads: $e');
     }
   }
 }

@@ -438,41 +438,79 @@ class _LoginScreenState extends State<LoginScreen> {
           ]), textAlign: TextAlign.center)),
           const SizedBox(height: 30),
 
-          Row(children: [Expanded(child: Divider(color: Colors.grey[200], thickness: 1.5)), Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Text(_t('or_with'), style: const TextStyle(color: Colors.black54, fontSize: 13, fontWeight: FontWeight.bold))), Expanded(child: Divider(color: Colors.grey[200], thickness: 1.5))]),
+          Row(children: [
+            Expanded(child: Divider(color: Colors.grey[200], thickness: 1.5)),
+            Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Text(_t('or_with'), style: const TextStyle(color: Colors.black54, fontSize: 13, fontWeight: FontWeight.bold))),
+            Expanded(child: Divider(color: Colors.grey[200], thickness: 1.5))
+          ]),
           const SizedBox(height: 25),
 
-          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            AuthSocialButton(url: 'https://cdn-icons-png.flaticon.com/512/300/300221.png', onTap: _handleGoogleSignIn),
-            if (Platform.isIOS) ...[
-              const SizedBox(width: 30),
-              AuthSocialButton(url: 'https://cdn-icons-png.flaticon.com/512/0/747.png', onTap: _handleAppleSignIn, isApple: true),
-            ],
-            const SizedBox(width: 30),
-            AuthSocialButton(url: 'https://cdn-icons-png.flaticon.com/512/2111/2111646.png', onTap: _handleTelegramLogin),
-          ]),
-          const SizedBox(height: 15),
+          // --- Premium Social Buttons ---
+          AuthSocialLongButton(
+            label: 'Продолжить с Email',
+            icon: const Icon(Icons.email_rounded, color: Color(0xFF4A80F0), size: 24),
+            onTap: () {
+               // Scroll to top or focus email field? 
+               // For now, just keep the fields below.
+            },
+          ),
+
+          AuthSocialLongButton(
+            label: 'Продолжить с Google',
+            icon: Image.network('https://cdn-icons-png.flaticon.com/512/300/300221.png', width: 24),
+            onTap: _handleGoogleSignIn,
+          ),
+
+          if (Platform.isIOS)
+            AuthSocialLongButton(
+              label: 'Продолжить с Apple',
+              icon: const Icon(Icons.apple, color: Colors.white, size: 28),
+              onTap: _handleAppleSignIn,
+              isDark: true,
+            ),
+
+          AuthSocialLongButton(
+            label: 'Продолжить с Telegram',
+            icon: Image.network('https://cdn-icons-png.flaticon.com/512/2111/2111646.png', width: 24),
+            onTap: _handleTelegramLogin,
+            color: const Color(0xFF0088CC),
+            textColor: Colors.white,
+          ),
+
+          const SizedBox(height: 12),
           Center(
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
               decoration: BoxDecoration(
-                color: const Color(0xFF0088CC).withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
+                color: const Color(0xFF10B981).withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.1)),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
+              child: Column(
                 children: [
-                  const Icon(Icons.verified_rounded, color: Color(0xFF0088CC), size: 16),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Вход через Telegram дает статус Водителя ✅',
-                    style: TextStyle(color: const Color(0xFF0088CC), fontSize: 11, fontWeight: FontWeight.w800),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.verified_user_rounded, color: Color(0xFF10B981), size: 18),
+                      const SizedBox(width: 10),
+                      const Text(
+                        'Верификация через Telegram',
+                        style: TextStyle(color: Color(0xFF10B981), fontSize: 13, fontWeight: FontWeight.w900),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Это дает статус «Проверен» ✅, возможность заказать такси и стать водителем в IQ-Taxi.',
+                    style: TextStyle(color: Colors.black54, fontSize: 11, fontWeight: FontWeight.w500, height: 1.4),
+                    textAlign: TextAlign.center,
                   ),
                 ],
               ),
             ),
           ),
-
-          const SizedBox(height: 40),
+          
+          const SizedBox(height: 30),
           Center(child: GestureDetector(onTap: () => setState(() { _isLogin = !_isLogin; _passwordController.clear(); _confirmPasswordController.clear(); }), child: RichText(text: TextSpan(text: _isLogin ? _t('no_acc') : _t('have_acc'), style: const TextStyle(color: Colors.black87, fontSize: 15, fontWeight: FontWeight.w600), children: [TextSpan(text: _isLogin ? _t('reg_tab') : _t('login_tab'), style: const TextStyle(color: Color(0xFF4A80F0), fontWeight: FontWeight.w900))])))),
           const SizedBox(height: 20),
           Center(child: TextButton(onPressed: () => Navigator.pop(context), child: Text(_t('guest_btn'), style: const TextStyle(color: Color(0xFF64748B), fontSize: 14, fontWeight: FontWeight.w700, decoration: TextDecoration.underline)))),

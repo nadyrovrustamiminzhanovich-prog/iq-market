@@ -53,6 +53,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   int _currentPage = 0;
   VideoPlayerController? _videoController;
   bool _isVideoInitialized = false;
+  bool _isVideoPlaying = false;
   UserModel? _seller;
   UserModel? _currentUser;
   bool _isLoadingSeller = true;
@@ -69,6 +70,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
             if (!mounted) return;
             setState(() { _isVideoInitialized = true; });
             _videoController!.setLooping(true);
+            // Do NOT autoplay - user will tap play icon
           });
       } catch (e) {
         debugPrint('Video init error: $e');
@@ -152,15 +154,24 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       MaterialPageRoute(
         builder: (context) => Scaffold(
           backgroundColor: Colors.black,
-          appBar: AppBar(backgroundColor: Colors.transparent, foregroundColor: Colors.white, elevation: 0),
-          body: PageView.builder(
-            itemCount: images.length,
-            controller: PageController(initialPage: initialIndex),
-            itemBuilder: (context, index) => InteractiveViewer(
-              minScale: 0.5,
-              maxScale: 4.0,
-              child: Center(child: _buildImage(images[index], fit: BoxFit.contain)),
-            ),
+          body: Stack(
+            children: [
+              PageView.builder(
+                itemCount: images.length,
+                controller: PageController(initialPage: initialIndex),
+                itemBuilder: (context, index) => InteractiveViewer(
+                  minScale: 0.5,
+                  maxScale: 4.0,
+                  child: Center(child: _buildImage(images[index], fit: BoxFit.contain)),
+                ),
+              ),
+              // Prominent Back Button
+              Positioned(
+                top: MediaQuery.of(context).padding.top + 10,
+                left: 16,
+                child: _circleButton(Icons.arrow_back_ios_new_rounded, () => Navigator.pop(context)),
+              ),
+            ],
           ),
         ),
       ),
@@ -250,8 +261,10 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                       borderRadius: BorderRadius.circular(24),
                       child: GestureDetector(
                         onTap: () {
-                          if (!hasVideo || _currentPage > 0) {
-                            _openFullscreenGallery(hasVideo ? _currentPage - 1 : _currentPage);
+                          // Video is always last, so it's at index images.length
+                          final isVideoSlide = hasVideo && _currentPage == images.length;
+                          if (!isVideoSlide) {
+                            _openFullscreenGallery(_currentPage);
                           }
                         },
                         child: PageView.builder(
@@ -259,14 +272,46 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                           onPageChanged: (i) => setState(() => _currentPage = i),
                           itemCount: itemCount,
                           itemBuilder: (context, index) {
-                            if (hasVideo && index == 0) {
-                              return _isVideoInitialized ? VideoPlayer(_videoController!) : const Center(child: CircularProgressIndicator());
+                            // Photos first, video LAST
+                            if (hasVideo && index == images.length) {
+                              // Video slide with play icon overlay
+                              return GestureDetector(
+                                onTap: () {
+                                  if (_isVideoInitialized) {
+                                    setState(() {
+                                      _isVideoPlaying = !_isVideoPlaying;
+                                      _isVideoPlaying ? _videoController!.play() : _videoController!.pause();
+                                    });
+                                  }
+                                },
+                                child: Stack(
+                                  fit: StackFit.expand,
+                                  children: [
+                                    if (_isVideoInitialized)
+                                      VideoPlayer(_videoController!)
+                                    else
+                                      Container(color: Colors.black, child: const Center(child: CircularProgressIndicator(color: Color(0xFF4A80F0)))),
+                                    // Play icon overlay (hide when playing)
+                                    if (!_isVideoPlaying)
+                                      Center(
+                                        child: Container(
+                                          width: 70, height: 70,
+                                          decoration: BoxDecoration(
+                                            color: Colors.black.withValues(alpha: 0.5),
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 40),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              );
                             }
                             
-                            final imageIndex = hasVideo ? index - 1 : index;
-                            final imageWidget = _buildImage(images[imageIndex]);
+                            // Image slides (photos first)
+                            final imageWidget = _buildImage(images[index]);
                             
-                            if (imageIndex == 0) {
+                            if (index == 0) {
                               return Hero(
                                 tag: '${widget.heroPrefix ?? ''}ad-image-${widget.ad.id}',
                                 child: imageWidget,
@@ -324,42 +369,60 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   Widget _buildBargainSection() {
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      padding: const EdgeInsets.all(24),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        gradient: LinearGradient(
-          colors: [Colors.white, Color(0xFFF8FAFC)],
-          begin: Alignment.topCenter, end: Alignment.bottomCenter
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      color: Colors.white,
+      child: Row(
         children: [
-          Row(
-            children: [
-              Icon(PhosphorIcons.handshake(PhosphorIconsStyle.fill), color: const Color(0xFF4A80F0), size: 28),
-              const SizedBox(width: 12),
-              Text('Торг уместен', style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A))),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text('Предложите свою цену продавцу. Если цена его устроит, вы сможете договориться о сделке в чате.', 
-            style: GoogleFonts.inter(fontSize: 14, color: Colors.grey[600], height: 1.5)),
-          const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
+          Expanded(
             child: ElevatedButton.icon(
               onPressed: _showBargainDialog,
               icon: const Icon(Icons.sell_rounded, size: 18),
               label: const Text('Предложить свою цену'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0F172A),
+                backgroundColor: const Color(0xFF4A80F0),
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
+                padding: const EdgeInsets.symmetric(vertical: 18),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                elevation: 0,
+                elevation: 4,
+                shadowColor: const Color(0xFF4A80F0).withValues(alpha: 0.3),
               ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          GestureDetector(
+            onTap: () {
+              showDialog(
+                context: context,
+                builder: (context) => AlertDialog(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                  title: Row(
+                    children: [
+                      const Icon(Icons.sell_rounded, color: Color(0xFF4A80F0)),
+                      const SizedBox(width: 10),
+                      const Text('Как работает торг?'),
+                    ],
+                  ),
+                  content: const Text(
+                    'Продавец указал, что готов к торгу.\n\n'
+                    '1. Нажмите «Предложить свою цену»\n'
+                    '2. Укажите сумму (скидка до 30%)\n'
+                    '3. Продавец получит уведомление\n'
+                    '4. Если согласится — договоритесь в чате',
+                    style: TextStyle(height: 1.5),
+                  ),
+                  actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Понятно'))],
+                ),
+              );
+            },
+            child: Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFF4A80F0).withValues(alpha: 0.2)),
+              ),
+              child: const Icon(Icons.help_outline_rounded, color: Color(0xFF4A80F0), size: 22),
             ),
           ),
         ],
@@ -486,18 +549,26 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       context: context,
       builder: (context) => Scaffold(
         backgroundColor: Colors.black,
-        appBar: AppBar(backgroundColor: Colors.black, iconTheme: const IconThemeData(color: Colors.white)),
-        body: Center(
-          child: InteractiveViewer(
-            child: (url.isNotEmpty && url.startsWith('http'))
-              ? CachedNetworkImage(
-                  imageUrl: url,
-                  placeholder: (context, url) => const CircularProgressIndicator(),
-                  errorWidget: (context, url, error) => const Icon(Icons.error, color: Colors.white),
-                )
-              : const Icon(Icons.broken_image_rounded, color: Colors.white, size: 50),
-          ),
-
+        body: Stack(
+          children: [
+            Center(
+              child: InteractiveViewer(
+                child: (url.isNotEmpty && url.startsWith('http'))
+                  ? CachedNetworkImage(
+                      imageUrl: url,
+                      placeholder: (context, url) => const CircularProgressIndicator(),
+                      errorWidget: (context, url, error) => const Icon(Icons.error, color: Colors.white),
+                    )
+                  : const Icon(Icons.broken_image_rounded, color: Colors.white, size: 50),
+              ),
+            ),
+            // Prominent Back Button
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 10,
+              left: 16,
+              child: _circleButton(Icons.arrow_back_ios_new_rounded, () => Navigator.pop(context)),
+            ),
+          ],
         ),
       ),
     );
@@ -761,15 +832,18 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   }
 
   Widget _tagChip({required String label}) => Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(10)), child: Text(label, style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: const Color(0xFF475569))));
-  Widget _buildBottomBar() => Container(
-    padding: EdgeInsets.fromLTRB(20, 12, 20, MediaQuery.of(context).padding.bottom + 12),
-    decoration: const BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 20, offset: Offset(0, -5))]),
-    child: Row(children: [
-      Expanded(child: InkWell(onTap: () async { final uri = Uri.parse('tel:${widget.ad.userPhone}'); if (await canLaunchUrl(uri)) await launchUrl(uri); }, child: Container(height: 56, decoration: BoxDecoration(color: const Color(0xFF10B981), borderRadius: BorderRadius.circular(16)), child: Center(child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.phone_rounded, color: Colors.white), const SizedBox(width: 10), Text('Позвонить', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16))]))))),
-      const SizedBox(width: 12),
-      Expanded(child: ElevatedButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ChatScreen(ad: widget.ad))), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4A80F0), foregroundColor: Colors.white, minimumSize: const Size(0, 56), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), elevation: 0), child: Text('Написать', style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16)))),
-    ]),
-  );
+  Widget _buildBottomBar() {
+    if (_currentUser?.uid == widget.ad.userId) return const SizedBox.shrink();
+    return Container(
+      padding: EdgeInsets.fromLTRB(20, 12, 20, MediaQuery.of(context).padding.bottom + 12),
+      decoration: const BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 20, offset: Offset(0, -5))]),
+      child: Row(children: [
+        Expanded(child: InkWell(onTap: () async { final uri = Uri.parse('tel:${widget.ad.userPhone}'); if (await canLaunchUrl(uri)) await launchUrl(uri); }, child: Container(height: 56, decoration: BoxDecoration(color: const Color(0xFF10B981), borderRadius: BorderRadius.circular(16)), child: Center(child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.phone_rounded, color: Colors.white), const SizedBox(width: 10), Text('Позвонить', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16))]))))),
+        const SizedBox(width: 12),
+        Expanded(child: ElevatedButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ChatScreen(ad: widget.ad))), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4A80F0), foregroundColor: Colors.white, minimumSize: const Size(0, 56), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), elevation: 0), child: Text('Написать', style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16)))),
+      ]),
+    );
+  }
 
   void _showBargainDialog() {
     final currentPrice = widget.ad.price;
