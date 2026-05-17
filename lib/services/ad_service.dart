@@ -11,7 +11,7 @@ import 'package:iqmarket/services/file_service.dart';
 import 'package:iqmarket/services/notification_service.dart';
 import 'package:iqmarket/services/gemini_service.dart';
 import 'package:iqmarket/services/user_service.dart';
-
+import 'package:iqmarket/services/network_service.dart';
 class AdService {
   static final FirebaseFirestore _db = FirebaseFirestore.instance;
   static final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -136,7 +136,10 @@ class AdService {
   /// Get a single ad by ID
   static Future<AdModel?> getAdById(String id) async {
     try {
-      final doc = await _adsCollection.doc(id).get();
+      final isOffline = await NetworkService.isOffline();
+      final doc = await _adsCollection.doc(id).get(
+        GetOptions(source: isOffline ? Source.cache : Source.serverAndCache),
+      );
       if (doc.exists) {
         return AdModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
       }
@@ -206,7 +209,11 @@ class AdService {
         query = query.startAfterDocument(startAfter);
       }
 
-      final snapshot = await query.limit(limit).get();
+      final isOffline = await NetworkService.isOffline();
+      final snapshot = await query.limit(limit).get(
+        GetOptions(source: isOffline ? Source.cache : Source.serverAndCache),
+      );
+      
       List<AdModel> ads = snapshot.docs
           .map((doc) => AdModel.fromMap(doc.data() as Map<String, dynamic>, doc.id))
           .toList();
@@ -520,10 +527,14 @@ class AdService {
     if (ids.isEmpty) return [];
     try {
       List<AdModel> allAds = [];
+      final isOffline = await NetworkService.isOffline();
+      
       for (var i = 0; i < ids.length; i += 10) {
         final end = (i + 10 < ids.length) ? i + 10 : ids.length;
         final chunk = ids.sublist(i, end);
-        final snapshot = await _adsCollection.where(FieldPath.documentId, whereIn: chunk).get();
+        final snapshot = await _adsCollection.where(FieldPath.documentId, whereIn: chunk).get(
+          GetOptions(source: isOffline ? Source.cache : Source.serverAndCache),
+        );
         allAds.addAll(snapshot.docs.map((doc) => AdModel.fromMap(doc.data() as Map<String, dynamic>, doc.id)));
       }
       return allAds;

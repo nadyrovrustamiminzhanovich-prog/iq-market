@@ -5,9 +5,11 @@ import 'package:iqmarket/services/ai_limit_service.dart';
 
 void main() {
   group('AiLimitService Business Logic Tests', () {
-    setUp(() {
-      // Очищаем SharedPreferences перед каждым тестом
+    setUp(() async {
+      // Очищаем SharedPreferences перед каждым тестом правильно
       SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear();
     });
 
     test('X10: Новый пользователь имеет 3 доступных запроса', () async {
