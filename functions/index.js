@@ -102,10 +102,16 @@ exports.telegramWebhook = functions.https.onRequest(async (req, res) => {
       const snap = await ref.get();
       if (snap.exists) {
         const otp = String(Math.floor(100000 + Math.random() * 900000));
+        
+        // 🔒 X10 SECURITY: Generating a Firebase Custom Token
+        const uid = `telegram_${chatId}`;
+        const customToken = await admin.auth().createCustomToken(uid);
+        
         await ref.update({
           chat_id : chatId,
           verified: false,
           otp,
+          customToken: customToken,
           linked_at: admin.firestore.FieldValue.serverTimestamp(),
         });
         await tgSend(chatId,

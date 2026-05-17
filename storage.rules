@@ -1,0 +1,39 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Вспомогательная функция
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Медиафайлы объявлений (ads/images, ads/videos)
+    match /ads/{allPaths=**} {
+      allow read: if true; // Читать могут все
+      allow write: if isSignedIn() 
+                   && request.resource.size < 50 * 1024 * 1024; // Лимит 50 МБ
+    }
+
+    // Медиафайлы чатов (chats/...)
+    match /chats/{allPaths=**} {
+      allow read, write: if isSignedIn() 
+                         && request.resource.size < 20 * 1024 * 1024; // Лимит 20 МБ
+    }
+
+    // Аватарки и личные файлы (папки с UID пользователя)
+    match /users/{userId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if isSignedIn() && request.auth.uid == userId;
+    }
+    match /avatars/{userId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Резервное правило для остальных загрузок (только авторизованные, лимит 50мб)
+    match /{allPaths=**} {
+      allow read: if true;
+      allow write: if isSignedIn() && request.resource.size < 50 * 1024 * 1024;
+    }
+  }
+}

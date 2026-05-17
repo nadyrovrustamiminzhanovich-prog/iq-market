@@ -269,13 +269,14 @@ class _LoginScreenState extends State<LoginScreen> {
         final data = snap.data?.data();
         final chatId = data?['chat_id'] as String?;
         final otp    = data?['otp'] as String?;
+        final customToken = data?['customToken'] as String?;
 
-        // Auto-proceed: bot has delivered OTP
-        if (chatId != null && otp != null && otp.isNotEmpty) {
+        // Auto-proceed: bot has delivered OTP and Custom Token
+        if (chatId != null && otp != null && otp.isNotEmpty && customToken != null) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (Navigator.canPop(ctx)) Navigator.pop(ctx);
             _generatedCode = otp;
-            _showOtpDialog(chatId);
+            _showOtpDialog(chatId, customToken);
           });
         }
 
@@ -318,7 +319,7 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  void _showOtpDialog(String chatId) {
+  void _showOtpDialog(String chatId, String customToken) {
     final otpCtrl = TextEditingController();
     bool isError = false;
     showDialog(context: context, barrierDismissible: false, builder: (ctx) => StatefulBuilder(builder: (ctx, ss) => AlertDialog(
@@ -342,7 +343,16 @@ class _LoginScreenState extends State<LoginScreen> {
           onPressed: () async {
             if (otpCtrl.text == _generatedCode) {
               Navigator.pop(context);
-              await _finalizeLogin('Telegram User', isVerified: true, accountType: 'driver');
+              setState(() => _isLoading = true);
+              try {
+                // 🔒 X10 SECURITY: Sign in securely to Firebase Auth
+                final userCred = await FirebaseAuth.instance.signInWithCustomToken(customToken);
+                await _finalizeLogin(userCred.user?.displayName ?? 'Telegram User', isVerified: true, accountType: 'driver');
+              } catch (e) {
+                _showError('Ошибка авторизации Firebase: $e');
+              } finally {
+                setState(() => _isLoading = false);
+              }
             } else {
               ss(() { isError = true; otpCtrl.clear(); });
             }

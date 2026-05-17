@@ -178,16 +178,27 @@ class _IQMarketHomeState extends State<IQMarketHome> {
     ),
   );
 
-  Widget _buildAdsGrid(AppConfigProvider config) => SliverPadding(
-    padding: const EdgeInsets.symmetric(horizontal: 12),
-    sliver: PagedSliverGrid<DocumentSnapshot?, AdModel>(
-      pagingController: _pagingController,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2, 
-        mainAxisSpacing: 10, 
-        crossAxisSpacing: 10, 
-        childAspectRatio: 0.68
-      ),
+  Widget _buildAdsGrid(AppConfigProvider config) => SliverLayoutBuilder(
+    builder: (context, constraints) {
+      int crossAxisCount = 2;
+      if (constraints.crossAxisExtent >= 1200) {
+        crossAxisCount = 6;
+      } else if (constraints.crossAxisExtent >= 900) {
+        crossAxisCount = 4;
+      } else if (constraints.crossAxisExtent >= 600) {
+        crossAxisCount = 3;
+      }
+
+      return SliverPadding(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        sliver: PagedSliverGrid<DocumentSnapshot?, AdModel>(
+          pagingController: _pagingController,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount, 
+            mainAxisSpacing: 10, 
+            crossAxisSpacing: 10, 
+            childAspectRatio: 0.68
+          ),
       builderDelegate: PagedChildBuilderDelegate<AdModel>(
         itemBuilder: (context, item, index) => ProductCard(
           ad: item, 
@@ -241,8 +252,8 @@ class _IQMarketHomeState extends State<IQMarketHome> {
         firstPageErrorIndicatorBuilder: (context) => _errorWidget(),
         newPageErrorIndicatorBuilder: (context) => _errorWidget(),
       ),
-    ),
-  );
+    );
+  });
 
   Widget _errorWidget() => Center(
     child: Padding(

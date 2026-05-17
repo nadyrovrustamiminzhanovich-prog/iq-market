@@ -484,12 +484,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: () {
+                    onPressed: () async {
                       if (_codeCtrl.text.length >= 4) {
-                        setState(() => _isVerified = true);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Аккаунт успешно верифицирован! ✅'), behavior: SnackBarBehavior.floating),
-                        );
+                        try {
+                          // 🔒 X10 SECURITY: Saving verification status to backend
+                          await UserService.updateUserProfile({'isVerified': true});
+                          setState(() => _isVerified = true);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Аккаунт успешно верифицирован! ✅'), behavior: SnackBarBehavior.floating),
+                            );
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Ошибка верификации: $e'), backgroundColor: Colors.red),
+                            );
+                          }
+                        }
                       }
                     },
                     style: ElevatedButton.styleFrom(
