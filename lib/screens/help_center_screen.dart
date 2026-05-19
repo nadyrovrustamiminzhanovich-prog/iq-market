@@ -1,9 +1,11 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:line_icons/line_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:iqmarket/screens/ai_assistant_screen.dart';
+import 'package:iqmarket/screens/chat_screen.dart';
+import 'package:iqmarket/models/ad_model.dart';
+import 'package:intl/intl.dart';
 
 class HelpCenterScreen extends StatefulWidget {
   final String lang;
@@ -15,6 +17,59 @@ class HelpCenterScreen extends StatefulWidget {
 class _HelpCenterScreenState extends State<HelpCenterScreen> {
   String _query = '';
   int _selectedCat = 0;
+
+  String _t(String key) {
+    final ru = {
+      'title': 'Центр помощи',
+      'questions': 'вопросов и ответов',
+      'search_hint': 'Поиск по вопросам...',
+      'all': 'Все',
+      'general': 'Общее',
+      'taxi': 'IQ Такси',
+      'account': 'Аккаунт',
+      'operator_title': 'Нужна живая помощь?',
+      'operator_hours': 'Режим работы: с 10:00 до 21:00',
+      'wa_support': 'WhatsApp',
+      'tg_support': 'Telegram',
+      'inapp_support': 'ЧАТ В ПРИЛОЖЕНИИ',
+      'wa_message': 'Здравствуйте! Мне нужна помощь по приложению IQ-Market.',
+    };
+
+    final kz = {
+      'title': 'Көмек орталығы',
+      'questions': 'сұрақтар мен жауаптар',
+      'search_hint': 'Сұрақтар бойынша іздеу...',
+      'all': 'Барлығы',
+      'general': 'Жалпы',
+      'taxi': 'IQ Такси',
+      'account': 'Профиль',
+      'operator_title': 'Жанды көмек керек пе?',
+      'operator_hours': 'Жұмыс уақыты: 10:00-ден 21:00-ге дейін',
+      'wa_support': 'WhatsApp',
+      'tg_support': 'Telegram',
+      'inapp_support': 'ҚОСЫМШАДАҒЫ ЧАТ',
+      'wa_message': 'Сәлеметсіз бе! Маған IQ-Market қосымшасы бойынша көмек керек.',
+    };
+
+    final uyg = {
+      'title': 'ياردەم مەركىزى',
+      'questions': 'سوئال-جاۋابلار',
+      'search_hint': 'سوئاللار بويىچە ئىزدەش...',
+      'all': 'ھەممىسى',
+      'general': 'ئومۇمىي',
+      'taxi': 'IQ تاكسى',
+      'account': 'ھېسابات',
+      'operator_title': 'مۇلازىمەتچى ياردىمى كېرەكمۇ؟',
+      'operator_hours': 'خىزمەت ۋاقتى: 10:00 دىن 21:00 غىچە',
+      'wa_support': 'WhatsApp',
+      'tg_support': 'Telegram',
+      'inapp_support': 'ئەپ ئىچىدىكى چات',
+      'wa_message': 'ئەسسالامۇئەلەيكۇم! ماڭا IQ-Market ئەپى بويىچە ياردەم كېرەك ئىدى.',
+    };
+
+    final dict = widget.lang == 'Қазақша' ? kz : (widget.lang == 'Уйғурчә' ? uyg : ru);
+    return dict[key] ?? ru[key] ?? key;
+  }
 
   final List<Map<String, String>> _faqRu = [
     // Общие
@@ -41,13 +96,82 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
     {'cat': 'account', 'q': 'Можно ли иметь несколько аккаунтов?', 'a': 'Нет. Правила платформы запрещают создание нескольких аккаунтов. При обнаружении дубликатов оба аккаунта будут заблокированы.'},
   ];
 
-  final _cats = ['Все', 'Общее', 'IQ Такси', 'Аккаунт'];
+  final List<Map<String, String>> _faqKz = [
+    // Жалпы
+    {'cat': 'general', 'q': 'Хабарландыруды қалай беруге болады?', 'a': 'Экранның төменгі жағындағы «+» батырмасын басып, санатты таңдаңыз, сипаттаманы толтырыңыз, бағасын көрсетіңіз және сурет қосыңыз. Хабарландыру модерациядан өткен соң бірден шығады.'},
+    {'cat': 'general', 'q': 'Хабарландыруды қалай өңдеуге немесе жоюға болады?', 'a': 'Профиль → Менің хабарландыруларым бөліміне өтіңіз. Қажетті хабарландыруды басып, «Өңдеу» немесе «Жою» таңдаңыз.'},
+    {'cat': 'general', 'q': 'Сатушымен қалай байланысуға болады?', 'a': 'Хабарландыруды ашып, «Жазу» немесе «Қоңырау шалу» батырмасын басыңыз. Сондай-ақ чатта өз бағаңызды ұсынуға болады.'},
+    {'cat': 'general', 'q': 'Таңдаулыға қалай қосуға болады?', 'a': 'Хабарландыру картасындағы немесе хабарландыру ішіндегі жүрекше белгішесін басыңыз. Барлық таңдалған тауарлар «Таңдаулылар» бөлімінде сақталады.'},
+    {'cat': 'general', 'q': 'Неліктен менің хабарландыруым көрінбейді?', 'a': 'Ықтимал себептер: хабарландыру модерацияда (24 сағатқа дейін), платформа ережелерін бұзу немесе жариялау мерзімі өткен. Статусты «Менің хабарландыруларым» бөлімінен тексеріңіз.'},
+    {'cat': 'general', 'q': 'Іздеу кезінде қаланы қалай таңдауға болады?', 'a': 'Басты экранның жоғарғы жағындағы қала атауын басыңыз. Тізімнен қажетті қаланы таңдаңыз немесе іздеуге атын енгізіңіз.'},
+    {'cat': 'general', 'q': 'IQ GPT ассистенті қалай жұмыс істейді?', 'a': 'IQ GPT — бұл тауарлар туралы сұрақтарға жауап беретін, тиімді ұсыныстарды табуға көмектесетін және ықтимал алаяқтық туралы ескертетін кірістірілген жасанды интеллект көмекшісі.'},
+    // Такси
+    {'cat': 'taxi', 'q': 'Қалааралық таксиге қалай тапсырыс беруге болады?', 'a': '«IQ Такси» бөліміне → «Жолаушы» қосымша бетіне өтіңіз. Қайдан және қайда баратыныңызды, күнін және орын санын көрсетіңіз. Жүйе қолжетімді жүргізушілерді көрсетеді.'},
+    {'cat': 'taxi', 'q': 'Өз бағаңызды қалай ұсынуға болады?', 'a': 'Жүргізуші карточкасында «Саудаласу» батырмасын басыңыз. Сомаңызды енгізіңіз — жүргізуші сіздің ұсынысыңызды алады және оны қабылдай алады немесе бас тарта алады.'},
+    {'cat': 'taxi', 'q': 'Жүргізуші ретінде қалай тіркелуге болады?', 'a': 'IQ Таксидегі «Жүргізуші» қосымша бетіне өтіңіз. Верификациядан өтіңіз: куәлікті, техпаспортты жүктеңіз және құжатпен селфи жасаңыз. Жасанды интеллект деректерді автоматты түрде тексеред.'},
+    {'cat': 'taxi', 'q': 'Жүргізуші верификациясы деген не?', 'a': 'Верификация — бұл ЖИ көмегімен құжаттардың (куәлік + техпаспорт) түпнұсқалығын тексеру. Бұл барлық жолаушылардың қауіпсіздігіне кепілдік береді.'},
+    {'cat': 'taxi', 'q': 'Сапарды қалай тоқтатуға болады?', 'a': 'Жүргізушіге чат арқылы жазып, бас тарту туралы хабарлаңыз. Болашақ нұсқаларда тапсырыс картасында тікелей «Бас тарту» батырмасы болады.'},
+    {'cat': 'taxi', 'q': 'Сапарға өзіңізбен бірге не алу керек?', 'a': 'Жеке басын куәландыратын құжат. Төлем (келісем бойынша қолма-қол ақша немесе аударым). Жүк — жүргізушімен келісім бойынша (1 орынға 1 стандартты сөмке).'},
+    {'cat': 'taxi', 'q': 'Жүргізушіге қалай баға беруге болады?', 'a': 'Сапар аяқталғаннан кейін жүргізушінің профилін ашып, бағаңызды қалдырыңыз. Сіздің пікіріңіз басқа жолаушыларға сенімді жүргізушіні таңдауға көмектеседі.'},
+    {'cat': 'taxi', 'q': 'IQ Market таксиі қауіпсіз бе?', 'a': 'Иә. Барлық жүргізушілер құжаттардың көпсатылы верификациясынан өтеді. Деректер шифрланған түрде сақталады. Сұрақтарыңыз болса, әрқашан қолдау қызметіне жаза аласыз.'},
+    // Аккаунт
+    {'cat': 'account', 'q': 'Құпия сөзді қалай қалпына келтіруге болады?', 'a': 'Кіру экранында «Құпия сөзді ұмыттыңыз ба?» батырмасын басыңыз. Электрондық поштаны енгізіңіз — оған құпия сөзді қалпына келтіруге арналған сілтеме жіберіледі.'},
+    {'cat': 'account', 'q': 'Телефон нөмірін қалай өзгертуге болады?', 'a': 'Профиль → Параметрлер → Телефонды өзгерту бөліміне өтіңіз. SMS-код арқылы растау қажет болады.'},
+    {'cat': 'account', 'q': 'Аккаунтты қалай жоюға болады?', 'a': 'Профиль → Параметрлер → Аккаунтты жою. Барлық деректеріңіз бен хабарландыруларыңыз 30 күн ішінде біржола жойылады.'},
+    {'cat': 'account', 'q': 'Бірнеше аккаунт иеленуге бола ма?', 'a': 'Жоқ. Платформа ережелері бірнеше аккаунт құруға тыйым салады. Дубльдер анықталған жағдайда екі аккаунт та бұғатталады.'},
+  ];
+
+  final List<Map<String, String>> _faqUyg = [
+    // ئومۇمىي
+    {'cat': 'general', 'q': 'ئېلاننى قانداق چىقىرىمەن؟', 'a': 'ئېكراننىڭ ئاستىدىكى «+» كۇنۇپكىسىنى بېسىپ، كاتېگورىيەنى تاللاڭ، چۈشەندۈرۈشنى تولدۇرۇڭ، باھاسىنى كۆرسىتىڭ ۋە رەسىم قوشۇڭ. ئېلان تەستىقلانغاندىن كېيىن دەرھال چىقىدۇ.'},
+    {'cat': 'general', 'q': 'ئېلاننى قانداق تەھرىرلەيمەن ياكى ئۆچۈرىمەن؟', 'a': 'پىروفىل → مېنىڭ ئېلانلىرىم بۆلۈمىگە كىرىڭ. لازىملىق ئېلاننى بېسىپ «تەھرىرلەش» ياكى «ئۆچۈرۈش»نى تاللاڭ.'},
+    {'cat': 'general', 'q': 'ساتقۇچى بىلەن قانداق ئالاقىلىشىمەن؟', 'a': 'ئېلاننى ئېچىپ «يېزىش» ياكى «تېلېفون قىلىش» كۇنۇپكىسىنى بېسىڭ. چاتتا بىۋاسىتە باھا تەكلىپ قىلسىڭىزمۇ بولىدۇ.'},
+    {'cat': 'general', 'q': 'تاندالما بۆلۈمىگە قانداق qوشىمەن؟', 'a': 'ئېلان كارتىسىدىكى ياكى ئېلان ئىچىدىكى يۈرەك بەلگىسىنى بېسىڭ. تاللانغان بارلىق تۈرلەر «تاندالمىلار» بۆلۈمىدە ساقلىنىدۇ.'},
+    {'cat': 'general', 'q': 'نېمىشقا مېنىڭ ئېلانىم كۆرۈنمەيدۇ؟', 'a': 'مۇمكىن بولغان سەۋەبلەر: ئېلان تەستىقلىنىۋاتىدۇ (24 سائەتكىچە)، قائىدىلەرگە خىلاپلىق قىلىنغان ياكى ئېلان مۇددىتى توشقان. ھالىتىنى «مېنىڭ ئېلانلىرىم»دىن تەكشۈرۈڭ.'},
+    {'cat': 'general', 'q': 'ئىزدەش جەريانىدا شەھەرنى قانداق تاللايمەن؟', 'a': 'باش ئېكران Norfolkنىڭ ئۈستىدىكى شەھەر نامىنى بېسىڭ. تىزىملىكتىن كېرەكلىك شەھەرنى تاللاڭ ياكى ئىزدەشكە نامىنى كىرگۈزۈڭ.'},
+    {'cat': 'general', 'q': 'IQ GPT ياردەمچىسى قانداق ئىشلەيدۇ؟', 'a': 'IQ GPT — بۇ تۈرلەر توغرىسىدىكى سوئاللارغا جاۋاب بېرىدىغان، پايدىلىق تەكلىپلەرنى تېپىشقا ياردەم بېرىدىغان ۋە ئالدامچىلىقتىن ئاگاھلاندۇرىدىغان سۈنئىي ئەقىل ياردەمچىسىدۇر.'},
+    // تاكسى
+    {'cat': 'taxi', 'q': 'شەھەرلەرئارا تاكسىغا قانداق زاكاز بېرىمەن؟', 'a': '«IQ تاكسى» بۆلۈمىگە → «يولۇچى» بەتچىسىگە كىرىڭ. قەيەردىن قەيەرگە بارىدىغانلىقىڭىزنى، چېسلا ۋە ئورۇن سانىنى كۆرسىتىڭ. سىستېما بارلىق شوپۇرلارنى كۆرسىتىدۇ.'},
+    {'cat': 'taxi', 'q': 'ئۆز باھامنى قانداق تەكلىپ قىلىمەن؟', 'a': 'شوپۇر كارتىسىدا «س سودىلىشىش» كۇنۇپكىسىنى بېسىڭ. سوممىنى كىرگۈزۈڭ — شوپۇر سىزنىڭ تەكلىپىڭىزنى تاپشۇرۇۋالىدۇ ۋە قوبۇل قىلالايدۇ ياكى رەت قىلالايدۇ.'},
+    {'cat': 'taxi', 'q': 'شوپۇر بولۇп قانداق تىزىملىتىمەن؟', 'a': 'IQ تاكسىدىكى «شوپۇر» بەتچىسىگە كىرىڭ. گۇۋاھنامە تەكشۈرۈشتىن ئۆتۈڭ: كىنىشكىنى، تېخپاسپورتنى يۈكلەڭ ۋە ھۆججەت بىلەن سېلفى چۈشۈڭ. سۈنئىي ئەقىل ئاپتوماتىك تەكشۈرىدۇ.'},
+    {'cat': 'taxi', 'q': 'شوپۇرنى دەلىللەش دېگەن نېمە؟', 'a': 'دەلىللەش — بۇ سۈنئىي ئەقىل ئارقىلىق ھۆججەتلەرنىڭ (كىنىشكىە + تېخپاسپورت) ھەقىقىيلىقىنى تەكشۈرۈش بولۇپ، يولۇچىلارنىڭ بىخەتەرلىكىگە كاپالەتلىك قىلىدۇ.'},
+    {'cat': 'taxi', 'q': 'سەپەرنى قانداق ئەمەلدىن قالدۇرىمەن؟', 'a': 'شوپۇرغا چات ئارقىلىق يېزىپ، باش تارتىدىغانلىقىڭىزنى ئۇقتۇرۇڭ. كەلگۈسى نۇسخىلاردا زاكاز كارتىسىدا بىۋاسىتە «ۋاز كېچىش» كۇنۇپكىسى بولىدۇ.'},
+    {'cat': 'taxi', 'q': 'سەپەرگە ئۆزۈم بىلەن نېمىلەرنى ئېلىشىم كېرەك؟', 'a': 'كىملىك ھۆججىتى. پۇل (كېلىشىم بويىچە نەق پۇل ياكى يۆتكەش). يۈك-تاق — شوپۇر بىلەن كېلىشىش بويىچە (1 ئورۇنغا 1 ئۆلچەملىك سومكا).'},
+    {'cat': 'taxi', 'q': 'شوپۇرغا قانداق باھا بېرىمەن؟', 'a': 'سەپەر تاماملانغاندىن كېيىن شوپۇرنىڭ پىروفىلىنى ئېچىپ، باھايىڭىزنى قالدۇرۇڭ. سىزنىڭ پىكىرىڭىز باشقا يولۇچىلارنىڭ ئىشەنچلىك شوپۇر تاللىشىغا ياردەم بېرىدۇ.'},
+    {'cat': 'taxi', 'q': 'IQ Market تاكسىسى بىخەتەرمۇ؟', 'a': 'شۇنداق. بارلىق شوپۇرلار كۆپ باسقۇچلۇق دەلىللەشتىن ئۆتىدۇ. سانلىق مەلۇماتلار شىفىرلانغان ھالەتتە ساقلىنىدۇ. ھەر ۋاقىت ياردەم مۇلازىمىتىگە يازسىڭىز بولىدۇ.'},
+    // ھېسابات
+    {'cat': 'account', 'q': 'ئىمزا (پارول) نى قانداق ئەسلىگە كەلتۈرىمەن؟', 'a': 'كىرىش ئېكرانىدا «پارولنى ئۇنتۇپ قالدىڭىزمۇ؟» نى بېسىڭ. ئېلخەتنى كىرگۈزۈڭ — ئۇنىڭغا قايتا قۇرۇش ئۇلىنىشى ئەۋەتىلىدۇ.'},
+    {'cat': 'account', 'q': 'تېلېفون نومۇرۇمنى قانداق ئۆزگەرتىمەن؟', 'a': 'پىروفىل → تەڭشەكلەر → تېلېفوننى ئۆзگەرتىش بۆلۈمىگە كىرىڭ. SMS كودى ئارقىلىق دەلىللەش تەلەپ قىلىنىدۇ.'},
+    {'cat': 'account', 'q': 'ھېساباتىمنى قانداق ئۆچۈرىمەن؟', 'a': 'پىروفىل → تەڭشەكلەر → ھېساباتنى ئۆچۈرۈش. بارلىق سانلىق مەلۇماتلىرىڭىز ۋە ئېلانلىرىڭىز 30 كۈن ئىچىدە مەڭگۈلۈك ئۆچۈرۈلىدۇ.'},
+    {'cat': 'account', 'q': 'بىر قانچە ھېسابات ئېچىشقا بولامدۇ؟', 'a': 'ياق. سىستېما قائىدىسى بىر قانچە ھېسابات ئېچىشنى چەكلىمەيدۇ. ئەگەر كۆپەيتىلگەن ھېساباتلار بايقالسا، ھەر ئىككى ھېسابات تەڭ چەكلىنىدۇ.'},
+  ];
+
   final _catKeys = ['all', 'general', 'taxi', 'account'];
 
+  List<String> get _cats => [
+    _t('all'),
+    _t('general'),
+    _t('taxi'),
+    _t('account'),
+  ];
+
   List<Map<String, String>> get _filtered {
-    var list = _faqRu;
+    List<Map<String, String>> list;
+    if (widget.lang == 'Қазақша') {
+      list = _faqKz;
+    } else if (widget.lang == 'Уйғурчә') {
+      list = _faqUyg;
+    } else {
+      list = _faqRu;
+    }
+    
     if (_selectedCat != 0) list = list.where((e) => e['cat'] == _catKeys[_selectedCat]).toList();
-    if (_query.isNotEmpty) list = list.where((e) => e['q']!.toLowerCase().contains(_query.toLowerCase()) || e['a']!.toLowerCase().contains(_query.toLowerCase())).toList();
+    if (_query.isNotEmpty) {
+      list = list.where((e) => 
+        e['q']!.toLowerCase().contains(_query.toLowerCase()) || 
+        e['a']!.toLowerCase().contains(_query.toLowerCase())
+      ).toList();
+    }
     return list;
   }
 
@@ -66,7 +190,7 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
             sliver: SliverList(
               delegate: SliverChildBuilderDelegate(
-                (ctx, i) => _FaqTile(item: _filtered[i]),
+                (ctx, i) => _FaqTile(item: _filtered[i], lang: widget.lang),
                 childCount: _filtered.length,
               ),
             ),
@@ -103,9 +227,9 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  Text('Центр помощи', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 26)),
+                  Text(_t('title'), style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 24)),
                   const SizedBox(height: 4),
-                  Text('${_faqRu.length} вопросов и ответов', style: GoogleFonts.inter(color: Colors.white70, fontSize: 13)),
+                  Text('${_filtered.length} ${_t('questions')}', style: GoogleFonts.inter(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600)),
                 ],
               ),
             ),
@@ -123,13 +247,15 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(18),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 20, offset: const Offset(0, 4))],
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 20, offset: const Offset(0, 4))],
+          border: Border.all(color: Colors.black.withValues(alpha: 0.03)),
         ),
         child: TextField(
           onChanged: (v) => setState(() => _query = v),
+          style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w700),
           decoration: InputDecoration(
-            hintText: 'Поиск по вопросам...',
-            hintStyle: GoogleFonts.inter(color: Colors.grey.shade400, fontSize: 14),
+            hintText: _t('search_hint'),
+            hintStyle: GoogleFonts.inter(color: Colors.grey.shade400, fontSize: 13, fontWeight: FontWeight.w600),
             border: InputBorder.none,
             icon: const Icon(Icons.search_rounded, color: Color(0xFF4A80F0)),
             suffixIcon: _query.isNotEmpty
@@ -160,12 +286,13 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
               decoration: BoxDecoration(
                 color: sel ? const Color(0xFF4A80F0) : Colors.white,
                 borderRadius: BorderRadius.circular(24),
-                boxShadow: sel ? [BoxShadow(color: const Color(0xFF4A80F0).withValues(alpha: 0.3), blurRadius: 10, offset: const Offset(0, 4))] : [],
+                border: Border.all(color: sel ? Colors.transparent : Colors.black.withValues(alpha: 0.04)),
+                boxShadow: sel ? [BoxShadow(color: const Color(0xFF4A80F0).withValues(alpha: 0.25), blurRadius: 10, offset: const Offset(0, 4))] : [],
               ),
               child: Row(children: [
                 Icon(icons[i], color: sel ? Colors.white : Colors.grey, size: 15),
                 const SizedBox(width: 6),
-                Text(_cats[i], style: GoogleFonts.inter(color: sel ? Colors.white : Colors.black87, fontWeight: FontWeight.w700, fontSize: 13)),
+                Text(_cats[i], style: GoogleFonts.inter(color: sel ? Colors.white : Colors.black87, fontWeight: FontWeight.w800, fontSize: 13)),
               ]),
             ),
           );
@@ -175,6 +302,9 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
   }
 
   Widget _buildAiBanner(BuildContext context) {
+    final bannerTitle = widget.lang == 'Қазақша' ? 'IQ GPT — ЖИ Көмекшісі' : (widget.lang == 'Уйғурчә' ? 'IQ GPT — سۈنئىي ئەقىل ياردەمچىسى' : 'IQ GPT — ИИ Помощник');
+    final bannerSub = widget.lang == 'Қазақша' ? 'Кез келген сұраққа лезде жауап ✨' : (widget.lang == 'Уйғурчә' ? 'ھەر قانداق سوئالغا دەرھال جاۋاب ✨' : 'Мгновенные ответы на любые вопросы ✨');
+
     return GestureDetector(
       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => AiAssistantScreen(initialLanguage: widget.lang))),
       child: Container(
@@ -183,16 +313,16 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
         decoration: BoxDecoration(
           gradient: const LinearGradient(colors: [Color(0xFF4A80F0), Color(0xFF9333EA)], begin: Alignment.topLeft, end: Alignment.bottomRight),
           borderRadius: BorderRadius.circular(22),
-          boxShadow: [BoxShadow(color: const Color(0xFF9333EA).withValues(alpha: 0.3), blurRadius: 16, offset: const Offset(0, 6))],
+          boxShadow: [BoxShadow(color: const Color(0xFF9333EA).withValues(alpha: 0.25), blurRadius: 16, offset: const Offset(0, 6))],
         ),
         child: Row(children: [
           Container(padding: const EdgeInsets.all(12), decoration: const BoxDecoration(color: Colors.white24, shape: BoxShape.circle),
             child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 26)),
           const SizedBox(width: 14),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('IQ GPT — ИИ Помощник', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 15)),
+            Text(bannerTitle, style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 15)),
             const SizedBox(height: 3),
-            Text('Мгновенные ответы на любые вопросы ✨', style: GoogleFonts.inter(color: Colors.white70, fontSize: 12)),
+            Text(bannerSub, style: GoogleFonts.inter(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600)),
           ])),
           const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white54, size: 16),
         ]),
@@ -208,7 +338,7 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(28),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 20, offset: const Offset(0, 10))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 20, offset: const Offset(0, 10))],
         border: Border.all(color: const Color(0xFF4A80F0).withValues(alpha: 0.1)),
       ),
       child: Column(
@@ -222,17 +352,75 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
               ),
               const SizedBox(width: 16),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('Нужна живая помощь?', style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 18, color: theme.colorScheme.onSurface)),
-                Text('Режим работы: с 10:00 до 21:00', style: GoogleFonts.inter(color: theme.colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 13, fontWeight: FontWeight.w500)),
+                Text(_t('operator_title'), style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 17, color: theme.colorScheme.onSurface)),
+                const SizedBox(height: 2),
+                Text(_t('operator_hours'), style: GoogleFonts.inter(color: theme.colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 12, fontWeight: FontWeight.w600)),
               ])),
             ],
           ),
-          const SizedBox(height: 25),
+          const SizedBox(height: 24),
+          
+          // Премиальная кнопка Чат в Приложении (In-App Live Chat)
+          GestureDetector(
+            onTap: () {
+              final supportAd = AdModel(
+                id: 'support_chat',
+                title: _t('title'),
+                description: 'Чат техподдержки приложения IQ-Market',
+                price: 0.0,
+                category: 'Поддержка',
+                images: [],
+                userId: 'support_agent',
+                userName: 'Техподдержка IQ-Market',
+                userEmail: 'support@iqmarket.kz',
+                userPhone: '+77089007030',
+                timestamp: DateTime.now(),
+              );
+              Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(ad: supportAd)));
+            },
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF4A80F0), Color(0xFF6366F1)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF4A80F0).withValues(alpha: 0.25),
+                    blurRadius: 15,
+                    offset: const Offset(0, 5),
+                  )
+                ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.chat_bubble_rounded, color: Colors.white, size: 18),
+                  const SizedBox(width: 10),
+                  Text(
+                    _t('inapp_support'),
+                    style: GoogleFonts.inter(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 13,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
           Row(
             children: [
-              Expanded(child: _contactItem('WhatsApp поддержка', const Color(0xFF25D366), 'https://wa.me/77089007030?text=${Uri.encodeComponent("Здравствуйте! Мне нужна помощь по приложению IQ-Market.")}', theme)),
+              Expanded(child: _contactItem(_t('wa_support'), const Color(0xFF25D366), 'https://wa.me/77089007030?text=${Uri.encodeComponent(_t("wa_message"))}', theme)),
               const SizedBox(width: 12),
-              Expanded(child: _contactItem('Telegram бот', const Color(0xFF0088CC), 'https://t.me/iqmarket_support_bot', theme)),
+              Expanded(child: _contactItem(_t('tg_support'), const Color(0xFF0088CC), 'https://t.me/iqmarket_support_bot', theme)),
             ],
           ),
         ],
@@ -244,13 +432,20 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
     return GestureDetector(
       onTap: () async => await canLaunchUrl(Uri.parse(url)) ? await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication) : null,
       child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: color.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(20), border: Border.all(color: color.withValues(alpha: 0.1))),
-        child: Column(children: [
-          Icon(title.contains('WhatsApp') ? Icons.message : Icons.telegram, color: color, size: 28),
-          const SizedBox(height: 12),
-          Text(title, textAlign: TextAlign.center, style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 12, color: theme.colorScheme.onSurface)),
-        ]),
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.06), 
+          borderRadius: BorderRadius.circular(20), 
+          border: Border.all(color: color.withValues(alpha: 0.08))
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(title.contains('WhatsApp') ? Icons.message : Icons.telegram, color: color, size: 18),
+            const SizedBox(width: 8),
+            Text(title, style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 13, color: color)),
+          ],
+        ),
       ),
     );
   }
@@ -258,7 +453,8 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
 
 class _FaqTile extends StatefulWidget {
   final Map<String, String> item;
-  const _FaqTile({required this.item});
+  final String lang;
+  const _FaqTile({required this.item, required this.lang});
   @override
   State<_FaqTile> createState() => _FaqTileState();
 }
@@ -301,7 +497,7 @@ class _FaqTileState extends State<_FaqTile> with SingleTickerProviderStateMixin 
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: _open ? _catColor.withValues(alpha: 0.4) : Colors.transparent, width: 1.5),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: _open ? 0.07 : 0.03), blurRadius: 16, offset: const Offset(0, 4))],
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: _open ? 0.06 : 0.02), blurRadius: 16, offset: const Offset(0, 4))],
         ),
         child: Column(
           children: [
@@ -320,7 +516,7 @@ class _FaqTileState extends State<_FaqTile> with SingleTickerProviderStateMixin 
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Text(widget.item['q']!, style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 14, color: const Color(0xFF1A1D1E))),
+                  child: Text(widget.item['q']!, style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 13.5, color: const Color(0xFF1A1D1E))),
                 ),
                 AnimatedRotation(
                   turns: _open ? 0.5 : 0,
@@ -335,8 +531,8 @@ class _FaqTileState extends State<_FaqTile> with SingleTickerProviderStateMixin 
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                 child: Container(
                   padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(color: _catColor.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(14)),
-                  child: Text(widget.item['a']!, style: GoogleFonts.inter(fontSize: 13, color: Colors.black87, height: 1.6, fontWeight: FontWeight.w500)),
+                  decoration: BoxDecoration(color: _catColor.withValues(alpha: 0.04), borderRadius: BorderRadius.circular(14)),
+                  child: Text(widget.item['a']!, style: GoogleFonts.inter(fontSize: 13, color: Colors.black87, height: 1.6, fontWeight: FontWeight.w600)),
                 ),
               ),
             ),

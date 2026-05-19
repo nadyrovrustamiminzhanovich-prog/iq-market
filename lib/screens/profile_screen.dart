@@ -23,8 +23,12 @@ import 'package:iqmarket/screens/admin/admin_panel_screen.dart';
 import 'package:iqmarket/widgets/profile/profile_components.dart';
 import 'package:iqmarket/translations/profile_strings.dart';
 import 'package:iqmarket/services/auth_service.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:iqmarket/models/user_model.dart';
 import 'package:iqmarket/constants/app_constants.dart';
+import 'package:iqmarket/models/review_model.dart';
+import 'package:iqmarket/services/review_service.dart';
+import 'package:intl/intl.dart';
 
 class ProfileScreen extends StatefulWidget {
   final List<AdModel> allAds;
@@ -84,6 +88,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late bool _isGuest;
   late String _currentTheme;
   int _salesCount = 0;
+  String _firestorePhotoUrl = '';
   Timer? _timer;
   int _timerSeconds = 0;
   bool _isTimerRunning = false;
@@ -133,6 +138,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _isGuest = widget.isGuest;
     _currentTheme = widget.currentTheme;
     _isVerified = widget.isVerified;
+    _firestorePhotoUrl = '';
     _loadSalesCount();
   }
 
@@ -170,6 +176,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _localName = user.name;
             _isVerified = user.isVerified;
             _localAccType = user.accountType;
+            _firestorePhotoUrl = user.photoUrl ?? '';
           }
 
           final String displayName = _isGuest ? 'Гость' : (user?.name ?? _localName);
@@ -195,18 +202,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
                 ),
-                actions: [
-                  Padding(
-                    padding: const EdgeInsets.only(right: 16),
-                    child: Container(
-                      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)),
-                      child: IconButton(
-                        icon: const Icon(Icons.settings_suggest_rounded, color: Colors.white, size: 22),
-                        onPressed: () => _openSettings(),
-                      ),
-                    ),
-                  ),
-                ],
+                actions: const [],
                 flexibleSpace: FlexibleSpaceBar(
                   background: Stack(
                     alignment: Alignment.center,
@@ -236,21 +232,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 border: Border.all(color: Colors.white, width: 4),
                                 boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 20, offset: const Offset(0, 10))],
                               ),
-                              child: Hero(
-                                tag: 'avatar_full',
-                                child: CircleAvatar(
-                                  radius: 54,
-                                  backgroundColor: const Color(0xFFF1F5F9),
-                                  backgroundImage: (photoUrl.isNotEmpty && photoUrl.startsWith('http')) 
-                                    ? NetworkImage(photoUrl) as ImageProvider
-                                    : (_localImage != null ? FileImage(_localImage!) : null),
+                              child: GestureDetector(
+                                onTap: () => _showFullScreenPhoto(photoUrl),
+                                child: Hero(
+                                  tag: 'avatar_full',
+                                  child: CircleAvatar(
+                                    radius: 54,
+                                    backgroundColor: const Color(0xFFF1F5F9),
+                                    backgroundImage: (photoUrl.isNotEmpty && photoUrl.startsWith('http')) 
+                                      ? NetworkImage(photoUrl) as ImageProvider
+                                      : (_localImage != null ? FileImage(_localImage!) : null),
 
-                                  child: (photoUrl.isEmpty && _localImage == null) 
-                                    ? (displayName.trim().isNotEmpty 
-                                        ? Text(displayName.trim().split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join('').toUpperCase(), 
-                                            style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: Color(0xFF4A80F0)))
-                                        : const Icon(Icons.person, size: 50, color: Color(0xFF4A80F0)))
-                                    : null,
+                                    child: (photoUrl.isEmpty && _localImage == null) 
+                                      ? (displayName.trim().isNotEmpty 
+                                          ? Text(displayName.trim().split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join('').toUpperCase(), 
+                                              style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: Color(0xFF4A80F0)))
+                                          : const Icon(Icons.person, size: 50, color: Color(0xFF4A80F0)))
+                                      : null,
+                                  ),
                                 ),
                               ),
                             ),
@@ -261,8 +260,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
               ),
-              SliverFillRemaining(
-                hasScrollBody: false,
+              SliverToBoxAdapter(
                 child: Column(
                   children: [
                     const SizedBox(height: 15),
@@ -293,10 +291,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       const SizedBox(height: 25),
                     ],
                     _buildSimplifiedMenu(),
-                    const Spacer(),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 35),
                     if (!_isGuest) _buildLogoutButton(context),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 35),
                   ],
                 ),
               ),
@@ -310,45 +307,170 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
 
   Widget _buildStatsBar(UserModel? user) {
-    final String rating = (user?.rating ?? 5.0).toString();
+    final double rawRating = user?.rating ?? 0.0;
+    final String rating = rawRating.toStringAsFixed(1);
     final String reviews = (user?.reviewsCount ?? 0).toString();
     
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 24),
+      child: GestureDetector(
+        onTap: () {
+          if (user != null) {
+            _showMyReviewsBottomSheet(user.uid);
+          }
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 24),
+          decoration: BoxDecoration(
+            color: _surfaceColor,
+            borderRadius: BorderRadius.circular(30),
+            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 24, offset: const Offset(0, 12))],
+            border: Border.all(color: _isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.04)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Column(
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 24),
+                      const SizedBox(width: 8),
+                      Text(rating, style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w900, color: _txtColor)),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(_t('rating_stat').toUpperCase(), style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: _subtxtColor, letterSpacing: 1.0)),
+                ],
+              ),
+              const SizedBox(width: 40),
+              Container(width: 1, height: 40, color: _subtxtColor.withValues(alpha: 0.1)),
+              const SizedBox(width: 40),
+              Column(
+                children: [
+                  Text(reviews, style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w900, color: _txtColor)),
+                  const SizedBox(height: 4),
+                  Text(_t('reviews_stat').toUpperCase(), 
+                    style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: _subtxtColor, letterSpacing: 1.0)),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showMyReviewsBottomSheet(String userId) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.8,
         decoration: BoxDecoration(
           color: _surfaceColor,
-          borderRadius: BorderRadius.circular(30),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 24, offset: const Offset(0, 12))],
-          border: Border.all(color: _isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.04)),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(35)),
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+        child: Column(
           children: [
-            Column(
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 24),
-                    const SizedBox(width: 8),
-                    Text(rating, style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w900, color: _txtColor)),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(_t('rating_stat').toUpperCase(), style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: _subtxtColor, letterSpacing: 1.0)),
-              ],
+            const SizedBox(height: 12),
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: _subtxtColor.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(10))),
+            const SizedBox(height: 20),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Row(
+                children: [
+                  Text('Мои отзывы', style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w900, color: _txtColor)),
+                  const Spacer(),
+                  IconButton(
+                    icon: Icon(Icons.close_rounded, color: _txtColor),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(width: 40),
-            Container(width: 1, height: 40, color: _subtxtColor.withValues(alpha: 0.1)),
-            const SizedBox(width: 40),
-            Column(
-              children: [
-                Text(reviews, style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w900, color: _txtColor)),
-                const SizedBox(height: 4),
-                Text(_t('reviews_stat').toUpperCase(), 
-                  style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: _subtxtColor, letterSpacing: 1.0)),
-              ],
+            const Divider(),
+            Expanded(
+              child: StreamBuilder<List<ReviewModel>>(
+                stream: ReviewService.getUserReviewsStream(userId),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  final reviews = snapshot.data ?? [];
+                  if (reviews.isEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.rate_review_outlined, size: 70, color: _subtxtColor.withValues(alpha: 0.3)),
+                          const SizedBox(height: 16),
+                          Text('У вас пока нет отзывов', style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold, color: _subtxtColor)),
+                        ],
+                      ),
+                    );
+                  }
+                  
+                  return ListView.separated(
+                    padding: const EdgeInsets.all(20),
+                    itemCount: reviews.length,
+                    separatorBuilder: (c, i) => const SizedBox(height: 16),
+                    itemBuilder: (context, index) {
+                      final r = reviews[index];
+                      return Container(
+                        padding: const EdgeInsets.all(18),
+                        decoration: BoxDecoration(
+                          color: _isDark ? Colors.white.withValues(alpha: 0.03) : const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(22),
+                          border: Border.all(color: _subtxtColor.withValues(alpha: 0.08)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text(r.fromUserName, style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 14, color: _txtColor)),
+                                const Spacer(),
+                                Text(
+                                  '${r.timestamp.day.toString().padLeft(2, '0')}.${r.timestamp.month.toString().padLeft(2, '0')}.${r.timestamp.year}',
+                                  style: GoogleFonts.inter(fontSize: 11, color: _subtxtColor),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Row(
+                              children: List.generate(5, (i) => Icon(
+                                i < r.rating ? Icons.star_rounded : Icons.star_outline_rounded,
+                                size: 16, color: const Color(0xFFF59E0B),
+                              )),
+                            ),
+                            if (r.adTitle.isNotEmpty) ...[
+                              const SizedBox(height: 10),
+                              Row(
+                                children: [
+                                  Icon(Icons.shopping_bag_outlined, size: 14, color: _primaryColor),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      'К объявлению: ${r.adTitle}',
+                                      style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: _primaryColor),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                            const SizedBox(height: 10),
+                            Text(r.comment, style: GoogleFonts.inter(fontSize: 13.5, color: _txtColor.withValues(alpha: 0.8), height: 1.5)),
+                          ],
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
             ),
           ],
         ),
@@ -363,160 +485,250 @@ class _ProfileScreenState extends State<ProfileScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
           gradient: _isVerified 
-            ? LinearGradient(colors: [const Color(0xFF10B981).withValues(alpha: 0.1), const Color(0xFF10B981).withValues(alpha: 0.05)])
-            : LinearGradient(colors: [_primaryColor.withValues(alpha: 0.08), _primaryColor.withValues(alpha: 0.04)]),
-          borderRadius: BorderRadius.circular(30),
-          border: Border.all(color: _isVerified ? const Color(0xFF10B981).withValues(alpha: 0.2) : _primaryColor.withValues(alpha: 0.2)),
+            ? const LinearGradient(
+                colors: [Color(0xFF10B981), Color(0xFF059669)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              )
+            : const LinearGradient(
+                colors: [Color(0xFF229ED9), Color(0xFF2AABEE)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: [
+            BoxShadow(
+              color: (_isVerified ? const Color(0xFF10B981) : const Color(0xFF229ED9)).withValues(alpha: 0.15), 
+              blurRadius: 10, 
+              offset: const Offset(0, 6),
+            )
+          ],
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(22),
+            onTap: _isVerified ? null : () => _showVerificationBottomSheet(),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      _isVerified 
+                        ? Icons.verified_user_rounded 
+                        : PhosphorIcons.telegramLogo(PhosphorIconsStyle.fill), 
+                      color: Colors.white, 
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _isVerified ? _t('badge_verified') : 'Верификация через Telegram',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 14, 
+                            fontWeight: FontWeight.w900, 
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          _isVerified ? _t('verified_info') : 'Подтвердите номер телефона в один клик',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 11, 
+                            fontWeight: FontWeight.w600, 
+                            color: Colors.white.withValues(alpha: 0.9),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (!_isVerified) ...[
+                    const SizedBox(width: 8),
+                    const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white, size: 12),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showVerificationBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) {
+          return Container(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom + 24, 
+              top: 24, 
+              left: 24, 
+              right: 24,
+            ),
+            decoration: BoxDecoration(
+              color: _surfaceColor,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(35)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  padding: const EdgeInsets.all(10),
+                  width: 40, 
+                  height: 4, 
                   decoration: BoxDecoration(
-                    color: _isVerified ? const Color(0xFF10B981) : _primaryColor,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Icon(_isVerified ? Icons.verified_user_rounded : Icons.shield_rounded, color: Colors.white, size: 22),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              _isVerified ? _t('badge_verified') : _t('verification_title'),
-                              style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w900, color: _txtColor),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          IconButton(
-                            onPressed: () => _showVerificationInfo(context),
-                            icon: Icon(Icons.help_outline_rounded, color: _subtxtColor.withValues(alpha: 0.5), size: 20),
-                          ),
-                        ],
-                      ),
-                      Text(
-                        _isVerified ? _t('verified_info') : _t('verification_desc'),
-                        style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500, color: _subtxtColor, height: 1.4),
-                      ),
-                    ],
+                    color: _subtxtColor.withValues(alpha: 0.2), 
+                    borderRadius: BorderRadius.circular(10),
                   ),
                 ),
-              ],
-            ),
-            if (!_isVerified) ...[
-              const SizedBox(height: 24),
-              // Phone Input
-              Container(
-                decoration: BoxDecoration(
-                  color: _surfaceColor,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: _primaryColor.withValues(alpha: 0.1)),
-                ),
-                child: TextField(
-                  controller: _phoneCtrl,
-                  keyboardType: TextInputType.phone,
-                  style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: _txtColor),
-                  decoration: InputDecoration(
-                    hintText: '+7 (700) 000-00-00',
-                    hintStyle: TextStyle(color: _subtxtColor.withValues(alpha: 0.5)),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-                    border: InputBorder.none,
-                    suffixIcon: _isTimerRunning 
-                      ? Center(child: Text('$_timerSeconds с', style: TextStyle(color: _primaryColor, fontWeight: FontWeight.w900)))
-                      : TextButton(
-                          onPressed: _startTimer,
-                          child: Text(_t('next').toUpperCase(), style: const TextStyle(fontWeight: FontWeight.w900)),
-                        ),
-                    suffixIconConstraints: const BoxConstraints(minWidth: 80, minHeight: 0),
-                  ),
-                ),
-              ),
-              if (_isTimerRunning) ...[
+                const SizedBox(height: 24),
+                Icon(Icons.shield_rounded, color: _primaryColor, size: 48),
                 const SizedBox(height: 16),
-                // Bot Link
-                ElevatedButton.icon(
-                  onPressed: () async {
-                    final url = Uri.parse('https://t.me/IQ_Taxi_bot');
-                    if (await canLaunchUrl(url)) await launchUrl(url, mode: LaunchMode.externalApplication);
-                  },
-                  icon: const Icon(Icons.telegram_rounded),
-                  label: const Text('ПОЛУЧИТЬ КОД В TELEGRAM BOT'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0088CC),
-                    foregroundColor: Colors.white,
-                    minimumSize: const Size(double.infinity, 54),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                    elevation: 0,
+                Text(
+                  _t('verification_title'),
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 20, 
+                    fontWeight: FontWeight.w900, 
+                    color: _txtColor,
                   ),
                 ),
-                const SizedBox(height: 16),
-                // Code Input
+                const SizedBox(height: 8),
+                Text(
+                  _t('verification_desc'),
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 13, 
+                    color: _subtxtColor, 
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                
+                // Phone Input
                 Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                   decoration: BoxDecoration(
-                    color: _surfaceColor,
-                    borderRadius: BorderRadius.circular(18),
+                    color: _subtxtColor.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(20),
                     border: Border.all(color: _primaryColor.withValues(alpha: 0.1)),
                   ),
                   child: TextField(
-                    controller: _codeCtrl,
-                    keyboardType: TextInputType.number,
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 20, letterSpacing: 10, color: _txtColor),
+                    controller: _phoneCtrl,
+                    keyboardType: TextInputType.phone,
+                    style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, color: _txtColor),
                     decoration: InputDecoration(
-                      hintText: '0000',
-                      hintStyle: TextStyle(letterSpacing: 2, color: _subtxtColor.withValues(alpha: 0.3)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                      hintText: '+7 (700) 000-00-00',
+                      hintStyle: TextStyle(color: _subtxtColor.withValues(alpha: 0.4)),
                       border: InputBorder.none,
+                      suffixIcon: _isTimerRunning 
+                        ? Container(
+                            alignment: Alignment.centerRight,
+                            width: 50,
+                            child: Text(
+                              '$_timerSeconds с', 
+                              style: TextStyle(color: _primaryColor, fontWeight: FontWeight.w900),
+                            ),
+                          )
+                        : TextButton(
+                            onPressed: () {
+                              _startTimer();
+                              setModalState(() {});
+                              Timer.periodic(const Duration(seconds: 1), (t) {
+                                if (mounted && _isTimerRunning) {
+                                  setModalState(() {});
+                                } else {
+                                  t.cancel();
+                                }
+                              });
+                            },
+                            child: Text(_t('next').toUpperCase(), style: const TextStyle(fontWeight: FontWeight.w900)),
+                          ),
+                      suffixIconConstraints: const BoxConstraints(minWidth: 80, minHeight: 0),
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () async {
-                      if (_codeCtrl.text.length >= 4) {
-                        try {
-                          // 🔒 X10 SECURITY: Saving verification status to backend
-                          await UserService.updateUserProfile({'isVerified': true});
-                          setState(() => _isVerified = true);
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Аккаунт успешно верифицирован! ✅'), behavior: SnackBarBehavior.floating),
-                            );
-                          }
-                        } catch (e) {
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Ошибка верификации: $e'), backgroundColor: Colors.red),
-                            );
+                
+                if (_isTimerRunning) ...[
+                  const SizedBox(height: 20),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: _subtxtColor.withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.15)),
+                    ),
+                    child: TextField(
+                      controller: _codeCtrl,
+                      keyboardType: TextInputType.number,
+                      maxLength: 5,
+                      style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, color: _txtColor, letterSpacing: 8),
+                      decoration: const InputDecoration(
+                        hintText: 'Код из бота',
+                        counterText: '',
+                        border: InputBorder.none,
+                      ),
+                      onChanged: (v) {
+                        if (v.length >= 4) {
+                          setModalState(() {});
+                        }
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 54,
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        if (_codeCtrl.text.length >= 4) {
+                          try {
+                            await UserService.updateUserProfile({'isVerified': true});
+                            setState(() => _isVerified = true);
+                            if (context.mounted) {
+                              Navigator.pop(context);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Аккаунт успешно верифицирован! ✅'), behavior: SnackBarBehavior.floating),
+                              );
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Ошибка верификации: $e'), backgroundColor: Colors.red),
+                              );
+                            }
                           }
                         }
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF10B981),
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size(double.infinity, 54),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF10B981),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                        elevation: 0,
+                      ),
+                      child: const Text('ПОДТВЕРДИТЬ КОД ✅', style: TextStyle(fontWeight: FontWeight.w900)),
                     ),
-                    child: const Text('ПОДТВЕРДИТЬ КОД ✅', style: TextStyle(fontWeight: FontWeight.w900)),
                   ),
-                ),
+                ],
+                const SizedBox(height: 12),
               ],
-            ],
-          ],
-        ),
+            ),
+          );
+        }
       ),
     );
   }
@@ -600,82 +812,160 @@ class _ProfileScreenState extends State<ProfileScreen> {
     ),
   );
 
-  Widget _buildSimplifiedMenu() => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 20),
-    child: Column(
-      children: [
-        _buildListItem(Icons.person_outline_rounded, _t('personal_data'), () => _openSettings()),
-        _buildListItem(Icons.chat_bubble_outline_rounded, _t('chats'), () {
-          Navigator.push(context, MaterialPageRoute(builder: (context) => const ChatsListScreen()));
-        }),
-        _buildListItem(Icons.notifications_none_rounded, _t('notifications'), () {
-          Navigator.push(context, MaterialPageRoute(builder: (context) => NotificationsScreen(lang: _localLang)));
-        }),
-        _buildListItem(Icons.favorite_border_rounded, _t('favorites'), () {
-          Navigator.push(context, MaterialPageRoute(builder: (context) => FavoritesScreen(
-            lang: _localLang,
-            themes: widget.themes,
-            currentTheme: _currentTheme,
-            onShowDetails: widget.onShowProductDetails,
-          )));
-        }),
-        _buildListItem(Icons.history_rounded, _t('history'), () => _openMyAds()),
-        _buildListItem(Icons.help_outline_rounded, _t('help'), () {
-          Navigator.push(context, MaterialPageRoute(builder: (context) => HelpCenterScreen(lang: _localLang)));
-        }),
-        _buildListItem(Icons.description_outlined, _t('legal'), () {
-          Navigator.push(context, MaterialPageRoute(builder: (context) => LegalInfoScreen(lang: _localLang)));
-        }),
-        ...(() {
-          final user = FirebaseAuth.instance.currentUser;
-          final providers = user?.providerData.map((p) => p.providerId).toList() ?? [];
-          final isEmailUser = providers.contains('password');
-          
-          return [
-            if (isEmailUser)
+  Widget _buildSimplifiedMenu() {
+    final user = FirebaseAuth.instance.currentUser;
+    final providers = user?.providerData.map((p) => p.providerId).toList() ?? [];
+    final isEmailUser = providers.contains('password');
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // GROUP 1: Личный кабинет
+          _buildMenuSectionTitle(_t('personal_data')),
+          _buildMenuCard([
+            _buildListItem(Icons.person_outline_rounded, _t('personal_data'), () => _openSettings(_firestorePhotoUrl)),
+            _buildListItemDivider(),
+            _buildListItem(Icons.grid_view_rounded, 'Мои объявления', () => _openMyAds()),
+            _buildListItemDivider(),
+            _buildListItem(Icons.chat_bubble_outline_rounded, _t('chats'), () {
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const ChatsListScreen()));
+            }),
+            _buildListItemDivider(),
+            _buildListItem(Icons.favorite_border_rounded, _t('favorites'), () {
+              Navigator.push(context, MaterialPageRoute(builder: (context) => FavoritesScreen(
+                lang: _localLang,
+                themes: widget.themes,
+                currentTheme: _currentTheme,
+                onShowDetails: widget.onShowProductDetails,
+              )));
+            }),
+          ]),
+          const SizedBox(height: 25),
+
+          // GROUP 2: Система
+          _buildMenuSectionTitle('Система'),
+          _buildMenuCard([
+            _buildListItem(Icons.notifications_none_rounded, _t('notifications'), () {
+              Navigator.push(context, MaterialPageRoute(builder: (context) => NotificationsScreen(lang: _localLang)));
+            }),
+            if (isEmailUser) ...[
+              _buildListItemDivider(),
               _buildListItem(Icons.security_rounded, 'Безопасность', _showSecurityDialog),
-          ];
-        }()),
-        if (_localAccType == 'admin')
-          _buildListItem(Icons.admin_panel_settings_outlined, 'Admin Panel', () {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminPanelScreen()));
-          }),
-        const Divider(height: 32, thickness: 1, indent: 20, endIndent: 20),
-        _buildListItem(Icons.star_rate_rounded, 'Оценить приложение', _openStore),
-        _buildListItem(Icons.info_outline_rounded, 'О приложении', _showAboutDialog),
-      ],
+            ],
+            if (_localAccType == 'admin') ...[
+              _buildListItemDivider(),
+              _buildListItem(Icons.admin_panel_settings_outlined, 'Панель администратора', () {
+                Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminPanelScreen()));
+              }),
+            ],
+          ]),
+          const SizedBox(height: 25),
+
+          // GROUP 3: Информация
+          _buildMenuSectionTitle('Информация'),
+          _buildMenuCard([
+            _buildListItem(Icons.help_outline_rounded, _t('help'), () {
+              Navigator.push(context, MaterialPageRoute(builder: (context) => HelpCenterScreen(lang: _localLang)));
+            }),
+            _buildListItemDivider(),
+            _buildListItem(Icons.description_outlined, _t('legal'), () {
+              Navigator.push(context, MaterialPageRoute(builder: (context) => LegalInfoScreen(lang: _localLang)));
+            }),
+            _buildListItemDivider(),
+            _buildListItem(Icons.star_rate_rounded, 'Оценить приложение', _openStore),
+            _buildListItemDivider(),
+            _buildListItem(Icons.info_outline_rounded, 'О приложении', _showAboutDialog),
+          ]),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMenuSectionTitle(String title) => Padding(
+    padding: const EdgeInsets.only(left: 6, bottom: 8),
+    child: Text(
+      title.toUpperCase(),
+      style: GoogleFonts.plusJakartaSans(
+        fontSize: 10,
+        fontWeight: FontWeight.w800,
+        color: _subtxtColor.withValues(alpha: 0.6),
+        letterSpacing: 1.2,
+      ),
     ),
   );
 
-  Widget _buildListItem(IconData icon, String label, VoidCallback onTap) => Container(
-    margin: const EdgeInsets.only(bottom: 12),
+  Widget _buildMenuCard(List<Widget> children) => Container(
     decoration: BoxDecoration(
       color: _surfaceColor,
-      borderRadius: BorderRadius.circular(24),
-      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10, offset: const Offset(0, 4))],
-      border: Border.all(color: _isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.05), width: 1.2),
+      borderRadius: BorderRadius.circular(28),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.02),
+          blurRadius: 20,
+          offset: const Offset(0, 10),
+        )
+      ],
+      border: Border.all(
+        color: _isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.04),
+        width: 1.2,
+      ),
     ),
-    child: Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(24),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(color: _primaryColor.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(15)),
-                child: Icon(icon, color: _primaryColor, size: 20),
+    child: ClipRRect(
+      borderRadius: BorderRadius.circular(28),
+      child: Column(children: children),
+    ),
+  );
+
+  Widget _buildListItemDivider() => Divider(
+    height: 1,
+    thickness: 0.8,
+    color: _subtxtColor.withValues(alpha: 0.06),
+    indent: 64,
+    endIndent: 16,
+  );
+
+  Widget _buildListItem(IconData icon, String label, VoidCallback onTap) => Material(
+    color: Colors.transparent,
+    child: InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    _primaryColor.withValues(alpha: 0.12),
+                    _primaryColor.withValues(alpha: 0.04),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(14),
               ),
-              const SizedBox(width: 15),
-              Expanded(
-                child: Text(label, style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 14, color: _txtColor)),
+              child: Icon(icon, color: _primaryColor, size: 20),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                label, 
+                style: GoogleFonts.plusJakartaSans(
+                  fontWeight: FontWeight.w700, 
+                  fontSize: 14.5, 
+                  color: _txtColor,
+                ),
               ),
-              Icon(Icons.arrow_forward_ios_rounded, size: 14, color: _subtxtColor.withValues(alpha: 0.4)),
-            ],
-          ),
+            ),
+            Icon(
+              Icons.arrow_forward_ios_rounded, 
+              size: 12, 
+              color: _subtxtColor.withValues(alpha: 0.35),
+            ),
+          ],
         ),
       ),
     ),
@@ -696,10 +986,43 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
 
 
-  void _openSettings() {
+  void _showFullScreenPhoto(String photoUrl) {
+    ImageProvider? imageProvider;
+    if (photoUrl.isNotEmpty && photoUrl.startsWith('http')) {
+      imageProvider = NetworkImage(photoUrl);
+    } else if (_localImage != null) {
+      imageProvider = FileImage(_localImage!);
+    }
+    
+    if (imageProvider == null) return;
+
+    Navigator.push(context, MaterialPageRoute(builder: (context) => Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.close_rounded, color: Colors.white, size: 28),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      body: Center(
+        child: Hero(
+          tag: 'avatar_full',
+          child: InteractiveViewer(
+            clipBehavior: Clip.none,
+            maxScale: 4.0,
+            child: Image(image: imageProvider!),
+          ),
+        ),
+      ),
+    )));
+  }
+
+  void _openSettings(String currentPhotoUrl) {
     Navigator.push(context, MaterialPageRoute(builder: (context) => ProfileSettingsScreen(
       currentName: _localName,
-      profileImagePath: _localImage?.path,
+      profileImagePath: currentPhotoUrl.isNotEmpty ? currentPhotoUrl : _localImage?.path,
       isBioEnabled: _localBio,
       accType: _localAccType,
       lang: _localLang,

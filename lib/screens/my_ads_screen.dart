@@ -68,10 +68,9 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
             }
 
             final allAds = snapshot.data!;
-            // Simplified status logic for now
-            final activeAds = allAds.where((ad) => ad.active).toList();
-            final pendingAds = <AdModel>[]; // Add logic if status field is added to model
-            final archivedAds = allAds.where((ad) => !ad.active).toList();
+            final activeAds = allAds.where((ad) => ad.active && ad.status == 'active').toList();
+            final pendingAds = allAds.where((ad) => ad.status == 'pending').toList();
+            final archivedAds = allAds.where((ad) => !ad.active || ad.status == 'archived' || ad.status == 'archive').toList();
 
             return TabBarView(
               children: [
@@ -82,12 +81,52 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
             );
           },
         ),
-        floatingActionButton: FloatingActionButton.extended(
-          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (ctx) => PostAdScreen(lang: widget.lang))),
-          label: Text(_t('post_btn'), style: const TextStyle(fontWeight: FontWeight.bold)),
-          icon: const Icon(Icons.add),
-          backgroundColor: const Color(0xFF4A80F0),
+        floatingActionButton: Container(
+          height: 58,
+          margin: const EdgeInsets.only(bottom: 12),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF4A80F0), Color(0xFF3B82F6)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(29),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF4A80F0).withValues(alpha: 0.3),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
+              )
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(29),
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (ctx) => PostAdScreen(lang: widget.lang))),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 26),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.add_rounded, color: Colors.white, size: 22),
+                    const SizedBox(width: 8),
+                    Text(
+                      _t('post_btn'),
+                      style: GoogleFonts.plusJakartaSans(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 15,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ),
+        floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       ),
     );
   }

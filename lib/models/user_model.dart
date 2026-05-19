@@ -24,7 +24,7 @@ class UserModel {
     this.isVerified = false,
     required this.registrationDate,
     this.reviewsCount = 0,
-    this.rating = 5.0,
+    this.rating = 0.0,
     this.location = 'Чунджа',
     this.status = 'active',
   });
@@ -40,7 +40,7 @@ class UserModel {
       isVerified: map['isVerified'] ?? false,
       registrationDate: (map['registrationDate'] as Timestamp?)?.toDate() ?? DateTime.now(),
       reviewsCount: map['reviewsCount'] ?? 0,
-      rating: (map['rating'] as num?)?.toDouble() ?? 5.0,
+      rating: (map['rating'] as num?)?.toDouble() ?? 0.0,
       location: map['location'] ?? 'Чунджа',
       status: map['status'] ?? 'active',
     );

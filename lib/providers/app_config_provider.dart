@@ -58,15 +58,33 @@ class AppConfigProvider with ChangeNotifier {
     try {
       final doc = await _db.collection('users').doc(uid).get();
       if (doc.exists && doc.data() != null) {
-        final List<dynamic>? firestoreFavorites = doc.data()!['favoriteIds'];
+        final data = doc.data()!;
+        
+        // Sync favorites
+        final List<dynamic>? firestoreFavorites = data['favoriteIds'];
         if (firestoreFavorites != null) {
           _favoriteIds.addAll(firestoreFavorites.map((e) => e.toString()));
           StorageService.setStringList('favorites', _favoriteIds.toList());
-          notifyListeners();
         }
+
+        // Sync location
+        final String? firestoreLocation = data['location'];
+        if (firestoreLocation != null && firestoreLocation.isNotEmpty) {
+          _city = firestoreLocation;
+          StorageService.setString('user_location', firestoreLocation);
+        }
+
+        // Sync language
+        final String? firestoreLanguage = data['language'];
+        if (firestoreLanguage != null && firestoreLanguage.isNotEmpty) {
+          _language = firestoreLanguage;
+          StorageService.setString('language', firestoreLanguage);
+        }
+
+        notifyListeners();
       }
     } catch (e) {
-      debugPrint('Error loading favorites from Firestore: $e');
+      debugPrint('Error loading favorites/config from Firestore: $e');
     }
   }
 

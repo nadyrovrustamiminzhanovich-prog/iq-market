@@ -9,11 +9,14 @@ import 'package:iqmarket/data/kazakhstan_locations.dart';
 import 'package:iqmarket/services/location_service.dart';
 import 'package:iqmarket/screens/legal_info_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import 'package:provider/provider.dart';
 import 'package:iqmarket/providers/app_config_provider.dart';
 import 'package:iqmarket/services/translation_service.dart';
 import 'package:iqmarket/services/auth_service.dart';
+import 'package:iqmarket/services/user_service.dart';
+import 'package:iqmarket/services/file_service.dart';
 
 class ProfileSettingsScreen extends StatefulWidget {
   final String currentName;
@@ -45,9 +48,12 @@ class ProfileSettingsScreen extends StatefulWidget {
 
 class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   late TextEditingController _nameController;
-  final _emailController = TextEditingController(text: "alex@example.com");
+  final _emailController = TextEditingController();
   late TextEditingController _cityController;
-  final _phoneController = TextEditingController(text: "7089007030");
+  final _phoneController = TextEditingController();
+  
+  DateTime _registrationDate = DateTime.now();
+  String _userEmail = '';
   
   final _phoneMask = MaskTextInputFormatter(
     mask: '+7 (###) ###-##-##',
@@ -56,6 +62,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   );
   File? _newImage;
   final ImagePicker _picker = ImagePicker();
+  bool _isSaving = false;
 
   late bool _isNotificationsEnabled;
   late bool _isFaceIdEnabled;
@@ -76,11 +83,56 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     final config = Provider.of<AppConfigProvider>(context, listen: false);
     _nameController = TextEditingController(text: widget.currentName);
     _cityController = TextEditingController(text: config.city);
-    _isNotificationsEnabled = true;
+    _isNotificationsEnabled = StorageService.getBool('push_notifications_enabled', defaultValue: true);
     _isFaceIdEnabled = widget.isBioEnabled;
     _selectedLanguage = widget.lang;
     _accountType = widget.accType;
     _currentTheme = widget.currentTheme;
+
+    // Load dynamic user data from Firebase Auth
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      _emailController.text = user.email ?? '';
+      _phoneController.text = user.phoneNumber ?? '';
+      _userEmail = user.email ?? '';
+      _registrationDate = user.metadata.creationTime ?? DateTime.now();
+    }
+    
+    _loadFirestoreUserData();
+  }
+
+  Future<void> _loadFirestoreUserData() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      try {
+        final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+        if (doc.exists && mounted) {
+          final data = doc.data();
+          if (data != null) {
+            setState(() {
+              if (data['phone'] != null && data['phone'].toString().isNotEmpty) {
+                _phoneController.text = data['phone'].toString();
+              }
+              if (data['location'] != null && data['location'].toString().isNotEmpty) {
+                _cityController.text = data['location'].toString();
+              }
+              if (data['email'] != null && data['email'].toString().isNotEmpty) {
+                _emailController.text = data['email'].toString();
+                _userEmail = data['email'].toString();
+              }
+              if (data['registrationDate'] != null) {
+                final timestamp = data['registrationDate'];
+                if (timestamp is Timestamp) {
+                  _registrationDate = timestamp.toDate();
+                }
+              }
+            });
+          }
+        }
+      } catch (e) {
+        debugPrint('Error loading user data from Firestore: $e');
+      }
+    }
   }
 
   String _t(String key) {
@@ -111,28 +163,71 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
         title: Text(_t('title'), style: GoogleFonts.inter(color: _txtColor, fontWeight: FontWeight.w900, fontSize: 18)),
         actions: [
           Container(
-            margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
             child: TextButton(
-              onPressed: () async {
-                final String? imagePathToSave = _newImage?.path ?? widget.profileImagePath;
-                await StorageService.saveProfile(_nameController.text, imagePathToSave, _isFaceIdEnabled, _accountType);
-                
-                // Sync with global config
-                if (mounted) {
-                  final config = Provider.of<AppConfigProvider>(context, listen: false);
-                  config.setLanguage(_selectedLanguage);
-                  config.setCity(_cityController.text);
-                }
+              onPressed: _isSaving ? null : () async {
+                setState(() => _isSaving = true);
+                try {
+                  String? finalPhotoUrl = widget.profileImagePath?.startsWith('http') == true ? widget.profileImagePath : null;
 
-                widget.onSave(_nameController.text, _newImage, _isFaceIdEnabled, _accountType, _selectedLanguage);
-                Navigator.pop(context);
+                  if (_newImage != null) {
+                    // Compress image before uploading to optimize bandwidth
+                    final File? compressed = await FileService.compressImage(_newImage!);
+                    final String? uploadedUrl = await FileService.uploadFile(compressed ?? _newImage!, 'avatars');
+                    if (uploadedUrl != null) {
+                      finalPhotoUrl = uploadedUrl;
+                      
+                      // Delete old storage image to prevent orphaned storage objects
+                      if (widget.profileImagePath != null && widget.profileImagePath!.startsWith('http')) {
+                        await FileService.deleteFile(widget.profileImagePath!);
+                      }
+                    }
+                  }
+
+                  final String? imagePathToSave = _newImage?.path ?? widget.profileImagePath;
+                  await StorageService.saveProfile(_nameController.text, imagePathToSave, _isFaceIdEnabled, _accountType);
+                  
+                  if (mounted) {
+                    final config = Provider.of<AppConfigProvider>(context, listen: false);
+                    config.setLanguage(_selectedLanguage);
+                    config.setCity(_cityController.text);
+                  }
+
+                  // 🔒 Senior-Level Sync: Update user data in Firebase Firestore
+                  final user = FirebaseAuth.instance.currentUser;
+                  if (user != null) {
+                    final Map<String, dynamic> updateData = {
+                      'name': _nameController.text,
+                      'phone': _phoneController.text,
+                      'location': _cityController.text,
+                      'accountType': _accountType,
+                    };
+                    if (finalPhotoUrl != null) {
+                      updateData['photoUrl'] = finalPhotoUrl;
+                    }
+                    await UserService.updateUserProfile(updateData);
+                  }
+
+                  widget.onSave(_nameController.text, _newImage, _isFaceIdEnabled, _accountType, _selectedLanguage);
+                  if (mounted) Navigator.pop(context);
+                } catch (e) {
+                  debugPrint('Error saving profile updates: $e');
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Ошибка при сохранении: $e'), backgroundColor: Colors.red)
+                    );
+                  }
+                } finally {
+                  if (mounted) setState(() => _isSaving = false);
+                }
               },
               style: TextButton.styleFrom(
                 backgroundColor: _primaryColor.withValues(alpha: 0.1),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 padding: const EdgeInsets.symmetric(horizontal: 16),
               ),
-              child: Text(_t('save'), style: GoogleFonts.inter(color: _primaryColor, fontWeight: FontWeight.w900, fontSize: 14)),
+              child: _isSaving 
+                ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: _primaryColor))
+                : Text(_t('save'), style: GoogleFonts.inter(color: _primaryColor, fontWeight: FontWeight.w900, fontSize: 14)),
             ),
           ),
           const SizedBox(width: 8),
@@ -151,29 +246,64 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
               _buildTextField(_t('name_label'), _nameController, Icons.person_rounded),
               _buildDivider(),
               _buildTextField('Номер телефона', _phoneController, Icons.phone_android_rounded, formatters: [_phoneMask]),
+              if (_userEmail.isNotEmpty) ...[
+                _buildDivider(),
+                _buildDisplayField(
+                  'Email', 
+                  _userEmail, 
+                  Icons.alternate_email_rounded,
+                  onTap: () {
+                    Clipboard.setData(ClipboardData(text: _userEmail));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Email скопирован в буфер обмена! 📋'),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  },
+                ),
+              ],
               _buildDivider(),
               _buildLocationPicker(_t('city_label'), _cityController, Icons.location_on_rounded),
               _buildDivider(),
-              _buildClickableItem(
+              _buildDisplayField(
                 _selectedLanguage == 'Русский' ? 'Дата регистрации' : (_selectedLanguage == 'Қазақша' ? 'Тіркелген күні' : 'Тизимләнгән күни'), 
-                () {}, // Read-only
-                Icons.calendar_today_rounded, 
-                trailing: Text('12.05.2023', style: GoogleFonts.inter(color: _subtxtColor, fontWeight: FontWeight.w700, fontSize: 13))
+                "${_registrationDate.day.toString().padLeft(2, '0')}.${_registrationDate.month.toString().padLeft(2, '0')}.${_registrationDate.year}", 
+                Icons.calendar_today_rounded,
+                onTap: () {
+                  final dateStr = "${_registrationDate.day.toString().padLeft(2, '0')}.${_registrationDate.month.toString().padLeft(2, '0')}.${_registrationDate.year}";
+                  Clipboard.setData(ClipboardData(text: dateStr));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Дата регистрации скопирована! 📋'),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                },
               ),
             ]),
             const SizedBox(height: 30),
             _buildSectionTitle(_t('account_title')),
             _buildSettingsCard([
-              _buildClickableItem(
+              _buildDisplayField(
                 _t('acc_type_label'), 
-                () => _showAccountTypePicker(), 
+                _getAccountTypeLabel(_accountType), 
                 Icons.badge_rounded, 
-                trailing: Text(_accountType, style: GoogleFonts.inter(color: _primaryColor, fontWeight: FontWeight.w900, fontSize: 13))
+                onTap: () => _showAccountTypePicker(),
+                trailingIcon: Icons.arrow_forward_ios_rounded,
               ),
               _buildDivider(),
               _buildDropdownItem(_t('lang_label'), _selectedLanguage, ['Русский', 'Қазақша', 'Уйғурчә'], (v) => setState(() => _selectedLanguage = v!), Icons.translate_rounded),
-              _buildDivider(),
-              _buildClickableItem(_t('change_phone'), () => _showChangePhoneDialog(), Icons.phone_android_rounded),
+              if (_accountType == 'driver') ...[
+                _buildDivider(),
+                _buildClickableItem(
+                  _selectedLanguage == 'Русский' 
+                      ? 'Подтвердить водительский номер' 
+                      : (_selectedLanguage == 'Қазақша' ? 'Жүргізуші нөмірін растау' : 'Шопур номурини тәстиқләш'),
+                  () => _showChangePhoneDialog(),
+                  Icons.verified_user_rounded,
+                ),
+              ],
             ]),
             const SizedBox(height: 30),
             _buildSectionTitle('Связанные аккаунты'),
@@ -181,7 +311,25 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
             const SizedBox(height: 30),
             _buildSectionTitle(_t('security')),
             _buildSettingsCard([
-              _buildSwitchItem(_t('push_label'), _isNotificationsEnabled, (v) => setState(() => _isNotificationsEnabled = v), Icons.notifications_active_rounded),
+              _buildSwitchItem(
+                _t('push_label'), 
+                _isNotificationsEnabled, 
+                (v) async {
+                  setState(() => _isNotificationsEnabled = v);
+                  await StorageService.setBool('push_notifications_enabled', v);
+                  final uid = UserService.currentUid;
+                  if (uid != null) {
+                    try {
+                      await FirebaseFirestore.instance.collection('users').doc(uid).set({
+                        'pushEnabled': v,
+                      }, SetOptions(merge: true));
+                    } catch (e) {
+                      debugPrint('Error syncing push setting: $e');
+                    }
+                  }
+                }, 
+                Icons.notifications_active_rounded
+              ),
               _buildDivider(),
               _buildSwitchItem(_t('bio_label'), _isFaceIdEnabled, (v) async {
                 if (v && await BiometricService.authenticate()) {
@@ -229,8 +377,12 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
               backgroundColor: Colors.white,
               backgroundImage: _newImage != null 
                 ? FileImage(_newImage!) 
-                : (widget.profileImagePath != null ? FileImage(File(widget.profileImagePath!)) : null),
-              child: (_newImage == null && widget.profileImagePath == null) 
+                : (widget.profileImagePath != null && widget.profileImagePath!.isNotEmpty
+                    ? (widget.profileImagePath!.startsWith('http') 
+                        ? NetworkImage(widget.profileImagePath!) as ImageProvider 
+                        : FileImage(File(widget.profileImagePath!)))
+                    : null),
+              child: (_newImage == null && (widget.profileImagePath == null || widget.profileImagePath!.isEmpty)) 
                 ? Icon(Icons.person_rounded, size: 55, color: _primaryColor) 
                 : null,
             ),
@@ -256,7 +408,11 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   void _showFullScreenPhoto() {
     final imageProvider = _newImage != null 
         ? FileImage(_newImage!) 
-        : (widget.profileImagePath != null ? FileImage(File(widget.profileImagePath!)) : null);
+        : (widget.profileImagePath != null && widget.profileImagePath!.isNotEmpty
+            ? (widget.profileImagePath!.startsWith('http') 
+                ? NetworkImage(widget.profileImagePath!) as ImageProvider 
+                : FileImage(File(widget.profileImagePath!)))
+            : null);
     
     if (imageProvider == null) return;
 
@@ -292,22 +448,55 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(width: 40, height: 4, decoration: BoxDecoration(color: _subtxtColor.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(10))),
+            Container(
+              width: 40, 
+              height: 4, 
+              decoration: BoxDecoration(
+                color: _subtxtColor.withValues(alpha: 0.2), 
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
             const SizedBox(height: 25),
-            Text('Обновление профиля', style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w900, color: _txtColor)),
-            const SizedBox(height: 10),
-            Text('Выберите источник для нового фото', textAlign: TextAlign.center, style: GoogleFonts.inter(color: _subtxtColor, fontSize: 13, height: 1.5, fontWeight: FontWeight.w500)),
+            Text(
+              'Обновление профиля', 
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 20, 
+                fontWeight: FontWeight.w900, 
+                color: _txtColor,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Выберите источник для нового фото', 
+              textAlign: TextAlign.center, 
+              style: GoogleFonts.plusJakartaSans(
+                color: _subtxtColor, 
+                fontSize: 13, 
+                height: 1.5, 
+                fontWeight: FontWeight.w600,
+              ),
+            ),
             const SizedBox(height: 30),
             
             _imageOptionTile(
               icon: Icons.camera_alt_rounded,
               title: 'Сделать фото сейчас',
               sub: 'Используйте камеру для селфи',
-              color: const Color(0xFF10B981),
               onTap: () async {
                 Navigator.pop(context);
-                final pickedFile = await _picker.pickImage(source: ImageSource.camera, imageQuality: 70);
-                if (pickedFile != null) setState(() => _newImage = File(pickedFile.path));
+                try {
+                  final pickedFile = await _picker.pickImage(source: ImageSource.camera, imageQuality: 70);
+                  if (pickedFile != null) setState(() => _newImage = File(pickedFile.path));
+                } catch (e) {
+                  debugPrint('Camera Picker Error: $e');
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text('Не удалось открыть камеру: $e 📸'),
+                      backgroundColor: const Color(0xFFEF4444),
+                      behavior: SnackBarBehavior.floating,
+                    ));
+                  }
+                }
               },
             ),
             const SizedBox(height: 15),
@@ -315,11 +504,21 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
               icon: Icons.photo_library_rounded,
               title: 'Выбрать из галереи',
               sub: 'Загрузите готовое фото',
-              color: _primaryColor,
               onTap: () async {
                 Navigator.pop(context);
-                final pickedFile = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
-                if (pickedFile != null) setState(() => _newImage = File(pickedFile.path));
+                try {
+                  final pickedFile = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
+                  if (pickedFile != null) setState(() => _newImage = File(pickedFile.path));
+                } catch (e) {
+                  debugPrint('Gallery Picker Error: $e');
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text('Не удалось открыть галерею: $e 🖼️'),
+                      backgroundColor: const Color(0xFFEF4444),
+                      behavior: SnackBarBehavior.floating,
+                    ));
+                  }
+                }
               },
             ),
             const SizedBox(height: 25),
@@ -329,39 +528,66 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     );
   }
 
-  Widget _imageOptionTile({required IconData icon, required String title, required String sub, required Color color, required VoidCallback onTap}) => GestureDetector(
-    onTap: onTap,
-    child: Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.05), 
-        borderRadius: BorderRadius.circular(24), 
-        border: Border.all(color: color.withValues(alpha: 0.15), width: 1.5)
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(colors: [color, color.withValues(alpha: 0.8)]),
-              shape: BoxShape.circle,
-              boxShadow: [BoxShadow(color: color.withValues(alpha: 0.3), blurRadius: 10, offset: const Offset(0, 4))],
-            ),
-            child: Icon(icon, color: Colors.white, size: 24),
+  Widget _imageOptionTile({required IconData icon, required String title, required String sub, required VoidCallback onTap}) => Container(
+    decoration: BoxDecoration(
+      color: _isDark ? Colors.white.withValues(alpha: 0.03) : Colors.black.withValues(alpha: 0.015),
+      borderRadius: BorderRadius.circular(24),
+      border: Border.all(color: _isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.04), width: 1.2)
+    ),
+    child: Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(24),
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      _primaryColor.withValues(alpha: 0.12),
+                      _primaryColor.withValues(alpha: 0.04),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Icon(icon, color: _primaryColor, size: 22),
+              ),
+              const SizedBox(width: 18),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title, 
+                      style: GoogleFonts.plusJakartaSans(
+                        color: _txtColor, 
+                        fontWeight: FontWeight.w800, 
+                        fontSize: 14.5,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      sub, 
+                      style: GoogleFonts.plusJakartaSans(
+                        color: _subtxtColor.withValues(alpha: 0.8), 
+                        fontWeight: FontWeight.w600, 
+                        fontSize: 11.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(Icons.arrow_forward_ios_rounded, color: _subtxtColor.withValues(alpha: 0.3), size: 12),
+            ],
           ),
-          const SizedBox(width: 18),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: GoogleFonts.inter(color: color, fontWeight: FontWeight.w900, fontSize: 15)),
-                const SizedBox(height: 2),
-                Text(sub, style: GoogleFonts.inter(color: color.withValues(alpha: 0.6), fontWeight: FontWeight.w600, fontSize: 11)),
-              ],
-            ),
-          ),
-          Icon(Icons.arrow_forward_ios_rounded, size: 14, color: color.withValues(alpha: 0.3)),
-        ],
+        ),
       ),
     ),
   );
@@ -394,26 +620,59 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   Widget _buildDivider() => Divider(height: 1, color: _subtxtColor.withValues(alpha: 0.1), indent: 70, endIndent: 20);
 
   Widget _buildTextField(String label, TextEditingController controller, IconData icon, {List<TextInputFormatter>? formatters}) => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
     child: Row(
       children: [
         Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(color: _primaryColor.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(15)),
-          child: Icon(icon, color: _primaryColor, size: 20),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                _primaryColor.withValues(alpha: 0.15),
+                _primaryColor.withValues(alpha: 0.05),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: [
+              BoxShadow(
+                color: _primaryColor.withValues(alpha: 0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              )
+            ],
+          ),
+          child: Icon(icon, color: _primaryColor, size: 22),
         ),
         const SizedBox(width: 18),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label.toUpperCase(), style: GoogleFonts.inter(fontSize: 9, color: _primaryColor, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
-              const SizedBox(height: 2),
+              Text(
+                label.toUpperCase(), 
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 9.5, 
+                  color: _primaryColor.withValues(alpha: 0.8), 
+                  fontWeight: FontWeight.w800, 
+                  letterSpacing: 0.8
+                ),
+              ),
+              const SizedBox(height: 5),
               TextField(
                 controller: controller,
                 inputFormatters: formatters,
-                style: GoogleFonts.inter(color: _txtColor, fontWeight: FontWeight.w800, fontSize: 15),
-                decoration: const InputDecoration(border: InputBorder.none, isDense: true, contentPadding: EdgeInsets.zero),
+                style: GoogleFonts.plusJakartaSans(
+                  color: _txtColor, 
+                  fontWeight: FontWeight.w800, 
+                  fontSize: 15.5
+                ),
+                decoration: const InputDecoration(
+                  border: InputBorder.none, 
+                  isDense: true, 
+                  contentPadding: EdgeInsets.zero
+                ),
               ),
             ],
           ),
@@ -422,29 +681,144 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     ),
   );
 
+  Widget _buildDisplayField(String label, String value, IconData icon, {VoidCallback? onTap, IconData? trailingIcon}) {
+    final isCopyable = onTap != null && trailingIcon == null;
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    _primaryColor.withValues(alpha: 0.12),
+                    _primaryColor.withValues(alpha: 0.04),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: Icon(icon, color: _primaryColor, size: 22),
+            ),
+            const SizedBox(width: 18),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label.toUpperCase(), 
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 9.5, 
+                      color: _primaryColor.withValues(alpha: 0.7), 
+                      fontWeight: FontWeight.w800, 
+                      letterSpacing: 0.8
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    value, 
+                    style: GoogleFonts.plusJakartaSans(
+                      color: _txtColor, 
+                      fontWeight: FontWeight.w800, 
+                      fontSize: 15.5
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (trailingIcon != null) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: _subtxtColor.withValues(alpha: 0.05),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(trailingIcon, color: _subtxtColor.withValues(alpha: 0.5), size: 12),
+              ),
+            ] else if (isCopyable) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: _primaryColor.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(Icons.copy_all_rounded, color: _primaryColor.withValues(alpha: 0.7), size: 14),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildLocationPicker(String label, TextEditingController controller, IconData icon) => InkWell(
     onTap: () => _showLocationDialog(),
     child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: _primaryColor.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(15)),
-            child: Icon(icon, color: _primaryColor, size: 20),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [
+                  Color(0xFF6366F1),
+                  Color(0xFF4F46E5),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(18),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF6366F1).withValues(alpha: 0.15),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                )
+              ],
+            ),
+            child: const Icon(Icons.location_on_rounded, color: Colors.white, size: 22),
           ),
           const SizedBox(width: 18),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label.toUpperCase(), style: GoogleFonts.inter(fontSize: 9, color: _primaryColor, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
-                const SizedBox(height: 2),
-                Text(controller.text, style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 15, color: _txtColor)),
+                Text(
+                  label.toUpperCase(), 
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 9.5, 
+                    color: const Color(0xFF6366F1), 
+                    fontWeight: FontWeight.w800, 
+                    letterSpacing: 0.8
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  controller.text, 
+                  style: GoogleFonts.plusJakartaSans(
+                    fontWeight: FontWeight.w800, 
+                    fontSize: 15.5, 
+                    color: _txtColor
+                  ),
+                ),
               ],
             ),
           ),
-          Icon(Icons.arrow_forward_ios_rounded, color: _subtxtColor.withValues(alpha: 0.4), size: 14),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: _subtxtColor.withValues(alpha: 0.05),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(Icons.arrow_forward_ios_rounded, color: _subtxtColor.withValues(alpha: 0.5), size: 12),
+          ),
         ],
       ),
     ),
@@ -565,8 +939,22 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
       _buildLinkedItem(
         'Google', 
         isGoogleLinked ? 'Подключено' : 'Нажмите, чтобы связать',
-        isGoogleLinked ? Icons.check_circle_rounded : Icons.add_link_rounded,
-        isGoogleLinked ? const Color(0xFF10B981) : _subtxtColor,
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: _isDark ? const Color(0xFF1E293B) : Colors.white,
+            shape: BoxShape.circle,
+            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8)],
+            border: Border.all(color: _isDark ? Colors.white10 : Colors.black12),
+          ),
+          child: Image.network(
+            'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/1024px-Google_%22G%22_logo.svg.png',
+            width: 20,
+            height: 20,
+            errorBuilder: (context, error, stackTrace) => const Icon(Icons.g_mobiledata_rounded, color: Color(0xFF4285F4), size: 20),
+          ),
+        ),
+        isGoogleLinked,
         isGoogleLinked ? null : () async {
           try {
             await AuthService.linkWithGoogle();
@@ -581,23 +969,35 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
       _buildLinkedItem(
         'Email', 
         isEmailLinked ? user?.email ?? 'Подключено' : 'Привязать почту',
-        isEmailLinked ? Icons.check_circle_rounded : Icons.alternate_email_rounded,
-        isEmailLinked ? const Color(0xFF10B981) : _subtxtColor,
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: _isDark ? const Color(0xFF1E293B) : Colors.white,
+            shape: BoxShape.circle,
+            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8)],
+            border: Border.all(color: _isDark ? Colors.white10 : Colors.black12),
+          ),
+          child: Image.network(
+            'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7e/Gmail_icon_%282020%29.svg/1024px-Gmail_icon_%282020%29.svg.png',
+            width: 20,
+            height: 20,
+            errorBuilder: (context, error, stackTrace) => const Icon(Icons.mail_rounded, color: Color(0xFFEA4335), size: 20),
+          ),
+        ),
+        isEmailLinked,
         isEmailLinked ? null : () => _showLinkEmailDialog()
       ),
     ]);
   }
 
-  Widget _buildLinkedItem(String title, String sub, IconData icon, Color color, VoidCallback? onTap) => ListTile(
+  Widget _buildLinkedItem(String title, String sub, Widget leading, bool isLinked, VoidCallback? onTap) => ListTile(
     onTap: onTap,
-    leading: Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(15)),
-      child: Icon(icon, color: color, size: 20),
-    ),
+    leading: leading,
     title: Text(title, style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 14, color: _txtColor)),
-    subtitle: Text(sub, style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 11, color: color.withValues(alpha: 0.7))),
-    trailing: onTap != null ? Icon(Icons.arrow_forward_ios_rounded, color: _subtxtColor.withValues(alpha: 0.3), size: 14) : null,
+    subtitle: Text(sub, style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 11, color: isLinked ? const Color(0xFF10B981) : _subtxtColor.withValues(alpha: 0.7))),
+    trailing: isLinked 
+        ? const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 22)
+        : (onTap != null ? Icon(Icons.arrow_forward_ios_rounded, color: _subtxtColor.withValues(alpha: 0.3), size: 14) : null),
   );
 
   void _showLinkEmailDialog() {
@@ -622,9 +1022,15 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
             onPressed: () async {
               try {
                 await AuthService.linkWithEmail(emailC.text, passC.text);
+                final uid = UserService.currentUid;
+                if (uid != null) {
+                  await FirebaseFirestore.instance.collection('users').doc(uid).update({
+                    'email': emailC.text.trim(),
+                  });
+                }
                 Navigator.pop(context);
                 setState(() {});
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Email успешно привязан!')));
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Email успешно привязан! 📧')));
               } catch (e) {
                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ошибка: $e')));
               }
@@ -649,17 +1055,47 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
           ),
           const SizedBox(width: 18),
           Expanded(
-            child: Text(title, style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 14, color: _txtColor)),
+            child: Row(
+              children: [
+                Flexible(
+                  child: Text(
+                    title, 
+                    style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 14, color: _txtColor),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
+                ),
+                if (trailing != null) ...[
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: trailing,
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
-          if (trailing != null) ...[
-            trailing,
-            const SizedBox(width: 8),
-          ],
+          const SizedBox(width: 8),
           Icon(Icons.arrow_forward_ios_rounded, color: _subtxtColor.withValues(alpha: 0.5), size: 14),
         ],
       ),
     ),
   );
+
+  String _getAccountTypeLabel(String type) {
+    switch (type.toLowerCase()) {
+      case 'user':
+        return _selectedLanguage == 'Русский' ? 'Личный' : (_selectedLanguage == 'Қазақша' ? 'Жеке' : 'Шахсий');
+      case 'business':
+        return _selectedLanguage == 'Русский' ? 'Бизнес' : (_selectedLanguage == 'Қазақша' ? 'Бизнес' : 'Бизнес');
+      case 'admin':
+        return _selectedLanguage == 'Русский' ? 'Администратор' : (_selectedLanguage == 'Қазақша' ? 'Әкімші' : 'Башқурчи');
+      default:
+        return type;
+    }
+  }
 
   void _showAccountTypePicker() {
     showModalBottomSheet(
@@ -675,9 +1111,9 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
             const SizedBox(height: 24),
             Text(_t('acc_type_label'), style: GoogleFonts.inter(color: _txtColor, fontWeight: FontWeight.w900, fontSize: 20)),
             const SizedBox(height: 24),
-            _typeCard('Личный', 'Для продажи личных вещей. Бесплатно. Простой профиль.', Icons.person_rounded),
+            _typeCard('user', _selectedLanguage == 'Русский' ? 'Личный' : (_selectedLanguage == 'Қазақша' ? 'Жеке' : 'Шахсий'), 'Для продажи личных вещей. Бесплатно. Простой профиль.', Icons.person_rounded),
             const SizedBox(height: 16),
-            _typeCard('Бизнес', 'Для магазинов и услуг. Бейдж "Магазин". Безлимит. Доверие клиентов.', Icons.store_rounded),
+            _typeCard('business', 'Бизнес', 'Для магазинов и услуг. Бейдж "Магазин". Безлимит. Доверие клиентов.', Icons.store_rounded),
             const SizedBox(height: 24),
           ],
         ),
@@ -685,11 +1121,11 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     );
   }
 
-  Widget _typeCard(String type, String desc, IconData icon) {
-    final isSelected = _accountType == type;
+  Widget _typeCard(String typeKey, String label, String desc, IconData icon) {
+    final isSelected = _accountType == typeKey;
     return GestureDetector(
       onTap: () {
-        setState(() => _accountType = type);
+        setState(() => _accountType = typeKey);
         Navigator.pop(context);
       },
       child: Container(
@@ -711,7 +1147,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(type, style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 16, color: _txtColor)),
+                  Text(label, style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 16, color: _txtColor)),
                   const SizedBox(height: 4),
                   Text(desc, style: GoogleFonts.inter(fontSize: 12, color: _subtxtColor, height: 1.4)),
                 ],
@@ -742,11 +1178,22 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
           const SizedBox(height: 24),
           Icon(Icons.phone_android_rounded, color: _primaryColor, size: 40),
           const SizedBox(height: 16),
-          Text(_t('change_phone'), style: GoogleFonts.inter(color: _txtColor, fontWeight: FontWeight.w900, fontSize: 20)),
+          Text(
+            _selectedLanguage == 'Русский' 
+                ? 'Подтверждение водителя' 
+                : (_selectedLanguage == 'Қазақша' ? 'Жүргізушіні растау' : 'Шопур тәстиқләш'), 
+            style: GoogleFonts.inter(color: _txtColor, fontWeight: FontWeight.w900, fontSize: 19)
+          ),
           const SizedBox(height: 8),
-          Text('Для изменения номера необходимо подтвердить его через Telegram-бота.',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.inter(color: _subtxtColor, fontSize: 13, height: 1.5)),
+          Text(
+            _selectedLanguage == 'Русский'
+                ? 'Для работы в такси необходимо верифицировать ваш телефон через Telegram-бота.'
+                : (_selectedLanguage == 'Қазақша' 
+                    ? 'Таксиде жұмыс істеу үшін телефоныңызды Telegram-бот арқылы растау қажет.' 
+                    : 'Таксида ишләш үчүн телефонуңизни Telegram-бот арқилиқ тәстиқлишиңиз керәк.'),
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(color: _subtxtColor, fontSize: 13, height: 1.5)
+          ),
           const SizedBox(height: 24),
 
           if (!codeSent) ...[
@@ -779,12 +1226,40 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
             SizedBox(
               width: double.infinity, height: 52,
               child: ElevatedButton(
-                onPressed: () {
+                onPressed: () async {
                   if (codeC.text.trim() == tgCode) {
                     Navigator.pop(ctx);
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Номер успешно изменен!'), backgroundColor: Colors.green));
+                    
+                    // 🔒 Senior-Level Sync: Update phone number in Firestore & Local State
+                    final user = FirebaseAuth.instance.currentUser;
+                    if (user != null) {
+                      try {
+                        await UserService.updateUserProfile({
+                          'phone': phoneC.text,
+                        });
+                        setState(() {
+                          _phoneController.text = phoneC.text;
+                        });
+                      } catch (e) {
+                        debugPrint('Error updating phone: $e');
+                      }
+                    }
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Номер успешно изменен и синхронизирован! 📱'), 
+                        backgroundColor: Colors.green,
+                        behavior: SnackBarBehavior.floating,
+                      )
+                    );
                   } else {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Неверный код!'), backgroundColor: Colors.red));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Неверный код! ❌'), 
+                        backgroundColor: Colors.red,
+                        behavior: SnackBarBehavior.floating,
+                      )
+                    );
                   }
                 },
                 style: ElevatedButton.styleFrom(
@@ -884,7 +1359,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
           } else if (selectedParent != null) {
             listToDisplay = KazakhstanLocations.hierarchy[selectedParent] ?? [];
           } else {
-            listToDisplay = ['Чунджа'] + KazakhstanLocations.hierarchy.keys.toList();
+            listToDisplay = ['Все', 'Чунджа'] + KazakhstanLocations.hierarchy.keys.toList();
           }
 
           return Container(

@@ -52,13 +52,12 @@ class AuthService {
 
   static Future<UserCredential?> signInWithGoogle() async {
     try {
-      final dynamic googleUser = await _googleSignIn.signIn();
+      final dynamic googleUser = await _googleSignIn.authenticate();
       if (googleUser == null) return null;
 
       final dynamic googleAuth = await googleUser.authentication;
       
       final credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
 
@@ -106,12 +105,11 @@ class AuthService {
 
   static Future<UserCredential?> linkWithGoogle() async {
     try {
-      final dynamic googleUser = await _googleSignIn.signIn();
+      final dynamic googleUser = await _googleSignIn.authenticate();
       if (googleUser == null) return null;
 
       final dynamic googleAuth = await googleUser.authentication;
       final credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
 

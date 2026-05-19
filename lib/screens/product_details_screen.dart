@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter/services.dart';
 
 import 'package:iqmarket/screens/chat_screen.dart';
 import 'package:video_player/video_player.dart';
@@ -374,17 +375,33 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       child: Row(
         children: [
           Expanded(
-            child: ElevatedButton.icon(
+            child: ElevatedButton(
               onPressed: _showBargainDialog,
-              icon: const Icon(Icons.sell_rounded, size: 18),
-              label: const Text('Предложить свою цену'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF4A80F0),
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 18),
+                padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                elevation: 4,
-                shadowColor: const Color(0xFF4A80F0).withValues(alpha: 0.3),
+                elevation: 0,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.sell_rounded, size: 18),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      'Предложить цену',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -396,19 +413,25 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                 builder: (context) => AlertDialog(
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
                   title: Row(
-                    children: [
-                      const Icon(Icons.sell_rounded, color: Color(0xFF4A80F0)),
-                      const SizedBox(width: 10),
-                      const Text('Как работает торг?'),
+                    children: const [
+                      Icon(Icons.sell_rounded, color: Color(0xFF4A80F0)),
+                      SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Как предложить свою цену?',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
                     ],
                   ),
                   content: const Text(
-                    'Продавец указал, что готов к торгу.\n\n'
-                    '1. Нажмите «Предложить свою цену»\n'
-                    '2. Укажите сумму (скидка до 30%)\n'
-                    '3. Продавец получит уведомление\n'
-                    '4. Если согласится — договоритесь в чате',
-                    style: TextStyle(height: 1.5),
+                    '«Предложить цену» — это возможность предложить продавцу свою цену и договориться о скидке (не более 30% от начальной стоимости)!\n\n'
+                    '1. Нажмите кнопку «Предложить цену».\n'
+                    '2. Напишите цену, за которую хотите купить товар.\n'
+                    '3. Продавцу сразу придет сообщение в чат с вашим предложением.\n'
+                    '4. Продавец может нажать «Принять» или «Отклонить».\n'
+                    '5. Если продавец согласится, вы сможете купить товар по вашей выгодной цене!',
+                    style: TextStyle(height: 1.5, fontSize: 14),
                   ),
                   actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Понятно'))],
                 ),
@@ -847,7 +870,12 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
 
   void _showBargainDialog() {
     final currentPrice = widget.ad.price;
-    final controller = TextEditingController(text: currentPrice > 0 ? (currentPrice * 0.9).toInt().toString() : '');
+    final initialPrice = currentPrice > 0 ? (currentPrice * 0.9).toInt() : 0;
+    final controller = TextEditingController(
+      text: initialPrice > 0 
+          ? NumberFormat.decimalPattern('ru').format(initialPrice).replaceAll(',', ' ') 
+          : ''
+    );
     
     showModalBottomSheet(
       context: context,
@@ -870,6 +898,19 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
               keyboardType: TextInputType.number,
               autofocus: true,
               style: GoogleFonts.inter(fontSize: 28, fontWeight: FontWeight.w900, color: const Color(0xFF4A80F0)),
+              inputFormatters: [
+                TextInputFormatter.withFunction((oldValue, newValue) {
+                  if (newValue.text.isEmpty) return newValue;
+                  final cleanText = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
+                  if (cleanText.isEmpty) return newValue.copyWith(text: '');
+                  final double price = double.tryParse(cleanText) ?? 0;
+                  final String formattedText = NumberFormat.decimalPattern('ru').format(price.toInt()).replaceAll(',', ' ');
+                  return newValue.copyWith(
+                    text: formattedText,
+                    selection: TextSelection.collapsed(offset: formattedText.length),
+                  );
+                }),
+              ],
               decoration: InputDecoration(
                 prefixText: '₸ ',
                 hintText: '0',
@@ -892,7 +933,8 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () async {
-                  final offeredPrice = double.tryParse(controller.text) ?? 0;
+                  final cleanStr = controller.text.replaceAll(RegExp(r'[^0-9]'), '');
+                  final offeredPrice = double.tryParse(cleanStr) ?? 0;
                   if (offeredPrice < currentPrice * 0.7) {
                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Цена слишком низкая. Скидка не может быть больше 30%.')));
                     return;

@@ -8,6 +8,8 @@ import 'package:iqmarket/models/user_model.dart';
 import 'package:iqmarket/providers/app_config_provider.dart';
 import 'package:iqmarket/services/ad_service.dart';
 import 'package:iqmarket/services/user_service.dart';
+import 'package:iqmarket/data/kazakhstan_locations.dart';
+import 'package:iqmarket/services/location_service.dart';
 import 'package:iqmarket/widgets/home/taxi_card_home.dart';
 import 'package:iqmarket/widgets/home/categories_home.dart';
 import 'package:iqmarket/widgets/home/search_bar_home.dart';
@@ -67,11 +69,14 @@ class _IQMarketHomeState extends State<IQMarketHome> {
 
   Future<void> _fetchPage(DocumentSnapshot? pageKey) async {
     try {
+      final config = Provider.of<AppConfigProvider>(context, listen: false);
+      final String? cityFilter = config.city == 'Все' ? null : config.city;
+
       final result = await AdService.getActiveAdsPaginated(
         startAfter: pageKey,
         limit: _pageSize,
         category: _selectedCategory,
-        city: _selectedCity,
+        city: cityFilter,
         searchQuery: _searchQuery,
       );
       
@@ -244,6 +249,27 @@ class _IQMarketHomeState extends State<IQMarketHome> {
                   textAlign: TextAlign.center,
                   style: GoogleFonts.inter(color: Colors.grey[400]),
                 ),
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _selectedCategory = 'Все';
+                      _searchQuery = '';
+                      _selectedCity = null;
+                      _searchController.clear();
+                    });
+                    _pagingController.refresh();
+                  },
+                  icon: const Icon(Icons.refresh_rounded, size: 18),
+                  label: const Text('СБРОСИТЬ И ОБНОВИТЬ', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF4A80F0),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    elevation: 0,
+                  ),
+                ),
               ],
             ),
           ),
@@ -252,7 +278,8 @@ class _IQMarketHomeState extends State<IQMarketHome> {
         firstPageErrorIndicatorBuilder: (context) => _errorWidget(),
         newPageErrorIndicatorBuilder: (context) => _errorWidget(),
       ),
-    );
+    ),
+  );
   });
 
   Widget _errorWidget() => Center(
@@ -290,7 +317,7 @@ class _IQMarketHomeState extends State<IQMarketHome> {
 
   // --- UI Helpers ---
   Widget _citySelector(AppConfigProvider config) => GestureDetector(
-    onTap: () {}, 
+    onTap: () => _showLocationDialog(config), 
     child: Row(children: [
       const Icon(Icons.location_on_rounded, color: Color(0xFF4A80F0), size: 18),
       const SizedBox(width: 4),
@@ -299,8 +326,144 @@ class _IQMarketHomeState extends State<IQMarketHome> {
     ]),
   );
 
+  void _showLocationDialog(AppConfigProvider config) {
+    String searchCity = "";
+    String? selectedParent;
+
+    showModalBottomSheet(
+      context: context, 
+      isScrollControlled: true, 
+      backgroundColor: Colors.transparent,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) {
+          List<String> listToDisplay;
+
+          if (searchCity.isNotEmpty) {
+            listToDisplay = KazakhstanLocations.getAllLocations()
+                .where((l) => l.toLowerCase().contains(searchCity.toLowerCase()))
+                .toList();
+          } else if (selectedParent != null) {
+            listToDisplay = KazakhstanLocations.hierarchy[selectedParent] ?? [];
+          } else {
+            listToDisplay = ['Все', 'Чунджа'] + KazakhstanLocations.hierarchy.keys.toList();
+          }
+
+          final isDark = Theme.of(context).brightness == Brightness.dark;
+          final surfaceColor = Theme.of(context).colorScheme.surface;
+          final txtColor = Theme.of(context).colorScheme.onSurface;
+          final subtxtColor = Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6);
+          final primaryColor = Theme.of(context).colorScheme.primary;
+
+          return Container(
+            height: MediaQuery.of(context).size.height * 0.85,
+            decoration: BoxDecoration(
+              color: surfaceColor, 
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(35))
+            ),
+            child: Column(
+              children: [
+                const SizedBox(height: 12),
+                Container(width: 40, height: 4, decoration: BoxDecoration(color: subtxtColor.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(10))),
+                const SizedBox(height: 20),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Row(
+                    children: [
+                      if (selectedParent != null && searchCity.isEmpty)
+                        IconButton(
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          icon: Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: txtColor),
+                          onPressed: () => setModalState(() => selectedParent = null),
+                        ),
+                      if (selectedParent != null && searchCity.isEmpty) const SizedBox(width: 15),
+                      Text(
+                        searchCity.isNotEmpty ? 'Результаты поиска' : (selectedParent ?? 'Выберите локацию'), 
+                        style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w900, color: txtColor)
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 15),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: TextField(
+                    onChanged: (v) => setModalState(() => searchCity = v),
+                    style: GoogleFonts.inter(color: txtColor, fontWeight: FontWeight.w800),
+                    decoration: InputDecoration(
+                      hintText: 'Введите название города...',
+                      hintStyle: GoogleFonts.inter(color: subtxtColor.withValues(alpha: 0.6), fontWeight: FontWeight.w600),
+                      prefixIcon: Icon(Icons.search_rounded, color: primaryColor),
+                      filled: true,
+                      fillColor: subtxtColor.withValues(alpha: 0.05),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: BorderSide.none),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                if (selectedParent == null && searchCity.isEmpty) ...[
+                  ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 24),
+                    leading: Icon(Icons.my_location_rounded, color: primaryColor), 
+                    title: Text('Определить автоматически', style: GoogleFonts.inter(fontWeight: FontWeight.w800, color: primaryColor, fontSize: 15)), 
+                    onTap: () async {
+                      final city = await LocationService.getCurrentCity();
+                      if (city != null) {
+                        config.setCity(city);
+                        _pagingController.refresh();
+                        Navigator.pop(context);
+                      }
+                    }
+                  ),
+                  const Divider(indent: 24, endIndent: 24, color: Colors.transparent),
+                ],
+                Expanded(
+                  child: ListView.separated(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    itemCount: listToDisplay.length,
+                    separatorBuilder: (c, i) => Divider(color: subtxtColor.withValues(alpha: 0.05), height: 1),
+                    itemBuilder: (context, index) {
+                      final item = listToDisplay[index];
+                      final isParent = KazakhstanLocations.hierarchy.containsKey(item) && searchCity.isEmpty;
+
+                      return ListTile(
+                        leading: Icon(isParent ? Icons.location_city_rounded : Icons.location_on_rounded, color: subtxtColor.withValues(alpha: 0.6)),
+                        title: Text(item, style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 15, color: txtColor)),
+                        trailing: Icon(isParent ? Icons.arrow_forward_ios_rounded : Icons.check_circle_outline_rounded, size: 14, color: isParent ? subtxtColor.withValues(alpha: 0.4) : const Color(0xFF10B981)),
+                        onTap: () { 
+                          if (isParent) {
+                            setModalState(() => selectedParent = item);
+                          } else {
+                            config.setCity(item);
+                            _pagingController.refresh();
+                            Navigator.pop(context); 
+                          }
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   Widget _langToggle(AppConfigProvider config) => GestureDetector(
-    onTap: () {}, 
+    onTap: () {
+      String nextLang;
+      if (config.language == 'Русский') {
+        nextLang = 'Қазақша';
+      } else if (config.language == 'Қазақша') {
+        nextLang = 'Уйғурчә';
+      } else {
+        nextLang = 'Русский';
+      }
+      config.setLanguage(nextLang);
+    }, 
     child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), 
       decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(12)), 

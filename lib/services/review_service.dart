@@ -68,7 +68,7 @@ class ReviewService {
         .get();
     
     int count = snapshot.docs.length;
-    double avgRating = 0;
+    double avgRating = 0.0;
     
     if (count >= 5) {
       double totalRating = 0;

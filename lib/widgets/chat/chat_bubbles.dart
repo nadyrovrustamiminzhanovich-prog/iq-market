@@ -146,7 +146,16 @@ class ChatBubble extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          Text(msg.offerPrice ?? '0 ₸', style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900)),
+          const SizedBox(height: 8),
+          Builder(
+            builder: (context) {
+              final double priceVal = double.tryParse(msg.offerPrice ?? '0') ?? 0.0;
+              final formattedPrice = priceVal > 0 
+                  ? '${NumberFormat.decimalPattern('ru').format(priceVal.toInt())} ₸' 
+                  : '0 ₸';
+              return Text(formattedPrice, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900));
+            },
+          ),
           const SizedBox(height: 12),
           if (!isMe && isPending) ...[
             Row(

@@ -10,6 +10,7 @@ import 'package:iqmarket/services/review_service.dart';
 import 'package:iqmarket/screens/leave_review_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class SellerProfileScreen extends StatefulWidget {
   final AdModel seller;
@@ -132,22 +133,38 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
     ),
   );
 
-  Widget _buildStatsSection() => Container(
-    margin: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-    padding: const EdgeInsets.all(20),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(24),
-      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))],
-    ),
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.spaceAround,
-      children: [
-        _statItem('4.9', _t('rating'), Icons.star_rounded, Colors.amber),
-        Container(width: 1, height: 30, color: const Color(0xFFF1F5F9)),
-        _statItem('38', _t('sales'), Icons.shopping_bag_rounded, const Color(0xFF4A80F0)),
-      ],
-    ),
+  Widget _buildStatsSection() => StreamBuilder<DocumentSnapshot>(
+    stream: FirebaseFirestore.instance.collection('users').doc(widget.seller.userId).snapshots(),
+    builder: (context, snapshot) {
+      double ratingValue = 0.0;
+      int reviewsCount = 0;
+      
+      if (snapshot.hasData && snapshot.data!.exists) {
+        final data = snapshot.data!.data() as Map<String, dynamic>?;
+        if (data != null) {
+          ratingValue = (data['rating'] as num?)?.toDouble() ?? 0.0;
+          reviewsCount = data['reviewsCount'] ?? 0;
+        }
+      }
+      
+      return Container(
+        margin: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _statItem(ratingValue.toStringAsFixed(1), _t('rating'), Icons.star_rounded, Colors.amber),
+            Container(width: 1, height: 30, color: const Color(0xFFF1F5F9)),
+            _statItem(reviewsCount.toString(), _t('reviews'), Icons.reviews_rounded, const Color(0xFF4A80F0)),
+          ],
+        ),
+      );
+    }
   );
 
   Widget _statItem(String value, String label, IconData icon, Color color) => Column(
@@ -269,6 +286,24 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
         ),
         const SizedBox(height: 12),
         Text(r.comment, style: GoogleFonts.inter(fontSize: 14, color: const Color(0xFF334155), height: 1.5)),
+        
+        if (r.adTitle.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              const Icon(Icons.shopping_bag_outlined, size: 14, color: Color(0xFF4A80F0)),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'К объявлению: ${r.adTitle}',
+                  style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF4A80F0)),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ],
         
         if (r.images.isNotEmpty) ...[
           const SizedBox(height: 16),

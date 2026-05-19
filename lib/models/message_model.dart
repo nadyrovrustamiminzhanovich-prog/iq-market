@@ -49,7 +49,7 @@ class MessageModel {
       isRead: map['isRead'] ?? false,
       mediaUrl: map['mediaUrl'],
       duration: map['duration'],
-      offerPrice: map['offerPrice'],
+      offerPrice: map['offerPrice']?.toString(),
       offerStatus: map['offerStatus'],
     );
   }

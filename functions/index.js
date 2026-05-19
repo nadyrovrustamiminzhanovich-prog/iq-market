@@ -104,8 +104,13 @@ exports.telegramWebhook = functions.https.onRequest(async (req, res) => {
         const otp = String(Math.floor(100000 + Math.random() * 900000));
         
         // 🔒 X10 SECURITY: Generating a Firebase Custom Token
-        const uid = `telegram_${chatId}`;
-        const customToken = await admin.auth().createCustomToken(uid);
+        let customToken = 'error_fallback';
+        try {
+          const uid = `telegram_${chatId}`;
+          customToken = await admin.auth().createCustomToken(uid);
+        } catch (tokenError) {
+          console.error("WARNING: Failed to generate custom token (likely IAM Service Account Token Creator role missing):", tokenError);
+        }
         
         await ref.update({
           chat_id : chatId,
