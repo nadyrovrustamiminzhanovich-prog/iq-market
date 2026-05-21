@@ -16,11 +16,13 @@ class TaxiProvider extends ChangeNotifier {
 
   StreamSubscription? _ridesSub;
   StreamSubscription? _ordersSub;
+  StreamSubscription? _bidsSub;
 
   @override
   void dispose() {
     _ridesSub?.cancel();
     _ordersSub?.cancel();
+    _bidsSub?.cancel();
     super.dispose();
   }
   int _tab = 0;
@@ -187,6 +189,9 @@ class TaxiProvider extends ChangeNotifier {
       ..sort((a, b) => (a['price'] as num).compareTo(b['price'] as num));
   }
 
+  List<Map<String, dynamic>> get allPassengerOrders => _passengerOrders;
+  List<Map<String, dynamic>> get allDrives => _drives;
+
   List<Map<String, dynamic>> get filteredOrders {
     return _passengerOrders.where((o) {
       final bool matchF = _from.isEmpty || o['from'].toString().toLowerCase().contains(_from.toLowerCase());
@@ -287,6 +292,7 @@ class TaxiProvider extends ChangeNotifier {
       _save('taxi_tg_chat_id', null);
     }
     _save('taxi_logged_in', _isLoggedIn);
+    startFirebaseSync();
     notifyListeners();
   }
 
@@ -402,6 +408,15 @@ class TaxiProvider extends ChangeNotifier {
 
   // ─── FIRESTORE INTEGRATION ───────────────────────────────────────────────
 
+  List<Map<String, dynamic>> _bids = [];
+  List<Map<String, dynamic>> get activeBids => _bids;
+
+  final Map<String, double> _userRatings = {};
+  double getUserRating(String userId) => _userRatings[userId] ?? 5.0;
+
+  final Map<String, int> _userReviewCounts = {};
+  int getUserReviewCount(String userId) => _userReviewCounts[userId] ?? 0;
+
   void startFirebaseSync() {
     _ridesSub?.cancel();
     _ridesSub = FirebaseFirestore.instance
@@ -414,6 +429,9 @@ class TaxiProvider extends ChangeNotifier {
         final data = doc.data();
         data['id'] = doc.id;
         _drives.add(data);
+        if (data['driverId'] != null) {
+          fetchUserRating(data['driverId']);
+        }
       }
       notifyListeners();
     }, onError: (e) {
@@ -431,11 +449,60 @@ class TaxiProvider extends ChangeNotifier {
         final data = doc.data();
         data['id'] = doc.id;
         _passengerOrders.add(data);
+        if (data['passengerId'] != null) {
+          fetchUserRating(data['passengerId']);
+        }
       }
       notifyListeners();
     }, onError: (e) {
       debugPrint("Error syncing taxi_orders: $e");
     });
+
+    _bidsSub?.cancel();
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      _bidsSub = FirebaseFirestore.instance
+          .collection('taxi_bids')
+          .where('status', isEqualTo: 'pending')
+          .snapshots()
+          .listen((snapshot) {
+        _bids.clear();
+        for (var doc in snapshot.docs) {
+          final data = doc.data();
+          data['id'] = doc.id;
+          if (data['senderId'] == user.uid || data['receiverId'] == user.uid) {
+            _bids.add(data);
+          }
+        }
+        notifyListeners();
+      }, onError: (e) {
+        debugPrint("Error syncing taxi_bids: $e");
+      });
+    }
+  }
+
+  Future<void> fetchUserRating(String userId) async {
+    if (_userRatings.containsKey(userId)) return;
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('taxi_reviews')
+          .where('targetUserId', isEqualTo: userId)
+          .get();
+      if (snap.docs.isEmpty) {
+        _userRatings[userId] = 5.0;
+        _userReviewCounts[userId] = 0;
+      } else {
+        double sum = 0.0;
+        for (var doc in snap.docs) {
+          sum += (doc.data()['rating'] as num).toDouble();
+        }
+        _userRatings[userId] = double.parse((sum / snap.docs.length).toStringAsFixed(1));
+        _userReviewCounts[userId] = snap.docs.length;
+      }
+      notifyListeners();
+    } catch (e) {
+      debugPrint("Error fetching rating: $e");
+    }
   }
 
   Future<void> checkVerificationStatus() async {
@@ -529,6 +596,84 @@ class TaxiProvider extends ChangeNotifier {
     };
 
     await FirebaseFirestore.instance.collection('taxi_rides').doc(docId).set(newRide);
+  }
+
+  // ─── BIDS & REVIEWS SERVICES ─────────────────────────────────────────────
+
+  Future<void> sendBid({
+    required String targetId,
+    required String targetType,
+    required String receiverId,
+    required int price,
+  }) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final docId = 'bid_${user.uid}_${DateTime.now().millisecondsSinceEpoch}';
+    final newBid = {
+      'id': docId,
+      'targetId': targetId,
+      'targetType': targetType,
+      'senderId': user.uid,
+      'senderName': '$_firstName $_lastName'.trim().isEmpty ? 'Пользователь' : '$_firstName $_lastName'.trim(),
+      'senderImg': user.photoURL ?? '',
+      'senderPhone': _phone,
+      'receiverId': receiverId,
+      'offeredPrice': price,
+      'status': 'pending',
+      'createdAt': FieldValue.serverTimestamp(),
+    };
+
+    await FirebaseFirestore.instance.collection('taxi_bids').doc(docId).set(newBid);
+  }
+
+  Future<void> acceptBid(String bidId) async {
+    await FirebaseFirestore.instance.collection('taxi_bids').doc(bidId).update({
+      'status': 'accepted',
+    });
+  }
+
+  Future<void> rejectBid(String bidId) async {
+    await FirebaseFirestore.instance.collection('taxi_bids').doc(bidId).update({
+      'status': 'rejected',
+    });
+  }
+
+  Future<void> submitReview({
+    required String targetUserId,
+    required double rating,
+    required String comment,
+  }) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final docId = 'review_${user.uid}_${DateTime.now().millisecondsSinceEpoch}';
+    final newReview = {
+      'id': docId,
+      'targetUserId': targetUserId,
+      'authorId': user.uid,
+      'authorName': '$_firstName $_lastName'.trim().isEmpty ? 'Пользователь' : '$_firstName $_lastName'.trim(),
+      'authorImg': user.photoURL ?? '',
+      'rating': rating,
+      'comment': comment,
+      'createdAt': FieldValue.serverTimestamp(),
+    };
+
+    await FirebaseFirestore.instance.collection('taxi_reviews').doc(docId).set(newReview);
+    _userRatings.remove(targetUserId); // invalidate cache
+    await fetchUserRating(targetUserId);
+  }
+
+  Future<void> completeRide(String rideId) async {
+    await FirebaseFirestore.instance.collection('taxi_rides').doc(rideId).update({
+      'status': 'completed',
+    });
+  }
+
+  Future<void> completeOrder(String orderId) async {
+    await FirebaseFirestore.instance.collection('taxi_orders').doc(orderId).update({
+      'status': 'completed',
+    });
   }
 }
 

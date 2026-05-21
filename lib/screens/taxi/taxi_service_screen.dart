@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -9,7 +8,6 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'package:provider/provider.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import 'package:iqmarket/services/telegram_bot_service.dart';
@@ -17,7 +15,6 @@ import 'package:iqmarket/services/auth_service.dart';
 import 'package:iqmarket/data/kazakhstan_locations.dart';
 import 'package:iqmarket/screens/chat_screen.dart';
 import 'package:iqmarket/providers/taxi_provider.dart';
-import 'package:iqmarket/utils/taxi_constants.dart';
 import 'package:iqmarket/theme/taxi_theme.dart';
 import 'package:iqmarket/services/notification_service.dart';
 
@@ -34,7 +31,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:iqmarket/widgets/taxi/taxi_ui_components.dart';
 import 'package:iqmarket/widgets/auth/taxi_auth_form.dart';
 import 'package:iqmarket/models/ad_model.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 class TaxiServiceScreen extends StatefulWidget {
   final String lang;
@@ -88,7 +84,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
         drawer: _sideMenu(taxiProvider, t),
         body: Column(
           children: [
-            _topBar(t),
+            _topBar(taxiProvider, t),
             Expanded(
               child: taxiProvider.loading
                   ? _loader(t)
@@ -112,7 +108,99 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
 
   Widget _loader(TaxiTheme t) => Center(child: CircularProgressIndicator(color: t.lime));
 
-  Widget _topBar(TaxiTheme t) => AppBar(
+  void _showSosDialog(TaxiProvider provider, TaxiTheme t) {
+    HapticFeedback.vibrate();
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: t.bg,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+      ),
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: t.border, borderRadius: BorderRadius.circular(10))),
+            const SizedBox(height: 24),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.gpp_maybe_rounded, color: Colors.red, size: 50),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'СИГНАЛ БЕЗ ОПАСНОСТИ SOS',
+              style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: Colors.red, fontSize: 18),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Вызов экстренных служб спасения 112 и автоматическая отправка ваших контактов и геопозиции администраторам службы безопасности IQ Market.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(color: t.text, fontSize: 13, height: 1.4),
+            ),
+            const SizedBox(height: 30),
+            GestureDetector(
+              onTap: () async {
+                Navigator.pop(ctx);
+                HapticFeedback.heavyImpact();
+                
+                // 1. Экстренный вызов
+                final url = Uri.parse('tel:112');
+                if (await canLaunchUrl(url)) {
+                  await launchUrl(url);
+                } else {
+                  NotificationService.notify(context, 'Ошибка SOS', 'Не удалось запустить экстренный звонок на 112', isSuccess: false);
+                }
+
+                // 2. Отправка алерта в Telegram
+                await TelegramBotService.sendSosAlert(
+                  userName: provider.firstName.isEmpty ? 'Пользователь Такси' : '${provider.firstName} ${provider.lastName}',
+                  userPhone: provider.phone,
+                  role: provider.isVehicleVerified ? 'Водитель' : 'Пассажир',
+                );
+                
+                if (mounted) {
+                  NotificationService.notify(context, 'SOS ОТПРАВЛЕН', 'Сигнал бедствия успешно доставлен службе безопасности!', isSuccess: true);
+                }
+              },
+              child: Container(
+                width: double.infinity,
+                height: 60,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(colors: [Colors.red, Color(0xFF991B1B)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(color: Colors.red.withValues(alpha: 0.4), blurRadius: 15, offset: const Offset(0, 8)),
+                  ],
+                ),
+                child: Center(
+                  child: Text(
+                    '🚨 АКТИВИРОВАТЬ СИГНАЛ SOS',
+                    style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w900, color: Colors.white),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(
+                'ОТМЕНА',
+                style: GoogleFonts.inter(color: t.sub, fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _topBar(TaxiProvider provider, TaxiTheme t) => AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
@@ -159,6 +247,11 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
         ),
 
         actions: [
+          IconButton(
+            icon: const Icon(Icons.gpp_maybe_rounded, color: Colors.red, size: 24),
+            tooltip: 'SOS Сигнал',
+            onPressed: () => _showSosDialog(provider, t),
+          ),
           IconButton(
             icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
             color: const Color(0xFF1E293B),
@@ -498,10 +591,444 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
         ]),
       );
 
+  Widget _activeBidsWidget(TaxiProvider provider, TaxiTheme t) {
+    final activeBids = provider.activeBids;
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (activeBids.isEmpty || currentUser == null) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: t.accent.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: t.accent.withValues(alpha: 0.2), width: 1.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.bolt_rounded, color: t.accent, size: 22),
+              const SizedBox(width: 8),
+              Text(
+                'Активные предложения торгов (${activeBids.length})',
+                style: GoogleFonts.inter(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 14,
+                  color: t.text,
+                  letterSpacing: -0.2,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: activeBids.length,
+            separatorBuilder: (_, __) => Divider(color: t.border.withValues(alpha: 0.5), height: 16),
+            itemBuilder: (context, index) {
+              final bid = activeBids[index];
+              final bool isSender = bid['senderId'] == currentUser.uid;
+              final int price = bid['offeredPrice'] ?? 0;
+              final String name = bid['senderName'] ?? 'Пользователь';
+              final String bidId = bid['id'] ?? '';
+
+              return Row(
+                children: [
+                  CircleAvatar(
+                    radius: 20,
+                    backgroundColor: t.bg,
+                    backgroundImage: bid['senderImg'] != null && bid['senderImg'].toString().isNotEmpty
+                        ? CachedNetworkImageProvider(bid['senderImg'])
+                        : null,
+                    child: bid['senderImg'] == null || bid['senderImg'].toString().isEmpty
+                        ? Icon(Icons.person, color: t.sub)
+                        : null,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          isSender ? 'Ваше предложение' : name,
+                          style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 13, color: t.text),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          isSender ? 'Ожидание решения • $price ₸' : 'Предлагает цену: $price ₸',
+                          style: GoogleFonts.inter(fontSize: 11, color: t.sub),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (isSender)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        'В обработке',
+                        style: GoogleFonts.inter(color: Colors.amber[800], fontWeight: FontWeight.bold, fontSize: 10),
+                      ),
+                    )
+                  else
+                    Row(
+                      children: [
+                        GestureDetector(
+                          onTap: () async {
+                            HapticFeedback.mediumImpact();
+                            await provider.acceptBid(bidId);
+                            NotificationService.notify(context, 'Принято', 'Вы согласились на предложение за $price ₸', isSuccess: true);
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF84CC16),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              'Принять',
+                              style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: () async {
+                            HapticFeedback.lightImpact();
+                            await provider.rejectBid(bidId);
+                            NotificationService.notify(context, 'Отклонено', 'Вы отклонили предложение', isSuccess: false);
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.red.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              'Отклонить',
+                              style: GoogleFonts.inter(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 11),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showFeedbackDialog(TaxiProvider provider, TaxiTheme t, String targetUserId, String targetUserName) {
+    double selectedRating = 5.0;
+    final List<String> tags = ['Быстро', 'Вежливо', 'Чистое авто', 'Безопасное вождение', 'Комфортно'];
+    final List<String> selectedTags = [];
+    final TextEditingController commentController = TextEditingController();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: t.bg,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (c, ss) => SingleChildScrollView(
+          padding: EdgeInsets.only(bottom: MediaQuery.of(c).viewInsets.bottom, top: 24, left: 24, right: 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(width: 40, height: 4, decoration: BoxDecoration(color: t.border, borderRadius: BorderRadius.circular(10))),
+              const SizedBox(height: 24),
+              Text(
+                'Как прошла поездка с',
+                style: GoogleFonts.inter(fontSize: 14, color: t.sub, fontWeight: FontWeight.w500),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                targetUserName,
+                style: GoogleFonts.inter(fontSize: 22, color: t.text, fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(5, (index) {
+                  final double starVal = index + 1.0;
+                  final bool isSelected = starVal <= selectedRating;
+                  return GestureDetector(
+                    onTap: () {
+                      HapticFeedback.mediumImpact();
+                      ss(() => selectedRating = starVal);
+                    },
+                    child: Icon(
+                      isSelected ? Icons.star_rounded : Icons.star_outline_rounded,
+                      color: isSelected ? Colors.amber : t.border,
+                      size: 48,
+                    ),
+                  );
+                }),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'Что вам понравилось?',
+                style: GoogleFonts.inter(fontSize: 13, color: t.sub, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                alignment: WrapAlignment.center,
+                children: tags.map((tag) {
+                  final bool isSelected = selectedTags.contains(tag);
+                  return GestureDetector(
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      ss(() {
+                        if (isSelected) {
+                          selectedTags.remove(tag);
+                        } else {
+                          selectedTags.add(tag);
+                        }
+                      });
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isSelected ? t.accent : t.card,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: isSelected ? t.accent : t.border),
+                      ),
+                      child: Text(
+                        tag,
+                        style: GoogleFonts.inter(
+                          color: isSelected ? Colors.white : t.text,
+                          fontSize: 12,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 24),
+              TextField(
+                controller: commentController,
+                maxLines: 3,
+                style: GoogleFonts.inter(color: t.text),
+                decoration: InputDecoration(
+                  hintText: 'Напишите ваш комментарий...',
+                  hintStyle: GoogleFonts.inter(color: t.sub),
+                  filled: true,
+                  fillColor: t.card,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(20),
+                    borderSide: BorderSide(color: t.border),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(20),
+                    borderSide: BorderSide(color: t.accent),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 30),
+              GestureDetector(
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  HapticFeedback.heavyImpact();
+
+                  final String reviewComment = [
+                    if (selectedTags.isNotEmpty) '[${selectedTags.join(", ")}]',
+                    commentController.text.trim()
+                  ].join(' ').trim();
+
+                  await provider.submitReview(
+                    targetUserId: targetUserId,
+                    rating: selectedRating,
+                    comment: reviewComment.isEmpty ? 'Без комментариев' : reviewComment,
+                  );
+
+                  if (mounted) {
+                    NotificationService.notify(context, 'Отзыв отправлен', 'Спасибо за вашу оценку!', isSuccess: true);
+                  }
+                },
+                child: Container(
+                  width: double.infinity,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF84CC16), Color(0xFF4D7C0F)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(color: const Color(0xFF84CC16).withValues(alpha: 0.4), blurRadius: 15, offset: const Offset(0, 8)),
+                    ],
+                  ),
+                  child: Center(
+                    child: Text(
+                      'ОТПРАВИТЬ ОТЗЫВ',
+                      style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w900, color: Colors.white),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 30),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _activeTripBanner(TaxiProvider provider, TaxiTheme t) {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return const SizedBox.shrink();
+
+    final myOrder = provider.allPassengerOrders.firstWhere(
+      (o) => o['passengerId'] == currentUser.uid && o['status'] == 'active',
+      orElse: () => <String, dynamic>{},
+    );
+
+    final myDrive = provider.allDrives.firstWhere(
+      (d) => d['driverId'] == currentUser.uid && d['status'] == 'active',
+      orElse: () => <String, dynamic>{},
+    );
+
+    final bool hasOrder = myOrder.isNotEmpty;
+    final bool hasDrive = myDrive.isNotEmpty;
+
+    if (!hasOrder && !hasDrive) return const SizedBox.shrink();
+
+    final String from = hasOrder ? (myOrder['from'] ?? '') : (myDrive['from'] ?? '');
+    final String to = hasOrder ? (myOrder['to'] ?? '') : (myDrive['to'] ?? '');
+    final String price = hasOrder ? '${myOrder['price'] ?? 0}' : '${myDrive['price'] ?? 0}';
+    final String roleText = hasOrder ? 'Ваш заказ' : 'Ваш рейс';
+    final String docId = hasOrder ? myOrder['id'] : myDrive['id'];
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 15, offset: const Offset(0, 5)),
+        ],
+        border: Border.all(color: t.border.withValues(alpha: 0.1), width: 1.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF84CC16),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    roleText.toUpperCase(),
+                    style: GoogleFonts.inter(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 12,
+                      color: const Color(0xFF84CC16),
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'Активен',
+                  style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            '$from → $to',
+            style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 15),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Стоимость: $price ₸',
+            style: GoogleFonts.inter(color: Colors.white70, fontSize: 12),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: () async {
+                    HapticFeedback.mediumImpact();
+                    if (hasOrder) {
+                      await provider.completeOrder(docId);
+                      if (mounted) {
+                        NotificationService.notify(context, 'Успешно', 'Заказ успешно завершен!', isSuccess: true);
+                        _showFeedbackDialog(provider, t, 'demo_driver_id', 'Водителю');
+                      }
+                    } else {
+                      await provider.completeRide(docId);
+                      if (mounted) {
+                        NotificationService.notify(context, 'Успешно', 'Рейс успешно завершен!', isSuccess: true);
+                        _showFeedbackDialog(provider, t, 'demo_passenger_id', 'Пассажиру');
+                      }
+                    }
+                  },
+                  child: Container(
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF84CC16),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Center(
+                      child: Text(
+                        'Завершить поездку',
+                        style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _passengerView(TaxiProvider provider, TaxiTheme t) {
     final drivers = provider.filteredDrives;
     return Column(
         children: [
+          _activeBidsWidget(provider, t),
+          _activeTripBanner(provider, t),
           _complexForm(provider, t),
           const SizedBox(height: 24),
           // Section header with count badge
@@ -562,7 +1089,16 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                     timestamp: DateTime.now(),
                     location: d['from'] ?? '',
                   )))),
-                  onNegotiate: () => _showNegotiateDialog(provider, t, {'price': d['price'] ?? 0, 'name': d['name'] ?? 'Водитель'}),
+                  onNegotiate: () {
+                    if (!provider.isLoggedIn) return _showVerifyDialog(provider, t);
+                    _showNegotiateDialog(provider, t, {
+                      'price': d['price'] ?? 0,
+                      'name': d['name'] ?? 'Водитель',
+                      'targetId': d['id'] ?? '',
+                      'targetType': 'ride',
+                      'receiverId': d['driverId'] ?? '',
+                    });
+                  },
                 )).toList(),
               ),
             ),
@@ -576,6 +1112,8 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
     
     return Column(
       children: [
+        _activeBidsWidget(provider, t),
+        _activeTripBanner(provider, t),
         _driverDashboard(provider, t),
         const SizedBox(height: 16),
         _createRideButton(provider, t),
@@ -610,10 +1148,17 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                 created: '${provider.translate(o['date'] ?? '')}, ${o['created'] ?? ''}',
                 img: o['img'] ?? '',
                 phone: o['phone'] ?? '',
+                passengerId: o['passengerId'] ?? o['userId'] ?? '',
                 onShowProfile: () => _showUserProfile(provider, t, o['name'] ?? 'Пассажир', o['img'] ?? '', '', false),
                 onNegotiate: () {
                   if (!provider.isLoggedIn) return _showVerifyDialog(provider, t);
-                  _showNegotiateDialog(provider, t, {'price': o['price'] ?? 0, 'name': o['name'] ?? 'Пассажир'});
+                  _showNegotiateDialog(provider, t, {
+                    'price': o['price'] ?? 0,
+                    'name': o['name'] ?? 'Пассажир',
+                    'targetId': o['id'] ?? '',
+                    'targetType': 'order',
+                    'receiverId': o['passengerId'] ?? o['userId'] ?? '',
+                  });
                 },
                 onDecline: () {
                   if (!provider.isLoggedIn) return _showVerifyDialog(provider, t);
@@ -1173,11 +1718,24 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                     GestureDetector(
                       onTap: () async {
                         Navigator.pop(context);
-                        NotificationService.notify(context, 'Предложение отправлено', '${provider.translate('offer_sent')} ($myPrice ₸)', isSuccess: true);
+                        final targetId = d['targetId'] ?? '';
+                        final targetType = d['targetType'] ?? '';
+                        final receiverId = d['receiverId'] ?? '';
                         
-                        await Future.delayed(const Duration(seconds: 3));
-                        if (mounted) {
-                          NotificationService.notify(context, 'Ответ водителя', '${d['name']} ${provider.translate('driver_agrees')} $myPrice ₸!', isSuccess: true);
+                        if (targetId.isNotEmpty && receiverId.isNotEmpty) {
+                          NotificationService.notify(context, 'Предложение отправлено', '${provider.translate('offer_sent')} ($myPrice ₸)', isSuccess: true);
+                          await provider.sendBid(
+                            targetId: targetId,
+                            targetType: targetType,
+                            receiverId: receiverId,
+                            price: myPrice,
+                          );
+                        } else {
+                          NotificationService.notify(context, 'Предложение отправлено', '${provider.translate('offer_sent')} ($myPrice ₸)', isSuccess: true);
+                          await Future.delayed(const Duration(seconds: 3));
+                          if (mounted) {
+                            NotificationService.notify(context, 'Ответ водителя', '${d['name']} ${provider.translate('driver_agrees')} $myPrice ₸!', isSuccess: true);
+                          }
                         }
                       },
                       child: Container(

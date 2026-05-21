@@ -18,6 +18,7 @@ class TaxiOrderCard extends StatelessWidget {
   final String created;
   final String img;
   final String phone;
+  final String passengerId;
   final VoidCallback onShowProfile;
   final VoidCallback onNegotiate;
   final VoidCallback onDecline;
@@ -37,6 +38,7 @@ class TaxiOrderCard extends StatelessWidget {
     required this.created,
     required this.img,
     required this.phone,
+    required this.passengerId,
     required this.onShowProfile,
     required this.onNegotiate,
     required this.onDecline,
@@ -45,6 +47,8 @@ class TaxiOrderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final double realRating = provider.getUserRating(passengerId);
+
     return RepaintBoundary(
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
@@ -53,7 +57,6 @@ class TaxiOrderCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(24),
           border: Border.all(color: t.border),
           boxShadow: [
-            // Упрощенная тень для лучшей производительности
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.02),
               blurRadius: 4,
@@ -95,9 +98,28 @@ class TaxiOrderCard extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(name,
-                              style: GoogleFonts.inter(
-                                  color: t.text, fontWeight: FontWeight.w900, fontSize: 17)),
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: GoogleFonts.inter(
+                                        color: t.text, fontWeight: FontWeight.w900, fontSize: 17)),
+                              ),
+                              const SizedBox(width: 6),
+                              const Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 14),
+                              const SizedBox(width: 2),
+                              Text(
+                                '$realRating',
+                                style: GoogleFonts.inter(
+                                  fontSize: 12,
+                                  color: const Color(0xFF94A3B8),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
                           const SizedBox(height: 4),
                           Row(
                             children: [

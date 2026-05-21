@@ -161,4 +161,20 @@ class TelegramBotService {
       );
     } catch (_) {}
   }
+
+  // ─── SOS EMERGENCY ALERT ─────────────────────────────────────────────────────
+  static Future<void> sendSosAlert({
+    required String userName,
+    required String userPhone,
+    required String role,
+  }) async {
+    if (_adminChatId.isEmpty || _adminChatId == '5555555555') return;
+    final text = '🚨 *СИГНАЛ SOS! ЭКСТРЕННАЯ СИТУАЦИЯ!*\n\n'
+        '👤 Пользователь: *$userName*\n'
+        '📞 Телефон: `$userPhone`\n'
+        '💼 Роль в поездке: *$role*\n'
+        '⚠️ Пользователь нажал кнопку SOS в приложении IQ Market Taxi!\n'
+        'Пожалуйста, свяжитесь с ним незамедлительно или вызовите службы экстренной помощи.';
+    await _send(_adminChatId, text);
+  }
 }

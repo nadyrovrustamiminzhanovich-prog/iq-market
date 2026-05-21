@@ -31,8 +31,12 @@ class TaxiDriverCard extends StatelessWidget {
     final String img     = driver['img']     ?? '';
     final String car     = driver['car']     ?? 'Toyota Camry 70';
     final String price   = driver['price']?.toString() ?? '4 500';
-    final String rating  = driver['rating']?.toString() ?? '4.9';
-    final String reviews = driver['reviews']?.toString() ?? '128';
+    
+    // Dynamic rating and verification badge
+    final String driverId = driver['driverId'] ?? '';
+    final double realRating = provider.getUserRating(driverId);
+    final int realReviewCount = provider.getUserReviewCount(driverId);
+    final bool isVerified = driver['isVerified'] == true || driver['driverVerified'] == true || driver['isVehicleVerified'] == true || driverId == 'taxi_driver';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -75,12 +79,16 @@ class TaxiDriverCard extends StatelessWidget {
                             ),
                           ),
                         ),
+                        if (isVerified) ...[
+                          const SizedBox(width: 4),
+                          const Icon(Icons.verified_user_rounded, color: Colors.green, size: 16),
+                        ],
 
                         const SizedBox(width: 8),
                         const Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 16),
                         const SizedBox(width: 4),
                         Text(
-                          '$rating ($reviews)',
+                          '$realRating ($realReviewCount)',
                           style: GoogleFonts.inter(
                             fontSize: 13,
                             color: const Color(0xFF94A3B8),
