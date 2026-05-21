@@ -128,8 +128,8 @@ class _PostAdScreenState extends State<PostAdScreen> {
                     videoFile: _videoFile,
                     onPickImages: () => _pickMedia(false),
                     onPickVideo: () => _pickMedia(true),
-                    onRemoveImage: (i) => setState(() => _imageFiles.removeAt(i)),
-                    onRemoveVideo: () => setState(() => _videoFile = null),
+                    onRemoveImage: (i) => setState(() { _imageFiles.removeAt(i); _saveDraft(); }),
+                    onRemoveVideo: () => setState(() { _videoFile = null; _saveDraft(); }),
                   ),
                   const SizedBox(height: 30),
                   CategorySelector(
@@ -263,14 +263,17 @@ class _PostAdScreenState extends State<PostAdScreen> {
         if (mounted) {
           Navigator.push(context, MaterialPageRoute(builder: (context) => VideoTrimmerScreen(
             videoFile: File(file.path), 
-            onSave: (path) => setState(() => _videoFile = File(path))
+            onSave: (path) => setState(() { _videoFile = File(path); _saveDraft(); })
           )));
         }
       }
     } else {
       final List<XFile> picked = await _picker.pickMultiImage();
       if (picked.isNotEmpty) {
-        setState(() => _imageFiles.addAll(picked.map((f) => File(f.path))));
+        setState(() {
+          _imageFiles.addAll(picked.map((f) => File(f.path)));
+          _saveDraft();
+        });
       }
     }
   }
@@ -376,6 +379,8 @@ class _PostAdScreenState extends State<PostAdScreen> {
       'cat': _selectedCategory,
       'loc': _selectedLocation,
       'cond': _condition,
+      'images': _imageFiles.map((f) => f.path).toList(),
+      'video': _videoFile?.path,
     };
     await prefs.setString('ad_draft', jsonEncode(draft));
   }
@@ -392,6 +397,20 @@ class _PostAdScreenState extends State<PostAdScreen> {
         _selectedCategory = draft['cat'] ?? 'all';
         _selectedLocation = draft['loc'] ?? 'Чунджа';
         _condition = draft['cond'];
+        
+        if (draft['images'] != null) {
+          final List<dynamic> paths = draft['images'];
+          for (var path in paths) {
+            if (File(path).existsSync()) {
+              _imageFiles.add(File(path));
+            }
+          }
+        }
+        if (draft['video'] != null) {
+          if (File(draft['video']).existsSync()) {
+            _videoFile = File(draft['video']);
+          }
+        }
       });
     }
   }

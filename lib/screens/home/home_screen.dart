@@ -46,7 +46,6 @@ class _IQMarketHomeState extends State<IQMarketHome> {
   String _sortBy = 'newest';
   double? _minPrice, _maxPrice;
   String _selectedCondition = 'Все';
-  String? _selectedCity;
 
   late stt.SpeechToText _speech;
   bool _isListening = false;
@@ -78,6 +77,10 @@ class _IQMarketHomeState extends State<IQMarketHome> {
         category: _selectedCategory,
         city: cityFilter,
         searchQuery: _searchQuery,
+        minPrice: _minPrice,
+        maxPrice: _maxPrice,
+        condition: _selectedCondition,
+        sortBy: _sortBy,
       );
       
       final List<AdModel> newItems = List<AdModel>.from(result['ads']);
@@ -112,7 +115,7 @@ class _IQMarketHomeState extends State<IQMarketHome> {
         if (!didPop && _currentIndex != 0) setState(() => _currentIndex = 0);
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFF8FAFC),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: SafeArea(child: _currentIndex == 0 ? _buildHomePage() : _buildOtherPage()),
         bottomNavigationBar: _buildBottomNav(),
       ),
@@ -126,9 +129,9 @@ class _IQMarketHomeState extends State<IQMarketHome> {
       setState(() { 
         _selectedCategory = 'Все'; 
         _searchQuery = ''; 
-        _selectedCity = null;
         _searchController.clear(); 
       });
+      Provider.of<AppConfigProvider>(context, listen: false).setCity('Все');
     },
       child: CustomScrollView(
         controller: _scrollController,
@@ -154,7 +157,7 @@ class _IQMarketHomeState extends State<IQMarketHome> {
   );
 
   Widget _buildAppBar(AppConfigProvider config) => SliverAppBar(
-    floating: true, pinned: false, automaticallyImplyLeading: false, backgroundColor: Colors.white,
+    floating: true, pinned: false, automaticallyImplyLeading: false, backgroundColor: Theme.of(context).colorScheme.surface,
     title: Row(children: [
       Expanded(child: _citySelector(config)),
       _langToggle(config),
@@ -255,9 +258,9 @@ class _IQMarketHomeState extends State<IQMarketHome> {
                     setState(() {
                       _selectedCategory = 'Все';
                       _searchQuery = '';
-                      _selectedCity = null;
                       _searchController.clear();
                     });
+                    Provider.of<AppConfigProvider>(context, listen: false).setCity('Все');
                     _pagingController.refresh();
                   },
                   icon: const Icon(Icons.refresh_rounded, size: 18),
@@ -300,14 +303,16 @@ class _IQMarketHomeState extends State<IQMarketHome> {
   );
 
   void _showFilters() {
+    final config = Provider.of<AppConfigProvider>(context, listen: false);
     showModalBottomSheet(
       context: context, isScrollControlled: true, backgroundColor: Colors.transparent,
       builder: (context) => HomeFilterSheet(
-        currentSort: _sortBy, minPrice: _minPrice, maxPrice: _maxPrice, condition: _selectedCondition, city: _selectedCity,
+        currentSort: _sortBy, minPrice: _minPrice, maxPrice: _maxPrice, condition: _selectedCondition, city: config.city == 'Все' ? null : config.city,
         onApply: (sort, min, max, cond, city) {
           setState(() { 
-            _sortBy = sort; _minPrice = min; _maxPrice = max; _selectedCondition = cond; _selectedCity = city; 
+            _sortBy = sort; _minPrice = min; _maxPrice = max; _selectedCondition = cond; 
           });
+          config.setCity(city ?? 'Все');
           _pagingController.refresh();
           Navigator.pop(context);
         },
@@ -321,7 +326,7 @@ class _IQMarketHomeState extends State<IQMarketHome> {
     child: Row(children: [
       const Icon(Icons.location_on_rounded, color: Color(0xFF4A80F0), size: 18),
       const SizedBox(width: 4),
-      Text(config.city, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w800)),
+      Text(config.city == 'Все' ? 'Все города' : config.city, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w800)),
       const Icon(Icons.keyboard_arrow_down_rounded, size: 20),
     ]),
   );
@@ -429,7 +434,7 @@ class _IQMarketHomeState extends State<IQMarketHome> {
 
                       return ListTile(
                         leading: Icon(isParent ? Icons.location_city_rounded : Icons.location_on_rounded, color: subtxtColor.withValues(alpha: 0.6)),
-                        title: Text(item, style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 15, color: txtColor)),
+                        title: Text(item == 'Все' ? 'Все города' : item, style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 15, color: txtColor)),
                         trailing: Icon(isParent ? Icons.arrow_forward_ios_rounded : Icons.check_circle_outline_rounded, size: 14, color: isParent ? subtxtColor.withValues(alpha: 0.4) : const Color(0xFF10B981)),
                         onTap: () { 
                           if (isParent) {
@@ -454,19 +459,81 @@ class _IQMarketHomeState extends State<IQMarketHome> {
 
   Widget _langToggle(AppConfigProvider config) => GestureDetector(
     onTap: () {
-      String nextLang;
-      if (config.language == 'Русский') {
-        nextLang = 'Қазақша';
-      } else if (config.language == 'Қазақша') {
-        nextLang = 'Уйғурчә';
-      } else {
-        nextLang = 'Русский';
-      }
-      config.setLanguage(nextLang);
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(32))),
+        builder: (ctx) {
+          final sheetTheme = Theme.of(ctx);
+          return Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(10)))),
+              const SizedBox(height: 24),
+              Text('Выберите язык', style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w900, color: sheetTheme.colorScheme.onSurface)),
+              const SizedBox(height: 20),
+              ...['Русский', 'Қазақша', 'Уйғурчә'].map((l) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () {
+                    config.setLanguage(l);
+                    Navigator.pop(ctx);
+                  },
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: config.language == l ? sheetTheme.colorScheme.primary.withValues(alpha: 0.04) : sheetTheme.colorScheme.surface,
+                      border: Border.all(
+                        color: config.language == l ? sheetTheme.colorScheme.primary.withValues(alpha: 0.3) : sheetTheme.colorScheme.outline,
+                        width: 1.5,
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                    child: Row(
+                      children: [
+                        Text(
+                          l, 
+                          style: GoogleFonts.inter(
+                            fontSize: 16,
+                            fontWeight: config.language == l ? FontWeight.w800 : FontWeight.w600, 
+                            color: config.language == l ? sheetTheme.colorScheme.primary : sheetTheme.colorScheme.onSurface
+                          )
+                        ),
+                        const Spacer(),
+                        if (config.language == l)
+                          Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: const BoxDecoration(
+                              color: Color(0xFF4A80F0),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.check_rounded, color: Colors.white, size: 14),
+                          )
+                        else
+                          Container(
+                            width: 22, height: 22,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(color: const Color(0xFFCBD5E1), width: 1.5),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              )),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );},
+      );
     }, 
     child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), 
-      decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(12)), 
+      decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(12)), 
       child: Text(config.language.substring(0, 3).toUpperCase(), style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w900, color: const Color(0xFF4A80F0)))
     ),
   );
@@ -477,7 +544,38 @@ class _IQMarketHomeState extends State<IQMarketHome> {
   void _navToTaxi(AppConfigProvider config) => Navigator.push(context, MaterialPageRoute(builder: (_) => TaxiServiceScreen(lang: config.language)));
   void _showDetails(AdModel ad) => Navigator.push(context, MaterialPageRoute(builder: (_) => ProductDetailsScreen(ad: ad, lang: 'Русский', onReport: (_){}, heroPrefix: 'home_')));
 
-  void _listen() async { /* Voice search logic */ }
+  void _listen() async {
+    if (!_isListening) {
+      bool available = await _speech.initialize(
+        onStatus: (val) {
+          if (val == 'done' || val == 'notListening') if (mounted) setState(() => _isListening = false);
+        },
+        onError: (val) { if (mounted) setState(() => _isListening = false); },
+      );
+      if (available) {
+        setState(() => _isListening = true);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Слушаю вас... 🎙️'), duration: Duration(seconds: 2)));
+        _speech.listen(
+          onResult: (val) {
+            setState(() {
+              _searchController.text = val.recognizedWords;
+              _searchQuery = val.recognizedWords;
+            });
+            if (val.finalResult) {
+               _searchDebounce?.cancel();
+               _pagingController.refresh();
+            }
+          },
+          localeId: Provider.of<AppConfigProvider>(context, listen: false).language == 'Қазақша' ? 'kk_KZ' : 'ru_RU',
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Микрофон недоступен')));
+      }
+    } else {
+      setState(() => _isListening = false);
+      _speech.stop();
+    }
+  }
 
   Widget _buildRecs(AppConfigProvider config) => StreamBuilder<List<AdModel>>(
     stream: AdService.getRecommendationsStream(),
@@ -499,9 +597,10 @@ class _IQMarketHomeState extends State<IQMarketHome> {
     stream: UserService.getUserStream(),
     builder: (context, snapshot) {
       final isAdmin = snapshot.data?.accountType == 'admin';
+      final navTheme = Theme.of(context);
       return Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: navTheme.colorScheme.surface,
           border: Border(top: BorderSide(color: Colors.grey.withValues(alpha: 0.1), width: 1)),
           boxShadow: [
             BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, -5))
@@ -540,14 +639,14 @@ class _IQMarketHomeState extends State<IQMarketHome> {
             }
           },
           type: BottomNavigationBarType.fixed,
-          selectedItemColor: const Color(0xFF4A80F0),
-          unselectedItemColor: const Color(0xFF94A3B8),
+          selectedItemColor: navTheme.colorScheme.primary,
+          unselectedItemColor: navTheme.colorScheme.onSurface.withValues(alpha: 0.4),
           elevation: 0,
-          backgroundColor: Colors.white,
+          backgroundColor: navTheme.colorScheme.surface,
           items: [
             const BottomNavigationBarItem(icon: Icon(Icons.home_rounded), label: 'Главная'),
             const BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_outline), label: 'Чаты'),
-            const BottomNavigationBarItem(icon: Icon(Icons.add_circle, size: 40, color: Color(0xFF4A80F0)), label: ''),
+            BottomNavigationBarItem(icon: Icon(Icons.add_circle, size: 40, color: navTheme.colorScheme.primary), label: ''),
             const BottomNavigationBarItem(icon: Icon(Icons.favorite_outline), label: 'Избранное'),
             const BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Профиль'),
             if (isAdmin) const BottomNavigationBarItem(icon: Icon(Icons.admin_panel_settings_outlined), label: 'Админ'),
@@ -575,12 +674,13 @@ class ProductCardSkeleton extends StatelessWidget {
   const ProductCardSkeleton({super.key});
   @override
   Widget build(BuildContext context) {
+    final skelTheme = Theme.of(context);
     return Shimmer.fromColors(
-      baseColor: Colors.grey[300]!,
-      highlightColor: Colors.grey[100]!,
+      baseColor: skelTheme.colorScheme.onSurface.withValues(alpha: 0.15),
+      highlightColor: skelTheme.colorScheme.onSurface.withValues(alpha: 0.05),
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: skelTheme.colorScheme.surface,
           borderRadius: BorderRadius.circular(20),
         ),
         margin: const EdgeInsets.only(bottom: 16),

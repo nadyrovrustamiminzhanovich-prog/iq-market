@@ -96,56 +96,97 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   }
 
   void _handleReport() {
+    String? selectedType;
+    final TextEditingController commentCtrl = TextEditingController();
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(24),
-        decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(10)))),
-            const SizedBox(height: 24),
-            Text('Пожаловаться', style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w900)),
-            const SizedBox(height: 8),
-            Text('Выберите причину жалобы на это объявление', style: GoogleFonts.inter(color: Colors.grey[600], fontSize: 14)),
-            const SizedBox(height: 24),
-            _reportOption('Мошенничество', 'fraud', Icons.gpp_maybe_rounded, Colors.red),
-            _reportOption('Неверная цена', 'wrong_price', Icons.sell_rounded, Colors.orange),
-            _reportOption('Товар продан', 'sold', Icons.check_circle_outline_rounded, Colors.blue),
-            _reportOption('Запрещенный товар', 'prohibited', Icons.block_rounded, Colors.red),
-            _reportOption('Другое', 'other', Icons.more_horiz_rounded, Colors.grey),
-            const SizedBox(height: 16),
-          ],
-        ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) {
+          return Container(
+            padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(context).viewInsets.bottom + 24),
+            decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(10)))),
+                const SizedBox(height: 24),
+                Text('Пожаловаться', style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w900)),
+                const SizedBox(height: 8),
+                Text('Выберите причину и опишите проблему', style: GoogleFonts.inter(color: Colors.grey[600], fontSize: 14)),
+                const SizedBox(height: 20),
+                Wrap(
+                  spacing: 8, runSpacing: 8,
+                  children: [
+                    _reportChip('Мошенничество', 'fraud', selectedType, (v) => setModalState(() => selectedType = v)),
+                    _reportChip('Неверная цена', 'wrong_price', selectedType, (v) => setModalState(() => selectedType = v)),
+                    _reportChip('Товар продан', 'sold', selectedType, (v) => setModalState(() => selectedType = v)),
+                    _reportChip('Запрещенный товар', 'prohibited', selectedType, (v) => setModalState(() => selectedType = v)),
+                    _reportChip('Другое', 'other', selectedType, (v) => setModalState(() => selectedType = v)),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                TextField(
+                  controller: commentCtrl,
+                  maxLines: 3,
+                  decoration: InputDecoration(
+                    hintText: 'Опишите подробнее (необязательно)...',
+                    filled: true, fillColor: const Color(0xFFF1F5F9),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: selectedType == null ? null : () async {
+                      final reporterId = FirebaseAuth.instance.currentUser?.uid;
+                      await FirebaseFirestore.instance.collection('reports').add({
+                        'adId': widget.ad.id,
+                        'adTitle': widget.ad.title,
+                        'reportedUserId': widget.ad.userId,
+                        'reporterUserId': reporterId ?? 'anonymous',
+                        'type': selectedType,
+                        'comment': commentCtrl.text.trim(),
+                        'timestamp': FieldValue.serverTimestamp(),
+                      });
+                      if (mounted) {
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Жалоба отправлена. Спасибо за помощь!')));
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4A80F0), foregroundColor: Colors.white, disabledBackgroundColor: Colors.grey[300], padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), elevation: 0),
+                    child: Text('Отправить жалобу', style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 16)),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
       ),
     );
   }
 
-  Widget _reportOption(String title, String type, IconData icon, Color color) => ListTile(
-    contentPadding: EdgeInsets.zero,
-    leading: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: color.withValues(alpha: 0.1), shape: BoxShape.circle), child: Icon(icon, color: color, size: 20)),
-    title: Text(title, style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 15)),
-    trailing: const Icon(Icons.chevron_right_rounded, size: 20),
-    onTap: () async {
-      final reporterId = FirebaseAuth.instance.currentUser?.uid;
-      await FirebaseFirestore.instance.collection('reports').add({
-        'adId': widget.ad.id,
-        'adTitle': widget.ad.title,
-        'reportedUserId': widget.ad.userId,
-        'reporterUserId': reporterId ?? 'anonymous',
-        'type': type,
-        'timestamp': FieldValue.serverTimestamp(),
-      });
-      if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Жалоба отправлена. Спасибо за помощь!')));
-      }
-    },
-  );
+  Widget _reportChip(String title, String type, String? selectedType, Function(String) onSelect) {
+    final isSelected = selectedType == type;
+    return ChoiceChip(
+      label: Text(title),
+      selected: isSelected,
+      onSelected: (_) => onSelect(type),
+      backgroundColor: const Color(0xFFF1F5F9),
+      selectedColor: const Color(0xFF4A80F0).withValues(alpha: 0.1),
+      labelStyle: TextStyle(
+        color: isSelected ? const Color(0xFF4A80F0) : const Color(0xFF1E293B),
+        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+      ),
+      side: BorderSide.none,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      showCheckmark: false,
+    );
+  }
 
 
   void _openFullscreenGallery(int initialIndex) {
@@ -502,8 +543,12 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
             final reviews = snapshot.data ?? [];
-            if (reviews.isEmpty) return Column(children: [const Center(child: Text('Отзывов пока нет. Будьте первым!')), const SizedBox(height: 20), _buildLeaveReviewButton()]);
-            return Column(children: [...reviews.take(3).map((r) => _buildReviewItem(r)), if (reviews.length > 3) TextButton(onPressed: () {}, child: Text('Смотреть все ${reviews.length} отзывов')), const SizedBox(height: 16), _buildLeaveReviewButton()]);
+            
+            final bool isMyAd = _currentUser?.uid == widget.ad.userId;
+            final bool hasReviewedThisAd = _currentUser != null && reviews.any((r) => r.fromUserId == _currentUser!.uid && r.adId == widget.ad.id);
+            
+            if (reviews.isEmpty) return Column(children: [const Center(child: Text('Отзывов пока нет. Будьте первым!')), const SizedBox(height: 20), if (!isMyAd && !hasReviewedThisAd) _buildLeaveReviewButton()]);
+            return Column(children: [...reviews.take(3).map((r) => _buildReviewItem(r)), if (reviews.length > 3) TextButton(onPressed: () {}, child: Text('Смотреть все ${reviews.length} отзывов')), const SizedBox(height: 16), if (!isMyAd && !hasReviewedThisAd) _buildLeaveReviewButton()]);
           },
         ),
       ],

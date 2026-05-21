@@ -1,13 +1,27 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:iqmarket/theme/taxi_theme.dart';
 import 'package:iqmarket/translations/taxi_strings.dart';
 import 'package:iqmarket/utils/taxi_constants.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class TaxiProvider extends ChangeNotifier {
   TaxiProvider() {
     loadPreferences();
+    startFirebaseSync();
+  }
+
+  StreamSubscription? _ridesSub;
+  StreamSubscription? _ordersSub;
+
+  @override
+  void dispose() {
+    _ridesSub?.cancel();
+    _ordersSub?.cancel();
+    super.dispose();
   }
   int _tab = 0;
   String _from = TaxiConstants.defaultFrom;
@@ -230,6 +244,7 @@ class TaxiProvider extends ChangeNotifier {
     _notifEnabled = prefs.getBool('taxi_notif') ?? true;
     _telegramChatId = prefs.getString('taxi_tg_chat_id');
     _isTelegramVerified = _telegramChatId != null;
+    checkVerificationStatus();
     notifyListeners();
   }
 
@@ -383,6 +398,137 @@ class TaxiProvider extends ChangeNotifier {
   void setComment(String v) {
     _comment = v;
     notifyListeners();
+  }
+
+  // ─── FIRESTORE INTEGRATION ───────────────────────────────────────────────
+
+  void startFirebaseSync() {
+    _ridesSub?.cancel();
+    _ridesSub = FirebaseFirestore.instance
+        .collection('taxi_rides')
+        .where('status', isEqualTo: 'active')
+        .snapshots()
+        .listen((snapshot) {
+      _drives.clear();
+      for (var doc in snapshot.docs) {
+        final data = doc.data();
+        data['id'] = doc.id;
+        _drives.add(data);
+      }
+      notifyListeners();
+    }, onError: (e) {
+      debugPrint("Error syncing taxi_rides: $e");
+    });
+
+    _ordersSub?.cancel();
+    _ordersSub = FirebaseFirestore.instance
+        .collection('taxi_orders')
+        .where('status', isEqualTo: 'active')
+        .snapshots()
+        .listen((snapshot) {
+      _passengerOrders.clear();
+      for (var doc in snapshot.docs) {
+        final data = doc.data();
+        data['id'] = doc.id;
+        _passengerOrders.add(data);
+      }
+      notifyListeners();
+    }, onError: (e) {
+      debugPrint("Error syncing taxi_orders: $e");
+    });
+  }
+
+  Future<void> checkVerificationStatus() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final snapshot = await FirebaseFirestore.instance
+        .collection('driver_verifications')
+        .where('driver_name', isEqualTo: '$_firstName $_lastName'.trim())
+        .limit(1)
+        .get();
+
+    if (snapshot.docs.isNotEmpty) {
+      final data = snapshot.docs.first.data();
+      final status = data['status'];
+      _verificationStatus = status ?? 'none';
+      if (status == 'approved') {
+        _isVehicleVerified = true;
+        await _save('taxi_verified', true);
+      } else {
+        _isVehicleVerified = false;
+        await _save('taxi_verified', false);
+      }
+      notifyListeners();
+    }
+  }
+
+  Future<void> createPassengerOrder({
+    required String from,
+    required String to,
+    required String date,
+    required String time,
+    required int seats,
+    required int price,
+    required String comment,
+  }) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final docId = 'order_${user.uid}_${DateTime.now().millisecondsSinceEpoch}';
+    final newOrder = {
+      'id': docId,
+      'passengerId': user.uid,
+      'passengerName': '$_firstName $_lastName'.trim().isEmpty ? 'Пассажир' : '$_firstName $_lastName'.trim(),
+      'passengerPhone': _phone,
+      'passengerImg': user.photoURL ?? '',
+      'from': from,
+      'to': to,
+      'date': date,
+      'time': time,
+      'seats': seats,
+      'price': price,
+      'comment': comment,
+      'status': 'active',
+      'createdAt': FieldValue.serverTimestamp(),
+    };
+
+    await FirebaseFirestore.instance.collection('taxi_orders').doc(docId).set(newOrder);
+  }
+
+  Future<void> createDriverRide({
+    required String from,
+    required String to,
+    required String date,
+    required String time,
+    required int seats,
+    required int price,
+    required String comment,
+  }) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final docId = 'ride_${user.uid}_${DateTime.now().millisecondsSinceEpoch}';
+    final newRide = {
+      'id': docId,
+      'driverId': user.uid,
+      'driverName': '$_firstName $_lastName'.trim().isEmpty ? 'Водитель' : '$_firstName $_lastName'.trim(),
+      'driverPhone': _phone,
+      'driverCar': _driverCar,
+      'driverPlate': _driverPlate,
+      'driverImg': user.photoURL ?? '',
+      'from': from,
+      'to': to,
+      'date': date,
+      'time': time,
+      'seats': seats,
+      'price': price,
+      'comment': comment,
+      'status': 'active',
+      'createdAt': FieldValue.serverTimestamp(),
+    };
+
+    await FirebaseFirestore.instance.collection('taxi_rides').doc(docId).set(newRide);
   }
 }
 

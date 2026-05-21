@@ -1,26 +1,72 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:http/http.dart' as http;
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:iqmarket/data/ai_prompts.dart';
 import 'package:iqmarket/services/api_keys.dart';
+
+// 🔒 X10 SECURITY: Custom HTTP Client that intercepts outgoing Gemini calls,
+// injects the Firebase Auth ID Token, and redirects them securely to our
+// Cloud Function proxy URL to completely hide the API keys on the server.
+class SecureHttpClient extends http.BaseClient {
+  final http.Client _inner = http.Client();
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    final user = FirebaseAuth.instance.currentUser;
+    final token = user != null ? await user.getIdToken() : '';
+
+    // Reconstruct the request to target our Cloud Function proxy instead of the Google endpoint
+    final originalUrl = request.url.toString();
+    final newUrl = Uri.parse(
+      originalUrl.replaceFirst(
+        'https://generativelanguage.googleapis.com',
+        ApiKeys.geminiProxyUrl,
+      ),
+    );
+
+    final newRequest = http.StreamedRequest(request.method, newUrl);
+    newRequest.headers.addAll(request.headers);
+    newRequest.headers['content-type'] = request.headers['content-type'] ?? 'application/json';
+    if (token != null && token.isNotEmpty) {
+      newRequest.headers['Authorization'] = 'Bearer $token';
+    }
+
+    // Pipe request body stream
+    request.finalize().listen(
+      newRequest.sink.add,
+      onError: newRequest.sink.addError,
+      onDone: newRequest.sink.close,
+      cancelOnError: true,
+    );
+
+    return _inner.send(newRequest);
+  }
+}
 
 class GeminiService {
   late GenerativeModel _model;
   late GenerativeModel _chatModel;
   late ChatSession _chat;
-  String _currentLang = 'RU';
 
   void init(String lang) {
-    _currentLang = lang;
+    
+    final secureClient = SecureHttpClient();
+    
+    // Config model for ad moderation (routes to moderation key on backend)
     _model = GenerativeModel(
       model: 'gemini-1.5-flash',
-      apiKey: ApiKeys.moderationKey,
+      apiKey: 'moderation',
+      httpClient: secureClient,
     );
     
+    // Config model for chat assistant (routes to assistant key on backend)
     _chatModel = GenerativeModel(
       model: 'gemini-1.5-flash',
-      apiKey: ApiKeys.assistantKey,
+      apiKey: 'assistant',
       systemInstruction: Content.system(AiPrompts.getPrompt(lang)),
+      httpClient: secureClient,
     );
     _chat = _chatModel.startChat();
   }

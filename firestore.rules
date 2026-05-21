@@ -68,5 +68,18 @@ service cloud.firestore {
       allow read, create: if isSignedIn();
       allow update, delete: if false; 
     }
+
+    // Правила для Такси (Сеньор-реализация)
+    match /taxi_rides/{rideId} {
+      allow read: if true;
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn() && (request.auth.uid == resource.data.driverId || isAdmin());
+    }
+
+    match /taxi_orders/{orderId} {
+      allow read: if true;
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn() && (request.auth.uid == resource.data.passengerId || isAdmin());
+    }
   }
 }

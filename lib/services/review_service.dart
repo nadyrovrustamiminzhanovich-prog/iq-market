@@ -11,6 +11,15 @@ class ReviewService {
     
     // Update user average rating
     await _updateUserRating(review.toUserId);
+
+    // Notify the seller
+    NotificationService.saveNotificationToFirestore(
+      uid: review.toUserId,
+      title: 'Новый отзыв! ⭐️',
+      body: '${review.fromUserName} оставил(а) отзыв на ваше объявление "${review.adTitle}"',
+      type: 'review',
+      data: {'adId': review.adId},
+    );
   }
 
   /// Get reviews for a specific user (seller)

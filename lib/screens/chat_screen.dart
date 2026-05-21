@@ -10,13 +10,13 @@ import 'package:record/record.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:iqmarket/models/ad_model.dart';
 import 'package:iqmarket/models/message_model.dart';
-import 'package:iqmarket/models/user_model.dart';
+
 import 'package:iqmarket/services/chat_service.dart';
 import 'package:iqmarket/services/user_service.dart';
 import 'package:iqmarket/services/file_service.dart';
 import 'package:iqmarket/services/ad_service.dart';
 import 'package:iqmarket/screens/seller_profile_screen.dart';
-import 'package:iqmarket/screens/product_details_screen.dart';
+
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:gal/gal.dart';
 import 'package:cached_network_image/cached_network_image.dart';

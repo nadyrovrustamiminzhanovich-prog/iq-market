@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
@@ -111,7 +111,7 @@ class PostAdProvider extends ChangeNotifier {
         id: '', 
         title: title,
         description: description,
-        price: category == 'Отдам даром' ? '0 ₸' : '$price ₸',
+        price: category == 'Отдам даром' ? 0.0 : (double.tryParse(price.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0.0),
         category: category,
         images: imageUrls,
         videoUrl: videoUrl,

@@ -33,7 +33,7 @@ class ChatService {
         .snapshots()
         .map((snapshot) {
           return snapshot.docs
-            .map((doc) => MessageModel.fromMap(doc.data() as Map<String, dynamic>, doc.id))
+            .map((doc) => MessageModel.fromMap(doc.data(), doc.id))
             .toList();
         });
   }

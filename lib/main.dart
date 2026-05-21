@@ -7,7 +7,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
+
 import 'dart:async';
 
 import 'screens/home/home_screen.dart';
@@ -32,7 +32,7 @@ Future<void> main() async {
     
     FirebaseFirestore.instance.settings = const Settings(
       persistenceEnabled: true,
-      cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
+      cacheSizeBytes: 104857600, // 100 MB cache limit to prevent memory bloating
     );
 
     await FirebaseAppCheck.instance.activate(

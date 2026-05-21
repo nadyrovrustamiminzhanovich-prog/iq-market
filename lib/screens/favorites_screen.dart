@@ -26,11 +26,11 @@ class FavoritesScreen extends StatefulWidget {
 
 class _FavoritesScreenState extends State<FavoritesScreen> {
   bool get _isDark => widget.currentTheme == 'Dark';
-  Color get _bgColor => widget.themes[widget.currentTheme]?['background'] ?? const Color(0xFFF1F5F9);
-  Color get _surfaceColor => widget.themes[widget.currentTheme]?['surface'] ?? Colors.white;
-  Color get _txtColor => widget.themes[widget.currentTheme]?['text'] ?? const Color(0xFF1A1D1E);
-  Color get _subtxtColor => widget.themes[widget.currentTheme]?['subtext'] ?? const Color(0xFF64748B);
-  Color get _primaryColor => widget.themes[widget.currentTheme]?['primary'] ?? const Color(0xFF4A80F0);
+  Color get _bgColor => widget.themes[widget.currentTheme]?['background'] ?? Theme.of(context).scaffoldBackgroundColor;
+  Color get _surfaceColor => widget.themes[widget.currentTheme]?['surface'] ?? Theme.of(context).colorScheme.surface;
+  Color get _txtColor => widget.themes[widget.currentTheme]?['text'] ?? Theme.of(context).colorScheme.onSurface;
+  Color get _subtxtColor => widget.themes[widget.currentTheme]?['subtext'] ?? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6);
+  Color get _primaryColor => widget.themes[widget.currentTheme]?['primary'] ?? Theme.of(context).colorScheme.primary;
 
   String _t(String key) {
     final translations = {

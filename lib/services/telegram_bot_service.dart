@@ -2,16 +2,15 @@ import 'dart:convert';
 import 'dart:math';
 import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:iqmarket/services/api_keys.dart';
 
 class TelegramBotService {
   // ─── BOT CONFIG ─────────────────────────────────────────────────────────────
-  static const String _botToken = ApiKeys.telegramBotToken;
   static const String _botUsername = 'IQ_Taxi_bot'; // YOUR BOT @username
   // Replace with your own Telegram chat_id (get it from @userinfobot)
   static const String _adminChatId = '1910159480';
-  static const String _api = 'https://api.telegram.org/bot$_botToken';
 
   // ─── HELPERS ────────────────────────────────────────────────────────────────
   static String _randomAlnum(int len) {
@@ -119,13 +118,18 @@ class TelegramBotService {
   // ─── INTERNAL ────────────────────────────────────────────────────────────────
   static Future<bool> _send(String chatId, String text) async {
     try {
+      final user = FirebaseAuth.instance.currentUser;
+      final token = user != null ? await user.getIdToken() : '';
+
       final r = await http.post(
-        Uri.parse('$_api/sendMessage'),
-        headers: {'Content-Type': 'application/json'},
+        Uri.parse(ApiKeys.telegramProxyUrl),
+        headers: {
+          'Content-Type': 'application/json',
+          if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+        },
         body: jsonEncode({
-          'chat_id': chatId,
+          'chatId': chatId,
           'text': text,
-          'parse_mode': 'Markdown',
         }),
       );
       return r.statusCode == 200;
@@ -140,13 +144,18 @@ class TelegramBotService {
     required List<List<Map<String, String>>> keyboard,
   }) async {
     try {
+      final user = FirebaseAuth.instance.currentUser;
+      final token = user != null ? await user.getIdToken() : '';
+
       await http.post(
-        Uri.parse('$_api/sendMessage'),
-        headers: {'Content-Type': 'application/json'},
+        Uri.parse(ApiKeys.telegramProxyUrl),
+        headers: {
+          'Content-Type': 'application/json',
+          if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+        },
         body: jsonEncode({
-          'chat_id': chatId,
+          'chatId': chatId,
           'text': text,
-          'parse_mode': 'Markdown',
           'reply_markup': {'inline_keyboard': keyboard},
         }),
       );

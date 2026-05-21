@@ -5,7 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class AppConfigProvider with ChangeNotifier {
   String _language = StorageService.getString('language') ?? 'Русский';
-  String _city = StorageService.getString('user_location') ?? 'Чунджа';
+  String _city = StorageService.getString('user_location') ?? 'Все';
   Set<String> _favoriteIds = Set<String>.from(StorageService.getStringList('favorites') ?? []);
   Locale _locale = const Locale('ru', 'RU');
   final FirebaseFirestore _db = FirebaseFirestore.instance;

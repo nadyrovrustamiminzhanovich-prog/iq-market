@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
-import 'package:flutter/services.dart';
 
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -389,16 +388,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   setState(() => _isLoading = false);
                 }
               } else {
-                // Fallback to anonymous login if custom token generation failed due to service account IAM issues
-                setState(() => _isLoading = true);
-                try {
-                  final userCred = await FirebaseAuth.instance.signInAnonymously();
-                  await _finalizeLogin(userCred.user?.displayName ?? 'Telegram User', isVerified: true, accountType: 'driver');
-                } catch (e) {
-                  _showError('Ошибка анонимной авторизации: $e');
-                } finally {
-                  setState(() => _isLoading = false);
-                }
+                // 🛡️ X10 SECURITY: Анонимный вход полностью удален.
+                // При ошибке генерации токена выводим понятное сообщение об ошибке.
+                _showError('Не удалось создать защищенный токен авторизации. Пожалуйста, попробуйте снова или обратитесь в поддержку.');
               }
             } else {
               ss(() { isError = true; otpCtrl.clear(); });

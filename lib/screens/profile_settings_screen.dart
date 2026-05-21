@@ -207,8 +207,10 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                     await UserService.updateUserProfile(updateData);
                   }
 
-                  widget.onSave(_nameController.text, _newImage, _isFaceIdEnabled, _accountType, _selectedLanguage);
-                  if (mounted) Navigator.pop(context);
+                  if (mounted) {
+                    widget.onSave(_nameController.text, _newImage, _isFaceIdEnabled, _accountType, _selectedLanguage);
+                    Navigator.pop(context);
+                  }
                 } catch (e) {
                   debugPrint('Error saving profile updates: $e');
                   if (mounted) {
@@ -801,7 +803,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                 ),
                 const SizedBox(height: 5),
                 Text(
-                  controller.text, 
+                  controller.text == 'Все' ? 'Все города' : controller.text, 
                   style: GoogleFonts.plusJakartaSans(
                     fontWeight: FontWeight.w800, 
                     fontSize: 15.5, 
@@ -1434,7 +1436,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
 
                       return ListTile(
                         leading: Icon(isParent ? Icons.location_city_rounded : Icons.location_on_rounded, color: _subtxtColor.withValues(alpha: 0.6)),
-                        title: Text(item, style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 15, color: _txtColor)),
+                        title: Text(item == 'Все' ? 'Все города' : item, style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 15, color: _txtColor)),
                         trailing: Icon(isParent ? Icons.arrow_forward_ios_rounded : Icons.check_circle_outline_rounded, size: 14, color: isParent ? _subtxtColor.withValues(alpha: 0.4) : const Color(0xFF10B981)),
                         onTap: () { 
                           if (isParent) {

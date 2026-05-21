@@ -331,3 +331,150 @@ exports.checkExpiredAds = functions.pubsub.schedule('0 3 * * *').timeZone('Asia/
 
   return null;
 });
+
+// ─── SECURE GEMINI CALL PROXY ────────────────────────────────────────────────
+exports.secureGeminiCall = functions.https.onRequest(async (req, res) => {
+  // CORS setup
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  if (req.method === 'OPTIONS') {
+    return res.status(204).send('');
+  }
+
+  // 1. Verify Firebase Auth ID Token
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    console.error('Gemini call rejected: Missing authorization header');
+    return res.status(401).send('Unauthorized: Missing token');
+  }
+  const idToken = authHeader.split('Bearer ')[1];
+  try {
+    await admin.auth().verifyIdToken(idToken);
+  } catch (error) {
+    console.error('Gemini call rejected: Invalid authorization token:', error);
+    return res.status(401).send('Unauthorized: Invalid token');
+  }
+
+  // 2. Determine target key based on "key" query parameter
+  const keySelector = req.query.key || 'moderation';
+  let targetApiKey = keySelector === 'assistant' 
+    ? process.env.GEMINI_ASSISTANT_KEY 
+    : process.env.GEMINI_MODERATION_KEY;
+
+  // Fallback to direct env variables if needed
+  if (!targetApiKey) {
+    targetApiKey = keySelector === 'assistant'
+      ? 'AIzaSyBmEtwHY3pMJRFBy4FrwqkJPuar0doS76Q'
+      : 'AIzaSyDtAj-fwr89rDc7arxu3ONplnJOW0Vk_IU';
+  }
+
+  // 3. Reconstruct target path and URL
+  const reqPath = req.path || '';
+  const targetUrl = `https://generativelanguage.googleapis.com${reqPath}?key=${targetApiKey}`;
+
+  console.log(`Proxying Gemini Request to ${reqPath} using key selector: ${keySelector}`);
+
+  try {
+    const fetchResponse = await fetch(targetUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(req.body),
+    });
+
+    res.status(fetchResponse.status);
+
+    // Copy headers from response
+    const contentType = fetchResponse.headers.get('content-type');
+    if (contentType) {
+      res.setHeader('content-type', contentType);
+    }
+    const transferEncoding = fetchResponse.headers.get('transfer-encoding');
+    if (transferEncoding) {
+      res.setHeader('transfer-encoding', transferEncoding);
+    }
+
+    // Pipe the response body stream directly back to the client
+    fetchResponse.body.pipe(res);
+  } catch (error) {
+    console.error('secureGeminiCall proxy error:', error);
+    res.status(500).send('Internal Server Error in Gemini Proxy');
+  }
+});
+
+// ─── SECURE SEND TELEGRAM MESSAGE ───────────────────────────────────────────
+exports.secureSendTelegramMessage = functions.https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  if (req.method === 'OPTIONS') {
+    return res.status(204).send('');
+  }
+
+  // 1. Verify Firebase Auth ID Token
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    console.error('Telegram call rejected: Missing authorization header');
+    return res.status(401).send('Unauthorized: Missing token');
+  }
+  const idToken = authHeader.split('Bearer ')[1];
+  try {
+    await admin.auth().verifyIdToken(idToken);
+  } catch (error) {
+    console.error('Telegram call rejected: Invalid authorization token:', error);
+    return res.status(401).send('Unauthorized: Invalid token');
+  }
+
+  const { chatId, text, reply_markup } = req.body;
+  if (!chatId || !text) {
+    return res.status(400).send('Missing chatId or text');
+  }
+
+  try {
+    const extra = reply_markup ? { reply_markup } : {};
+    const response = await tgSend(chatId, text, extra);
+    if (response && response.ok) {
+      return res.status(200).json({ success: true });
+    } else {
+      const errText = response ? await response.text() : 'Unknown network error';
+      console.error('Telegram API error response:', errText);
+      return res.status(500).json({ success: false, error: 'Telegram API error', details: errText });
+    }
+  } catch (error) {
+    console.error('secureSendTelegramMessage error:', error);
+    return res.status(500).send(error.toString());
+  }
+});
+
+// ─── SEND TELEGRAM OTP ───────────────────────────────────────────────────────
+exports.sendTelegramOtp = functions.https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Headers', 'Content-Type');
+  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  if (req.method === 'OPTIONS') {
+    return res.status(204).send('');
+  }
+
+  const { chat_id, phone, code } = req.body;
+  if (!chat_id || !code) {
+    return res.status(400).send('Missing chat_id or code');
+  }
+
+  const text = `🔐 *Ваш код для входа в IQ-Market:*\n\n\`${code}\`\n\n_Код действителен 5 минут. Никому не сообщайте!_`;
+
+  try {
+    const response = await tgSend(chat_id, text);
+    if (response && response.ok) {
+      return res.status(200).json({ success: true });
+    } else {
+      const errText = response ? await response.text() : 'Unknown network error';
+      console.error('Telegram OTP error response:', errText);
+      return res.status(500).json({ success: false, error: 'Telegram API error', details: errText });
+    }
+  } catch (error) {
+    console.error('sendTelegramOtp error:', error);
+    return res.status(500).send(error.toString());
+  }
+});

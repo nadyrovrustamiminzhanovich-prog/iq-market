@@ -177,53 +177,65 @@ class AdService {
             .toList());
   }
 
-  /// Get active ads paginated for infinite scroll
   static Future<Map<String, dynamic>> getActiveAdsPaginated({
     DocumentSnapshot? startAfter, 
     int limit = 20,
     String? category,
     String? city,
     String? searchQuery,
+    double? minPrice,
+    double? maxPrice,
+    String? condition,
+    String? sortBy,
   }) async {
     try {
-      Query query = _adsCollection
-          .where('active', isEqualTo: true)
-          .where('status', isEqualTo: 'active')
-          .orderBy('timestamp', descending: true);
-
-      if (category != null && category != 'Все') {
-        query = query.where('category', isEqualTo: category);
-      }
-      
-      if (city != null && city != 'Все') {
-        query = query.where('location', isEqualTo: city);
-      }
-
-      // Note: Full-text search is limited in Firestore. 
-      // For simple "contains", we usually fetch more and filter client-side 
-      // or use a 3rd party like Algolia. 
-      // For Beta, we'll fetch and then apply search filter if needed, 
-      // but ideally we'd use Firestore's >= and <= for prefix matching if possible.
+      // Чтобы не требовать сложные составные индексы в Firestore, делаем простой orderBy и фильтруем на клиенте!
+      Query query = _adsCollection.orderBy('timestamp', descending: sortBy != 'oldest');
 
       if (startAfter != null) {
         query = query.startAfterDocument(startAfter);
       }
 
       final isOffline = await NetworkService.isOffline();
-      final snapshot = await query.limit(limit).get(
+      final snapshot = await query.limit(limit * 4).get( // Увеличиваем запас для надежной локальной фильтрации
         GetOptions(source: isOffline ? Source.cache : Source.serverAndCache),
       );
       
       List<AdModel> ads = snapshot.docs
           .map((doc) => AdModel.fromMap(doc.data() as Map<String, dynamic>, doc.id))
+          .where((ad) => ad.active && ad.status == 'active')
           .toList();
 
-      // Клиентская фильтрация для поиска (временное решение до интеграции Algolia/Elastic)
+      if (category != null && category != 'Все') {
+        ads = ads.where((ad) => ad.category == category).toList();
+      }
+      
+      if (city != null && city != 'Все') {
+        ads = ads.where((ad) => ad.location == city).toList();
+      }
+
       if (searchQuery != null && searchQuery.isNotEmpty) {
         ads = ads.where((ad) => 
           ad.title.toLowerCase().contains(searchQuery.toLowerCase()) || 
           ad.description.toLowerCase().contains(searchQuery.toLowerCase())
         ).toList();
+      }
+
+      if (condition != null && condition != 'Все') {
+        ads = ads.where((ad) => ad.condition == condition).toList();
+      }
+
+      if (minPrice != null) {
+        ads = ads.where((ad) => ad.price >= minPrice).toList();
+      }
+
+      if (maxPrice != null) {
+        ads = ads.where((ad) => ad.price <= maxPrice).toList();
+      }
+      
+      // Ограничиваем возвращаемый список размером limit
+      if (ads.length > limit) {
+        ads = ads.sublist(0, limit);
       }
       
       return {
@@ -235,6 +247,7 @@ class AdService {
       rethrow;
     }
   }
+
 
   /// Get pending ads stream for admin review
   static Stream<List<AdModel>> getPendingAdsStream() {
