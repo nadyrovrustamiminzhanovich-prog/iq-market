@@ -338,25 +338,105 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF1E293B) : Colors.white,
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 20, offset: const Offset(0, 10))],
-        border: Border.all(color: const Color(0xFF4A80F0).withValues(alpha: 0.1), width: 1.2),
+        borderRadius: BorderRadius.circular(30),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04), 
+            blurRadius: 24, 
+            offset: const Offset(0, 12),
+          ),
+          BoxShadow(
+            color: const Color(0xFF4A80F0).withValues(alpha: 0.02),
+            blurRadius: 40,
+            offset: const Offset(0, 4),
+          )
+        ],
+        border: Border.all(
+          color: const Color(0xFF4A80F0).withValues(alpha: 0.08), 
+          width: 1.5,
+        ),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
                 padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: const Color(0xFF4A80F0).withValues(alpha: 0.1), shape: BoxShape.circle),
-                child: const Icon(Icons.support_agent_rounded, color: Color(0xFF4A80F0), size: 24),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      const Color(0xFF4A80F0).withValues(alpha: 0.15),
+                      const Color(0xFF6366F1).withValues(alpha: 0.05),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(Icons.headset_mic_rounded, color: Color(0xFF4A80F0), size: 28),
               ),
               const SizedBox(width: 16),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(_t('operator_title'), style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 17, color: theme.colorScheme.onSurface)),
-                const SizedBox(height: 2),
-                Text(_t('operator_hours'), style: GoogleFonts.inter(color: theme.colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 12, fontWeight: FontWeight.w600)),
-              ])),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          _t('operator_title'), 
+                          style: GoogleFonts.plusJakartaSans(
+                            fontWeight: FontWeight.w900, 
+                            fontSize: 17, 
+                            color: theme.colorScheme.onSurface,
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF25D366).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 6,
+                                height: 6,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFF25D366),
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'ONLINE',
+                                style: GoogleFonts.plusJakartaSans(
+                                  color: const Color(0xFF25D366),
+                                  fontSize: 8.5,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _t('operator_hours'), 
+                      style: GoogleFonts.plusJakartaSans(
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.5), 
+                        fontSize: 12, 
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 24),
@@ -366,7 +446,12 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
               Expanded(
                 child: _contactItem(
                   _t('wa_support'), 
-                  const Color(0xFF25D366), 
+                  const LinearGradient(
+                    colors: [Color(0xFF128C7E), Color(0xFF075E54)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  const Color(0xFF075E54),
                   'https://wa.me/77089007030?text=${Uri.encodeComponent(_t("wa_message"))}', 
                   PhosphorIcons.whatsappLogo(PhosphorIconsStyle.fill)
                 ),
@@ -375,14 +460,19 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
               Expanded(
                 child: _contactItem(
                   _t('tg_support'), 
-                  const Color(0xFF229ED9), 
+                  const LinearGradient(
+                    colors: [Color(0xFF24A1DE), Color(0xFF0088CC)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  const Color(0xFF0088CC),
                   'https://t.me/+77089007030', 
                   PhosphorIcons.telegramLogo(PhosphorIconsStyle.fill)
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
 
           // Премиальная кнопка Чат в Приложении (In-App Live Chat)
           GestureDetector(
@@ -404,30 +494,31 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
             },
             child: Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 14),
+              padding: const EdgeInsets.symmetric(vertical: 16),
               decoration: BoxDecoration(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(20),
+                color: isDark ? Colors.white.withValues(alpha: 0.03) : const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(22),
                 border: Border.all(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
+                  color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.04),
+                  width: 1.2,
                 ),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
-                    Icons.chat_bubble_outline_rounded,
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
-                    size: 16,
+                    Icons.forum_rounded,
+                    color: isDark ? Colors.white70 : const Color(0xFF475569),
+                    size: 18,
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 10),
                   Text(
-                    _t('inapp_support'),
-                    style: GoogleFonts.inter(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                    _t('inapp_support').toUpperCase(),
+                    style: GoogleFonts.plusJakartaSans(
+                      color: isDark ? Colors.white70 : const Color(0xFF475569),
                       fontWeight: FontWeight.w900,
                       fontSize: 12,
-                      letterSpacing: 0.5,
+                      letterSpacing: 1.0,
                     ),
                   ),
                 ],
@@ -439,22 +530,35 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
     );
   }
 
-  Widget _contactItem(String title, Color color, String url, IconData icon) {
+  Widget _contactItem(String title, LinearGradient gradient, Color shadowColor, String url, IconData icon) {
     return GestureDetector(
       onTap: () async => await canLaunchUrl(Uri.parse(url)) ? await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication) : null,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14),
+        padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.06), 
-          borderRadius: BorderRadius.circular(20), 
-          border: Border.all(color: color.withValues(alpha: 0.08))
+          gradient: gradient,
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: [
+            BoxShadow(
+              color: shadowColor.withValues(alpha: 0.25),
+              blurRadius: 12,
+              offset: const Offset(0, 6),
+            )
+          ],
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: color, size: 18),
+            Icon(icon, color: Colors.white, size: 20),
             const SizedBox(width: 8),
-            Text(title, style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 13, color: color)),
+            Text(
+              title, 
+              style: GoogleFonts.plusJakartaSans(
+                fontWeight: FontWeight.w800, 
+                fontSize: 14, 
+                color: Colors.white,
+              ),
+            ),
           ],
         ),
       ),
