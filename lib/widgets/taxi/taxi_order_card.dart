@@ -48,6 +48,7 @@ class TaxiOrderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final double realRating = provider.getUserRating(passengerId);
+    final int realReviewCount = provider.getUserReviewCount(passengerId);
 
     return RepaintBoundary(
       child: Container(
@@ -111,7 +112,7 @@ class TaxiOrderCard extends StatelessWidget {
                               const Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 14),
                               const SizedBox(width: 2),
                               Text(
-                                '$realRating',
+                                realReviewCount < 5 ? 'Новичок' : '$realRating ($realReviewCount)',
                                 style: GoogleFonts.inter(
                                   fontSize: 12,
                                   color: const Color(0xFF94A3B8),

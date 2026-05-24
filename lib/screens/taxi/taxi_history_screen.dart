@@ -30,9 +30,7 @@ class TaxiHistoryScreen extends StatelessWidget {
   }
 
   Widget _buildBody(TaxiProvider provider) {
-    // In production, trips would be loaded from a database/API.
-    // For now, show an encouraging empty state for new users.
-    const List<Map<String, dynamic>> trips = []; // будет заменено на реальные данные из БД
+    final trips = provider.historyTrips;
 
     if (trips.isEmpty) {
       return Center(
@@ -48,7 +46,7 @@ class TaxiHistoryScreen extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(
-              'Совершите первую поездку — она появится здесь',
+              'История ваших поездок пуста',
               style: GoogleFonts.inter(color: t.sub.withValues(alpha: 0.6), fontSize: 13),
               textAlign: TextAlign.center,
             ),
@@ -59,9 +57,23 @@ class TaxiHistoryScreen extends StatelessWidget {
 
     return ListView(
       padding: const EdgeInsets.all(16),
-      children: trips.map((trip) =>
-        _hItem(trip['date'], trip['from'], trip['to'], trip['price'], provider.translate('completed'), provider)
-      ).toList(),
+      children: trips.map((trip) {
+        final String from = trip['from'] ?? '';
+        final String to = trip['to'] ?? '';
+        final String priceStr = '${trip['price'] ?? 0} ₸';
+        final String date = trip['date'] == 'today' 
+            ? 'Сегодня' 
+            : (trip['date'] == 'tomorrow' ? 'Завтра' : (trip['date'] ?? ''));
+        final String role = trip['role'] == 'driver' ? 'Водитель' : 'Пассажир';
+        return _hItem(
+          '$date ($role)', 
+          from, 
+          to, 
+          priceStr, 
+          provider.translate('completed'), 
+          provider
+        );
+      }).toList(),
     );
   }
 

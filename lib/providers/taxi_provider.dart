@@ -37,11 +37,11 @@ class TaxiProvider extends ChangeNotifier {
     super.dispose();
   }
   int _tab = 0;
-  String _from = TaxiConstants.defaultFrom;
-  String _to = TaxiConstants.defaultTo;
+  String _from = '';
+  String _to = '';
   bool _loading = false;
   bool _isLoggedIn = true;
-  String _selDate = 'today';
+  String _selDate = 'date';
   String _selTime = 'time';
   int _passCnt = 1;
   String _curLang = 'ru';
@@ -436,6 +436,8 @@ class TaxiProvider extends ChangeNotifier {
 
   void startFirebaseSync() {
     fetchDriverTripsCount();
+    fetchPassengerTripsCount();
+    fetchHistoryTrips();
 
     _ridesSub?.cancel();
     _ridesSub = FirebaseFirestore.instance
@@ -919,6 +921,12 @@ class TaxiProvider extends ChangeNotifier {
   int _driverTripsCount = 0;
   int get driverTripsCount => _driverTripsCount;
 
+  int _passengerTripsCount = 0;
+  int get passengerTripsCount => _passengerTripsCount;
+
+  List<Map<String, dynamic>> _historyTrips = [];
+  List<Map<String, dynamic>> get historyTrips => _historyTrips;
+
   Future<void> fetchDriverTripsCount() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
@@ -942,11 +950,98 @@ class TaxiProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> fetchPassengerTripsCount() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    try {
+      final ordersSnap = await FirebaseFirestore.instance
+          .collection('taxi_orders')
+          .where('passengerId', isEqualTo: user.uid)
+          .where('status', isEqualTo: 'completed')
+          .get();
+
+      final ridesSnap = await FirebaseFirestore.instance
+          .collection('taxi_rides')
+          .where('passengerId', isEqualTo: user.uid)
+          .where('status', isEqualTo: 'completed')
+          .get();
+
+      _passengerTripsCount = ordersSnap.docs.length + ridesSnap.docs.length;
+      notifyListeners();
+    } catch (e) {
+      debugPrint("Error fetching passenger trips count: $e");
+    }
+  }
+
+  Future<void> fetchHistoryTrips() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    try {
+      final List<Map<String, dynamic>> list = [];
+      
+      final ordersPassenger = await FirebaseFirestore.instance
+          .collection('taxi_orders')
+          .where('passengerId', isEqualTo: user.uid)
+          .where('status', isEqualTo: 'completed')
+          .get();
+          
+      final ordersDriver = await FirebaseFirestore.instance
+          .collection('taxi_orders')
+          .where('driverId', isEqualTo: user.uid)
+          .where('status', isEqualTo: 'completed')
+          .get();
+
+      final ridesPassenger = await FirebaseFirestore.instance
+          .collection('taxi_rides')
+          .where('passengerId', isEqualTo: user.uid)
+          .where('status', isEqualTo: 'completed')
+          .get();
+          
+      final ridesDriver = await FirebaseFirestore.instance
+          .collection('taxi_rides')
+          .where('driverId', isEqualTo: user.uid)
+          .where('status', isEqualTo: 'completed')
+          .get();
+
+      for (var doc in ordersPassenger.docs) {
+        final d = doc.data();
+        d['role'] = 'passenger';
+        d['id'] = doc.id;
+        list.add(d);
+      }
+      for (var doc in ordersDriver.docs) {
+        final d = doc.data();
+        d['role'] = 'driver';
+        d['id'] = doc.id;
+        list.add(d);
+      }
+      for (var doc in ridesPassenger.docs) {
+        final d = doc.data();
+        d['role'] = 'passenger';
+        d['id'] = doc.id;
+        list.add(d);
+      }
+      for (var doc in ridesDriver.docs) {
+        final d = doc.data();
+        d['role'] = 'driver';
+        d['id'] = doc.id;
+        list.add(d);
+      }
+
+      _historyTrips = list;
+      notifyListeners();
+    } catch (e) {
+      debugPrint("Error fetching history: $e");
+    }
+  }
+
   Future<void> completeRide(String rideId) async {
     await FirebaseFirestore.instance.collection('taxi_rides').doc(rideId).update({
       'status': 'completed',
     });
     await fetchDriverTripsCount();
+    await fetchPassengerTripsCount();
+    await fetchHistoryTrips();
   }
 
   Future<void> cancelRide(String rideId) async {
@@ -960,6 +1055,8 @@ class TaxiProvider extends ChangeNotifier {
       'status': 'completed',
     });
     await fetchDriverTripsCount();
+    await fetchPassengerTripsCount();
+    await fetchHistoryTrips();
   }
 
   Future<void> linkDirectCallMatch({

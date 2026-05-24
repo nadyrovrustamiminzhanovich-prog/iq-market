@@ -88,7 +88,7 @@ class TaxiDriverCard extends StatelessWidget {
                         const Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 16),
                         const SizedBox(width: 4),
                         Text(
-                          '$realRating ($realReviewCount)',
+                          realReviewCount < 5 ? 'Новичок' : '$realRating ($realReviewCount)',
                           style: GoogleFonts.inter(
                             fontSize: 13,
                             color: const Color(0xFF94A3B8),
