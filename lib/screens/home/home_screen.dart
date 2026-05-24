@@ -659,7 +659,7 @@ class _IQMarketHomeState extends State<IQMarketHome> {
   Widget _buildOtherPage() {
     final config = Provider.of<AppConfigProvider>(context, listen: false);
     switch (_currentIndex) {
-      case 1: return const ChatsListScreen();
+      case 1: return NotificationsScreen(lang: config.language);
       case 2: return const SizedBox.shrink(); // Moved to Navigator.push
       case 3: return FavoritesScreen(lang: config.language, themes: AppTheme.homeThemes, currentTheme: 'Light', onShowDetails: _showDetails);
       case 4: return const SizedBox.shrink(); // Moved to Navigator.push

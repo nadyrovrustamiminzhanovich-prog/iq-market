@@ -68,7 +68,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
           icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF1A1D1E), size: 20),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text(_t('center'), style: const TextStyle(color: Color(0xFF1A1D1E), fontWeight: FontWeight.w900, fontSize: 18)),
+        title: const Text('Мои сообщения', style: TextStyle(color: Color(0xFF1A1D1E), fontWeight: FontWeight.w900, fontSize: 18)),
         actions: [
           TextButton(
             onPressed: () => NotificationService.markAllAsRead(),
@@ -83,16 +83,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
           unselectedLabelColor: Colors.grey,
           labelStyle: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
           tabs: [
-            Tab(text: _t('notifications')),
             Tab(text: _t('chats')),
+            Tab(text: _t('notifications')),
           ],
         ),
       ),
       body: TabBarView(
         controller: _tabController,
         children: [
-          _buildNotificationsTab(),
           _buildChatsTab(),
+          _buildNotificationsTab(),
         ],
       ),
     );

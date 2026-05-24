@@ -1166,8 +1166,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _buildListItemDivider(),
             _buildListItem(Icons.grid_view_rounded, 'Мои объявления', () => _openMyAds()),
             _buildListItemDivider(),
-            _buildListItem(Icons.chat_bubble_outline_rounded, _t('chats'), () {
-              Navigator.push(context, MaterialPageRoute(builder: (context) => const ChatsListScreen()));
+            _buildListItem(Icons.chat_bubble_outline_rounded, 'Мои сообщения', () {
+              Navigator.push(context, MaterialPageRoute(builder: (context) => NotificationsScreen(lang: _localLang)));
             }),
             _buildListItemDivider(),
             _buildListItem(Icons.favorite_border_rounded, _t('favorites'), () {
@@ -1182,23 +1182,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 25),
 
           // GROUP 2: Система
-          _buildMenuSectionTitle('Система'),
-          _buildMenuCard([
-            _buildListItem(Icons.notifications_none_rounded, _t('notifications'), () {
-              Navigator.push(context, MaterialPageRoute(builder: (context) => NotificationsScreen(lang: _localLang)));
-            }),
-            if (isEmailUser) ...[
-              _buildListItemDivider(),
-              _buildListItem(Icons.security_rounded, 'Безопасность', _showSecurityDialog),
-            ],
-            if (_localAccType == 'admin') ...[
-              _buildListItemDivider(),
-              _buildListItem(Icons.admin_panel_settings_outlined, 'Панель администратора', () {
-                Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminPanelScreen()));
-              }),
-            ],
-          ]),
-          const SizedBox(height: 25),
+          if (isEmailUser || _localAccType == 'admin') ...[
+            _buildMenuSectionTitle('Система'),
+            _buildMenuCard([
+              if (isEmailUser)
+                _buildListItem(Icons.security_rounded, 'Безопасность', _showSecurityDialog),
+              if (isEmailUser && _localAccType == 'admin')
+                _buildListItemDivider(),
+              if (_localAccType == 'admin')
+                _buildListItem(Icons.admin_panel_settings_outlined, 'Панель администратора', () {
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminPanelScreen()));
+                }),
+            ]),
+            const SizedBox(height: 25),
+          ],
 
           // GROUP 3: Информация
           _buildMenuSectionTitle('Информация'),
