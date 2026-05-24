@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:iqmarket/screens/ai_assistant_screen.dart';
 import 'package:iqmarket/screens/chat_screen.dart';
 import 'package:iqmarket/models/ad_model.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 class HelpCenterScreen extends StatefulWidget {
   final String lang;
@@ -184,6 +185,7 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
           SliverToBoxAdapter(child: _buildSearchBar()),
           SliverToBoxAdapter(child: _buildCategories()),
           SliverToBoxAdapter(child: _buildAiBanner(context)),
+          SliverToBoxAdapter(child: _buildOperatorCard(context)),
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
             sliver: SliverList(
@@ -193,7 +195,6 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
               ),
             ),
           ),
-          SliverToBoxAdapter(child: _buildOperatorCard(context)),
           const SliverToBoxAdapter(child: SizedBox(height: 40)),
         ],
       ),
@@ -330,14 +331,16 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
 
   Widget _buildOperatorCard(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    
     return Container(
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
+        color: isDark ? const Color(0xFF1E293B) : Colors.white,
         borderRadius: BorderRadius.circular(28),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 20, offset: const Offset(0, 10))],
-        border: Border.all(color: const Color(0xFF4A80F0).withValues(alpha: 0.1)),
+        border: Border.all(color: const Color(0xFF4A80F0).withValues(alpha: 0.1), width: 1.2),
       ),
       child: Column(
         children: [
@@ -358,6 +361,29 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
           ),
           const SizedBox(height: 24),
           
+          Row(
+            children: [
+              Expanded(
+                child: _contactItem(
+                  _t('wa_support'), 
+                  const Color(0xFF25D366), 
+                  'https://wa.me/77089007030?text=${Uri.encodeComponent(_t("wa_message"))}', 
+                  PhosphorIcons.whatsappLogo(PhosphorIconsStyle.fill)
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _contactItem(
+                  _t('tg_support'), 
+                  const Color(0xFF229ED9), 
+                  'https://t.me/+77089007030', 
+                  PhosphorIcons.telegramLogo(PhosphorIconsStyle.fill)
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
           // Премиальная кнопка Чат в Приложении (In-App Live Chat)
           GestureDetector(
             onTap: () {
@@ -378,55 +404,42 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
             },
             child: Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.symmetric(vertical: 14),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF4A80F0), Color(0xFF6366F1)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF4A80F0).withValues(alpha: 0.25),
-                    blurRadius: 15,
-                    offset: const Offset(0, 5),
-                  )
-                ],
+                border: Border.all(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
+                ),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.chat_bubble_rounded, color: Colors.white, size: 18),
-                  const SizedBox(width: 10),
+                  Icon(
+                    Icons.chat_bubble_outline_rounded,
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                    size: 16,
+                  ),
+                  const SizedBox(width: 8),
                   Text(
                     _t('inapp_support'),
                     style: GoogleFonts.inter(
-                      color: Colors.white,
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                       fontWeight: FontWeight.w900,
-                      fontSize: 13,
-                      letterSpacing: 0.8,
+                      fontSize: 12,
+                      letterSpacing: 0.5,
                     ),
                   ),
                 ],
               ),
             ),
           ),
-          
-          Row(
-            children: [
-              Expanded(child: _contactItem(_t('wa_support'), const Color(0xFF25D366), 'https://wa.me/77089007030?text=${Uri.encodeComponent(_t("wa_message"))}', theme)),
-              const SizedBox(width: 12),
-              Expanded(child: _contactItem(_t('tg_support'), const Color(0xFF0088CC), 'https://t.me/iqmarket_support_bot', theme)),
-            ],
-          ),
         ],
       ),
     );
   }
 
-  Widget _contactItem(String title, Color color, String url, ThemeData theme) {
+  Widget _contactItem(String title, Color color, String url, IconData icon) {
     return GestureDetector(
       onTap: () async => await canLaunchUrl(Uri.parse(url)) ? await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication) : null,
       child: Container(
@@ -439,7 +452,7 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(title.contains('WhatsApp') ? Icons.message : Icons.telegram, color: color, size: 18),
+            Icon(icon, color: color, size: 18),
             const SizedBox(width: 8),
             Text(title, style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 13, color: color)),
           ],
