@@ -174,7 +174,7 @@ class ProfileAchievementTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final statusColor = isVerified ? const Color(0xFF10B981) : primaryColor;
+    final statusColor = isVerified ? const Color(0xFF229ED9) : primaryColor;
     
     return Container(
       width: double.infinity,

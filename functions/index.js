@@ -91,6 +91,94 @@ exports.telegramWebhook = functions.https.onRequest(async (req, res) => {
   const text    = msg.text || '';
   const name    = msg.from.first_name || 'друг';
 
+  // ── Contact sharing handler ───────────────────────────────────────────────
+  if (msg.contact) {
+    const contact = msg.contact;
+    const contactUserId = contact.user_id ? contact.user_id.toString() : '';
+
+    // Safety check: ensure they shared THEIR OWN contact
+    if (contactUserId !== chatId) {
+      await tgSend(chatId, `❌ Пожалуйста, поделитесь своим собственным контактом для верификации.`);
+      return res.sendStatus(200);
+    }
+
+    // Standardize phone number from Telegram contact
+    const contactPhone = contact.phone_number.replace(/\D/g, ''); // Clean non-digits
+    let stdContactPhone = contactPhone;
+    if (contactPhone.length === 11 && contactPhone.startsWith('8')) {
+      stdContactPhone = '7' + contactPhone.substring(1);
+    } else if (contactPhone.length === 10) {
+      stdContactPhone = '7' + contactPhone;
+    }
+
+    // Find the active session for this chat_id that is NOT verified yet
+    const sessionsSnap = await db.collection('tg_auth_sessions')
+      .where('chat_id', '==', chatId)
+      .where('verified', '==', false)
+      .orderBy('created_at', 'desc')
+      .limit(1)
+      .get();
+
+    if (sessionsSnap.empty) {
+      await tgSend(chatId, `⚠️ Активная сессия не найдена. Пожалуйста, вернитесь в приложение и начните заново.`);
+      return res.sendStatus(200);
+    }
+
+    const sessionDoc = sessionsSnap.docs[0];
+    const sessionData = sessionDoc.data();
+    const sessionPhoneRaw = sessionData.phone || '';
+
+    // Standardize phone from session doc
+    const sessionPhone = sessionPhoneRaw.replace(/\D/g, '');
+    let stdSessionPhone = sessionPhone;
+    if (sessionPhone.length === 11 && sessionPhone.startsWith('8')) {
+      stdSessionPhone = '7' + sessionPhone.substring(1);
+    } else if (sessionPhone.length === 10) {
+      stdSessionPhone = '7' + sessionPhone;
+    }
+
+    // Check if the numbers match!
+    if (stdContactPhone !== stdSessionPhone) {
+      await tgSend(chatId, 
+        `❌ *Ошибка верификации!*\n\n`
+        + `Номер телефона вашего Telegram-аккаунта (\`+${stdContactPhone}\`) не совпадает с номером, введенным вами в приложении (\`+${stdSessionPhone}\`).\n\n`
+        + `Пожалуйста, вернитесь в приложение, укажите правильный номер и попробуйте снова.`,
+        {
+          reply_markup: { remove_keyboard: true }
+        }
+      );
+      return res.sendStatus(200);
+    }
+
+    // Verification successful! Generate and send OTP!
+    const otp = String(Math.floor(100000 + Math.random() * 900000));
+
+    // 🔒 X10 SECURITY: Generating a Firebase Custom Token
+    let customToken = 'error_fallback';
+    try {
+      const uid = `telegram_${chatId}`;
+      customToken = await admin.auth().createCustomToken(uid);
+    } catch (tokenError) {
+      console.error("WARNING: Failed to generate custom token:", tokenError);
+    }
+
+    await sessionDoc.ref.update({
+      otp,
+      customToken: customToken,
+      linked_at: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    await tgSend(chatId,
+      `✅ *Номер телефона успешно подтвержден!*\n\n`
+      + `🔐 Ваш код подтверждения:\n\`${otp}\`\n\n`
+      + `_Введите этот код в приложении. Код действителен 5 минут._`,
+      {
+        reply_markup: { remove_keyboard: true }
+      }
+    );
+    return res.sendStatus(200);
+  }
+
   // /start <sessionToken>  — link chat_id to auth session
   if (text.startsWith('/start')) {
     const parts        = text.split(' ');
@@ -101,29 +189,53 @@ exports.telegramWebhook = functions.https.onRequest(async (req, res) => {
       const ref = db.collection('tg_auth_sessions').doc(sessionToken);
       const snap = await ref.get();
       if (snap.exists) {
-        const otp = String(Math.floor(100000 + Math.random() * 900000));
+        const sessionData = snap.data() || {};
         
-        // 🔒 X10 SECURITY: Generating a Firebase Custom Token
-        let customToken = 'error_fallback';
-        try {
-          const uid = `telegram_${chatId}`;
-          customToken = await admin.auth().createCustomToken(uid);
-        } catch (tokenError) {
-          console.error("WARNING: Failed to generate custom token (likely IAM Service Account Token Creator role missing):", tokenError);
+        if (sessionData.phone) {
+          // X10 Secure Contact-Sharing flow!
+          await ref.update({
+            chat_id : chatId,
+            linked_at: admin.firestore.FieldValue.serverTimestamp(),
+          });
+          await tgSend(chatId,
+            `👋 *${name}, добро пожаловать в IQ-Market!*\n\n`
+            + `Для верификации вашего номера телефона \`+${sessionData.phone}\` нажмите кнопку ниже и поделитесь своим контактом.`,
+            {
+              reply_markup: {
+                keyboard: [[
+                  { text: '📱 Поделиться номером телефона', request_contact: true }
+                ]],
+                one_time_keyboard: true,
+                resize_keyboard: true
+              }
+            }
+          );
+        } else {
+          // Direct OTP login flow!
+          const otp = String(Math.floor(100000 + Math.random() * 900000));
+          
+          // 🔒 X10 SECURITY: Generating a Firebase Custom Token
+          let customToken = 'error_fallback';
+          try {
+            const uid = `telegram_${chatId}`;
+            customToken = await admin.auth().createCustomToken(uid);
+          } catch (tokenError) {
+            console.error("WARNING: Failed to generate custom token:", tokenError);
+          }
+          
+          await ref.update({
+            chat_id : chatId,
+            verified: false,
+            otp,
+            customToken: customToken,
+            linked_at: admin.firestore.FieldValue.serverTimestamp(),
+          });
+          await tgSend(chatId,
+            `👋 *${name}, добро пожаловать в IQ\\-Market!*\n\n`
+            + `🔐 Ваш код подтверждения:\n\`${otp}\`\n\n`
+            + `_Введите этот код в приложении. Код действителен 5 минут._`
+          );
         }
-        
-        await ref.update({
-          chat_id : chatId,
-          verified: false,
-          otp,
-          customToken: customToken,
-          linked_at: admin.firestore.FieldValue.serverTimestamp(),
-        });
-        await tgSend(chatId,
-          `👋 *${name}, добро пожаловать в IQ\\-Market!*\n\n`
-          + `🔐 Ваш код подтверждения:\n\`${otp}\`\n\n`
-          + `_Введите этот код в приложении. Код действителен 5 минут._`
-        );
       } else {
         await tgSend(chatId,
           `⚠️ Сессия устарела или недействительна.\nПожалуйста, вернитесь в приложение и начните заново.`

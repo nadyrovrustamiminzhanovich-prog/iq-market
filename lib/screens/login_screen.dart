@@ -531,20 +531,20 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
               decoration: BoxDecoration(
-                color: const Color(0xFF10B981).withValues(alpha: 0.05),
+                color: const Color(0xFF229ED9).withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.1)),
+                border: Border.all(color: const Color(0xFF229ED9).withValues(alpha: 0.1)),
               ),
               child: Column(
                 children: [
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.verified_user_rounded, color: Color(0xFF10B981), size: 18),
+                      const Icon(Icons.verified_user_rounded, color: Color(0xFF229ED9), size: 18),
                       const SizedBox(width: 10),
                       const Text(
                         'Верификация через Telegram',
-                        style: TextStyle(color: Color(0xFF10B981), fontSize: 13, fontWeight: FontWeight.w900),
+                        style: TextStyle(color: Color(0xFF229ED9), fontSize: 13, fontWeight: FontWeight.w900),
                       ),
                     ],
                   ),

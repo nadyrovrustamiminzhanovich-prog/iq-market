@@ -100,7 +100,7 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
                   style: GoogleFonts.inter(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900),
                 ),
                 const SizedBox(width: 8),
-                const Icon(Icons.verified_rounded, color: Color(0xFF10B981), size: 20),
+                const Icon(Icons.verified_rounded, color: Color(0xFF229ED9), size: 20),
               ],
             ),
             const SizedBox(height: 4),

@@ -26,7 +26,7 @@ class TelegramBotService {
 
   // ─── STEP 1: Create Firebase session + open bot with deep link ───────────────
   /// Returns sessionToken that you then poll for chat_id
-  static Future<String> startAuthSession() async {
+  static Future<String> startAuthSession({String? phone}) async {
     final token = _randomAlnum(24);
     await FirebaseFirestore.instance
         .collection('tg_auth_sessions')
@@ -36,6 +36,7 @@ class TelegramBotService {
       'verified': false,
       'chat_id': null,
       'otp': null,
+      if (phone != null) 'phone': phone,
     });
     // Wait a bit to ensure Firestore is synced before bot accesses it
     await Future.delayed(const Duration(milliseconds: 1000));

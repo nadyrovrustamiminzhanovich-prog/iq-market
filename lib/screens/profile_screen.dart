@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -500,7 +501,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         decoration: BoxDecoration(
           gradient: _isVerified 
             ? const LinearGradient(
-                colors: [Color(0xFF10B981), Color(0xFF059669)],
+                colors: [Color(0xFF0088CC), Color(0xFF229ED9)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               )
@@ -512,7 +513,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           borderRadius: BorderRadius.circular(22),
           boxShadow: [
             BoxShadow(
-              color: (_isVerified ? const Color(0xFF10B981) : const Color(0xFF229ED9)).withValues(alpha: 0.15), 
+              color: const Color(0xFF229ED9).withValues(alpha: 0.15), 
               blurRadius: 10, 
               offset: const Offset(0, 6),
             )
@@ -535,7 +536,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     child: Icon(
                       _isVerified 
-                        ? Icons.verified_user_rounded 
+                        ? Icons.verified_rounded 
                         : PhosphorIcons.telegramLogo(PhosphorIconsStyle.fill), 
                       color: Colors.white, 
                       size: 20,
@@ -812,10 +813,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 )
                               : TextButton(
                                   onPressed: () async {
-                                    final unformattedPhone = _phoneCtrl.text.replaceAll(RegExp(r'\D'), '');
-                                    if (unformattedPhone.length < 11) {
+                                    String cleanPhone = _phoneCtrl.text.replaceAll(RegExp(r'\D'), '');
+                                    if (cleanPhone.startsWith('8') && cleanPhone.length == 11) {
+                                      cleanPhone = '7' + cleanPhone.substring(1);
+                                    } else if (cleanPhone.length == 10) {
+                                      cleanPhone = '7' + cleanPhone;
+                                    }
+
+                                    // X10 Operator Validation
+                                    bool isPhoneValid = true;
+                                    String? validationError;
+                                    if (cleanPhone.length != 11) {
+                                      isPhoneValid = false;
+                                      validationError = 'Номер должен состоять из 11 цифр! Пример: +7 (707) 123-45-67 📱';
+                                    } else if (!cleanPhone.startsWith('7')) {
+                                      isPhoneValid = false;
+                                      validationError = 'Номер должен начинаться с +7 или 8! 🇰🇿';
+                                    } else {
+                                      final operatorCode = cleanPhone.substring(1, 4);
+                                      final validPrefixes = [
+                                        '700', '701', '702', '703', '704', '705', '706', '707', '708', '709',
+                                        '747', '750', '751', '760', '761', '762', '763', '764',
+                                        '771', '775', '776', '777', '778'
+                                      ];
+                                      if (!validPrefixes.contains(operatorCode)) {
+                                        isPhoneValid = false;
+                                        validationError = 'Неверный код оператора Казахстана: $operatorCode! ❌';
+                                      }
+                                    }
+
+                                    if (!isPhoneValid) {
                                       setModalState(() {
-                                        _sheetError = 'Пожалуйста, введите полный номер телефона! 📱';
+                                        _sheetError = validationError;
                                       });
                                       return;
                                     }
@@ -826,8 +855,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     });
 
                                     try {
-                                      // 1. Start Telegram Session
-                                      _tgSessionToken = await AuthService.startTelegramSession();
+                                      // 1. Start Telegram Session with clean standardized phone number!
+                                      _tgSessionToken = await AuthService.startTelegramSession(phone: cleanPhone);
                                       
                                       // 2. Watch Telegram session stream
                                       _tgSessionSub?.cancel();
@@ -876,27 +905,86 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   
                   if (_isTimerRunning) ...[
                     const SizedBox(height: 20),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: _subtxtColor.withValues(alpha: 0.05),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.15)),
+                    Text(
+                      'ВВЕДИТЕ 6-ЗНАЧНЫЙ КОД ИЗ TELEGRAM:',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        color: _subtxtColor.withValues(alpha: 0.7),
+                        letterSpacing: 1.0,
                       ),
-                      child: TextField(
-                        controller: _codeCtrl,
-                        keyboardType: TextInputType.number,
-                        maxLength: 6,
-                        style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, color: _txtColor, letterSpacing: 8),
-                        decoration: const InputDecoration(
-                          hintText: 'Код из Telegram',
-                          counterText: '',
-                          border: InputBorder.none,
+                    ),
+                    const SizedBox(height: 12),
+                    Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Opacity(
+                          opacity: 0.0,
+                          child: TextField(
+                            controller: _codeCtrl,
+                            keyboardType: TextInputType.number,
+                            maxLength: 6,
+                            autofocus: true,
+                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                            onChanged: (v) {
+                              setModalState(() {});
+                            },
+                            decoration: const InputDecoration(
+                              counterText: "",
+                              border: InputBorder.none,
+                            ),
+                          ),
                         ),
-                        onChanged: (v) {
-                          setModalState(() {});
-                        },
-                      ),
+                        IgnorePointer(
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: List.generate(6, (index) {
+                              String char = "";
+                              if (_codeCtrl.text.length > index) {
+                                char = _codeCtrl.text[index];
+                              }
+                              
+                              bool isFocused = _codeCtrl.text.length == index;
+                              if (_codeCtrl.text.length == 6 && index == 5) {
+                                isFocused = true;
+                              }
+                              
+                              return Container(
+                                width: 44,
+                                height: 52,
+                                decoration: BoxDecoration(
+                                  color: _isDark ? Colors.white.withValues(alpha: 0.05) : const Color(0xFFF1F5F9),
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                    color: isFocused 
+                                      ? const Color(0xFF229ED9) 
+                                      : (_isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.08)),
+                                    width: isFocused ? 2.2 : 1.0,
+                                  ),
+                                  boxShadow: isFocused 
+                                    ? [
+                                        BoxShadow(
+                                          color: const Color(0xFF229ED9).withValues(alpha: 0.2),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 3),
+                                        )
+                                      ]
+                                    : [],
+                                ),
+                                alignment: Alignment.center,
+                                child: Text(
+                                  char,
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w900,
+                                    color: _txtColor,
+                                  ),
+                                ),
+                              );
+                            }),
+                          ),
+                        ),
+                      ],
                     ),
                     if (_sheetError != null) ...[
                       const SizedBox(height: 12),
@@ -933,8 +1021,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 Navigator.pop(context);
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
-                                    content: Text('Аккаунт успешно верифицирован! ✅'), 
-                                    backgroundColor: Colors.green,
+                                    content: Text('Аккаунт успешно верифицирован! 💙'), 
+                                    backgroundColor: Color(0xFF229ED9),
                                     behavior: SnackBarBehavior.floating,
                                   ),
                                 );
@@ -951,12 +1039,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           }
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF10B981),
+                          backgroundColor: const Color(0xFF229ED9),
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                           elevation: 0,
                         ),
-                        child: const Text('ПОДТВЕРДИТЬ КОД ✅', style: TextStyle(fontWeight: FontWeight.w900)),
+                        child: const Text('ПОДТВЕРДИТЬ КОД 💙', style: TextStyle(fontWeight: FontWeight.w900)),
                       ),
                     ),
                   ] else ...[

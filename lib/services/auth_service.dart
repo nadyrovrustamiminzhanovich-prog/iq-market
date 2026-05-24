@@ -93,8 +93,8 @@ class AuthService {
 
   // ===================== TELEGRAM AUTH =====================
 
-  static Future<String> startTelegramSession() async {
-    return await TelegramBotService.startAuthSession();
+  static Future<String> startTelegramSession({String? phone}) async {
+    return await TelegramBotService.startAuthSession(phone: phone);
   }
 
   static Stream<DocumentSnapshot<Map<String, dynamic>>> watchTelegramSession(String token) {
