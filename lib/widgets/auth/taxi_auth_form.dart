@@ -217,7 +217,7 @@ class _TaxiAuthFormState extends State<TaxiAuthForm> {
   Widget _socialRow() => Row(
     mainAxisAlignment: MainAxisAlignment.center,
     children: [
-      _socialBtn('https://cdn-icons-png.flaticon.com/512/300/300221.png', _doGoogleSignIn),
+      _socialBtn('https://img.icons8.com/color/96/google-logo.png', _doGoogleSignIn),
       const SizedBox(width: 20),
       _socialBtn('https://cdn-icons-png.flaticon.com/512/0/747.png', _doAppleSignIn),
     ],

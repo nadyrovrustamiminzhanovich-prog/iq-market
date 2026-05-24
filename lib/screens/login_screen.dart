@@ -496,17 +496,17 @@ class _LoginScreenState extends State<LoginScreen> {
 
           // --- Premium Social Buttons ---
           AuthSocialLongButton(
-            label: 'Продолжить с Email',
-            icon: const Icon(Icons.email_rounded, color: Color(0xFF4A80F0), size: 24),
+            label: 'Продолжить с Mail.ru',
+            icon: Image.network('https://img.icons8.com/color/96/mailru.png', width: 24),
             onTap: () {
                // Scroll to top or focus email field? 
                // For now, just keep the fields below.
             },
           ),
-
+ 
           AuthSocialLongButton(
             label: 'Продолжить с Google',
-            icon: Image.network('https://cdn-icons-png.flaticon.com/512/300/300221.png', width: 24),
+            icon: Image.network('https://img.icons8.com/color/96/google-logo.png', width: 24),
             onTap: _handleGoogleSignIn,
           ),
 

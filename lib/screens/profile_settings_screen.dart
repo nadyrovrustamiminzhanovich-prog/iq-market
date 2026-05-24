@@ -332,15 +332,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                 }, 
                 Icons.notifications_active_rounded
               ),
-              _buildDivider(),
-              _buildSwitchItem(_t('bio_label'), _isFaceIdEnabled, (v) async {
-                if (v && await BiometricService.authenticate()) {
-                  setState(() => _isFaceIdEnabled = true);
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_t('success_bio')), backgroundColor: const Color(0xFF10B981), behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))));
-                } else {
-                  setState(() => _isFaceIdEnabled = false);
-                }
-              }, Icons.fingerprint_rounded),
+
             ]),
             const SizedBox(height: 30),
             _buildSectionTitle(_t('about_app')),
@@ -349,9 +341,6 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                 Navigator.push(context, MaterialPageRoute(builder: (context) => LegalInfoScreen(lang: _selectedLanguage)));
               }, Icons.gavel_rounded),
             ]),
-            const SizedBox(height: 30),
-            _buildSectionTitle(_t('theme_title')),
-            _buildThemeSection(),
             const SizedBox(height: 40),
             _buildDeleteAccountButton(),
             const SizedBox(height: 60),
@@ -950,7 +939,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
             border: Border.all(color: _isDark ? Colors.white10 : Colors.black12),
           ),
           child: Image.network(
-            'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/1024px-Google_%22G%22_logo.svg.png',
+            'https://img.icons8.com/color/96/google-logo.png',
             width: 20,
             height: 20,
             errorBuilder: (context, error, stackTrace) => const Icon(Icons.g_mobiledata_rounded, color: Color(0xFF4285F4), size: 20),
@@ -969,7 +958,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
       ),
       _buildDivider(),
       _buildLinkedItem(
-        'Email', 
+        'Mail.ru', 
         isEmailLinked ? user?.email ?? 'Подключено' : 'Привязать почту',
         Container(
           padding: const EdgeInsets.all(8),
@@ -980,10 +969,10 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
             border: Border.all(color: _isDark ? Colors.white10 : Colors.black12),
           ),
           child: Image.network(
-            'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7e/Gmail_icon_%282020%29.svg/1024px-Gmail_icon_%282020%29.svg.png',
+            'https://img.icons8.com/color/96/mailru.png',
             width: 20,
             height: 20,
-            errorBuilder: (context, error, stackTrace) => const Icon(Icons.mail_rounded, color: Color(0xFFEA4335), size: 20),
+            errorBuilder: (context, error, stackTrace) => const Icon(Icons.mail_rounded, color: Color(0xFF005FFC), size: 20),
           ),
         ),
         isEmailLinked,
@@ -1165,7 +1154,28 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   void _showChangePhoneDialog() {
     String tgCode = '';
     bool codeSent = false;
-    final phoneC = TextEditingController(text: '+7 ');
+    final dialogPhoneMask = MaskTextInputFormatter(
+      mask: '+7 (###) ###-##-##',
+      filter: {"#": RegExp(r'[0-9]')},
+      type: MaskAutoCompletionType.lazy,
+    );
+    final phoneC = TextEditingController();
+
+    // Pre-fill existing phone if valid
+    String initialPhone = _phoneController.text;
+    if (initialPhone.isNotEmpty) {
+      final digits = initialPhone.replaceAll(RegExp(r'\D'), '');
+      if (digits.length >= 10) {
+        String cleanedDigits = digits;
+        if (digits.startsWith('8') && digits.length == 11) {
+          cleanedDigits = '7' + digits.substring(1);
+        } else if (digits.length == 10) {
+          cleanedDigits = '7' + digits;
+        }
+        phoneC.text = dialogPhoneMask.maskText(cleanedDigits);
+      }
+    }
+
     final codeC = TextEditingController();
 
     showModalBottomSheet(
@@ -1191,7 +1201,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
             _selectedLanguage == 'Русский'
                 ? 'Для работы в такси необходимо верифицировать ваш телефон через Telegram-бота.'
                 : (_selectedLanguage == 'Қазақша' 
-                    ? 'Таксиде жұмыс істеу үшін телефоныңызды Telegram-бот арқылы растау қажет.' 
+                    ? 'Таксиде жұиск істеу үшін телефоныңызды Telegram-бот арқылы растау қажет.' 
                     : 'Таксида ишләш үчүн телефонуңизни Telegram-бот арқилиқ тәстиқлишиңиз керәк.'),
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(color: _subtxtColor, fontSize: 13, height: 1.5)
@@ -1199,13 +1209,23 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
           const SizedBox(height: 24),
 
           if (!codeSent) ...[
-            _buildDialogField('Новый номер телефона', phoneC, Icons.phone),
+            _buildDialogField('Новый номер телефона', phoneC, Icons.phone, formatters: [dialogPhoneMask]),
             const SizedBox(height: 20),
             SizedBox(
               width: double.infinity, height: 52,
               child: ElevatedButton(
                 onPressed: () {
-                  if (phoneC.text.trim().length < 10) return;
+                  final unformattedPhone = phoneC.text.replaceAll(RegExp(r'\D'), '');
+                  if (unformattedPhone.length < 11) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Пожалуйста, введите полный номер телефона! 📱'),
+                        backgroundColor: Colors.redAccent,
+                        behavior: SnackBarBehavior.floating,
+                      )
+                    );
+                    return;
+                  }
                   tgCode = (DateTime.now().millisecondsSinceEpoch % 90000 + 10000).toString(); // 5 digits
                   setS(() => codeSent = true);
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Код отправлен в Telegram: $tgCode (демо)'), backgroundColor: const Color(0xFF0088CC)));
@@ -1278,7 +1298,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     );
   }
 
-  Widget _buildDialogField(String hint, TextEditingController controller, IconData icon) {
+  Widget _buildDialogField(String hint, TextEditingController controller, IconData icon, {List<TextInputFormatter>? formatters}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       decoration: BoxDecoration(
@@ -1288,7 +1308,8 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
       ),
       child: TextField(
         controller: controller,
-        keyboardType: TextInputType.phone,
+        keyboardType: formatters != null ? TextInputType.phone : TextInputType.text,
+        inputFormatters: formatters,
         style: GoogleFonts.inter(color: _txtColor, fontWeight: FontWeight.bold, fontSize: 16),
         decoration: InputDecoration(
           border: InputBorder.none,
@@ -1300,47 +1321,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     );
   }
 
-  Widget _buildThemeSection() => Padding(
-    padding: const EdgeInsets.only(left: 4, right: 4, bottom: 20),
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: widget.themes.keys.map((themeName) {
-        final isSelected = _currentTheme == themeName;
-        final primary = widget.themes[themeName]?['primary'] ?? _primaryColor;
-        
-        return GestureDetector(
-          onTap: () {
-            setState(() => _currentTheme = themeName);
-            widget.onThemeChanged(themeName);
-          },
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 300),
-            margin: const EdgeInsets.symmetric(horizontal: 12),
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: isSelected ? primary.withValues(alpha: 0.1) : _surfaceColor,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: isSelected ? primary : _subtxtColor.withValues(alpha: 0.1), width: 2),
-            ),
-            child: Column(
-              children: [
-                Icon(
-                  themeName == 'Light' ? Icons.wb_sunny_rounded : Icons.nightlight_round_outlined,
-                  color: isSelected ? primary : _subtxtColor,
-                  size: 32,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  themeName == 'Light' ? 'Светлая' : 'Темная',
-                  style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w900, color: isSelected ? primary : _subtxtColor),
-                ),
-              ],
-            ),
-          ),
-        );
-      }).toList(),
-    ),
-  );
+
 
   void _showLocationDialog() {
     String searchCity = "";

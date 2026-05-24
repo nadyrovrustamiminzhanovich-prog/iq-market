@@ -355,7 +355,32 @@ class _PostAdScreenState extends State<PostAdScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             const SizedBox(height: 10),
-            Lottie.network('https://lottie.host/76b76a0d-959c-4f7d-8153-9110b1062a4b/pM6s7K2A8H.json', height: 140, repeat: false),
+            Lottie.network(
+              'https://lottie.host/76b76a0d-959c-4f7d-8153-9110b1062a4b/pM6s7K2A8H.json',
+              height: 140,
+              repeat: false,
+              errorBuilder: (context, error, stackTrace) {
+                // World-class fallback in case of connection closed or client exception
+                return Container(
+                  height: 140,
+                  alignment: Alignment.center,
+                  child: TweenAnimationBuilder<double>(
+                    duration: const Duration(milliseconds: 600),
+                    tween: Tween(begin: 0.0, end: 1.0),
+                    builder: (context, value, child) {
+                      return Transform.scale(
+                        scale: value,
+                        child: const Icon(
+                          Icons.check_circle_rounded,
+                          color: Color(0xFF84CC16),
+                          size: 100,
+                        ),
+                      );
+                    },
+                  ),
+                );
+              },
+            ),
             const SizedBox(height: 20),
             Text('Успешно!', style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w900)),
             const SizedBox(height: 12),

@@ -1,11 +1,9 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:iqmarket/screens/ai_assistant_screen.dart';
 import 'package:iqmarket/screens/chat_screen.dart';
 import 'package:iqmarket/models/ad_model.dart';
-import 'package:intl/intl.dart';
 
 class HelpCenterScreen extends StatefulWidget {
   final String lang;
@@ -484,7 +482,6 @@ class _FaqTileState extends State<_FaqTile> with SingleTickerProviderStateMixin 
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return GestureDetector(
       onTap: () {
         setState(() => _open = !_open);

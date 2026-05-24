@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:image_picker/image_picker.dart';
@@ -92,7 +93,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Timer? _timer;
   int _timerSeconds = 0;
   bool _isTimerRunning = false;
-  final TextEditingController _phoneCtrl = TextEditingController(text: '+7 ');
+  String _tgCode = '';
+  String? _sheetError;
+  StreamSubscription? _tgSessionSub;
+  bool _isWaitingForBot = false;
+  String? _tgSessionToken;
+  final MaskTextInputFormatter _phoneMask = MaskTextInputFormatter(
+    mask: '+7 (###) ###-##-##',
+    filter: {"#": RegExp(r'[0-9]')},
+    type: MaskAutoCompletionType.lazy,
+  );
+  final TextEditingController _phoneCtrl = TextEditingController();
   final TextEditingController _codeCtrl = TextEditingController();
   
   void _startTimer() {
@@ -114,6 +125,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void dispose() {
     _timer?.cancel();
+    _tgSessionSub?.cancel();
     _phoneCtrl.dispose();
     _codeCtrl.dispose();
     super.dispose();
@@ -568,6 +580,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _showVerificationBottomSheet() {
+    _tgCode = '';
+    _sheetError = null;
+    _isWaitingForBot = false;
+    _codeCtrl.clear();
+
+    // Pre-fill phone if available from FirebaseAuth or local storage
+    final user = FirebaseAuth.instance.currentUser;
+    String initialPhone = user?.phoneNumber ?? '';
+    if (initialPhone.isEmpty) {
+      initialPhone = StorageService.getString('user_phone') ?? '';
+    }
+    if (initialPhone.isNotEmpty) {
+      final digits = initialPhone.replaceAll(RegExp(r'\D'), '');
+      if (digits.length >= 10) {
+        String cleanedDigits = digits;
+        if (digits.startsWith('8') && digits.length == 11) {
+          cleanedDigits = '7' + digits.substring(1);
+        } else if (digits.length == 10) {
+          cleanedDigits = '7' + digits;
+        }
+        _phoneCtrl.text = _phoneMask.maskText(cleanedDigits);
+      }
+    } else {
+      _phoneCtrl.clear();
+    }
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -575,162 +613,373 @@ class _ProfileScreenState extends State<ProfileScreen> {
       builder: (context) => StatefulBuilder(
         builder: (context, setModalState) {
           return Container(
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.of(context).viewInsets.bottom + 24, 
-              top: 24, 
-              left: 24, 
-              right: 24,
-            ),
             decoration: BoxDecoration(
               color: _surfaceColor,
               borderRadius: const BorderRadius.vertical(top: Radius.circular(35)),
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 40, 
-                  height: 4, 
-                  decoration: BoxDecoration(
-                    color: _subtxtColor.withValues(alpha: 0.2), 
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Icon(Icons.shield_rounded, color: _primaryColor, size: 48),
-                const SizedBox(height: 16),
-                Text(
-                  _t('verification_title'),
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 20, 
-                    fontWeight: FontWeight.w900, 
-                    color: _txtColor,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  _t('verification_desc'),
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 13, 
-                    color: _subtxtColor, 
-                    height: 1.4,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                
-                // Phone Input
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: _subtxtColor.withValues(alpha: 0.05),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: _primaryColor.withValues(alpha: 0.1)),
-                  ),
-                  child: TextField(
-                    controller: _phoneCtrl,
-                    keyboardType: TextInputType.phone,
-                    style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, color: _txtColor),
-                    decoration: InputDecoration(
-                      hintText: '+7 (700) 000-00-00',
-                      hintStyle: TextStyle(color: _subtxtColor.withValues(alpha: 0.4)),
-                      border: InputBorder.none,
-                      suffixIcon: _isTimerRunning 
-                        ? Container(
-                            alignment: Alignment.centerRight,
-                            width: 50,
-                            child: Text(
-                              '$_timerSeconds с', 
-                              style: TextStyle(color: _primaryColor, fontWeight: FontWeight.w900),
-                            ),
-                          )
-                        : TextButton(
-                            onPressed: () {
-                              _startTimer();
-                              setModalState(() {});
-                              Timer.periodic(const Duration(seconds: 1), (t) {
-                                if (mounted && _isTimerRunning) {
-                                  setModalState(() {});
-                                } else {
-                                  t.cancel();
-                                }
-                              });
-                            },
-                            child: Text(_t('next').toUpperCase(), style: const TextStyle(fontWeight: FontWeight.w900)),
-                          ),
-                      suffixIconConstraints: const BoxConstraints(minWidth: 80, minHeight: 0),
+            child: SingleChildScrollView(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom + 24, 
+                top: 24, 
+                left: 24, 
+                right: 24,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 40, 
+                    height: 4, 
+                    decoration: BoxDecoration(
+                      color: _subtxtColor.withValues(alpha: 0.2), 
+                      borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                ),
-                
-                if (_isTimerRunning) ...[
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 24),
+                  Icon(Icons.shield_rounded, color: _primaryColor, size: 48),
+                  const SizedBox(height: 16),
+                  Text(
+                    _t('verification_title'),
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 20, 
+                      fontWeight: FontWeight.w900, 
+                      color: _txtColor,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _t('verification_desc'),
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 13, 
+                      color: _subtxtColor, 
+                      height: 1.4,
+                    ),
+                  ),
+                  
+                  if (_tgCode.isNotEmpty) ...[
+                    const SizedBox(height: 20),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF229ED9), Color(0xFF0088CC)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF0088CC).withValues(alpha: 0.25),
+                            blurRadius: 12,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.telegram, color: Colors.white, size: 22),
+                              const SizedBox(width: 10),
+                              Text(
+                                'Код отправлен в Telegram',
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 14, 
+                                  color: Colors.white.withValues(alpha: 0.9), 
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              _tgCode,
+                              style: GoogleFonts.firaCode(
+                                fontSize: 24, 
+                                color: Colors.white, 
+                                fontWeight: FontWeight.w900, 
+                                letterSpacing: 4.0,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Код пришел в чат с ботом @IQ_Taxi_bot',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 11, 
+                              color: Colors.white.withValues(alpha: 0.8),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  if (_isWaitingForBot) ...[
+                    const SizedBox(height: 24),
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0088CC).withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(22),
+                        border: Border.all(color: const Color(0xFF0088CC).withValues(alpha: 0.15)),
+                      ),
+                      child: Column(
+                        children: [
+                          const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(color: Color(0xFF0088CC), strokeWidth: 3),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Ожидаем запуск бота... 🤖',
+                            style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 15, color: _txtColor),
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            'Мы открыли Telegram. Пожалуйста, нажмите кнопку «СТАРТ» (запустить) в чате бота, чтобы получить код.',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.plusJakartaSans(fontSize: 12, color: _subtxtColor, height: 1.4),
+                          ),
+                          const SizedBox(height: 16),
+                          ElevatedButton.icon(
+                            onPressed: () async {
+                              if (_tgSessionToken != null) {
+                                final botUrl = 'https://t.me/IQ_Taxi_bot?start=$_tgSessionToken';
+                                await launchUrl(Uri.parse(botUrl), mode: LaunchMode.externalApplication);
+                              }
+                            },
+                            icon: const Icon(Icons.telegram, color: Colors.white, size: 18),
+                            label: const Text('ОТКРЫТЬ TELEGRAM ПОВТОРНО'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF0088CC),
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                              elevation: 0,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  
+                  const SizedBox(height: 24),
+                  
+                  // Phone Input
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                     decoration: BoxDecoration(
                       color: _subtxtColor.withValues(alpha: 0.05),
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.15)),
+                      border: Border.all(color: _primaryColor.withValues(alpha: 0.1)),
                     ),
                     child: TextField(
-                      controller: _codeCtrl,
-                      keyboardType: TextInputType.number,
-                      maxLength: 5,
-                      style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, color: _txtColor, letterSpacing: 8),
-                      decoration: const InputDecoration(
-                        hintText: 'Код из бота',
-                        counterText: '',
+                      controller: _phoneCtrl,
+                      keyboardType: TextInputType.phone,
+                      inputFormatters: [_phoneMask],
+                      style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, color: _txtColor),
+                      enabled: !_isWaitingForBot && !_isTimerRunning,
+                      decoration: InputDecoration(
+                        hintText: '+7 (700) 000-00-00',
+                        hintStyle: TextStyle(color: _subtxtColor.withValues(alpha: 0.4)),
                         border: InputBorder.none,
+                        suffixIcon: _isTimerRunning 
+                          ? Container(
+                              alignment: Alignment.centerRight,
+                              width: 50,
+                              child: Text(
+                                '$_timerSeconds с', 
+                                style: TextStyle(color: _primaryColor, fontWeight: FontWeight.w900),
+                              ),
+                            )
+                          : (_isWaitingForBot 
+                              ? const SizedBox(
+                                  width: 20, height: 20,
+                                  child: Padding(
+                                    padding: EdgeInsets.all(12),
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  ),
+                                )
+                              : TextButton(
+                                  onPressed: () async {
+                                    final unformattedPhone = _phoneCtrl.text.replaceAll(RegExp(r'\D'), '');
+                                    if (unformattedPhone.length < 11) {
+                                      setModalState(() {
+                                        _sheetError = 'Пожалуйста, введите полный номер телефона! 📱';
+                                      });
+                                      return;
+                                    }
+                                    
+                                    setModalState(() {
+                                      _isWaitingForBot = true;
+                                      _sheetError = null;
+                                    });
+
+                                    try {
+                                      // 1. Start Telegram Session
+                                      _tgSessionToken = await AuthService.startTelegramSession();
+                                      
+                                      // 2. Watch Telegram session stream
+                                      _tgSessionSub?.cancel();
+                                      _tgSessionSub = AuthService.watchTelegramSession(_tgSessionToken!).listen((snap) {
+                                        if (!snap.exists) return;
+                                        final data = snap.data();
+                                        if (data == null) return;
+                                        
+                                        final String? chatId = data['chat_id'];
+                                        final String? otp = data['otp'];
+                                        
+                                        if (chatId != null && otp != null && otp.isNotEmpty) {
+                                          _tgSessionSub?.cancel();
+                                          setModalState(() {
+                                            _tgCode = otp;
+                                            _isWaitingForBot = false;
+                                            _sheetError = null;
+                                            _isTimerRunning = true;
+                                            _timerSeconds = 60;
+                                          });
+                                          _startTimer();
+                                          
+                                          // Update modal periodic ticks
+                                          Timer.periodic(const Duration(seconds: 1), (t) {
+                                            if (mounted && _isTimerRunning) {
+                                              setModalState(() {});
+                                            } else {
+                                              t.cancel();
+                                            }
+                                          });
+                                        }
+                                      });
+                                    } catch (e) {
+                                      setModalState(() {
+                                        _isWaitingForBot = false;
+                                        _sheetError = 'Ошибка запуска сессии: $e';
+                                      });
+                                    }
+                                  },
+                                  child: Text(_t('next').toUpperCase(), style: const TextStyle(fontWeight: FontWeight.w900)),
+                                )),
+                        suffixIconConstraints: const BoxConstraints(minWidth: 80, minHeight: 0),
                       ),
-                      onChanged: (v) {
-                        if (v.length >= 4) {
+                    ),
+                  ),
+                  
+                  if (_isTimerRunning) ...[
+                    const SizedBox(height: 20),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: _subtxtColor.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.15)),
+                      ),
+                      child: TextField(
+                        controller: _codeCtrl,
+                        keyboardType: TextInputType.number,
+                        maxLength: 6,
+                        style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, color: _txtColor, letterSpacing: 8),
+                        decoration: const InputDecoration(
+                          hintText: 'Код из Telegram',
+                          counterText: '',
+                          border: InputBorder.none,
+                        ),
+                        onChanged: (v) {
                           setModalState(() {});
-                        }
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 54,
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        if (_codeCtrl.text.length >= 4) {
-                          try {
-                            await UserService.updateUserProfile({'isVerified': true});
-                            setState(() => _isVerified = true);
-                            if (context.mounted) {
-                              Navigator.pop(context);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Аккаунт успешно верифицирован! ✅'), behavior: SnackBarBehavior.floating),
-                              );
-                            }
-                          } catch (e) {
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Ошибка верификации: $e'), backgroundColor: Colors.red),
-                              );
-                            }
-                          }
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF10B981),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                        elevation: 0,
+                        },
                       ),
-                      child: const Text('ПОДТВЕРДИТЬ КОД ✅', style: TextStyle(fontWeight: FontWeight.w900)),
                     ),
-                  ),
+                    if (_sheetError != null) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        _sheetError!,
+                        style: GoogleFonts.inter(color: Colors.redAccent, fontSize: 13, fontWeight: FontWeight.bold),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 54,
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          if (_codeCtrl.text.trim() == _tgCode) {
+                            try {
+                              await UserService.updateUserProfile({
+                                'isVerified': true,
+                                'phone': _phoneCtrl.text,
+                              });
+                              setState(() => _isVerified = true);
+                              
+                              // Sync to local storage
+                              StorageService.saveProfile(
+                                _localName,
+                                _firestorePhotoUrl,
+                                _localBio,
+                                _localAccType,
+                                isVerified: true,
+                              );
+                              
+                              if (context.mounted) {
+                                Navigator.pop(context);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Аккаунт успешно верифицирован! ✅'), 
+                                    backgroundColor: Colors.green,
+                                    behavior: SnackBarBehavior.floating,
+                                  ),
+                                );
+                              }
+                            } catch (e) {
+                              setModalState(() {
+                                _sheetError = 'Ошибка: $e';
+                              });
+                            }
+                          } else {
+                            setModalState(() {
+                              _sheetError = 'Неверный код! Проверьте правильность ввода. ❌';
+                            });
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF10B981),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                          elevation: 0,
+                        ),
+                        child: const Text('ПОДТВЕРДИТЬ КОД ✅', style: TextStyle(fontWeight: FontWeight.w900)),
+                      ),
+                    ),
+                  ] else ...[
+                    if (_sheetError != null) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        _sheetError!,
+                        style: GoogleFonts.inter(color: Colors.redAccent, fontSize: 13, fontWeight: FontWeight.bold),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ],
+                  const SizedBox(height: 12),
                 ],
-                const SizedBox(height: 12),
-              ],
+              ),
             ),
           );
         }
       ),
-    );
+    ).then((_) {
+      // Clean up session subscription when bottom sheet is closed
+      _tgSessionSub?.cancel();
+    });
   }
 
   void _showVerificationInfo(BuildContext context) {

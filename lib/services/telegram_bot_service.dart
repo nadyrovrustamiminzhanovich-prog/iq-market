@@ -78,17 +78,38 @@ class TelegramBotService {
     required String driverChatId,
     required String reviewDocId,
     String reason = 'Фото тусклое или нечёткое',
+    String? licF,
+    String? licB,
+    String? techF,
+    String? techB,
+    String? selfie,
   }) async {
     if (_adminChatId.isEmpty || _adminChatId == '5555555555') return;
-    final text = '🔍 *Требуется ручная проверка водителя!*\n\n'
-        '👤 Имя: *$driverName*\n'
-        '🚗 Авто: $carModel\n'
-        '🔢 Госномер: `$plate`\n'
-        '⚠️ Причина: $reason\n\n'
-        'Используйте панель: /approve_$reviewDocId или /reject_$reviewDocId';
+    
+    final StringBuffer sb = StringBuffer();
+    sb.writeln('🔍 <b>Требуется ручная проверка водителя!</b>');
+    sb.writeln();
+    sb.writeln('👤 Имя: <b>$driverName</b>');
+    sb.writeln('🚗 Авто: $carModel');
+    sb.writeln('🔢 Госномер: <code>$plate</code>');
+    sb.writeln('⚠️ Причина: $reason');
+    
+    if (licF != null || licB != null || techF != null || techB != null || selfie != null) {
+      sb.writeln();
+      sb.writeln('📂 <b>ДОКУМЕНТЫ:</b>');
+      if (licF != null) sb.writeln('🪪 <a href="$licF">Права (Лицевая)</a>');
+      if (licB != null) sb.writeln('🪪 <a href="$licB">Права (Обратная)</a>');
+      if (techF != null) sb.writeln('📄 <a href="$techF">Техпаспорт (Лицевая)</a>');
+      if (techB != null) sb.writeln('📄 <a href="$techB">Техпаспорт (Обратная)</a>');
+      if (selfie != null) sb.writeln('🤳 <a href="$selfie">Фото селфи</a>');
+    }
+    
+    sb.writeln();
+    sb.writeln('Используйте панель: /approve_$reviewDocId или /reject_$reviewDocId');
+
     await _sendWithKeyboard(
       _adminChatId,
-      text,
+      sb.toString(),
       keyboard: [
         [
           {'text': '✅ Одобрить', 'callback_data': 'approve|$reviewDocId|$driverChatId'},
@@ -105,11 +126,11 @@ class TelegramBotService {
     String? reason,
   }) async {
     final text = isApproved
-        ? '🎉 *Поздравляем! Верификация пройдена!*\n\n'
+        ? '🎉 <b>Поздравляем! Верификация пройдена!</b>\n\n'
             'Ваши документы проверены и одобрены.\n'
-            'Теперь вы можете принимать заказы в *IQ-Market Taxi*.\n'
+            'Теперь вы можете принимать заказы в <b>IQ-Market Taxi</b>.\n'
             '🚀 Удачных поездок!'
-        : '❌ *Верификация отклонена*\n\n'
+        : '❌ <b>Верификация отклонена</b>\n\n'
             '${reason ?? "Документы не соответствуют требованиям."}\n\n'
             'Пожалуйста, загрузите чёткие фотографии и повторите попытку.';
     await _send(driverChatId, text);
@@ -130,6 +151,7 @@ class TelegramBotService {
         body: jsonEncode({
           'chatId': chatId,
           'text': text,
+          'parse_mode': 'HTML',
         }),
       );
       return r.statusCode == 200;
@@ -156,25 +178,10 @@ class TelegramBotService {
         body: jsonEncode({
           'chatId': chatId,
           'text': text,
+          'parse_mode': 'HTML',
           'reply_markup': {'inline_keyboard': keyboard},
         }),
       );
     } catch (_) {}
-  }
-
-  // ─── SOS EMERGENCY ALERT ─────────────────────────────────────────────────────
-  static Future<void> sendSosAlert({
-    required String userName,
-    required String userPhone,
-    required String role,
-  }) async {
-    if (_adminChatId.isEmpty || _adminChatId == '5555555555') return;
-    final text = '🚨 *СИГНАЛ SOS! ЭКСТРЕННАЯ СИТУАЦИЯ!*\n\n'
-        '👤 Пользователь: *$userName*\n'
-        '📞 Телефон: `$userPhone`\n'
-        '💼 Роль в поездке: *$role*\n'
-        '⚠️ Пользователь нажал кнопку SOS в приложении IQ Market Taxi!\n'
-        'Пожалуйста, свяжитесь с ним незамедлительно или вызовите службы экстренной помощи.';
-    await _send(_adminChatId, text);
   }
 }

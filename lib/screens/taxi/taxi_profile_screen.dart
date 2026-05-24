@@ -31,7 +31,23 @@ class _TaxiProfileScreenState extends State<TaxiProfileScreen> {
     final provider = Provider.of<TaxiProvider>(context, listen: false);
     _fnC = TextEditingController(text: provider.firstName);
     _lnC = TextEditingController(text: provider.lastName);
-    _phC = TextEditingController(text: provider.phone);
+    
+    // Sanitize phone on startup: replace 8 with 7, add +7 if missing, and format with mask
+    String rawPhone = provider.phone;
+    String formattedPhone = rawPhone;
+    if (rawPhone.isNotEmpty) {
+      String digits = rawPhone.replaceAll(RegExp(r'\D'), '');
+      if (digits.startsWith('8') && digits.length == 11) {
+        digits = '7' + digits.substring(1);
+      }
+      if (digits.length == 10) {
+        digits = '7' + digits;
+      }
+      if (digits.startsWith('7')) {
+        formattedPhone = _phoneMask.maskText(digits);
+      }
+    }
+    _phC = TextEditingController(text: formattedPhone);
   }
 
   @override

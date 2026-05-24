@@ -21,8 +21,8 @@ class TaxiOrderCard extends StatelessWidget {
   final String passengerId;
   final VoidCallback onShowProfile;
   final VoidCallback onNegotiate;
-  final VoidCallback onDecline;
-  final VoidCallback onAccept;
+  final VoidCallback onCall;
+  final VoidCallback onChat;
 
   const TaxiOrderCard({
     super.key,
@@ -41,8 +41,8 @@ class TaxiOrderCard extends StatelessWidget {
     required this.passengerId,
     required this.onShowProfile,
     required this.onNegotiate,
-    required this.onDecline,
-    required this.onAccept,
+    required this.onCall,
+    required this.onChat,
   });
 
   @override
@@ -224,19 +224,19 @@ class TaxiOrderCard extends StatelessWidget {
         child: Row(
           children: [
             Expanded(
-              flex: 3,
-              child: _stripBtn(provider.translate('bargain'), LineIcons.coins, Colors.orange, onNegotiate),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              flex: 3,
-              child: _stripBtn(provider.translate('decline'), LineIcons.times, t.error, onDecline),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
               flex: 4,
-              child: _stripBtn(provider.translate('accept'), LineIcons.check, Colors.green, onAccept,
+              child: _stripBtn(provider.translate('bargain'), LineIcons.coins, Colors.orange, onNegotiate,
                   isFilled: true),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              flex: 3,
+              child: _stripBtn(provider.translate('call_short'), LineIcons.phone, Colors.green, onCall),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              flex: 3,
+              child: _stripBtn(provider.translate('chat_short'), LineIcons.comment, const Color(0xFF3B82F6), onChat),
             ),
           ],
         ),
@@ -276,4 +276,3 @@ class TaxiOrderCard extends StatelessWidget {
       ),
     );
 }
-

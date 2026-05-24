@@ -6,17 +6,21 @@ import 'package:screen_protector/screen_protector.dart';
 import 'package:iqmarket/theme/taxi_theme.dart';
 import 'package:iqmarket/screens/chat_screen.dart';
 import 'package:iqmarket/models/ad_model.dart';
+import 'package:iqmarket/screens/taxi/driver_verification_screen.dart';
+
 
 class TaxiProfileViewScreen extends StatefulWidget {
   final Map<String, dynamic> user;
   final bool isDriver;
   final TaxiTheme theme;
+  final bool isCurrentUserVerified;
 
   const TaxiProfileViewScreen({
     super.key, 
     required this.user, 
     required this.isDriver,
     required this.theme,
+    this.isCurrentUserVerified = true,
   });
 
   @override
@@ -354,6 +358,35 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
     ),
   );
 
+  void _showGatedDialog(BuildContext context, TaxiTheme t) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: t.bg,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+        title: Text('ДЕЙСТВИЕ ЗАБЛОКИРОВАНО', style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: t.text)),
+        content: Text(
+          'Связь с пассажирами доступна только для верифицированных водителей. Пройдите верификацию в профиле.', 
+          style: GoogleFonts.inter(color: t.sub)
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('ЗАКРЫТЬ', style: GoogleFonts.inter(color: t.sub, fontWeight: FontWeight.bold)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.pop(context);
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const DriverVerificationScreen()));
+            },
+            child: Text('ПРОЙТИ ВЕРИФИКАЦИЮ', style: GoogleFonts.inter(color: t.accent, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _bottomActions(BuildContext context, TaxiTheme t, Map<String, dynamic> u) => Container(
     padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
     decoration: BoxDecoration(
@@ -369,7 +402,12 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
             LineIcons.comment, 
             t.card, 
             t.accent,
-            () => Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(ad: AdModel(
+            () {
+              if (!widget.isDriver && !widget.isCurrentUserVerified) {
+                _showGatedDialog(context, t);
+                return;
+              }
+              Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(ad: AdModel(
                 id: 'taxi_user_${u['name']}_${DateTime.now().millisecondsSinceEpoch}',
                 title: 'Taxi Trip',
                 description: 'User profile chat',
@@ -381,7 +419,8 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
                 userEmail: '',
                 timestamp: DateTime.now(),
                 location: '',
-              ))))
+              ))));
+            }
           ),
         ),
         const SizedBox(width: 16),
@@ -393,6 +432,10 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
             t.accent, 
             Colors.white,
             () async {
+              if (!widget.isDriver && !widget.isCurrentUserVerified) {
+                _showGatedDialog(context, t);
+                return;
+              }
               final url = Uri.parse('tel:${u['phone'] ?? '87001234567'}');
               if (await canLaunchUrl(url)) await launchUrl(url);
             }

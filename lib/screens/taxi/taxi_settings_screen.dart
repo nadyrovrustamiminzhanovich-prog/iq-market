@@ -33,16 +33,11 @@ class TaxiSettingsScreen extends StatelessWidget {
           const SizedBox(height: 24),
           _sectionHeader(t, 'Приложение'),
           _tile(t, Icons.notifications_none, taxiProvider.translate('notif'), _notif(taxiProvider)),
-          _tile(t, Icons.dark_mode_outlined, taxiProvider.translate('theme'), _themeS(taxiProvider)),
           const Divider(height: 32),
           _sectionHeader(t, 'Язык / Тіл'),
           _l(t, 'Русский', 'ru', taxiProvider),
           _l(t, 'Қазақша', 'kz', taxiProvider),
           _l(t, 'Уйғурчә', 'uyg', taxiProvider),
-          if (taxiProvider.isLoggedIn) ...[
-            const SizedBox(height: 32),
-            _logoutBtn(taxiProvider, t),
-          ]
         ],
       ),
     );
@@ -92,19 +87,6 @@ class TaxiSettingsScreen extends StatelessWidget {
     );
   }
 
-  Widget _logoutBtn(TaxiProvider p, dynamic t) => SizedBox(
-    width: double.infinity,
-    child: TextButton.icon(
-      onPressed: () => p.setLoginStatus(false),
-      icon: const Icon(Icons.logout_rounded, color: Colors.redAccent, size: 18),
-      label: Text('ВЫЙТИ ИЗ АККАУНТА', style: GoogleFonts.inter(color: Colors.redAccent, fontWeight: FontWeight.w800, fontSize: 12)),
-      style: TextButton.styleFrom(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: Colors.redAccent, width: 0.5)),
-      ),
-    ),
-  );
-
   Widget _tile(dynamic t, IconData i, String title, Widget a) => ListTile(
     leading: Icon(i, color: t.lime),
     title: Text(title, style: GoogleFonts.inter(color: t.text)),
@@ -113,16 +95,9 @@ class TaxiSettingsScreen extends StatelessWidget {
 
   Widget _notif(TaxiProvider provider) => Switch(
     value: provider.notifEnabled,
-    activeThumbColor: provider.theme.lime,
+    activeColor: provider.theme.lime,
     activeTrackColor: provider.theme.lime.withValues(alpha: 0.5),
     onChanged: (v) => provider.setNotifEnabled(v),
-  );
-
-  Widget _themeS(TaxiProvider provider) => Switch(
-    value: provider.isDarkGlobal,
-    activeThumbColor: provider.theme.accent,
-    activeTrackColor: provider.theme.accent.withValues(alpha: 0.5),
-    onChanged: (v) => provider.toggleTheme(),
   );
 
   Widget _l(dynamic t, String l, String c, TaxiProvider provider) => ListTile(

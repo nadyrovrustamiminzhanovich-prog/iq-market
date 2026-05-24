@@ -10,6 +10,8 @@ import 'package:iqmarket/services/telegram_bot_service.dart';
 import 'package:iqmarket/theme/taxi_theme.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:iqmarket/services/file_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class DriverVerificationScreen extends StatefulWidget {
   const DriverVerificationScreen({super.key});
@@ -129,52 +131,109 @@ class _DriverVerificationScreenState extends State<DriverVerificationScreen>
     }
   }
 
-  // ── AI analysis ──────────────────────────────────────────────────────────────
   Future<void> _runAnalysis() async {
-    setState(() { _analyzing = true; _aiMsg = 'Загружаем документы...'; });
-    await _delay(900);
-    setState(() => _aiMsg = 'Читаем текст на удостоверении...');
-    await _delay(1100);
-    setState(() => _aiMsg = 'Сверяем госномер с техпаспортом...');
-    await _delay(1300);
-    setState(() => _aiMsg = 'Финальная проверка...');
-    await _delay(800);
-
-    // Simulate: ~30% chance of needing manual review
-    _needsManual = Random().nextInt(10) < 3;
-
     final provider = Provider.of<TaxiProvider>(context, listen: false);
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? 'unknown';
     final prefs = await SharedPreferences.getInstance();
     final chatId = prefs.getString('telegram_chat_id') ?? '';
     final docId = '${provider.firstName}_${_plateC.text.trim()}_${DateTime.now().millisecondsSinceEpoch}';
 
-    // Write verification request to Firestore
-    await FirebaseFirestore.instance.collection('driver_verifications').doc(docId).set({
-      'driver_name'    : '${provider.firstName} ${provider.lastName}',
-      'plate'          : _plateC.text.trim().toUpperCase(),
-      'car'            : _carC.text.trim(),
-      'driver_chat_id' : chatId,
-      'status'         : _needsManual ? 'pending_manual' : 'approved',
-      'ai_quality'     : _needsManual ? 'low' : 'high',
-      'submitted_at'   : FieldValue.serverTimestamp(),
-    });
+    try {
+      // 1. Оптимизация и сжатие картинок на лету (режим Х10)
+      setState(() { _analyzing = true; _aiMsg = 'Сжимаем и оптимизируем фотографии...'; });
+      final compLicF = await FileService.compressImage(_licF!);
+      final compLicB = await FileService.compressImage(_licB!);
+      final compTechF = await FileService.compressImage(_techF!);
+      final compTechB = await FileService.compressImage(_techB!);
+      final compSelfie = await FileService.compressImage(_selfie!);
 
-    if (_needsManual) {
-      setState(() => _aiMsg = _t('ai_manual_msg'));
-      await TelegramBotService.notifyAdminManualReview(
-        driverName   : '${provider.firstName} ${provider.lastName}',
-        plate        : _plateC.text.trim().toUpperCase(),
-        carModel     : _carC.text.trim(),
-        driverChatId : chatId,
-        reviewDocId  : docId,
-        reason       : 'Низкое качество фото (автоматический вывод ИИ)',
-      );
-    } else {
-      provider.setVehicleVerified(true);
+      // 2. Загрузка документов в облачное хранилище Firebase Storage
+      setState(() => _aiMsg = 'Загружаем документы в облако...');
+      final licFUrl = await FileService.uploadFile(compLicF ?? _licF!, 'driver_documents/$uid/license_front');
+      final licBUrl = await FileService.uploadFile(compLicB ?? _licB!, 'driver_documents/$uid/license_back');
+      final techFUrl = await FileService.uploadFile(compTechF ?? _techF!, 'driver_documents/$uid/tech_front');
+      final techBUrl = await FileService.uploadFile(compTechB ?? _techB!, 'driver_documents/$uid/tech_back');
+      final selfieUrl = await FileService.uploadFile(compSelfie ?? _selfie!, 'driver_documents/$uid/selfie');
+
+      if (licFUrl == null || licBUrl == null || techFUrl == null || techBUrl == null || selfieUrl == null) {
+        throw Exception('Не удалось загрузить один из файлов. Проверьте подключение к интернету.');
+      }
+
+      setState(() => _aiMsg = 'ИИ анализирует текст на удостоверении...');
+      await _delay(900);
+      setState(() => _aiMsg = 'ИИ сверяет госномер с техпаспортом...');
+      await _delay(1100);
+      setState(() => _aiMsg = 'Финальная проверка...');
+      await _delay(800);
+
+      // ИИ симуляция: 85% авто-одобрение, 15% ручная проверка
+      _needsManual = Random().nextInt(100) < 15;
+
+      // 3. Сохранение заявки с ссылками на фото в Firestore
+      await FirebaseFirestore.instance.collection('driver_verifications').doc(docId).set({
+        'driver_name'    : '${provider.firstName} ${provider.lastName}',
+        'plate'          : _plateC.text.trim().toUpperCase(),
+        'car'            : _carC.text.trim(),
+        'driver_chat_id' : chatId,
+        'status'         : _needsManual ? 'pending_manual' : 'approved_by_ai',
+        'ai_quality'     : _needsManual ? 'low' : 'high',
+        'submitted_at'   : FieldValue.serverTimestamp(),
+        'licF'           : licFUrl,
+        'licB'           : licBUrl,
+        'techF'          : techFUrl,
+        'techB'          : techBUrl,
+        'selfie'         : selfieUrl,
+      });
+
+      // 4. Отправка отчета со всеми фото админу в Телеграм
+      if (_needsManual) {
+        setState(() => _aiMsg = _t('ai_manual_msg'));
+        await TelegramBotService.notifyAdminManualReview(
+          driverName   : '${provider.firstName} ${provider.lastName}',
+          plate        : _plateC.text.trim().toUpperCase(),
+          carModel     : _carC.text.trim(),
+          driverChatId : chatId,
+          reviewDocId  : docId,
+          reason       : '🤖 ИИ отправил на проверку (низкое качество фото)',
+          licF         : licFUrl,
+          licB         : licBUrl,
+          techF        : techFUrl,
+          techB        : techBUrl,
+          selfie       : selfieUrl,
+        );
+      } else {
+        provider.setVehicleVerified(true);
+        await TelegramBotService.notifyAdminManualReview(
+          driverName   : '${provider.firstName} ${provider.lastName}',
+          plate        : _plateC.text.trim().toUpperCase(),
+          carModel     : _carC.text.trim(),
+          driverChatId : chatId,
+          reviewDocId  : docId,
+          reason       : '🤖 ИИ автоматически ОДОБРИЛ. Вы можете отозвать доступ кнопкой ниже.',
+          licF         : licFUrl,
+          licB         : licBUrl,
+          techF        : techFUrl,
+          techB        : techBUrl,
+          selfie       : selfieUrl,
+        );
+      }
+
+      await _delay(600);
+      setState(() { _analyzing = false; _done = true; });
+    } catch (e) {
+      debugPrint('Error in _runAnalysis: $e');
+      setState(() { _analyzing = false; });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Ошибка верификации: ${e.toString()} ⚠️'),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+          ),
+        );
+      }
     }
-
-    await _delay(600);
-    setState(() { _analyzing = false; _done = true; });
   }
 
   Future<void> _delay(int ms) => Future.delayed(Duration(milliseconds: ms));
