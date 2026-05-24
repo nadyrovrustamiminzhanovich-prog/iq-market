@@ -383,16 +383,18 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          _t('operator_title'), 
-                          style: GoogleFonts.plusJakartaSans(
-                            fontWeight: FontWeight.w900, 
-                            fontSize: 17, 
-                            color: theme.colorScheme.onSurface,
+                        Expanded(
+                          child: Text(
+                            _t('operator_title'), 
+                            style: GoogleFonts.plusJakartaSans(
+                              fontWeight: FontWeight.w900, 
+                              fontSize: 16, 
+                              color: theme.colorScheme.onSurface,
+                            ),
                           ),
                         ),
+                        const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
@@ -452,7 +454,8 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
                     end: Alignment.bottomRight,
                   ),
                   const Color(0xFF075E54),
-                  'https://wa.me/77089007030?text=${Uri.encodeComponent(_t("wa_message"))}', 
+                  'whatsapp://send?phone=77089007030&text=${Uri.encodeComponent(_t("wa_message"))}', 
+                  'https://wa.me/77089007030?text=${Uri.encodeComponent(_t("wa_message"))}',
                   PhosphorIcons.whatsappLogo(PhosphorIconsStyle.fill)
                 ),
               ),
@@ -466,7 +469,8 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
                     end: Alignment.bottomRight,
                   ),
                   const Color(0xFF0088CC),
-                  'https://t.me/+77089007030', 
+                  'tg://resolve?phone=77089007030', 
+                  'https://t.me/+77089007030',
                   PhosphorIcons.telegramLogo(PhosphorIconsStyle.fill)
                 ),
               ),
@@ -530,9 +534,23 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
     );
   }
 
-  Widget _contactItem(String title, LinearGradient gradient, Color shadowColor, String url, IconData icon) {
+  Widget _contactItem(String title, LinearGradient gradient, Color shadowColor, String url, String fallbackUrl, IconData icon) {
     return GestureDetector(
-      onTap: () async => await canLaunchUrl(Uri.parse(url)) ? await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication) : null,
+      onTap: () async {
+        try {
+          final primaryUri = Uri.parse(url);
+          if (await canLaunchUrl(primaryUri)) {
+            await launchUrl(primaryUri, mode: LaunchMode.externalApplication);
+          } else {
+            final fallbackUri = Uri.parse(fallbackUrl);
+            if (await canLaunchUrl(fallbackUri)) {
+              await launchUrl(fallbackUri, mode: LaunchMode.externalApplication);
+            }
+          }
+        } catch (e) {
+          debugPrint('Error launching support messenger: $e');
+        }
+      },
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
