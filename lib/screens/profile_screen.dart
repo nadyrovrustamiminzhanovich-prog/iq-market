@@ -7,7 +7,6 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:iqmarket/services/storage_service.dart';
 import 'package:iqmarket/services/user_service.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:iqmarket/screens/my_ads_screen.dart';
 import 'package:iqmarket/screens/profile_settings_screen.dart';
@@ -19,10 +18,8 @@ import 'package:iqmarket/screens/login_screen.dart';
 import 'package:iqmarket/screens/legal_info_screen.dart';
 import 'package:screen_protector/screen_protector.dart';
 import 'dart:async';
-import 'package:iqmarket/screens/chats_list_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:iqmarket/screens/admin/admin_panel_screen.dart';
-import 'package:iqmarket/widgets/profile/profile_components.dart';
 import 'package:iqmarket/translations/profile_strings.dart';
 import 'package:iqmarket/services/auth_service.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
@@ -30,7 +27,6 @@ import 'package:iqmarket/models/user_model.dart';
 import 'package:iqmarket/constants/app_constants.dart';
 import 'package:iqmarket/models/review_model.dart';
 import 'package:iqmarket/services/review_service.dart';
-import 'package:intl/intl.dart';
 
 class ProfileScreen extends StatefulWidget {
   final List<AdModel> allAds;
@@ -138,7 +134,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Color get _txtColor => widget.themes[_currentTheme]?['text'] ?? (_isDark ? Colors.white : const Color(0xFF1A1D1E));
   Color get _subtxtColor => widget.themes[_currentTheme]?['subtext'] ?? (_isDark ? Colors.white60 : const Color(0xFF64748B));
   Color get _primaryColor => widget.themes[_currentTheme]?['primary'] ?? const Color(0xFF4A80F0);
-  Color get _accentColor => const Color(0xFF4C4DDC);
 
   @override
   void initState() {

@@ -25,9 +25,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:iqmarket/screens/post_ad_screen.dart';
 import 'package:iqmarket/services/ai_limit_service.dart';
-import 'package:iqmarket/services/gemini_service.dart';
 import 'package:iqmarket/services/chat_service.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:iqmarket/widgets/auth_gate_bottom_sheet.dart';
 
 
@@ -59,7 +57,6 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   bool _isVideoPlaying = false;
   UserModel? _seller;
   UserModel? _currentUser;
-  bool _isLoadingSeller = true;
   AdModel? _updatedAd;
 
 
@@ -92,10 +89,8 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       setState(() {
         _seller = seller;
         _currentUser = current;
-        _isLoadingSeller = false;
       });
     }
-
   }
 
   Future<void> _refreshAd() async {
