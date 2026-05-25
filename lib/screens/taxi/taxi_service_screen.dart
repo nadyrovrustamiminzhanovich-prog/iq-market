@@ -52,6 +52,9 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
     filter: {"#": RegExp(r'[0-9]')},
     type: MaskAutoCompletionType.lazy,
   );
+  final TextEditingController _priceController = TextEditingController();
+  final TextEditingController _activeOrderPriceController = TextEditingController();
+  final FocusNode _activeOrderPriceFocusNode = FocusNode();
 
   bool _showFromError = false;
   bool _showToError = false;
@@ -71,12 +74,19 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
       if (_mainPhoneController.text.isEmpty && initialPhone.isNotEmpty) {
         _mainPhoneController.text = initialPhone;
       }
+      final initialPrice = provider.maxPrice > 0 ? provider.maxPrice.toString() : "";
+      if (_priceController.text.isEmpty && initialPrice.isNotEmpty) {
+        _priceController.text = initialPrice;
+      }
     });
   }
 
   @override
   void dispose() {
     _mainPhoneController.dispose();
+    _priceController.dispose();
+    _activeOrderPriceController.dispose();
+    _activeOrderPriceFocusNode.dispose();
     super.dispose();
   }
 
@@ -1547,73 +1557,232 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
 
           const SizedBox(height: 12),
           
-          // Current price & Raise price options
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(28),
-              border: Border.all(color: const Color(0xFFF1F5F9)),
-              boxShadow: [
-                BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 15, offset: const Offset(0, 5))
-              ],
-            ),
-            child: Column(
-              children: [
-                Text(
-                  'Ваше предложение:',
-                  style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF64748B), fontWeight: FontWeight.w500),
+          StatefulBuilder(
+            builder: (ctx, ss) {
+              if (!_activeOrderPriceFocusNode.hasFocus) {
+                final currentText = _activeOrderPriceController.text;
+                if (currentText.isEmpty || int.tryParse(currentText) != currentPrice) {
+                  _activeOrderPriceController.text = currentPrice.toString();
+                }
+              }
+              int typedPrice = int.tryParse(_activeOrderPriceController.text.replaceAll(RegExp(r'\D'), '')) ?? currentPrice;
+
+              return Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(28),
+                  border: Border.all(color: const Color(0xFFF1F5F9)),
+                  boxShadow: [
+                    BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 15, offset: const Offset(0, 5))
+                  ],
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  '$currentPrice ₸',
-                  style: GoogleFonts.inter(fontSize: 28, fontWeight: FontWeight.w900, color: const Color(0xFF1E293B)),
-                ),
-                const SizedBox(height: 16),
-                Row(
+                child: Column(
                   children: [
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () {
-                          HapticFeedback.mediumImpact();
-                          provider.updateOrderPrice(orderId, currentPrice + 200);
-                          NotificationService.notify(context, 'Цена повышена', 'Вы подняли цену до ${currentPrice + 200} ₸', isSuccess: true);
-                        },
-                        child: Container(
-                          height: 48,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF4A80F0).withValues(alpha: 0.08),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: const Color(0xFF4A80F0).withValues(alpha: 0.1)),
+                    Text(
+                      'Текущая стоимость вашей поездки:',
+                      style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B), fontWeight: FontWeight.w500),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '$currentPrice ₸',
+                      style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w900, color: const Color(0xFF1E293B)),
+                    ),
+                    const SizedBox(height: 12),
+                    const Divider(color: Color(0xFFF1F5F9)),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Предложить новую стоимость поездки:',
+                      style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B), fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        GestureDetector(
+                          onTap: () {
+                            HapticFeedback.lightImpact();
+                            if (typedPrice > currentPrice + 100) {
+                              ss(() {
+                                typedPrice -= 100;
+                                _activeOrderPriceController.text = typedPrice.toString();
+                              });
+                            } else if (typedPrice > currentPrice) {
+                              ss(() {
+                                typedPrice = currentPrice;
+                                _activeOrderPriceController.text = typedPrice.toString();
+                              });
+                            }
+                          },
+                          child: _circleBtn(t, Icons.remove),
+                        ),
+                        const SizedBox(width: 15),
+                        Container(
+                          width: 130,
+                          alignment: Alignment.center,
+                          child: TextField(
+                            controller: _activeOrderPriceController,
+                            focusNode: _activeOrderPriceFocusNode,
+                            keyboardType: TextInputType.number,
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w900, color: t.text),
+                            decoration: InputDecoration(
+                              suffixText: ' ₸',
+                              suffixStyle: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold, color: t.text),
+                              border: InputBorder.none,
+                            ),
+                            onChanged: (val) {
+                              final valClean = val.replaceAll(RegExp(r'\D'), '');
+                              ss(() {
+                                if (valClean.isNotEmpty) {
+                                  typedPrice = int.tryParse(valClean) ?? currentPrice;
+                                } else {
+                                  typedPrice = currentPrice;
+                                }
+                              });
+                            },
                           ),
-                          child: Center(
-                            child: Text(
-                              '+200 ₸',
-                              style: GoogleFonts.inter(color: const Color(0xFF4A80F0), fontWeight: FontWeight.w800, fontSize: 13),
+                        ),
+                        const SizedBox(width: 15),
+                        GestureDetector(
+                          onTap: () {
+                            HapticFeedback.lightImpact();
+                            ss(() {
+                              if (typedPrice < currentPrice) {
+                                typedPrice = currentPrice + 100;
+                              } else {
+                                typedPrice += 100;
+                              }
+                              _activeOrderPriceController.text = typedPrice.toString();
+                            });
+                          },
+                          child: _circleBtn(t, Icons.add),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              HapticFeedback.mediumImpact();
+                              ss(() {
+                                typedPrice = currentPrice + 100;
+                                _activeOrderPriceController.text = typedPrice.toString();
+                              });
+                            },
+                            child: Container(
+                              height: 38,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF4A80F0).withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: const Color(0xFF4A80F0).withValues(alpha: 0.1)),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  '+100 ₸',
+                                  style: GoogleFonts.inter(color: const Color(0xFF4A80F0), fontWeight: FontWeight.w800, fontSize: 11),
+                                ),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () {
-                          HapticFeedback.mediumImpact();
-                          provider.updateOrderPrice(orderId, currentPrice + 500);
-                          NotificationService.notify(context, 'Цена повышена', 'Вы подняли цену до ${currentPrice + 500} ₸', isSuccess: true);
-                        },
-                        child: Container(
-                          height: 48,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF4A80F0).withValues(alpha: 0.08),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: const Color(0xFF4A80F0).withValues(alpha: 0.1)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              HapticFeedback.mediumImpact();
+                              ss(() {
+                                typedPrice = currentPrice + 200;
+                                _activeOrderPriceController.text = typedPrice.toString();
+                              });
+                            },
+                            child: Container(
+                              height: 38,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF4A80F0).withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: const Color(0xFF4A80F0).withValues(alpha: 0.1)),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  '+200 ₸',
+                                  style: GoogleFonts.inter(color: const Color(0xFF4A80F0), fontWeight: FontWeight.w800, fontSize: 11),
+                                ),
+                              ),
+                            ),
                           ),
-                          child: Center(
-                            child: Text(
-                              '+500 ₸',
-                              style: GoogleFonts.inter(color: const Color(0xFF4A80F0), fontWeight: FontWeight.w800, fontSize: 13),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              HapticFeedback.mediumImpact();
+                              ss(() {
+                                typedPrice = currentPrice + 500;
+                                _activeOrderPriceController.text = typedPrice.toString();
+                              });
+                            },
+                            child: Container(
+                              height: 38,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF4A80F0).withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: const Color(0xFF4A80F0).withValues(alpha: 0.1)),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  '+500 ₸',
+                                  style: GoogleFonts.inter(color: const Color(0xFF4A80F0), fontWeight: FontWeight.w800, fontSize: 11),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    GestureDetector(
+                      onTap: typedPrice <= currentPrice
+                          ? null
+                          : () async {
+                              _activeOrderPriceFocusNode.unfocus();
+                              HapticFeedback.heavyImpact();
+                              await provider.updateOrderPrice(orderId, typedPrice);
+                              NotificationService.notify(context, 'Цена повышена', 'Вы подняли цену до $typedPrice ₸', isSuccess: true);
+                            },
+                      child: Container(
+                        width: double.infinity,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          gradient: typedPrice <= currentPrice
+                              ? null
+                              : const LinearGradient(
+                                  colors: [Color(0xFF4A80F0), Color(0xFF1D4ED8)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                          color: typedPrice <= currentPrice ? const Color(0xFFE2E8F0) : null,
+                          borderRadius: BorderRadius.circular(14),
+                          boxShadow: typedPrice <= currentPrice
+                              ? null
+                              : [
+                                  BoxShadow(
+                                    color: const Color(0xFF4A80F0).withValues(alpha: 0.25),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 4),
+                                  )
+                                ],
+                        ),
+                        child: Center(
+                          child: Text(
+                            typedPrice <= currentPrice ? 'УКАЖИТЕ СУММУ БОЛЬШЕ ТЕКУЩЕЙ' : 'ПОВЫСИТЬ СТОИМОСТЬ ДО $typedPrice ₸',
+                            style: GoogleFonts.inter(
+                              color: typedPrice <= currentPrice ? const Color(0xFF94A3B8) : Colors.white,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 11,
+                              letterSpacing: 0.5,
                             ),
                           ),
                         ),
@@ -1621,8 +1790,8 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                     ),
                   ],
                 ),
-              ],
-            ),
+              );
+            },
           ),
           
           const SizedBox(height: 24),
@@ -3625,7 +3794,19 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
             ],
           ]),
           const SizedBox(height: 16),
-          _miniBtn(t, Icons.chat_bubble_outline_rounded, provider.comment.isEmpty ? 'Комментарий к заказу' : provider.comment, () => _showCommentDialog(provider, t), h: 54),
+          Row(
+            children: [
+              Expanded(
+                flex: 5,
+                child: _miniBtn(t, Icons.chat_bubble_outline_rounded, provider.comment.isEmpty ? 'Комментарий к заказу' : provider.comment, () => _showCommentDialog(provider, t), h: 54),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                flex: 4,
+                child: _priceInputField(t, provider),
+              ),
+            ],
+          ),
           const SizedBox(height: 16),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -3794,17 +3975,20 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
 
 
   Widget _priceInputField(TaxiTheme t, TaxiProvider provider) => Container(
-      height: 56,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      height: 54,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-          color: t.card2.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(18), border: Border.all(color: t.border)),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFFF1F5F9))),
       child: Row(children: [
-        Icon(LineIcons.coins, color: t.accent, size: 22),
-        const SizedBox(width: 12),
+        const Icon(Icons.monetization_on_rounded, color: Color(0xFF4A80F0), size: 18),
+        const SizedBox(width: 8),
         Expanded(
             child: TextField(
+                controller: _priceController,
                 keyboardType: TextInputType.number,
-                style: GoogleFonts.inter(color: t.text, fontWeight: FontWeight.w800, fontSize: 17),
+                style: GoogleFonts.inter(color: const Color(0xFF1E293B), fontWeight: FontWeight.w700, fontSize: 13.5),
                 onChanged: (v) {
                   final val = int.tryParse(v.replaceAll(RegExp(r'[^\d]'), '')) ?? 0;
                   provider.setMaxPrice(val);
@@ -3812,15 +3996,19 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                 decoration: InputDecoration(
                     border: InputBorder.none,
                     isDense: true,
-                    hintText: provider.maxPrice > 0 ? 'До ${provider.maxPrice} ₸' : 'Цена',
-                    hintStyle: GoogleFonts.inter(color: t.sub.withValues(alpha: 0.4), fontSize: 14, fontWeight: FontWeight.w500)))),
+                    hintText: 'Цена (₸)',
+                    hintStyle: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 12, fontWeight: FontWeight.w600)))),
         if (provider.maxPrice > 0)
           GestureDetector(
-            onTap: () => provider.setMaxPrice(0),
-            child: Icon(Icons.close_rounded, color: t.sub, size: 18),
+            onTap: () {
+              HapticFeedback.lightImpact();
+              provider.setMaxPrice(0);
+              _priceController.clear();
+            },
+            child: const Icon(Icons.close_rounded, color: Color(0xFF94A3B8), size: 16),
           )
         else
-          Text('₸', style: GoogleFonts.inter(color: t.accent, fontWeight: FontWeight.w900, fontSize: 20)),
+          Text('₸', style: GoogleFonts.inter(color: const Color(0xFF4A80F0), fontWeight: FontWeight.w900, fontSize: 16)),
       ]));
 
   Widget _actBtn(TaxiTheme t, String l, Color c, VoidCallback onTap) => SizedBox(
@@ -4037,6 +4225,8 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
     }
 
     int myPrice = d['price'];
+    final TextEditingController priceCtrl = TextEditingController(text: myPrice.toString());
+
     showModalBottomSheet(
         context: context,
         isScrollControlled: true,
@@ -4057,17 +4247,46 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                       GestureDetector(
                           onTap: () {
                             HapticFeedback.lightImpact();
-                            ss(() => myPrice -= 100);
+                            if (myPrice > 100) {
+                              ss(() {
+                                myPrice -= 100;
+                                priceCtrl.text = myPrice.toString();
+                              });
+                            }
                           },
                           child: _circleBtn(t, Icons.remove)),
-                      const SizedBox(width: 30),
-                      Text('$myPrice',
-                          style: GoogleFonts.inter(fontSize: 42, fontWeight: FontWeight.w900, color: t.text)),
-                      const SizedBox(width: 30),
+                      const SizedBox(width: 20),
+                      Container(
+                        width: 140,
+                        alignment: Alignment.center,
+                        child: TextField(
+                          controller: priceCtrl,
+                          keyboardType: TextInputType.number,
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.inter(fontSize: 32, fontWeight: FontWeight.w900, color: t.text),
+                          decoration: InputDecoration(
+                            suffixText: ' ₸',
+                            suffixStyle: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.bold, color: t.text),
+                            border: InputBorder.none,
+                          ),
+                          onChanged: (val) {
+                            final valClean = val.replaceAll(RegExp(r'\D'), '');
+                            if (valClean.isNotEmpty) {
+                              myPrice = int.tryParse(valClean) ?? 0;
+                            } else {
+                              myPrice = 0;
+                            }
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 20),
                       GestureDetector(
                           onTap: () {
                             HapticFeedback.lightImpact();
-                            ss(() => myPrice += 100);
+                            ss(() {
+                              myPrice += 100;
+                              priceCtrl.text = myPrice.toString();
+                            });
                           },
                           child: _circleBtn(t, Icons.add)),
 
@@ -4075,6 +4294,28 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                     const SizedBox(height: 40),
                     GestureDetector(
                       onTap: () async {
+                        if (myPrice < 100) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Row(
+                                children: [
+                                  const Icon(Icons.error_outline_rounded, color: Colors.white, size: 20),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      'Пожалуйста, укажите корректную стоимость поездки (минимум 100 ₸)! 💰',
+                                      style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 12, color: Colors.white),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              backgroundColor: const Color(0xFFEF4444),
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                            )
+                          );
+                          return;
+                        }
                         Navigator.pop(context);
                         final targetId = d['targetId'] ?? '';
                         final targetType = d['targetType'] ?? '';
@@ -4406,6 +4647,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
     int seats = provider.passCnt;
     String comment = provider.comment;
     final TextEditingController commentC = TextEditingController(text: comment);
+    final TextEditingController priceCtrl = TextEditingController(text: price.toString());
     bool isPublishing = false;
 
     showModalBottomSheet(
@@ -4476,22 +4718,47 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                   GestureDetector(
                     onTap: () {
                       HapticFeedback.lightImpact();
-                      if (price > 500) {
-                        ss(() => price -= 500);
+                      if (price > 100) {
+                        ss(() {
+                          price -= 100;
+                          priceCtrl.text = price.toString();
+                        });
                       }
                     },
                     child: _circleBtn(t, Icons.remove),
                   ),
-                  const SizedBox(width: 30),
-                  Text(
-                    '$price ₸',
-                    style: GoogleFonts.inter(fontSize: 32, fontWeight: FontWeight.w900, color: t.text),
+                  const SizedBox(width: 20),
+                  Container(
+                    width: 140,
+                    alignment: Alignment.center,
+                    child: TextField(
+                      controller: priceCtrl,
+                      keyboardType: TextInputType.number,
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.inter(fontSize: 28, fontWeight: FontWeight.w900, color: t.text),
+                      decoration: InputDecoration(
+                        suffixText: ' ₸',
+                        suffixStyle: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.bold, color: t.text),
+                        border: InputBorder.none,
+                      ),
+                      onChanged: (val) {
+                        final valClean = val.replaceAll(RegExp(r'\D'), '');
+                        if (valClean.isNotEmpty) {
+                          price = int.tryParse(valClean) ?? 0;
+                        } else {
+                          price = 0;
+                        }
+                      },
+                    ),
                   ),
-                  const SizedBox(width: 30),
+                  const SizedBox(width: 20),
                   GestureDetector(
                     onTap: () {
                       HapticFeedback.lightImpact();
-                      ss(() => price += 500);
+                      ss(() {
+                        price += 100;
+                        priceCtrl.text = price.toString();
+                      });
                     },
                     child: _circleBtn(t, Icons.add),
                   ),
@@ -4521,6 +4788,29 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                 : _actBtn(t, 'Опубликовать заказ', const Color(0xFF4A80F0), () async {
                     HapticFeedback.heavyImpact();
                     ss(() => isPublishing = true);
+                    if (price < 100) {
+                      ScaffoldMessenger.of(ctx).showSnackBar(
+                        SnackBar(
+                          content: Row(
+                            children: [
+                              const Icon(Icons.error_outline_rounded, color: Colors.white, size: 20),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  'Пожалуйста, укажите корректную стоимость поездки (минимум 100 ₸)! 💰',
+                                  style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 12, color: Colors.white),
+                                ),
+                              ),
+                            ],
+                          ),
+                          backgroundColor: const Color(0xFFEF4444),
+                          behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                        )
+                      );
+                      ss(() => isPublishing = false);
+                      return;
+                    }
                     final cleanPhone = provider.phone.replaceAll(RegExp(r'\D'), '');
                     if (cleanPhone.length < 11) {
                       ScaffoldMessenger.of(ctx).showSnackBar(
@@ -4590,6 +4880,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
     int price = provider.maxPrice > 0 ? provider.maxPrice : 3000;
     int seats = 4;
     final TextEditingController commentC = TextEditingController();
+    final TextEditingController priceCtrl = TextEditingController(text: price.toString());
     bool isPublishing = false;
 
     showModalBottomSheet(
@@ -4772,8 +5063,11 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                       GestureDetector(
                         onTap: () {
                           HapticFeedback.lightImpact();
-                          if (price > 500) {
-                            ss(() => price -= 500);
+                          if (price > 100) {
+                            ss(() {
+                              price -= 100;
+                              priceCtrl.text = price.toString();
+                            });
                           }
                         },
                         child: Container(
@@ -4786,14 +5080,36 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                           child: const Icon(Icons.remove, color: Color(0xFF1E293B), size: 20),
                         ),
                       ),
-                      Text(
-                        '$price ₸',
-                        style: GoogleFonts.inter(fontSize: 28, fontWeight: FontWeight.w900, color: t.text),
+                      Container(
+                        width: 140,
+                        alignment: Alignment.center,
+                        child: TextField(
+                          controller: priceCtrl,
+                          keyboardType: TextInputType.number,
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.inter(fontSize: 28, fontWeight: FontWeight.w900, color: t.text),
+                          decoration: InputDecoration(
+                            suffixText: ' ₸',
+                            suffixStyle: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.bold, color: t.text),
+                            border: InputBorder.none,
+                          ),
+                          onChanged: (val) {
+                            final valClean = val.replaceAll(RegExp(r'\D'), '');
+                            if (valClean.isNotEmpty) {
+                              price = int.tryParse(valClean) ?? 0;
+                            } else {
+                              price = 0;
+                            }
+                          },
+                        ),
                       ),
                       GestureDetector(
                         onTap: () {
                           HapticFeedback.lightImpact();
-                          ss(() => price += 500);
+                          ss(() {
+                            price += 100;
+                            priceCtrl.text = price.toString();
+                          });
                         },
                         child: Container(
                           padding: const EdgeInsets.all(12),
@@ -4843,6 +5159,29 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                       onTap: () async {
                         HapticFeedback.heavyImpact();
                         ss(() => isPublishing = true);
+                        if (price < 100) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Row(
+                                children: [
+                                  const Icon(Icons.error_outline_rounded, color: Colors.white, size: 20),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      'Пожалуйста, укажите корректную стоимость поездки (минимум 100 ₸)! 💰',
+                                      style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 12, color: Colors.white),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              backgroundColor: const Color(0xFFEF4444),
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                            )
+                          );
+                          ss(() => isPublishing = false);
+                          return;
+                        }
                         try {
                           await provider.createDriverRide(
                             from: provider.from,

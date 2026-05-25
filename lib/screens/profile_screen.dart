@@ -594,15 +594,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
     if (initialPhone.isNotEmpty) {
       final digits = initialPhone.replaceAll(RegExp(r'\D'), '');
-      if (digits.length >= 10) {
-        String cleanedDigits = digits;
-        if (digits.startsWith('8') && digits.length == 11) {
-          cleanedDigits = '7' + digits.substring(1);
-        } else if (digits.length == 10) {
-          cleanedDigits = '7' + digits;
-        }
-        _phoneCtrl.text = _phoneMask.maskText(cleanedDigits);
+      String localDigits = digits;
+      if (digits.length == 11 && (digits.startsWith('7') || digits.startsWith('8'))) {
+        localDigits = digits.substring(1);
+      } else if (digits.length > 11) {
+        localDigits = digits.substring(digits.length - 10);
       }
+      _phoneCtrl.text = _phoneMask.maskText(localDigits);
     } else {
       _phoneCtrl.clear();
     }

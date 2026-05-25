@@ -202,12 +202,11 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
                     icon: const Icon(Icons.update_rounded, size: 18, color: Colors.green),
                     label: Text(_t('extend'), style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
                   ),
-                if (ad.active && (ad.expiresAt == null || ad.expiresAt!.difference(DateTime.now()).inDays > 3))
-                  TextButton.icon(
-                    onPressed: () => _editAd(ad),
-                    icon: const Icon(Icons.edit_outlined, size: 18),
-                    label: const Text('Редакт.'),
-                  ),
+                TextButton.icon(
+                  onPressed: () => _editAd(ad),
+                  icon: const Icon(Icons.edit_outlined, size: 18),
+                  label: const Text('Редакт.'),
+                ),
                 if (ad.active && (ad.expiresAt == null || ad.expiresAt!.difference(DateTime.now()).inDays > 3))
                   TextButton.icon(
                     onPressed: () => AdService.toggleAdStatus(ad.id, !ad.active),

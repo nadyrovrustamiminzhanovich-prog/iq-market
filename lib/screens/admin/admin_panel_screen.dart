@@ -38,10 +38,12 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
         elevation: 0,
         title: Text('IQ УПРАВЛЕНИЕ', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: const Color(0xFF0F172A), letterSpacing: 1)),
         centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: Color(0xFF0F172A), size: 20),
-          onPressed: () => Navigator.pop(context),
-        ),
+      leading: Navigator.canPop(context)
+          ? IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new, color: Color(0xFF0F172A), size: 20),
+              onPressed: () => Navigator.pop(context),
+            )
+          : null,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),

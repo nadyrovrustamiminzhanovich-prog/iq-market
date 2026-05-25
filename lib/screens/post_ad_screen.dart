@@ -13,6 +13,7 @@ import 'package:iqmarket/screens/product_details_screen.dart';
 import 'package:iqmarket/screens/video_trimmer_screen.dart';
 import 'package:iqmarket/utils/formatters.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/services.dart';
@@ -43,6 +44,12 @@ class _PostAdScreenState extends State<PostAdScreen> {
   final _reAreaController = TextEditingController();
   final _carMileageController = TextEditingController();
   final _carEngineController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _phoneMask = MaskTextInputFormatter(
+    mask: '+7 (###) ###-##-##',
+    filter: {"#": RegExp(r'[0-9]')},
+    type: MaskAutoCompletionType.lazy,
+  );
 
   // --- State Variables ---
   String _selectedCategory = 'all'; // Usually ID or key
@@ -75,8 +82,38 @@ class _PostAdScreenState extends State<PostAdScreen> {
     _loadUserAndDraft();
   }
 
+  @override
+  void dispose() {
+    _phoneController.dispose();
+    _titleController.dispose();
+    _descriptionController.dispose();
+    _priceController.dispose();
+    _malWeightController.dispose();
+    _malBreedController.dispose();
+    _reAreaController.dispose();
+    _carMileageController.dispose();
+    _carEngineController.dispose();
+    super.dispose();
+  }
+
   void _loadUserAndDraft() async {
     _currentUser = await UserService.getUserById(FirebaseAuth.instance.currentUser?.uid ?? '');
+    
+    // 🔒 Pre-fill phone number from profile
+    if (_currentUser != null) {
+      final String profilePhone = _currentUser!.phone ?? '';
+      if (profilePhone.isNotEmpty) {
+        final digits = profilePhone.replaceAll(RegExp(r'\D'), '');
+        String localDigits = digits;
+        if (digits.length == 11 && (digits.startsWith('7') || digits.startsWith('8'))) {
+          localDigits = digits.substring(1);
+        } else if (digits.length > 11) {
+          localDigits = digits.substring(digits.length - 10);
+        }
+        _phoneController.text = _phoneMask.maskText(localDigits);
+      }
+    }
+
     if (widget.initialAd != null) {
       _fillFromAd(widget.initialAd!);
     } else {
@@ -94,6 +131,16 @@ class _PostAdScreenState extends State<PostAdScreen> {
     _bargainAvailable = ad.isBargainAllowed;
     _canExchange = ad.canExchange;
     _hasDelivery = ad.hasDelivery;
+    if (ad.userPhone != null && ad.userPhone!.isNotEmpty) {
+      final digits = ad.userPhone!.replaceAll(RegExp(r'\D'), '');
+      String localDigits = digits;
+      if (digits.length == 11 && (digits.startsWith('7') || digits.startsWith('8'))) {
+        localDigits = digits.substring(1);
+      } else if (digits.length > 11) {
+        localDigits = digits.substring(digits.length - 10);
+      }
+      _phoneController.text = _phoneMask.maskText(localDigits);
+    }
   }
 
   @override
@@ -139,7 +186,6 @@ class _PostAdScreenState extends State<PostAdScreen> {
                     onCategorySelected: (cat) => setState(() { _selectedCategory = cat; _selectedSubCategory = null; _saveDraft(); }),
                     onSubCategorySelected: (sub) => setState(() { _selectedSubCategory = sub; _saveDraft(); }),
                   ),
-                  const SizedBox(height: 30),
                   _buildCategorySpecs(),
                   const SizedBox(height: 30),
                   _buildFormFields(),
@@ -167,6 +213,8 @@ class _PostAdScreenState extends State<PostAdScreen> {
       PostAdInput(label: 'Цена (₸)', controller: _priceController, hint: '0', keyboardType: TextInputType.number, isRequired: true, inputFormatters: [PriceInputFormatter()], onChanged: (_) => _saveDraft()),
       const SizedBox(height: 20),
     ],
+    PostAdInput(label: 'Номер телефона для связи', controller: _phoneController, hint: '+7 (700) 000-00-00', keyboardType: TextInputType.phone, isRequired: true, inputFormatters: [_phoneMask], onChanged: (_) => _saveDraft()),
+    const SizedBox(height: 20),
     LocationSelector(
       selectedLocation: _selectedLocation, 
       displayCities: KazakhstanLocations.getAllLocations(),
@@ -177,21 +225,67 @@ class _PostAdScreenState extends State<PostAdScreen> {
   ]);
 
   Widget _buildCategorySpecs() {
-    if (_selectedCategory == 'Авто') return CarSpecsWidget(carBrand: _carBrand, carModel: _carModel, carYear: _carYear, carBody: _carBody, carTransmission: _carTransmission, carDrive: _carDrive, carFuel: _carFuel, carColor: _carColor, carMileageController: _carMileageController, carEngineController: _carEngineController, onSelect: (f, v) => setState(() {
-      if (f == 'carBrand') _carBrand = v; if (f == 'carModel') _carModel = v; if (f == 'carYear') _carYear = v;
-      if (f == 'carBody') _carBody = v; if (f == 'carTransmission') _carTransmission = v; if (f == 'carDrive') _carDrive = v;
-      if (f == 'carFuel') _carFuel = v; if (f == 'carColor') _carColor = v;
-      _saveDraft();
-    }));
-    if (_selectedCategory == 'Недвижимость') return RealEstateSpecsWidget(reRooms: _reRooms, reFloor: _reFloor, reAreaController: _reAreaController, onSelect: (f, v) => setState(() {
-      if (f == 'reRooms') _reRooms = v; if (f == 'reFloor') _reFloor = v;
-      _saveDraft();
-    }));
-    if (_selectedCategory == 'Малбазар') return LivestockSpecsWidget(malAge: _malAge, malWeightController: _malWeightController, malBreedController: _malBreedController, onSelect: (f, v) => setState(() {
-      if (f == 'malAge') _malAge = v;
-      _saveDraft();
-    }));
-    return const SizedBox.shrink();
+    Widget child = const SizedBox.shrink();
+    if (_selectedCategory == 'Авто') {
+      final vehicleSubs = ['cars', 'trucks', 'moto', 'special'];
+      if (_selectedSubCategory != null && vehicleSubs.contains(_selectedSubCategory)) {
+        child = CarSpecsWidget(
+          carBrand: _carBrand,
+          carModel: _carModel,
+          carYear: _carYear,
+          carBody: _carBody,
+          carTransmission: _carTransmission,
+          carDrive: _carDrive,
+          carFuel: _carFuel,
+          carColor: _carColor,
+          carMileageController: _carMileageController,
+          carEngineController: _carEngineController,
+          onSelect: (f, v) => setState(() {
+            if (f == 'carBrand') _carBrand = v;
+            if (f == 'carModel') _carModel = v;
+            if (f == 'carYear') _carYear = v;
+            if (f == 'carBody') _carBody = v;
+            if (f == 'carTransmission') _carTransmission = v;
+            if (f == 'carDrive') _carDrive = v;
+            if (f == 'carFuel') _carFuel = v;
+            if (f == 'carColor') _carColor = v;
+            _saveDraft();
+          }),
+        );
+      }
+    } else if (_selectedCategory == 'Недвижимость') {
+      child = RealEstateSpecsWidget(
+        reRooms: _reRooms,
+        reFloor: _reFloor,
+        reAreaController: _reAreaController,
+        onSelect: (f, v) => setState(() {
+          if (f == 'reRooms') _reRooms = v;
+          if (f == 'reFloor') _reFloor = v;
+          _saveDraft();
+        }),
+      );
+    } else if (_selectedCategory == 'Малбазар') {
+      child = LivestockSpecsWidget(
+        malAge: _malAge,
+        malWeightController: _malWeightController,
+        malBreedController: _malBreedController,
+        onSelect: (f, v) => setState(() {
+          if (f == 'malAge') _malAge = v;
+          _saveDraft();
+        }),
+      );
+    }
+
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+      child: child is SizedBox
+          ? child
+          : Padding(
+              padding: const EdgeInsets.only(top: 30),
+              child: child,
+            ),
+    );
   }
 
   Widget _buildConditionSelector() => Column(
@@ -301,6 +395,18 @@ class _PostAdScreenState extends State<PostAdScreen> {
       return;
     }
 
+    // 🔒 STRICT Validation: Phone number must be exactly 11 digits
+    final unformattedPhone = _phoneController.text.replaceAll(RegExp(r'\D'), '');
+    if (unformattedPhone.length != 11) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Пожалуйста, полностью заполните номер телефона! 📱'),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+        )
+      );
+      return;
+    }
 
     if (_selectedLocation.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Выберите город')));
@@ -324,6 +430,7 @@ class _PostAdScreenState extends State<PostAdScreen> {
         delivery: _hasDelivery,
         lang: widget.lang,
         initialAdId: widget.initialAd?.id,
+        userPhone: _phoneController.text,
         onStatusUpdate: (s) => setState(() => _uploadStatus = s),
         extraFields: {
           'subCategory': _selectedSubCategory,
@@ -401,6 +508,7 @@ class _PostAdScreenState extends State<PostAdScreen> {
       'title': _titleController.text,
       'desc': _descriptionController.text,
       'price': _priceController.text,
+      'phone': _phoneController.text,
       'cat': _selectedCategory,
       'loc': _selectedLocation,
       'cond': _condition,
@@ -423,6 +531,10 @@ class _PostAdScreenState extends State<PostAdScreen> {
         _selectedLocation = draft['loc'] ?? 'Чунджа';
         _condition = draft['cond'];
         
+        if (_phoneController.text.isEmpty && draft['phone'] != null && draft['phone'].toString().isNotEmpty) {
+          _phoneController.text = draft['phone'].toString();
+        }
+
         if (draft['images'] != null) {
           final List<dynamic> paths = draft['images'];
           for (var path in paths) {
@@ -454,6 +566,7 @@ class _PostAdScreenState extends State<PostAdScreen> {
       category: _selectedCategory, 
       images: _imageFiles.map((f)=>f.path).toList(),
       userId: 'u', userName: 'Вы', userEmail: '', timestamp: DateTime.now(), location: _selectedLocation,
+      userPhone: _phoneController.text,
     );
     Navigator.push(context, MaterialPageRoute(builder: (context) => ProductDetailsScreen(ad: ad, lang: widget.lang, onReport: (_){}, heroPrefix: 'p_')));
   }

@@ -94,7 +94,13 @@ class CategorySelector extends StatelessWidget {
                       children: selectedCat.subCategories!.map((sub) {
                         final isSelected = selectedSubCategoryId == sub.id;
                         return GestureDetector(
-                          onTap: () => onSubCategorySelected(sub.id),
+                          onTap: () {
+                            if (isSelected) {
+                              onSubCategorySelected(null);
+                            } else {
+                              onSubCategorySelected(sub.id);
+                            }
+                          },
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 200),
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

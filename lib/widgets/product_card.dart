@@ -144,6 +144,63 @@ class _ProductCardState extends State<ProductCard> with SingleTickerProviderStat
                             )),
                 ),
 
+                // Если объявление содержит видео, показываем кнопку плей по центру и бейдж "ВИДЕО" на первом слайде
+                if (ad.videoUrl != null && ad.videoUrl!.isNotEmpty && _currentPage == 0) ...[
+                  // Кнопка Play по центру
+                  Center(
+                    child: Container(
+                      width: 48, height: 48,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.45),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.9), width: 2),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.2),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          )
+                        ],
+                      ),
+                      child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 34),
+                    ),
+                  ),
+                  // Бейдж "ВИДЕО" в нижнем левом углу
+                  Positioned(
+                    bottom: 10, left: 10,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF6366F1), // Premium indigo theme color
+                        borderRadius: BorderRadius.circular(8),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF6366F1).withValues(alpha: 0.3),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          )
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.play_circle_fill_rounded, color: Colors.white, size: 12),
+                          const SizedBox(width: 4),
+                          Text(
+                            'ВИДЕО', 
+                            style: GoogleFonts.inter(
+                              color: Colors.white, 
+                              fontSize: 8, 
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.5,
+                            )
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+
                 // Градиент сверху для значков
                 Positioned(
                   top: 0, left: 0, right: 0,
@@ -178,7 +235,7 @@ class _ProductCardState extends State<ProductCard> with SingleTickerProviderStat
                 // Индикаторы страниц (точки)
                 if (hasMultiple)
                   Positioned(
-                    bottom: 10, left: 10,
+                    bottom: 10, right: 10,
                     child: Row(
                       children: List.generate(images.length, (index) => Container(
                         width: 5, height: 5,

@@ -129,11 +129,14 @@ class _VideoTrimmerScreenState extends State<VideoTrimmerScreen> {
     await _controller?.pause();
     
     try {
+      final bool isStartAtZero = _startTime.inSeconds == 0;
+      final bool isFullDuration = _selectedDuration.inSeconds >= _totalDuration.inSeconds - 1;
+
       final info = await VideoCompress.compressVideo(
         widget.videoFile.path,
         quality: VideoQuality.Res640x480Quality,
-        startTime: _startTime.inSeconds,
-        duration: _selectedDuration.inSeconds,
+        startTime: isStartAtZero ? null : _startTime.inSeconds,
+        duration: isFullDuration ? null : _selectedDuration.inSeconds,
         deleteOrigin: false,
       );
 

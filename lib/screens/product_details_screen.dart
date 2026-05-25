@@ -15,6 +15,7 @@ import 'package:iqmarket/models/user_model.dart';
 import 'package:iqmarket/models/review_model.dart';
 import 'package:iqmarket/services/user_service.dart';
 import 'package:iqmarket/services/review_service.dart';
+import 'package:iqmarket/services/ad_service.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:iqmarket/providers/app_config_provider.dart';
@@ -58,6 +59,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   UserModel? _seller;
   UserModel? _currentUser;
   bool _isLoadingSeller = true;
+  AdModel? _updatedAd;
 
 
   @override
@@ -93,6 +95,41 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       });
     }
 
+  }
+
+  Future<void> _refreshAd() async {
+    final freshAd = await AdService.getAdById(_updatedAd?.id ?? widget.ad.id);
+    if (freshAd != null && mounted) {
+      final oldVideoUrl = _updatedAd?.videoUrl ?? widget.ad.videoUrl;
+      if (freshAd.videoUrl != oldVideoUrl) {
+        if (_videoController != null) {
+          try {
+            await _videoController!.pause();
+          } catch (_) {}
+          try {
+            await _videoController!.dispose();
+          } catch (_) {}
+          _videoController = null;
+          _isVideoInitialized = false;
+          _isVideoPlaying = false;
+        }
+        if (freshAd.videoUrl != null && freshAd.videoUrl!.startsWith('http')) {
+          try {
+            _videoController = VideoPlayerController.networkUrl(Uri.parse(freshAd.videoUrl!))
+              ..initialize().then((_) {
+                if (!mounted) return;
+                setState(() { _isVideoInitialized = true; });
+                _videoController!.setLooping(true);
+              });
+          } catch (e) {
+            debugPrint('Video init error: $e');
+          }
+        }
+      }
+      setState(() {
+        _updatedAd = freshAd;
+      });
+    }
   }
 
   void _handleReport() {
@@ -254,11 +291,12 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final images = widget.ad.images;
-    final hasVideo = widget.ad.videoUrl != null && widget.ad.videoUrl!.startsWith('http');
+    final ad = _updatedAd ?? widget.ad;
+    final images = ad.images;
+    final hasVideo = ad.videoUrl != null && ad.videoUrl!.startsWith('http');
 
     final int itemCount = images.length + (hasVideo ? 1 : 0);
-    final isFree = widget.ad.price == 0.0 || widget.ad.category == 'Отдам даром';
+    final isFree = ad.price == 0.0 || ad.category == 'Отдам даром';
 
     return PopScope(
       canPop: true,
@@ -281,10 +319,13 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
               _circleButton(Icons.share_rounded, _shareAd),
               const SizedBox(width: 8),
               _favoriteButton(),
-              if (_currentUser?.accountType == 'admin' || widget.ad.userId == _currentUser?.uid) ...[
+              if (_currentUser?.accountType == 'admin' || ad.userId == _currentUser?.uid) ...[
 
                 const SizedBox(width: 8),
-                _circleButton(Icons.edit_outlined, () => Navigator.push(context, MaterialPageRoute(builder: (ctx) => PostAdScreen(lang: widget.lang, initialAd: widget.ad)))),
+                _circleButton(Icons.edit_outlined, () async {
+                  await Navigator.push(context, MaterialPageRoute(builder: (ctx) => PostAdScreen(lang: widget.lang, initialAd: ad)));
+                  await _refreshAd();
+                }),
                 const SizedBox(width: 8),
                 _circleButton(Icons.delete_outline_rounded, () => _handleDeleteAd()),
               ],

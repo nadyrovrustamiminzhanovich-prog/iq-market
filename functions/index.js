@@ -191,6 +191,16 @@ exports.telegramWebhook = functions.https.onRequest(async (req, res) => {
       if (snap.exists) {
         const sessionData = snap.data() || {};
         
+        // 🛡️ Bypass duplicate start resets!
+        if (sessionData.chat_id && sessionData.otp) {
+          await tgSend(chatId,
+            `👋 *${name}, ваш код подтверждения (повторный запрос):*\n\n`
+            + `🔐 Код: \`${sessionData.otp}\`\n\n`
+            + `_Введите этот код в приложении. Код действителен 5 минут._`
+          );
+          return res.sendStatus(200);
+        }
+
         if (sessionData.phone) {
           // X10 Secure Contact-Sharing flow!
           await ref.update({
@@ -220,7 +230,7 @@ exports.telegramWebhook = functions.https.onRequest(async (req, res) => {
             const uid = `telegram_${chatId}`;
             customToken = await admin.auth().createCustomToken(uid);
           } catch (tokenError) {
-            console.error("WARNING: Failed to generate custom token:", tokenError);
+            console.error("❌ ERROR: Failed to generate Firebase custom token. This usually happens if the service account lacks the 'Service Account Token Creator' role in GCP IAM. Please grant this role to the App Engine / Cloud Functions default service account in your Google Cloud Console.", tokenError);
           }
           
           await ref.update({

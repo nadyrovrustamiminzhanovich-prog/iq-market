@@ -111,7 +111,15 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
           if (data != null) {
             setState(() {
               if (data['phone'] != null && data['phone'].toString().isNotEmpty) {
-                _phoneController.text = data['phone'].toString();
+                final rawPhone = data['phone'].toString();
+                final digits = rawPhone.replaceAll(RegExp(r'\D'), '');
+                String localDigits = digits;
+                if (digits.length == 11 && (digits.startsWith('7') || digits.startsWith('8'))) {
+                  localDigits = digits.substring(1);
+                } else if (digits.length > 11) {
+                  localDigits = digits.substring(digits.length - 10);
+                }
+                _phoneController.text = _phoneMask.maskText(localDigits);
               }
               if (data['location'] != null && data['location'].toString().isNotEmpty) {
                 _cityController.text = data['location'].toString();

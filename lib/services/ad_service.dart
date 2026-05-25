@@ -35,6 +35,7 @@ class AdService {
     String? initialAdId,
     Function(String)? onStatusUpdate,
     required String lang,
+    required String userPhone,
   }) async {
     final user = _auth.currentUser;
     if (user == null) throw Exception('Пользователь не авторизован');
@@ -100,21 +101,48 @@ class AdService {
       }
     }
 
-    // 3. Загрузка видео со сжатием
+    // 3. Загрузка оптимизированного видео
     String? videoUrl;
     if (video != null) {
-      if (onStatusUpdate != null) onStatusUpdate('Оптимизация видео...');
-      final mediaInfo = await VideoCompress.compressVideo(
-        video.path, quality: VideoQuality.MediumQuality, deleteOrigin: false
-      );
-      final fileToUpload = (mediaInfo != null && mediaInfo.path != null) ? File(mediaInfo.path!) : video;
-      videoUrl = await FileService.uploadFile(fileToUpload, 'ads/videos');
+      if (onStatusUpdate != null) onStatusUpdate('Загрузка видео...');
+      videoUrl = await FileService.uploadFile(video, 'ads/videos');
+
+      // Если нет фотографий, сгенерируем обложку из видео
+      if (imageUrls.isEmpty) {
+        try {
+          if (onStatusUpdate != null) onStatusUpdate('Создание обложки из видео...');
+          final thumbnailFile = await VideoCompress.getFileThumbnail(
+            video.path,
+            quality: 75,
+            position: -1,
+          );
+          final thumbnailUrl = await FileService.uploadFile(thumbnailFile, 'ads/images');
+          if (thumbnailUrl != null) {
+            imageUrls.add(thumbnailUrl);
+            debugPrint('[AdService] Generated video thumbnail: $thumbnailUrl');
+          }
+        } catch (e) {
+          debugPrint('[AdService] Failed to generate video thumbnail: $e');
+        }
+      }
     }
 
     // 4. Подготовка данных
     final userData = await UserService.getUserById(user.uid);
     final isAdmin = userData?.accountType == 'admin';
     final isApproved = moderationVerdict == 'APPROVED' || isAdmin;
+
+    // 🔒 Auto-sync phone number to user profile in Firestore
+    if (userPhone.isNotEmpty) {
+      try {
+        final uid = user.uid;
+        final userDocRef = _db.collection('users').doc(uid);
+        await userDocRef.update({'phone': userPhone});
+        debugPrint('[AdService] Auto-synced phone to profile: $userPhone');
+      } catch (e) {
+        debugPrint('[AdService] Auto-sync phone to profile failed: $e');
+      }
+    }
 
     final adModel = AdModel(
       id: initialAdId ?? '',
@@ -127,7 +155,7 @@ class AdService {
       userId: user.uid,
       userName: user.displayName ?? 'Пользователь',
       userEmail: user.email ?? '',
-      userPhone: user.phoneNumber ?? '',
+      userPhone: userPhone,
       timestamp: DateTime.now(),
       location: location,
       condition: condition,
@@ -289,11 +317,17 @@ class AdService {
             .toList());
   }
 
-  /// Get current user ads
+  /// Get current user ads (Includes active, pending, and archived ads for proper tabs population)
   static Stream<List<AdModel>> getMyAdsStream() {
     final user = _auth.currentUser;
     if (user == null) return Stream.value([]);
-    return getAdsByUserStream(user.uid);
+    return _adsCollection
+        .orderBy('timestamp', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => AdModel.fromMap(doc.data() as Map<String, dynamic>, doc.id))
+            .where((ad) => ad.userId == user.uid)
+            .toList());
   }
 
   /// Update an existing ad
