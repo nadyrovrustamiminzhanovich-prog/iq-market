@@ -3776,7 +3776,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
           const SizedBox(height: 16),
           Row(children: [
             Expanded(child: _miniBtn(t, Icons.calendar_today_rounded, 
-              provider.selDate == 'today' ? 'Дата' : 
+              provider.selDate == 'today' ? 'Сегодня' : 
               provider.selDate == 'tomorrow' ? 'Завтра' : 
               provider.selDate == 'yesterday' ? 'Вчера' : 
               provider.selDate.isEmpty || provider.selDate == 'date' ? 'Дата' :
@@ -3788,24 +3788,89 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
               provider.selTime == 'time' ? provider.translate('time') : provider.selTime, 
               () => _pickTime(provider, t),
               hasError: _showTimeError)),
-            if (provider.tab == 0) ...[
-              const SizedBox(width: 8),
-              Expanded(child: _miniBtn(t, Icons.group_rounded, 'Место', () => _pickPass(provider, t))),
-            ],
           ]),
           const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                flex: 5,
-                child: _miniBtn(t, Icons.chat_bubble_outline_rounded, provider.comment.isEmpty ? 'Комментарий к заказу' : provider.comment, () => _showCommentDialog(provider, t), h: 54),
+          // ── Сумма заказа / желаемая цена (укажите сумму) ──
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            height: 64, // slightly taller
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: const Color(0xFFF1F5F9)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.monetization_on_rounded, color: Color(0xFF4A80F0), size: 20),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    controller: _priceController,
+                    keyboardType: TextInputType.number,
+                    style: GoogleFonts.inter(color: const Color(0xFF1E293B), fontWeight: FontWeight.w800, fontSize: 15),
+                    onChanged: (v) {
+                      final val = int.tryParse(v.replaceAll(RegExp(r'[^\d]'), '')) ?? 0;
+                      provider.setMaxPrice(val);
+                    },
+                    decoration: InputDecoration(
+                      border: InputBorder.none,
+                      hintText: 'Укажите желаемую сумму (₸)...',
+                      hintStyle: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
+                if (provider.maxPrice > 0)
+                  GestureDetector(
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      provider.setMaxPrice(0);
+                      _priceController.clear();
+                    },
+                    child: const Icon(Icons.close_rounded, color: Color(0xFF94A3B8), size: 18),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // ── Детали заказа (Комментарий к заказу, размер, ширина и др.) ──
+          GestureDetector(
+            onTap: () => _showCommentDialog(provider, t),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              height: 72, // taller as requested
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: const Color(0xFFF1F5F9)),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                flex: 4,
-                child: _priceInputField(t, provider),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  const Icon(Icons.chat_bubble_outline_rounded, color: Color(0xFF4A80F0), size: 20),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          provider.comment.isEmpty ? 'Детали заказа (размер, ширина, комментарий)...' : provider.comment,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.inter(
+                            color: provider.comment.isEmpty ? const Color(0xFF94A3B8) : const Color(0xFF1E293B),
+                            fontSize: provider.comment.isEmpty ? 13 : 13.5,
+                            fontWeight: provider.comment.isEmpty ? FontWeight.w600 : FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.arrow_forward_ios_rounded, color: Color(0xFF94A3B8), size: 14),
+                ],
               ),
-            ],
+            ),
           ),
           const SizedBox(height: 16),
           Container(
@@ -3974,42 +4039,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
 
 
 
-  Widget _priceInputField(TaxiTheme t, TaxiProvider provider) => Container(
-      height: 54,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: const Color(0xFFF1F5F9))),
-      child: Row(children: [
-        const Icon(Icons.monetization_on_rounded, color: Color(0xFF4A80F0), size: 18),
-        const SizedBox(width: 8),
-        Expanded(
-            child: TextField(
-                controller: _priceController,
-                keyboardType: TextInputType.number,
-                style: GoogleFonts.inter(color: const Color(0xFF1E293B), fontWeight: FontWeight.w700, fontSize: 13.5),
-                onChanged: (v) {
-                  final val = int.tryParse(v.replaceAll(RegExp(r'[^\d]'), '')) ?? 0;
-                  provider.setMaxPrice(val);
-                },
-                decoration: InputDecoration(
-                    border: InputBorder.none,
-                    isDense: true,
-                    hintText: 'Цена (₸)',
-                    hintStyle: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 12, fontWeight: FontWeight.w600)))),
-        if (provider.maxPrice > 0)
-          GestureDetector(
-            onTap: () {
-              HapticFeedback.lightImpact();
-              provider.setMaxPrice(0);
-              _priceController.clear();
-            },
-            child: const Icon(Icons.close_rounded, color: Color(0xFF94A3B8), size: 16),
-          )
-        else
-          Text('₸', style: GoogleFonts.inter(color: const Color(0xFF4A80F0), fontWeight: FontWeight.w900, fontSize: 16)),
-      ]));
+
 
   Widget _actBtn(TaxiTheme t, String l, Color c, VoidCallback onTap) => SizedBox(
         width: double.infinity,

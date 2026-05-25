@@ -20,8 +20,14 @@ class AdminReportsScreen extends StatelessWidget {
         elevation: 0,
       ),
       body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance.collection('reports').orderBy('timestamp', descending: true).snapshots(),
+        stream: FirebaseFirestore.instance.collection('reports').snapshots(),
         builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return Center(child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Text('Ошибка загрузки жалоб: ${snapshot.error}', style: GoogleFonts.inter(color: Colors.red)),
+            ));
+          }
           if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
             return Center(child: Column(
@@ -34,11 +40,21 @@ class AdminReportsScreen extends StatelessWidget {
             ));
           }
 
+          final docs = List<QueryDocumentSnapshot>.from(snapshot.data!.docs);
+          // Сортировка на клиенте для абсолютной надежности и предотвращения ошибок отсутствия индекса Firestore
+          docs.sort((a, b) {
+            final aData = a.data() as Map<String, dynamic>;
+            final bData = b.data() as Map<String, dynamic>;
+            final aTime = (aData['timestamp'] as Timestamp?)?.toDate() ?? DateTime.fromMillisecondsSinceEpoch(0);
+            final bTime = (bData['timestamp'] as Timestamp?)?.toDate() ?? DateTime.fromMillisecondsSinceEpoch(0);
+            return bTime.compareTo(aTime); // по убыванию (сначала новые)
+          });
+
           return ListView.builder(
             padding: const EdgeInsets.all(16),
-            itemCount: snapshot.data!.docs.length,
+            itemCount: docs.length,
             itemBuilder: (context, index) {
-              final doc = snapshot.data!.docs[index];
+              final doc = docs[index];
               final data = doc.data() as Map<String, dynamic>;
               final timestamp = (data['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now();
 

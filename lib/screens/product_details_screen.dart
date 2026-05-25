@@ -253,6 +253,29 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     );
   }
 
+  void _openFullscreenVideo() {
+    if (_videoController == null || !_isVideoInitialized) return;
+    
+    final wasPlaying = _videoController!.value.isPlaying;
+    if (wasPlaying) {
+      _videoController!.pause();
+      setState(() { _isVideoPlaying = false; });
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => FullscreenVideoPlayer(controller: _videoController!),
+      ),
+    ).then((_) {
+      if (mounted) {
+        setState(() {
+          _isVideoPlaying = _videoController!.value.isPlaying;
+        });
+      }
+    });
+  }
+
   Widget _buildImage(String url, {BoxFit fit = BoxFit.cover}) {
     if (url.isEmpty || !url.startsWith('http')) {
       if (url.startsWith('/') || url.startsWith('file')) {
@@ -354,36 +377,65 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                             // Photos first, video LAST
                             if (hasVideo && index == images.length) {
                               // Video slide with play icon overlay
-                              return GestureDetector(
-                                onTap: () {
-                                  if (_isVideoInitialized) {
-                                    setState(() {
-                                      _isVideoPlaying = !_isVideoPlaying;
-                                      _isVideoPlaying ? _videoController!.play() : _videoController!.pause();
-                                    });
-                                  }
-                                },
-                                child: Stack(
-                                  fit: StackFit.expand,
-                                  children: [
-                                    if (_isVideoInitialized)
-                                      VideoPlayer(_videoController!)
-                                    else
-                                      Container(color: Colors.black, child: const Center(child: CircularProgressIndicator(color: Color(0xFF4A80F0)))),
-                                    // Play icon overlay (hide when playing)
-                                    if (!_isVideoPlaying)
-                                      Center(
-                                        child: Container(
-                                          width: 70, height: 70,
-                                          decoration: BoxDecoration(
-                                            color: Colors.black.withValues(alpha: 0.5),
-                                            shape: BoxShape.circle,
+                              return Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  GestureDetector(
+                                    onTap: () {
+                                      if (_isVideoInitialized) {
+                                        setState(() {
+                                          _isVideoPlaying = !_isVideoPlaying;
+                                          _isVideoPlaying ? _videoController!.play() : _videoController!.pause();
+                                        });
+                                      }
+                                    },
+                                    child: Stack(
+                                      fit: StackFit.expand,
+                                      children: [
+                                        if (_isVideoInitialized)
+                                          VideoPlayer(_videoController!)
+                                        else
+                                          Container(color: Colors.black, child: const Center(child: CircularProgressIndicator(color: Color(0xFF4A80F0)))),
+                                        // Play icon overlay (hide when playing)
+                                        if (!_isVideoPlaying)
+                                          Center(
+                                            child: Container(
+                                              width: 70, height: 70,
+                                              decoration: BoxDecoration(
+                                                color: Colors.black.withValues(alpha: 0.5),
+                                                shape: BoxShape.circle,
+                                              ),
+                                              child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 40),
+                                            ),
                                           ),
-                                          child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 40),
+                                      ],
+                                    ),
+                                  ),
+                                  // Кнопка развертывания на весь экран в правом верхнем углу видео
+                                  if (_isVideoInitialized)
+                                    Positioned(
+                                      top: 12, right: 12,
+                                      child: GestureDetector(
+                                        onTap: _openFullscreenVideo,
+                                        child: Container(
+                                          padding: const EdgeInsets.all(8),
+                                          decoration: BoxDecoration(
+                                            color: Colors.black.withValues(alpha: 0.6),
+                                            shape: BoxShape.circle,
+                                            border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 1.2),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: Colors.black.withValues(alpha: 0.2),
+                                                blurRadius: 8,
+                                                offset: const Offset(0, 3),
+                                              )
+                                            ],
+                                          ),
+                                          child: const Icon(Icons.fullscreen_rounded, color: Colors.white, size: 24),
                                         ),
                                       ),
-                                  ],
-                                ),
+                                    ),
+                                ],
                               );
                             }
                             
@@ -921,6 +973,134 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       await FirebaseFirestore.instance.collection('ads').doc(widget.ad.id).delete();
       if (mounted) Navigator.pop(context);
     }
+  }
+}
+
+class FullscreenVideoPlayer extends StatefulWidget {
+  final VideoPlayerController controller;
+  const FullscreenVideoPlayer({super.key, required this.controller});
+
+  @override
+  State<FullscreenVideoPlayer> createState() => _FullscreenVideoPlayerState();
+}
+
+class _FullscreenVideoPlayerState extends State<FullscreenVideoPlayer> {
+  bool _isPlaying = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _isPlaying = widget.controller.value.isPlaying;
+    widget.controller.addListener(_videoListener);
+  }
+
+  void _videoListener() {
+    if (mounted) {
+      setState(() {
+        _isPlaying = widget.controller.value.isPlaying;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_videoListener);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          Center(
+            child: AspectRatio(
+              aspectRatio: widget.controller.value.aspectRatio,
+              child: VideoPlayer(widget.controller),
+            ),
+          ),
+          
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 10,
+            left: 16,
+            child: CircleAvatar(
+              backgroundColor: Colors.black.withValues(alpha: 0.5),
+              radius: 20,
+              child: IconButton(
+                icon: const Icon(Icons.close_rounded, color: Colors.white, size: 20),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ),
+          ),
+          
+          GestureDetector(
+            onTap: () {
+              if (_isPlaying) {
+                widget.controller.pause();
+              } else {
+                widget.controller.play();
+              }
+            },
+            behavior: HitTestBehavior.opaque,
+            child: Center(
+              child: AnimatedOpacity(
+                opacity: _isPlaying ? 0.0 : 1.0,
+                duration: const Duration(milliseconds: 300),
+                child: Container(
+                  width: 70, height: 70,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.5),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 40),
+                ),
+              ),
+            ),
+          ),
+
+          Positioned(
+            bottom: MediaQuery.of(context).padding.bottom + 20,
+            left: 20, right: 20,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.6),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1),
+              ),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: Icon(_isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded, color: Colors.white, size: 24),
+                    onPressed: () {
+                      if (_isPlaying) {
+                        widget.controller.pause();
+                      } else {
+                        widget.controller.play();
+                      }
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: VideoProgressIndicator(
+                      widget.controller,
+                      allowScrubbing: true,
+                      colors: const VideoProgressColors(
+                        playedColor: Color(0xFF4A80F0),
+                        bufferedColor: Colors.white24,
+                        backgroundColor: Colors.white10,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

@@ -279,6 +279,58 @@ class _ProductCardState extends State<ProductCard> with SingleTickerProviderStat
                     ),
                   ),
                 ),
+
+                // Стрелки переключения фото
+                if (hasMultiple) ...[
+                  Positioned(
+                    left: 6,
+                    top: 0,
+                    bottom: 0,
+                    child: Center(
+                      child: GestureDetector(
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          if (_currentPage > 0) {
+                            _pageCtrl.previousPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.4),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.25), width: 1),
+                          ),
+                          child: const Icon(Icons.chevron_left_rounded, color: Colors.white, size: 18),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    right: 6,
+                    top: 0,
+                    bottom: 0,
+                    child: Center(
+                      child: GestureDetector(
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          if (_currentPage < images.length - 1) {
+                            _pageCtrl.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.4),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.25), width: 1),
+                          ),
+                          child: const Icon(Icons.chevron_right_rounded, color: Colors.white, size: 18),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
