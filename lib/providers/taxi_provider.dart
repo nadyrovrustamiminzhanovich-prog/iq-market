@@ -189,10 +189,9 @@ class TaxiProvider extends ChangeNotifier {
 
   List<Map<String, dynamic>> get filteredDrives {
     return _drives.where((d) {
-      // flexible: if _from/to is empty (default) — match all
       final bool matchF = _from.isEmpty || d['from'].toString().toLowerCase().contains(_from.toLowerCase());
       final bool matchT = _to.isEmpty || d['to'].toString().toLowerCase().contains(_to.toLowerCase());
-      final bool matchD = _selDate == 'time' || d['date'] == _selDate;
+      final bool matchD = _selDate == 'date' || _selDate == 'time' || _selDate.isEmpty || d['date'] == _selDate;
       final int price = (d['price'] as num).toInt();
       final bool matchP = _maxPrice == 0 || price <= _maxPrice;
       return matchF && matchT && matchD && matchP;
@@ -213,7 +212,7 @@ class TaxiProvider extends ChangeNotifier {
     return _passengerOrders.where((o) {
       final bool matchF = _from.isEmpty || o['from'].toString().toLowerCase().contains(_from.toLowerCase());
       final bool matchT = _to.isEmpty || o['to'].toString().toLowerCase().contains(_to.toLowerCase());
-      final bool matchD = _selDate == 'time' || o['date'] == _selDate;
+      final bool matchD = _selDate == 'date' || _selDate == 'time' || _selDate.isEmpty || o['date'] == _selDate;
       final int price = (o['price'] as num).toInt();
       final bool matchP = _maxPrice == 0 || price <= _maxPrice;
       return matchF && matchT && matchD && matchP;

@@ -3359,10 +3359,14 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
 
     final orders = provider.filteredOrders;
     
-    // All other active passenger orders NOT matching current filter, but active
-    final otherOrders = provider.allPassengerOrders.where((o) {
+    // Check if any route or date filter is currently active
+    final bool hasFilter = provider.from.isNotEmpty || 
+                           provider.to.isNotEmpty || 
+                           (provider.selDate != 'date' && provider.selDate != 'time' && provider.selDate.isNotEmpty);
+
+    // Suppress other active orders if driver is actively filtering routes
+    final otherOrders = hasFilter ? <Map<String, dynamic>>[] : provider.allPassengerOrders.where((o) {
       if (o['status'] != 'active') return false;
-      // Exclude already matched orders or orders currently matching the filter to avoid duplicates
       final bool isCurrentMatch = orders.any((element) => element['id'] == o['id']);
       return !isCurrentMatch;
     }).toList();
@@ -3455,28 +3459,26 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                 passengerId: o['passengerId'] ?? o['userId'] ?? '',
                 onShowProfile: () => _showUserProfile(provider, t, o['passengerName'] ?? o['name'] ?? 'Пассажир', o['passengerImg'] ?? o['img'] ?? '', '', false, o['passengerId'] ?? o['userId'] ?? ''),
                 onNegotiate: () {
-                  if (!provider.isLoggedIn) {
-                    _navigateToLogin(provider);
-                    return;
-                  }
-                  if (!provider.isVehicleVerified) {
-                    _showDriverVerificationGateDialog(
-                      provider, 
-                      t, 
-                      customText: 'Для участия в торгах необходимо пройти верификацию.'
-                    );
-                    return;
-                  }
-                  _showNegotiateDialog(provider, t, {
-                    'price': o['price'] ?? 0,
-                    'name': o['passengerName'] ?? o['name'] ?? 'Пассажир',
-                    'targetId': o['id'] ?? '',
-                    'targetType': 'order',
-                    'receiverId': o['passengerId'] ?? o['userId'] ?? '',
+                  _checkDriverActionGate(provider, t, o, () {
+                    _showNegotiateDialog(provider, t, {
+                      'price': o['price'] ?? 0,
+                      'name': o['passengerName'] ?? o['name'] ?? 'Пассажир',
+                      'targetId': o['id'] ?? '',
+                      'targetType': 'order',
+                      'receiverId': o['passengerId'] ?? o['userId'] ?? '',
+                    });
                   });
                 },
-                onCall: () => _handleDriverCallOrChat(provider, t, o, isCall: true),
-                onChat: () => _handleDriverCallOrChat(provider, t, o, isCall: false),
+                onCall: () {
+                  _checkDriverActionGate(provider, t, o, () {
+                    _handleDriverCallOrChat(provider, t, o, isCall: true);
+                  });
+                },
+                onChat: () {
+                  _checkDriverActionGate(provider, t, o, () {
+                    _handleDriverCallOrChat(provider, t, o, isCall: false);
+                  });
+                },
               )),
         ],
 
@@ -3522,28 +3524,26 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                 passengerId: o['passengerId'] ?? o['userId'] ?? '',
                 onShowProfile: () => _showUserProfile(provider, t, o['passengerName'] ?? o['name'] ?? 'Пассажир', o['passengerImg'] ?? o['img'] ?? '', '', false, o['passengerId'] ?? o['userId'] ?? ''),
                 onNegotiate: () {
-                  if (!provider.isLoggedIn) {
-                    _navigateToLogin(provider);
-                    return;
-                  }
-                  if (!provider.isVehicleVerified) {
-                    _showDriverVerificationGateDialog(
-                      provider, 
-                      t, 
-                      customText: 'Для участия в торгах необходимо пройти верификацию.'
-                    );
-                    return;
-                  }
-                  _showNegotiateDialog(provider, t, {
-                    'price': o['price'] ?? 0,
-                    'name': o['passengerName'] ?? o['name'] ?? 'Пассажир',
-                    'targetId': o['id'] ?? '',
-                    'targetType': 'order',
-                    'receiverId': o['passengerId'] ?? o['userId'] ?? '',
+                  _checkDriverActionGate(provider, t, o, () {
+                    _showNegotiateDialog(provider, t, {
+                      'price': o['price'] ?? 0,
+                      'name': o['passengerName'] ?? o['name'] ?? 'Пассажир',
+                      'targetId': o['id'] ?? '',
+                      'targetType': 'order',
+                      'receiverId': o['passengerId'] ?? o['userId'] ?? '',
+                    });
                   });
                 },
-                onCall: () => _handleDriverCallOrChat(provider, t, o, isCall: true),
-                onChat: () => _handleDriverCallOrChat(provider, t, o, isCall: false),
+                onCall: () {
+                  _checkDriverActionGate(provider, t, o, () {
+                    _handleDriverCallOrChat(provider, t, o, isCall: true);
+                  });
+                },
+                onChat: () {
+                  _checkDriverActionGate(provider, t, o, () {
+                    _handleDriverCallOrChat(provider, t, o, isCall: false);
+                  });
+                },
               )),
         ],
         const SizedBox(height: 100)
