@@ -3831,47 +3831,6 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 12),
-
-          // ── Детали заказа (Комментарий к заказу, размер, ширина и др.) ──
-          GestureDetector(
-            onTap: () => _showCommentDialog(provider, t),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              height: 72, // taller as requested
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: const Color(0xFFF1F5F9)),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  const Icon(Icons.chat_bubble_outline_rounded, color: Color(0xFF4A80F0), size: 20),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          provider.comment.isEmpty ? 'Детали заказа (размер, ширина, комментарий)...' : provider.comment,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.inter(
-                            color: provider.comment.isEmpty ? const Color(0xFF94A3B8) : const Color(0xFF1E293B),
-                            fontSize: provider.comment.isEmpty ? 13 : 13.5,
-                            fontWeight: provider.comment.isEmpty ? FontWeight.w600 : FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Icon(Icons.arrow_forward_ios_rounded, color: Color(0xFF94A3B8), size: 14),
-                ],
-              ),
-            ),
-          ),
           const SizedBox(height: 16),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16),
