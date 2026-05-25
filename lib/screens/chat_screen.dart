@@ -15,6 +15,7 @@ import 'package:iqmarket/services/chat_service.dart';
 import 'package:iqmarket/services/user_service.dart';
 import 'package:iqmarket/services/file_service.dart';
 import 'package:iqmarket/services/ad_service.dart';
+import 'package:iqmarket/services/notification_service.dart';
 import 'package:iqmarket/screens/seller_profile_screen.dart';
 
 import 'package:firebase_storage/firebase_storage.dart';
@@ -38,6 +39,7 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   final TextEditingController _msgController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  final FocusNode _msgFocusNode = FocusNode();
   
   bool _isTyping = false;
   bool _isRecording = false;
@@ -53,6 +55,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   Duration _currentDur = Duration.zero;
   String _currentUserName = 'Пользователь';
   String? _sellerAvatarUrl;
+  String? _otherUserPhone;
   late Stream<List<MessageModel>> _messagesStream;
   final Map<String, UploadTask> _activeUploads = {};
   bool _showEmoji = false;
@@ -94,7 +97,10 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
     final seller = await UserService.getUserById(widget.ad.userId);
     if (seller != null && mounted) {
-      setState(() => _sellerAvatarUrl = seller.photoUrl);
+      setState(() {
+        _sellerAvatarUrl = seller.photoUrl;
+        _otherUserPhone = seller.phone;
+      });
     }
   }
 
@@ -105,6 +111,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     _audioPlayer.dispose();
     _msgController.dispose();
     _scrollController.dispose();
+    _msgFocusNode.dispose();
     if (ChatService.activeChatId == ChatService.getChatId(widget.ad.userId)) {
       ChatService.activeChatId = null;
     }
@@ -212,6 +219,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             ),
             ChatInput(
               controller: _msgController,
+              focusNode: _msgFocusNode,
               isTyping: _isTyping,
               isRecording: _isRecording,
               recordSeconds: _recordSeconds,
@@ -308,6 +316,27 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           currentDur: _currentDur,
           onLongPress: _showContextMenu,
           onImageTap: _showFullScreenImage,
+          onAcceptOffer: () => ChatService.updateOfferStatus(msg.senderId, msg.id, 'accepted'),
+          onDeclineOffer: () => ChatService.updateOfferStatus(msg.senderId, msg.id, 'rejected'),
+          onWriteOffer: () {
+            _msgController.text = 'Привет! Насчет вашего предложения цены... ';
+            _msgFocusNode.requestFocus();
+            setState(() {
+              _isTyping = true;
+            });
+          },
+          onVoiceOffer: () {
+            NotificationService.notify(context, 'Голосовой ответ', 'Зажмите синюю круглую кнопку микрофона справа внизу, чтобы записать голосовое сообщение.', isSuccess: true);
+          },
+          onCallOffer: () async {
+            final phoneNum = _otherUserPhone ?? widget.ad.userPhone ?? '';
+            if (phoneNum.isNotEmpty) {
+              final url = Uri.parse('tel:$phoneNum');
+              if (await canLaunchUrl(url)) await launchUrl(url);
+            } else {
+              NotificationService.notify(context, 'Ошибка', 'Номер телефона этого пользователя не указан.', isSuccess: false);
+            }
+          },
         );
       },
     );

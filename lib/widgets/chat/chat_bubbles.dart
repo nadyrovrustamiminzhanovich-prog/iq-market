@@ -34,7 +34,18 @@ class ChatBubble extends StatelessWidget {
     required this.currentDur,
     required this.onLongPress,
     required this.onImageTap,
+    this.onAcceptOffer,
+    this.onDeclineOffer,
+    this.onWriteOffer,
+    this.onVoiceOffer,
+    this.onCallOffer,
   });
+
+  final VoidCallback? onAcceptOffer;
+  final VoidCallback? onDeclineOffer;
+  final VoidCallback? onWriteOffer;
+  final VoidCallback? onVoiceOffer;
+  final VoidCallback? onCallOffer;
 
   @override
   Widget build(BuildContext context) {
@@ -132,69 +143,178 @@ class ChatBubble extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(16),
+        color: Colors.white.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withOpacity(0.12), width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(PhosphorIcons.handshake(), color: Colors.white70, size: 16),
+              Icon(PhosphorIcons.handshake(PhosphorIconsStyle.fill), color: Colors.white70, size: 18),
               const SizedBox(width: 8),
-              Text('ПРЕДЛОЖЕНИЕ ЦЕНЫ', style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
+              Text('ПРЕДЛОЖЕНИЕ ЦЕНЫ', style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 0.8)),
             ],
           ),
-          const SizedBox(height: 8),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Builder(
             builder: (context) {
               final double priceVal = double.tryParse(msg.offerPrice ?? '0') ?? 0.0;
               final formattedPrice = priceVal > 0 
                   ? '${NumberFormat.decimalPattern('ru').format(priceVal.toInt())} ₸' 
                   : '0 ₸';
-              return Text(formattedPrice, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900));
+              return Text(formattedPrice, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: -0.5));
             },
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           if (!isMe && isPending) ...[
             Row(
               children: [
                 Expanded(
-                  child: ElevatedButton(
-                    onPressed: () => ChatService.updateOfferStatus(msg.senderId, msg.id, 'rejected'),
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent.withOpacity(0.2), foregroundColor: Colors.redAccent, elevation: 0, padding: const EdgeInsets.symmetric(vertical: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-                    child: const Text('Отклонить', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  child: Container(
+                    height: 44,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFEF4444), Color(0xFFF43F5E)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFEF4444).withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                        )
+                      ],
+                    ),
+                    child: ElevatedButton(
+                      onPressed: onDeclineOffer,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        shadowColor: Colors.transparent,
+                        padding: EdgeInsets.zero,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: const Text('Отклонить', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.white)),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: ElevatedButton(
-                    onPressed: () => ChatService.updateOfferStatus(msg.senderId, msg.id, 'accepted'),
-                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981), foregroundColor: Colors.white, elevation: 0, padding: const EdgeInsets.symmetric(vertical: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-                    child: const Text('Принять', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  child: Container(
+                    height: 44,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF10B981), Color(0xFF059669)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF10B981).withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                        )
+                      ],
+                    ),
+                    child: ElevatedButton(
+                      onPressed: onAcceptOffer,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        shadowColor: Colors.transparent,
+                        padding: EdgeInsets.zero,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: const Text('Принять', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.white)),
+                    ),
                   ),
+                ),
+              ],
+            ),
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 10),
+              child: Divider(color: Colors.white24, height: 1),
+            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _quickActionButton(
+                  icon: Icons.phone_in_talk_rounded,
+                  label: 'Позвонить',
+                  color: const Color(0xFF34D399),
+                  onTap: onCallOffer,
+                ),
+                _quickActionButton(
+                  icon: Icons.edit_note_rounded,
+                  label: 'Написать',
+                  color: const Color(0xFF60A5FA),
+                  onTap: onWriteOffer,
+                ),
+                _quickActionButton(
+                  icon: Icons.keyboard_voice_rounded,
+                  label: 'Голосовое',
+                  color: const Color(0xFFC084FC),
+                  onTap: onVoiceOffer,
                 ),
               ],
             ),
           ] else ...[
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: _getStatusColor(status).withOpacity(0.2),
-                borderRadius: BorderRadius.circular(8),
+                color: _getStatusColor(status).withOpacity(0.12),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: _getStatusColor(status).withOpacity(0.25), width: 1),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(_getStatusIcon(status), color: _getStatusColor(status), size: 14),
+                  Icon(_getStatusIcon(status), color: _getStatusColor(status), size: 16),
                   const SizedBox(width: 6),
-                  Text(_getStatusText(status), style: TextStyle(color: _getStatusColor(status), fontSize: 11, fontWeight: FontWeight.bold)),
+                  Text(_getStatusText(status), style: TextStyle(color: _getStatusColor(status), fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
                 ],
               ),
             ),
           ],
         ],
+      ),
+    );
+  }
+
+  Widget _quickActionButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback? onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.06),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.white.withOpacity(0.08)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: color, size: 15),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.9),
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

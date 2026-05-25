@@ -51,19 +51,19 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
     };
 
     final uyg = {
-      'title': 'ياردەم مەركىزى',
-      'questions': 'سوئال-جاۋابلار',
-      'search_hint': 'سوئاللار بويىچە ئىزدەش...',
-      'all': 'ھەممىسى',
-      'general': 'ئومۇمىي',
-      'taxi': 'IQ تاكسى',
-      'account': 'ھېسابات',
-      'operator_title': 'مۇلازىمەتچى ياردىمى كېرەكمۇ؟',
-      'operator_hours': 'خىزمەت ۋاقتى: 10:00 دىن 21:00 غىچە',
+      'title': 'Йардәм мәркизи',
+      'questions': 'соал-җаваплар',
+      'search_hint': 'Соаллар бойичә издәр...',
+      'all': 'Һәммиси',
+      'general': 'Умумий',
+      'taxi': 'IQ Такси',
+      'account': 'Һесабат',
+      'operator_title': 'Мулазимчи йардими керәкму?',
+      'operator_hours': 'Иш вақти: 10:00 дин 21:00 гичә',
       'wa_support': 'WhatsApp',
       'tg_support': 'Telegram',
-      'inapp_support': 'ئەپ ئىچىدىكى چات',
-      'wa_message': 'ئەسسالامۇئەلەيكۇم! ماڭا IQ-Market ئەپى بويىچە ياردەم كېرەك ئىدى.',
+      'inapp_support': 'Программа ичидики чат',
+      'wa_message': 'Әссаламу әлейкум! Маңа IQ-Market программиси бойичә йардәм керәк еди.',
     };
 
     final dict = widget.lang == 'Қазақша' ? kz : (widget.lang == 'Уйғурчә' ? uyg : ru);
@@ -184,7 +184,6 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
           _buildSliverHeader(context),
           SliverToBoxAdapter(child: _buildSearchBar()),
           SliverToBoxAdapter(child: _buildCategories()),
-          SliverToBoxAdapter(child: _buildAiBanner(context)),
           SliverToBoxAdapter(child: _buildOperatorCard(context)),
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -300,34 +299,7 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
     );
   }
 
-  Widget _buildAiBanner(BuildContext context) {
-    final bannerTitle = widget.lang == 'Қазақша' ? 'IQ GPT — ЖИ Көмекшісі' : (widget.lang == 'Уйғурчә' ? 'IQ GPT — سۈنئىي ئەقىل ياردەمچىسى' : 'IQ GPT — ИИ Помощник');
-    final bannerSub = widget.lang == 'Қазақша' ? 'Кез келген сұраққа лезде жауап ✨' : (widget.lang == 'Уйғурчә' ? 'ھەر قانداق سوئالغا دەرھال جاۋاب ✨' : 'Мгновенные ответы на любые вопросы ✨');
 
-    return GestureDetector(
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => AiAssistantScreen(initialLanguage: widget.lang))),
-      child: Container(
-        margin: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(colors: [Color(0xFF4A80F0), Color(0xFF9333EA)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-          borderRadius: BorderRadius.circular(22),
-          boxShadow: [BoxShadow(color: const Color(0xFF9333EA).withValues(alpha: 0.25), blurRadius: 16, offset: const Offset(0, 6))],
-        ),
-        child: Row(children: [
-          Container(padding: const EdgeInsets.all(12), decoration: const BoxDecoration(color: Colors.white24, shape: BoxShape.circle),
-            child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 26)),
-          const SizedBox(width: 14),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(bannerTitle, style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 15)),
-            const SizedBox(height: 3),
-            Text(bannerSub, style: GoogleFonts.inter(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600)),
-          ])),
-          const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white54, size: 16),
-        ]),
-      ),
-    );
-  }
 
   Widget _buildOperatorCard(BuildContext context) {
     final theme = Theme.of(context);
@@ -469,65 +441,12 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
                     end: Alignment.bottomRight,
                   ),
                   const Color(0xFF0088CC),
-                  'tg://resolve?phone=77089007030', 
-                  'https://t.me/+77089007030',
+                  'tg://resolve?phone=77089007030&text=${Uri.encodeComponent(_t("wa_message"))}', 
+                  'https://t.me/+77089007030?text=${Uri.encodeComponent(_t("wa_message"))}',
                   PhosphorIcons.telegramLogo(PhosphorIconsStyle.fill)
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 14),
-
-          // Премиальная кнопка Чат в Приложении (In-App Live Chat)
-          GestureDetector(
-            onTap: () {
-              final supportAd = AdModel(
-                id: 'support_chat',
-                title: _t('title'),
-                description: 'Чат техподдержки приложения IQ-Market',
-                price: 0.0,
-                category: 'Поддержка',
-                images: [],
-                userId: 'support_agent',
-                userName: 'Техподдержка IQ-Market',
-                userEmail: 'support@iqmarket.kz',
-                userPhone: '+77089007030',
-                timestamp: DateTime.now(),
-              );
-              Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(ad: supportAd)));
-            },
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              decoration: BoxDecoration(
-                color: isDark ? Colors.white.withValues(alpha: 0.03) : const Color(0xFFF1F5F9),
-                borderRadius: BorderRadius.circular(22),
-                border: Border.all(
-                  color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.04),
-                  width: 1.2,
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.forum_rounded,
-                    color: isDark ? Colors.white70 : const Color(0xFF475569),
-                    size: 18,
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    _t('inapp_support').toUpperCase(),
-                    style: GoogleFonts.plusJakartaSans(
-                      color: isDark ? Colors.white70 : const Color(0xFF475569),
-                      fontWeight: FontWeight.w900,
-                      fontSize: 12,
-                      letterSpacing: 1.0,
-                    ),
-                  ),
-                ],
-              ),
-            ),
           ),
         ],
       ),

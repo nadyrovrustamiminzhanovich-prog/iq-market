@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 class ChatInput extends StatelessWidget {
   final TextEditingController controller;
+  final FocusNode? focusNode;
   final bool isTyping;
   final bool isRecording;
   final int recordSeconds;
@@ -18,6 +19,7 @@ class ChatInput extends StatelessWidget {
   const ChatInput({
     super.key,
     required this.controller,
+    this.focusNode,
     required this.isTyping,
     required this.isRecording,
     required this.recordSeconds,
@@ -69,6 +71,7 @@ class ChatInput extends StatelessWidget {
                             Expanded(
                               child: TextField(
                                 controller: controller,
+                                focusNode: focusNode,
                                 maxLines: 5,
                                 minLines: 1,
                                 onChanged: onTextChanged,

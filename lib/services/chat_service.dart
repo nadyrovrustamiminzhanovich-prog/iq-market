@@ -137,6 +137,10 @@ class ChatService {
         .collection('messages')
         .add(messageData);
 
+    // Fetch sender details
+    final actualSenderName = StorageService.getString('user_name') ?? 'Пользователь';
+    final senderPhone = StorageService.getString('user_phone') ?? '';
+
     // Update last message in chat summary
     final summaryData = {
       'lastMessage': text,
@@ -144,6 +148,8 @@ class ChatService {
       'lastSenderId': uid,
       'isRead': false,
       'users': [uid, ad.userId],
+      'unreadCount_${ad.userId}': FieldValue.increment(1),
+      'name_$uid': actualSenderName,
       'name_${ad.userId}': ad.userName,
       'adId': ad.id,
       'adTitle': ad.title,
@@ -151,6 +157,22 @@ class ChatService {
     };
     
     await _db.collection('chats').doc(chatId).set(summaryData, SetOptions(merge: true));
+
+    // Send push notification trigger
+    NotificationService.saveNotificationToFirestore(
+      uid: ad.userId,
+      title: 'Предложение цены: $actualSenderName',
+      body: 'Предлагает ${price.toInt()} ₸ за "${ad.title}"',
+      type: 'chat',
+      data: {
+        'chatId': chatId,
+        'adId': ad.id,
+        'adTitle': ad.title,
+        'senderId': uid,
+        'senderName': actualSenderName,
+        'senderPhone': senderPhone,
+      }
+    );
   }
 
   static Future<void> updateOfferStatus(String sellerId, String messageId, String status) async {

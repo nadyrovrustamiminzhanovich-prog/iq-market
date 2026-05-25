@@ -28,6 +28,7 @@ import 'package:iqmarket/services/ai_limit_service.dart';
 import 'package:iqmarket/services/gemini_service.dart';
 import 'package:iqmarket/services/chat_service.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:iqmarket/widgets/auth_gate_bottom_sheet.dart';
 
 
 
@@ -424,14 +425,12 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
             child: Column(
               children: [
                 _buildMainInfo(isFree),
-                if (widget.ad.isBargainAllowed) _buildBargainSection(),
+                if (_currentUser?.uid != widget.ad.userId) _buildBargainSection(),
                 _buildTags(),
                 const SizedBox(height: 10),
                 if (widget.ad.extraFields != null && widget.ad.extraFields!.isNotEmpty) _buildSpecsSection(),
                 const SizedBox(height: 10),
                 _buildDescription(),
-                const SizedBox(height: 10),
-                _buildAiAssistantSection(),
                 const SizedBox(height: 10),
                 _buildSellerCard(),
                 const SizedBox(height: 10),
@@ -714,193 +713,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
 
   Widget _buildReportButton() => Container(width: double.infinity, color: Colors.white, child: TextButton.icon(onPressed: _handleReport, icon: const Icon(Icons.report_gmailerrorred_rounded, color: Colors.red), label: Text('Пожаловаться на объявление', style: GoogleFonts.inter(color: Colors.red, fontWeight: FontWeight.w700)), style: TextButton.styleFrom(padding: const EdgeInsets.all(20))));
 
-  Widget _buildAiAssistantSection() {
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      padding: const EdgeInsets.all(20),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        gradient: LinearGradient(
-          colors: [Colors.white, Color(0xFFF1F5F9)],
-          begin: Alignment.topCenter, end: Alignment.bottomCenter
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(PhosphorIcons.sparkle(PhosphorIconsStyle.fill), color: const Color(0xFF4A80F0), size: 24),
-              const SizedBox(width: 12),
-              Text('IQ Помощник', style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w900)),
-              const Spacer(),
-              FutureBuilder<int>(
-                future: AiLimitService.getRemainingRequests(),
-                builder: (context, snapshot) {
-                  final remaining = snapshot.data ?? 0;
-                  return Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(color: remaining > 0 ? Colors.green.withValues(alpha: 0.1) : Colors.red.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-                    child: Text('Осталось: $remaining', style: TextStyle(color: remaining > 0 ? Colors.green : Colors.red, fontSize: 11, fontWeight: FontWeight.bold)),
-                  );
-                }
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text('Спросите ИИ о деталях этого товара. Нейросеть проанализирует описание и даст ответ.', style: GoogleFonts.inter(fontSize: 13, color: Colors.grey[600], height: 1.4)),
-          const SizedBox(height: 20),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: _openAiChat,
-              icon: const Icon(Icons.auto_awesome_rounded, size: 18),
-              label: const Text('Задать вопрос ИИ'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF4A80F0),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                elevation: 0,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
-  void _openAiChat() async {
-    final canRequest = await AiLimitService.canMakeRequest();
-    if (!canRequest) {
-      if (mounted) {
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-            title: const Text('Лимит исчерпан'),
-            content: const Text('Вы использовали все 3 бесплатных запроса к ИИ на сегодня. Приходите завтра!'),
-            actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Хорошо'))],
-          ),
-        );
-      }
-      return;
-    }
-
-    final controller = TextEditingController();
-    if (mounted) {
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (context) => Container(
-          padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(context).viewInsets.bottom + 24),
-          decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(32))),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Ваш вопрос', style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w900)),
-              const SizedBox(height: 16),
-              TextField(
-                controller: controller,
-                autofocus: true,
-                maxLines: 3,
-                decoration: InputDecoration(
-                  hintText: 'Например: В каком состоянии экран? Есть ли торг?',
-                  filled: true, fillColor: const Color(0xFFF1F5F9),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                ),
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    final q = controller.text.trim();
-                    if (q.isNotEmpty) {
-                      Navigator.pop(context);
-                      _askAi(q);
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4A80F0), foregroundColor: Colors.white, minimumSize: const Size(0, 56), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
-                  child: const Text('Спросить', style: TextStyle(fontWeight: FontWeight.bold)),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-  }
-
-  void _askAi(String question) async {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(child: CircularProgressIndicator()),
-    );
-
-    try {
-      final gemini = GeminiService();
-      gemini.init(widget.lang);
-
-      
-      final prompt = "Твоя роль: Помощник покупателя на маркетплейсе IQ-Market. "
-          "Тебе задали вопрос по товару: \"${widget.ad.title}\". "
-          "Описание товара: \"${widget.ad.description}\". "
-          "Характеристики: ${widget.ad.extraFields.toString()}. "
-          "Вопрос пользователя: \"$question\". "
-          "Ответь кратко, вежливо и только на основе имеющейся информации. Если в описании нет ответа, так и скажи.";
-
-      final responseStream = gemini.sendMessageStream(prompt, []);
-      final responseList = await responseStream.toList();
-      final text = responseList.isNotEmpty ? (responseList.first.text ?? "...") : "Извините, я не смог проанализировать товар.";
-
-      await AiLimitService.incrementRequestCount();
-      
-      if (mounted) {
-        Navigator.pop(context); // Close loading
-        showModalBottomSheet(
-          context: context,
-          backgroundColor: Colors.transparent,
-          isScrollControlled: true,
-          builder: (context) => Container(
-            padding: const EdgeInsets.all(24),
-            decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(32))),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.auto_awesome_rounded, color: Color(0xFF4A80F0)),
-                    const SizedBox(width: 10),
-                    Text('Ответ IQ Помощника', style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 18)),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                Text(text, style: GoogleFonts.inter(fontSize: 15, height: 1.6, color: const Color(0xFF1E293B))),
-                const SizedBox(height: 30),
-                SizedBox(
-                  width: double.infinity,
-                  child: TextButton(onPressed: () => Navigator.pop(context), child: const Text('Понятно', style: TextStyle(fontWeight: FontWeight.bold))),
-                ),
-                const SizedBox(height: 10),
-              ],
-            ),
-          ),
-        );
-        setState(() {}); // Refresh remaining count
-      }
-    } catch (e) {
-      if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ошибка ИИ. Попробуйте позже.')));
-      }
-    }
-  }
 
 
   Widget _buildSpecsSection() {
@@ -954,7 +767,14 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     );
   }
 
-  void _showBargainDialog() {
+  void _showBargainDialog() async {
+    if (FirebaseAuth.instance.currentUser == null) {
+      await AuthGateBottomSheet.show(
+        context,
+        message: 'Чтобы предложить свою цену продавцу, необходимо войти в свой профиль. Это займет всего пару секунд!',
+      );
+      return;
+    }
     final currentPrice = widget.ad.price;
     final initialPrice = currentPrice > 0 ? (currentPrice * 0.9).toInt() : 0;
     final controller = TextEditingController(
@@ -1044,7 +864,16 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   }
   Widget _backButton() => Padding(padding: const EdgeInsets.all(8.0), child: _circleButton(Icons.arrow_back_ios_new_rounded, () => Navigator.of(context).maybePop()));
   Widget _circleButton(IconData icon, VoidCallback onTap) => CircleAvatar(backgroundColor: Colors.black.withValues(alpha: 0.4), radius: 20, child: IconButton(icon: Icon(icon, size: 18, color: Colors.white), onPressed: onTap, padding: EdgeInsets.zero));
-  Widget _favoriteButton() => Consumer<AppConfigProvider>(builder: (context, config, _) => CircleAvatar(backgroundColor: Colors.black.withValues(alpha: 0.4), radius: 20, child: IconButton(icon: Icon(config.isFavorite(widget.ad.id) ? Icons.favorite_rounded : Icons.favorite_border_rounded, size: 20, color: config.isFavorite(widget.ad.id) ? const Color(0xFFEF4444) : Colors.white), onPressed: () => config.toggleFavorite(widget.ad.id), padding: EdgeInsets.zero)));
+  Widget _favoriteButton() => Consumer<AppConfigProvider>(builder: (context, config, _) => CircleAvatar(backgroundColor: Colors.black.withValues(alpha: 0.4), radius: 20, child: IconButton(icon: Icon(config.isFavorite(widget.ad.id) ? Icons.favorite_rounded : Icons.favorite_border_rounded, size: 20, color: config.isFavorite(widget.ad.id) ? const Color(0xFFEF4444) : Colors.white), onPressed: () async {
+    if (FirebaseAuth.instance.currentUser == null) {
+      await AuthGateBottomSheet.show(
+        context,
+        message: 'Чтобы сохранить это объявление в избранное, необходимо войти в свой профиль. Это займет всего пару секунд!',
+      );
+    } else {
+      config.toggleFavorite(widget.ad.id);
+    }
+  }, padding: EdgeInsets.zero)));
   String _formatPrice(double price) { 
     return price > 0 ? '${NumberFormat.decimalPattern('ru').format(price.toInt())} ₸' : 'Договорная'; 
   }

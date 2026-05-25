@@ -293,8 +293,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     ],
                     const SizedBox(height: 25),
-                    _buildStatsBar(user),
-                    const SizedBox(height: 25),
+                    if (!_isGuest) ...[
+                      _buildStatsBar(user),
+                      const SizedBox(height: 25),
+                    ],
                     if (_isGuest) ...[
                       _buildGuestBanner(),
                       const SizedBox(height: 25),
@@ -320,9 +322,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
 
   Widget _buildStatsBar(UserModel? user) {
+    final int reviewsCount = user?.reviewsCount ?? 0;
     final double rawRating = user?.rating ?? 0.0;
     final String rating = rawRating.toStringAsFixed(1);
-    final String reviews = (user?.reviewsCount ?? 0).toString();
+    final String reviews = reviewsCount.toString();
+    final bool isNewcomer = reviewsCount < 5;
+
+    String newcomerText = 'Новичок';
+    String ratingDesc = _t('rating_stat').toUpperCase();
+    
+    if (isNewcomer) {
+      if (_localLang == 'Қазақша') {
+        newcomerText = 'Жаңадан бастаушы';
+        ratingDesc = '5 бағалаудан кейін қалыптасады';
+      } else if (_localLang == 'Уйғурчә') {
+        newcomerText = 'Йеңи әза';
+        ratingDesc = '5 баһалаштин кейин шәкиллиниду';
+      } else {
+        newcomerText = 'Новичок';
+        ratingDesc = 'Сформируется после 5 оценок';
+      }
+    }
     
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -349,16 +369,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     children: [
                       const Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 24),
                       const SizedBox(width: 8),
-                      Text(rating, style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w900, color: _txtColor)),
+                      Text(
+                        isNewcomer ? newcomerText : rating, 
+                        style: GoogleFonts.inter(
+                          fontSize: isNewcomer ? 16 : 24, 
+                          fontWeight: FontWeight.w900, 
+                          color: _txtColor
+                        )
+                      ),
                     ],
                   ),
                   const SizedBox(height: 4),
-                  Text(_t('rating_stat').toUpperCase(), style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: _subtxtColor, letterSpacing: 1.0)),
+                  Text(
+                    ratingDesc, 
+                    style: GoogleFonts.inter(
+                      fontSize: isNewcomer ? 8.5 : 10, 
+                      fontWeight: FontWeight.w700, 
+                      color: _subtxtColor, 
+                      letterSpacing: isNewcomer ? 0.0 : 1.0
+                    )
+                  ),
                 ],
               ),
-              const SizedBox(width: 40),
+              const SizedBox(width: 32),
               Container(width: 1, height: 40, color: _subtxtColor.withValues(alpha: 0.1)),
-              const SizedBox(width: 40),
+              const SizedBox(width: 32),
               Column(
                 children: [
                   Text(reviews, style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w900, color: _txtColor)),
@@ -1158,26 +1193,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // GROUP 1: Личный кабинет
-          _buildMenuSectionTitle(_t('personal_data')),
-          _buildMenuCard([
-            _buildListItem(Icons.person_outline_rounded, _t('personal_data'), () => _openSettings(_firestorePhotoUrl)),
-            _buildListItemDivider(),
-            _buildListItem(Icons.grid_view_rounded, 'Мои объявления', () => _openMyAds()),
-            _buildListItemDivider(),
-            _buildListItem(Icons.chat_bubble_outline_rounded, 'Мои сообщения', () {
-              Navigator.push(context, MaterialPageRoute(builder: (context) => NotificationsScreen(lang: _localLang)));
-            }),
-            _buildListItemDivider(),
-            _buildListItem(Icons.favorite_border_rounded, _t('favorites'), () {
-              Navigator.push(context, MaterialPageRoute(builder: (context) => FavoritesScreen(
-                lang: _localLang,
-                themes: widget.themes,
-                currentTheme: _currentTheme,
-                onShowDetails: widget.onShowProductDetails,
-              )));
-            }),
-          ]),
-          const SizedBox(height: 25),
+          if (!_isGuest) ...[
+            _buildMenuSectionTitle(_t('personal_data')),
+            _buildMenuCard([
+              _buildListItem(Icons.person_outline_rounded, _t('personal_data'), () => _openSettings(_firestorePhotoUrl)),
+              _buildListItemDivider(),
+              _buildListItem(Icons.grid_view_rounded, 'Мои объявления', () => _openMyAds()),
+              _buildListItemDivider(),
+              _buildListItem(Icons.chat_bubble_outline_rounded, 'Мои сообщения', () {
+                Navigator.push(context, MaterialPageRoute(builder: (context) => NotificationsScreen(lang: _localLang)));
+              }),
+              _buildListItemDivider(),
+              _buildListItem(Icons.favorite_border_rounded, _t('favorites'), () {
+                Navigator.push(context, MaterialPageRoute(builder: (context) => FavoritesScreen(
+                  lang: _localLang,
+                  themes: widget.themes,
+                  currentTheme: _currentTheme,
+                  onShowDetails: widget.onShowProductDetails,
+                )));
+              }),
+            ]),
+            const SizedBox(height: 25),
+          ],
 
           // GROUP 2: Система
           if (isEmailUser || _localAccType == 'admin') ...[
@@ -1597,24 +1634,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
       margin: const EdgeInsets.symmetric(horizontal: 20),
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _surfaceColor,
         borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: const Color(0xFF4A80F0).withValues(alpha: 0.1)),
-        boxShadow: [BoxShadow(color: const Color(0xFF4A80F0).withValues(alpha: 0.05), blurRadius: 20, offset: const Offset(0, 10))],
+        border: Border.all(color: _primaryColor.withValues(alpha: 0.1)),
+        boxShadow: [BoxShadow(color: _primaryColor.withValues(alpha: 0.05), blurRadius: 20, offset: const Offset(0, 10))],
       ),
       child: Column(
         children: [
-          const Icon(Icons.person_add_rounded, size: 48, color: Color(0xFF4A80F0)),
+          Icon(Icons.person_add_rounded, size: 48, color: _primaryColor),
           const SizedBox(height: 16),
           Text(
-            'Присоединяйтесь!',
-            style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A)),
+            _t('guest_join_title'),
+            style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w900, color: _txtColor),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),
           Text(
-            'Войдите в профиль, чтобы публиковать объявления, общаться в чатах и сохранять избранное.',
-            style: GoogleFonts.inter(fontSize: 14, color: const Color(0xFF64748B), height: 1.5),
+            _t('guest_join_desc'),
+            style: GoogleFonts.inter(fontSize: 14, color: _subtxtColor, height: 1.5),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
@@ -1623,13 +1660,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: ElevatedButton(
               onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LoginScreen())),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF4A80F0),
+                backgroundColor: _primaryColor,
                 foregroundColor: Colors.white,
                 minimumSize: const Size(0, 56),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 elevation: 0,
               ),
-              child: const Text('ВОЙТИ В АККАУНТ', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
+              child: Text(_t('guest_login_btn').toUpperCase(), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
             ),
           ),
         ],

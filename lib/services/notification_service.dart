@@ -126,6 +126,7 @@ class NotificationService {
     final adImage = data['adImage'] ?? '';
     final senderId = data['senderId'] ?? '';
     final senderName = data['senderName'] ?? 'Пользователь';
+    final senderPhone = data['senderPhone'] ?? '';
 
     debugPrint('Navigating to chat with senderId: $senderId, adId: $adId');
 
@@ -144,6 +145,7 @@ class NotificationService {
       userId: senderId,
       userName: senderName,
       userEmail: '',
+      userPhone: senderPhone.isNotEmpty ? senderPhone : null,
       timestamp: DateTime.now(),
       location: '',
     );

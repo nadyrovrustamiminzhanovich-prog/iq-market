@@ -8,6 +8,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:iqmarket/models/ad_model.dart';
 import 'dart:io';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:iqmarket/widgets/auth_gate_bottom_sheet.dart';
 
 class ProductCard extends StatefulWidget {
   final AdModel ad;
@@ -248,13 +250,19 @@ class _ProductCardState extends State<ProductCard> with SingleTickerProviderStat
                     ),
                   ),
 
-                // Кнопка избранного (Сердечко) - ВЕРХНИЙ ПРАВЫЙ УГОЛ
                 Positioned(
                   top: 8, right: 8,
                   child: GestureDetector(
-                    onTap: () {
+                    onTap: () async {
                       HapticFeedback.mediumImpact();
-                      widget.onToggleFavorite();
+                      if (FirebaseAuth.instance.currentUser == null) {
+                        await AuthGateBottomSheet.show(
+                          context,
+                          message: 'Чтобы сохранить это объявление в избранное, необходимо войти в свой профиль. Это займет всего пару секунд!',
+                        );
+                      } else {
+                        widget.onToggleFavorite();
+                      }
                     },
                     child: Container(
                       padding: const EdgeInsets.all(6),
