@@ -2911,7 +2911,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                     child: Row(
                       children: [
                         Text(
-                          '🇰🇿 🇷🇺',
+                          '🇰🇿',
                           style: GoogleFonts.inter(fontSize: 16),
                         ),
                         const SizedBox(width: 12),
@@ -3849,21 +3849,134 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          Row(children: [
-            Expanded(child: _miniBtn(t, Icons.calendar_today_rounded, 
-              provider.selDate == 'today' ? 'Сегодня' : 
-              provider.selDate == 'tomorrow' ? 'Завтра' : 
-              provider.selDate == 'yesterday' ? 'Вчера' : 
-              provider.selDate.isEmpty || provider.selDate == 'date' ? 'Дата' :
-              provider.selDate, () => _pickDate(provider, t),
-              hasError: _showDateError)),
-
-            const SizedBox(width: 8),
-            Expanded(child: _miniBtn(t, Icons.access_time_rounded, 
-              provider.selTime == 'time' ? provider.translate('time') : provider.selTime, 
-              () => _pickTime(provider, t),
-              hasError: _showTimeError)),
-          ]),
+          Row(
+            children: [
+              Expanded(
+                flex: 3,
+                child: GestureDetector(
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    _pickDateTimeSequential(provider, t);
+                  },
+                  child: Container(
+                    height: 56,
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    decoration: BoxDecoration(
+                      color: (_showDateError || _showTimeError) ? const Color(0xFFFFF1F2) : const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: (_showDateError || _showTimeError)
+                            ? const Color(0xFFFDA4AF)
+                            : const Color(0xFFE2E8F0),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.calendar_today_rounded,
+                          color: (_showDateError || _showTimeError) ? const Color(0xFFE11D48) : const Color(0xFF4A80F0),
+                          size: 18,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                'ДАТА И ВРЕМЯ',
+                                style: GoogleFonts.inter(
+                                  fontSize: 9,
+                                  color: (_showDateError || _showTimeError) ? const Color(0xFFE11D48) : const Color(0xFF64748B),
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.3,
+                                ),
+                              ),
+                              const SizedBox(height: 1),
+                              FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(
+                                  (provider.selDate.isEmpty || provider.selDate == 'date')
+                                      ? 'Выбрать...'
+                                      : '${provider.selDate == 'today' ? 'Сегодня' : provider.selDate == 'tomorrow' ? 'Завтра' : provider.selDate}${provider.selTime == 'time' ? '' : ', ' + provider.selTime}',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 13,
+                                    color: (provider.selDate.isEmpty || provider.selDate == 'date')
+                                        ? const Color(0xFF94A3B8)
+                                        : const Color(0xFF1E293B),
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: GestureDetector(
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    _pickPass(provider, t);
+                  },
+                  child: Container(
+                    height: 56,
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: const Color(0xFFE2E8F0),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.group_rounded,
+                          color: Color(0xFF4A80F0),
+                          size: 20,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                'МЕСТА',
+                                style: GoogleFonts.inter(
+                                  fontSize: 9,
+                                  color: const Color(0xFF64748B),
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.3,
+                                ),
+                              ),
+                              const SizedBox(height: 1),
+                              Text(
+                                '${provider.passCnt}',
+                                style: GoogleFonts.inter(
+                                  fontSize: 13,
+                                  color: const Color(0xFF1E293B),
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 16),
           // ── Сумма заказа / желаемая цена ──
           Container(
@@ -4271,6 +4384,53 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
   }
 
 
+  Future<void> _pickDateTimeSequential(TaxiProvider provider, TaxiTheme t) async {
+    final d = await showDatePicker(
+        context: context,
+        initialDate: DateTime.now(),
+        firstDate: DateTime.now(),
+        lastDate: DateTime.now().add(const Duration(days: 30)),
+        builder: (ctx, child) => Theme(
+            data: Theme.of(context).copyWith(
+                colorScheme: ColorScheme.dark(
+                    primary: const Color(0xFF4A80F0), onPrimary: Colors.white, surface: t.card, onSurface: t.text)),
+            child: child!));
+    if (d != null) {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final selected = DateTime(d.year, d.month, d.day);
+      
+      String dateStr = '';
+      if (selected == today) {
+        dateStr = 'today';
+      } else if (selected == today.add(const Duration(days: 1))) {
+        dateStr = 'tomorrow';
+      } else {
+        final months = [
+          provider.translate('jan'), provider.translate('feb'), provider.translate('mar'), provider.translate('apr'),
+          provider.translate('may'), provider.translate('jun'), provider.translate('jul'), provider.translate('aug'),
+          provider.translate('sep'), provider.translate('oct'), provider.translate('nov'), provider.translate('dec')
+        ];
+        dateStr = '${d.day} ${months[d.month - 1]}';
+      }
+      provider.setDate(dateStr);
+      setState(() => _showDateError = false);
+
+      final tVal = await showTimePicker(
+          context: context,
+          initialTime: TimeOfDay.now(),
+          builder: (ctx, child) => Theme(
+              data: Theme.of(context).copyWith(
+                  colorScheme: ColorScheme.dark(
+                      primary: const Color(0xFF4A80F0), onPrimary: Colors.white, surface: t.card, onSurface: t.text)),
+              child: child!));
+      if (tVal != null) {
+        provider.setTime('${tVal.hour}:${tVal.minute.toString().padLeft(2, '0')}');
+        setState(() => _showTimeError = false);
+      }
+    }
+  }
+
   Future<void> _pickDate(TaxiProvider provider, TaxiTheme t) async {
     final d = await showDatePicker(
         context: context,
@@ -4327,28 +4487,32 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
               const SizedBox(height: 20),
               Text(provider.translate('sel_seats'), style: GoogleFonts.inter(color: t.text, fontWeight: FontWeight.bold)),
               const SizedBox(height: 20),
-              Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: List.generate(
-                      4,
-                      (i) => GestureDetector(
-                          onTap: () {
-                            provider.setPassCnt(i + 1);
-                            Navigator.pop(context);
-                          },
-                          child: Container(
-                              width: 60,
-                              height: 60,
-                              decoration: BoxDecoration(
-                                  color: provider.passCnt == i + 1 ? t.accent : t.card,
-                                  borderRadius: BorderRadius.circular(15),
-                                  border: Border.all(color: t.border)),
-                              child: Center(
-                                  child: Text('${i + 1}',
-                                      style: GoogleFonts.inter(
-                                          color: provider.passCnt == i + 1 ? Colors.white : t.text,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 18))))))),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                    children: List.generate(
+                        7,
+                        (i) => GestureDetector(
+                            onTap: () {
+                              provider.setPassCnt(i + 1);
+                              Navigator.pop(context);
+                            },
+                            child: Container(
+                                width: 50,
+                                height: 50,
+                                margin: const EdgeInsets.symmetric(horizontal: 6),
+                                decoration: BoxDecoration(
+                                    color: provider.passCnt == i + 1 ? const Color(0xFF4A80F0) : t.card,
+                                    borderRadius: BorderRadius.circular(15),
+                                    border: Border.all(color: provider.passCnt == i + 1 ? const Color(0xFF4A80F0) : t.border)),
+                                child: Center(
+                                    child: Text('${i + 1}',
+                                        style: GoogleFonts.inter(
+                                            color: provider.passCnt == i + 1 ? Colors.white : t.text,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 16))))))),
+              ),
               const SizedBox(height: 40),
             ]));
   }
