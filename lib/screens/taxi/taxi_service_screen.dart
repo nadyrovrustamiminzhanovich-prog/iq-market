@@ -205,7 +205,10 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
       {'number': '102', 'label': 'Полиция', 'desc': 'Криминальные ситуации', 'icon': Icons.local_police_rounded, 'color': const Color(0xFF3B82F6), 'bg': const Color(0xFFEFF6FF)},
       {'number': '103', 'label': 'Скорая помощь', 'desc': 'Медицинские экстренные случаи', 'icon': Icons.medical_services_rounded, 'color': const Color(0xFFF43F5E), 'bg': const Color(0xFFFFF1F2)},
       {'number': '101', 'label': 'Пожарная служба', 'desc': 'Возгорания и пожары', 'icon': Icons.local_fire_department_rounded, 'color': const Color(0xFFF97316), 'bg': const Color(0xFFFFF7ED)},
-      {'number': '104', 'label': 'Служба газа', 'desc': 'Утечка га�    showModalBottomSheet(
+      {'number': '104', 'label': 'Служба газа', 'desc': 'Утечка газа', 'icon': Icons.oil_barrel_rounded, 'color': const Color(0xFFEAB308), 'bg': const Color(0xFFFEFCE8)},
+    ];
+
+    showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -490,18 +493,9 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
           ),
         ),
       ),
-    );ntSize: 14,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 15),
-          ],
-        ),
-      ),
     );
   }
+
 
   Widget _newHeader(TaxiProvider provider, TaxiTheme t) => Container(
     padding: const EdgeInsets.fromLTRB(20, 20, 0, 10),
