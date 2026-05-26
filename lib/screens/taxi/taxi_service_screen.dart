@@ -1291,8 +1291,8 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
       orElse: () => <String, dynamic>{},
     );
 
-    final bool hasOrder = myOrder.isNotEmpty && _tab == 0;
-    final bool hasDrive = myDrive.isNotEmpty && _tab == 1;
+    final bool hasOrder = myOrder.isNotEmpty && provider.tab == 0;
+    final bool hasDrive = myDrive.isNotEmpty && provider.tab == 1;
 
     if (!hasOrder && !hasDrive) return const SizedBox.shrink();
 
@@ -4156,11 +4156,11 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
   }
 
 
-  Widget _routeRow(TaxiTheme t, String label, String val, bool isF, TaxiProvider provider, {bool hasError = false}) {
+  Widget _routeRow(TaxiTheme t, String label, String val, bool isF, TaxiProvider provider, {bool hasError = false, bool isDriver = false}) {
     return GestureDetector(
       onTap: () {
         HapticFeedback.selectionClick();
-        _openPicker(t, isF, provider);
+        _openPicker(t, isF, provider, isDriver: isDriver);
         setState(() {
           if (isF) _showFromError = false;
           else _showToError = false;
@@ -4361,7 +4361,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
       );
 
 
-  Future<void> _openPicker(TaxiTheme t, bool isF, TaxiProvider provider) async {
+  Future<void> _openPicker(TaxiTheme t, bool isF, TaxiProvider provider, {bool isDriver = false}) async {
     String q = '';
     return await showModalBottomSheet(
         context: context,
@@ -4408,10 +4408,12 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                                         leading: const Icon(Icons.location_on_rounded, size: 20, color: Color(0xFF4A80F0)),
                                         title: Text(city, style: GoogleFonts.inter(color: t.text, fontWeight: FontWeight.w600)),
                                         onTap: () {
-                                          if (isF) {
-                                            provider.setFrom(city);
+                                          if (isDriver) {
+                                            if (isF) provider.setDriverFrom(city);
+                                            else provider.setDriverTo(city);
                                           } else {
-                                            provider.setTo(city);
+                                            if (isF) provider.setFrom(city);
+                                            else provider.setTo(city);
                                           }
                                           Navigator.pop(context);
                                         })).toList();
