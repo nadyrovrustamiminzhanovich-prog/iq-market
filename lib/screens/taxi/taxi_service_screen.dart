@@ -364,18 +364,8 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
               ),
               const SizedBox(height: 12),
   
-              // Symmetrical Sizable Grids of Other Emergency services
-              GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  childAspectRatio: 1.5,
-                ),
-                itemCount: emergencyNumbers.length,
-                itemBuilder: (context, idx) {
+              Column(
+                children: List.generate(emergencyNumbers.length, (idx) {
                   final item = emergencyNumbers[idx];
                   final String number = item['number'];
                   final String label = item['label'];
@@ -383,7 +373,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                   final IconData icon = item['icon'];
                   final Color color = item['color'];
                   final Color bg = item['bg'];
-  
+
                   return GestureDetector(
                     onTap: () async {
                       HapticFeedback.heavyImpact();
@@ -393,7 +383,8 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                       }
                     },
                     child: Container(
-                      padding: const EdgeInsets.all(12),
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         color: bg,
                         borderRadius: BorderRadius.circular(20),
@@ -406,67 +397,62 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                           ),
                         ],
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      child: Row(
                         children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: color.withValues(alpha: 0.15),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(icon, color: color, size: 20),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: color,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Text(
-                                  number,
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: color.withValues(alpha: 0.15),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(icon, color: color, size: 24),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  label,
                                   style: GoogleFonts.inter(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w900,
-                                    fontSize: 12,
+                                    color: const Color(0xFF1E293B),
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 15,
                                   ),
                                 ),
-                              ),
-                            ],
+                                const SizedBox(height: 2),
+                                Text(
+                                  desc,
+                                  style: GoogleFonts.inter(
+                                    color: const Color(0xFF64748B),
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                label,
-                                style: GoogleFonts.inter(
-                                  color: const Color(0xFF1E293B),
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 13,
-                                ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: color,
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Text(
+                              number,
+                              style: GoogleFonts.inter(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w900,
+                                fontSize: 14,
                               ),
-                              const SizedBox(height: 2),
-                              Text(
-                                desc,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.inter(
-                                  color: const Color(0xFF64748B),
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 9,
-                                ),
-                              ),
-                            ],
+                            ),
                           ),
                         ],
                       ),
                     ),
                   );
-                },
+                }),
               ),
               
               const SizedBox(height: 24),
@@ -1637,58 +1623,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
             ),
           ),
           
-          const SizedBox(height: 24),
-          
-          // Linear progress search indicator
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: const Color(0xFFF1F5F9)),
-              boxShadow: [
-                BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10, offset: const Offset(0, 4))
-              ],
-            ),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'СТАТУС ПОИСКА',
-                      style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: const Color(0xFF64748B), fontSize: 10, letterSpacing: 0.8),
-                    ),
-                    Row(
-                      children: [
-                        const SizedBox(
-                          width: 8,
-                          height: 8,
-                          child: CircularProgressIndicator(strokeWidth: 1.5, color: Color(0xFF4A80F0)),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Ищем водителей...',
-                          style: GoogleFonts.inter(color: const Color(0xFF4A80F0), fontWeight: FontWeight.bold, fontSize: 11),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: const LinearProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF4A80F0)),
-                    backgroundColor: Color(0xFFE2E8F0),
-                    minHeight: 4,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           
           StatefulBuilder(
             builder: (ctx, ss) {
@@ -1713,22 +1648,10 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                 child: Column(
                   children: [
                     Text(
-                      'Текущая стоимость вашей поездки:',
-                      style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B), fontWeight: FontWeight.w500),
+                      'Предложить новую стоимость поездки (указано $currentPrice ₸):',
+                      style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF1E293B), fontWeight: FontWeight.bold),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '$currentPrice ₸',
-                      style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w900, color: const Color(0xFF1E293B)),
-                    ),
-                    const SizedBox(height: 12),
-                    const Divider(color: Color(0xFFF1F5F9)),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Предложить новую стоимость поездки:',
-                      style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B), fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 14),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [

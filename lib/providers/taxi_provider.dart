@@ -39,6 +39,8 @@ class TaxiProvider extends ChangeNotifier {
   int _tab = 0;
   String _from = '';
   String _to = '';
+  String _driverFrom = '';
+  String _driverTo = '';
   bool _loading = false;
   bool _isLoggedIn = true;
   String _selDate = 'date';
@@ -76,6 +78,8 @@ class TaxiProvider extends ChangeNotifier {
   int get tab => _tab;
   String get from => _from;
   String get to => _to;
+  String get driverFrom => _driverFrom;
+  String get driverTo => _driverTo;
   bool get loading => _loading;
   bool get isLoggedIn => _isLoggedIn;
   String get selDate => _selDate;
@@ -210,8 +214,8 @@ class TaxiProvider extends ChangeNotifier {
 
   List<Map<String, dynamic>> get filteredOrders {
     return _passengerOrders.where((o) {
-      final bool matchF = _from.isEmpty || o['from'].toString().toLowerCase().contains(_from.toLowerCase());
-      final bool matchT = _to.isEmpty || o['to'].toString().toLowerCase().contains(_to.toLowerCase());
+      final bool matchF = _driverFrom.isEmpty || o['from'].toString().toLowerCase().contains(_driverFrom.toLowerCase());
+      final bool matchT = _driverTo.isEmpty || o['to'].toString().toLowerCase().contains(_driverTo.toLowerCase());
       final bool matchD = _selDate == 'date' || _selDate == 'time' || _selDate.isEmpty || o['date'] == _selDate;
       final int price = (o['price'] as num).toInt();
       final bool matchP = _maxPrice == 0 || price <= _maxPrice;
@@ -238,6 +242,16 @@ class TaxiProvider extends ChangeNotifier {
 
   void setTo(String city) {
     _to = city;
+    notifyListeners();
+  }
+
+  void setDriverFrom(String city) {
+    _driverFrom = city;
+    notifyListeners();
+  }
+
+  void setDriverTo(String city) {
+    _driverTo = city;
     notifyListeners();
   }
 

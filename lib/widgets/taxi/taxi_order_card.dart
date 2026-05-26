@@ -99,24 +99,22 @@ class TaxiOrderCard extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          Text(name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.inter(
+                                  color: t.text, fontWeight: FontWeight.w900, fontSize: 16)),
+                          const SizedBox(height: 3),
                           Row(
                             children: [
-                              Flexible(
-                                child: Text(name,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: GoogleFonts.inter(
-                                        color: t.text, fontWeight: FontWeight.w900, fontSize: 17)),
-                              ),
-                              const SizedBox(width: 6),
-                              const Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 14),
-                              const SizedBox(width: 2),
+                              const Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 13),
+                              const SizedBox(width: 3),
                               Text(
                                 realReviewCount < 5 ? 'Новичок' : '$realRating ($realReviewCount)',
                                 style: GoogleFonts.inter(
-                                  fontSize: 12,
-                                  color: const Color(0xFF94A3B8),
-                                  fontWeight: FontWeight.w600,
+                                  fontSize: 11,
+                                  color: const Color(0xFF3B82F6),
+                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
                             ],
@@ -225,55 +223,64 @@ class TaxiOrderCard extends StatelessWidget {
         child: Row(
           children: [
             Expanded(
-              flex: 4,
-              child: _stripBtn(provider.translate('bargain'), LineIcons.coins, Colors.orange, onNegotiate,
-                  isFilled: true),
+              flex: 5,
+              child: _stripBtn(provider.translate('bargain'), LineIcons.coins, const Color(0xFF0052FF), onNegotiate,
+                  isFilled: true, fontSize: 13),
             ),
-            const SizedBox(width: 8),
-            Expanded(
-              flex: 3,
-              child: _stripBtn(provider.translate('call_short'), LineIcons.phone, Colors.green, onCall),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              flex: 3,
-              child: _stripBtn(provider.translate('chat_short'), LineIcons.comment, const Color(0xFF3B82F6), onChat),
-            ),
+            const SizedBox(width: 10),
+            _iconBtn(LineIcons.phone, const Color(0xFF0052FF), onCall),
+            const SizedBox(width: 10),
+            _iconBtn(LineIcons.comment, const Color(0xFF0052FF), onChat),
           ],
         ),
       );
 
-  Widget _stripBtn(String l, IconData i, Color c, VoidCallback onTap, {bool isFilled = false}) =>
-      Material(
-        color: isFilled ? c : Colors.transparent,
-        borderRadius: BorderRadius.circular(14),
+  Widget _iconBtn(IconData i, Color c, VoidCallback onTap) => Material(
+        color: c,
+        borderRadius: BorderRadius.circular(16),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(16),
           child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 12),
+            width: 46,
+            height: 46,
+            alignment: Alignment.center,
+            child: Icon(i, size: 20, color: Colors.white),
+          ),
+        ),
+      );
+
+  Widget _stripBtn(String l, IconData i, Color c, VoidCallback onTap, {bool isFilled = false, double fontSize = 10}) =>
+      Material(
+        color: isFilled ? c : Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 13),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(16),
               border: isFilled ? null : Border.all(color: c.withValues(alpha: 0.3)),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(i, size: 16, color: isFilled ? Colors.white : c),
+                Icon(i, size: 18, color: isFilled ? Colors.white : c),
                 const SizedBox(width: 8),
                 Flexible(
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
                     child: Text(l,
                         style: GoogleFonts.inter(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w800,
+                            fontSize: fontSize,
+                            fontWeight: FontWeight.w900,
                             color: isFilled ? Colors.white : c)),
                   ),
                 ),
               ],
             ),
+          ),
         ),
-      ),
-    );
+      );
 }

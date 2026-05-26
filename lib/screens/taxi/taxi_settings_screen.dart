@@ -28,9 +28,6 @@ class TaxiSettingsScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          _sectionHeader(t, 'Аккаунт'),
-          _telegramTile(taxiProvider, t),
-          const SizedBox(height: 24),
           _sectionHeader(t, 'Приложение'),
           _tile(t, Icons.notifications_none, taxiProvider.translate('notif'), _notif(taxiProvider)),
           const Divider(height: 32),
@@ -48,44 +45,7 @@ class TaxiSettingsScreen extends StatelessWidget {
     child: Text(title.toUpperCase(), style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w800, color: t.sub, letterSpacing: 1)),
   );
 
-  Widget _telegramTile(TaxiProvider p, dynamic t) {
-    final isLinked = p.isTelegramVerified;
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: t.card,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: isLinked ? Colors.blue.withValues(alpha: 0.2) : t.border),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: const Color(0xFF24A1DE).withValues(alpha: 0.1), shape: BoxShape.circle),
-            child: const Icon(Icons.telegram, color: Color(0xFF24A1DE)),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Telegram', style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: t.text)),
-                Text(isLinked ? 'Аккаунт привязан' : 'Не привязано', style: GoogleFonts.inter(fontSize: 12, color: t.sub)),
-              ],
-            ),
-          ),
-          if (!isLinked)
-            TextButton(
-              onPressed: () {}, // Triggered via auth dialog in main screen
-              child: const Text('ПРИВЯЗАТЬ'),
-            )
-          else
-            const Icon(Icons.check_circle_rounded, color: Colors.green, size: 20),
-        ],
-      ),
-    );
-  }
+
 
   Widget _tile(dynamic t, IconData i, String title, Widget a) => ListTile(
     leading: Icon(i, color: t.lime),
