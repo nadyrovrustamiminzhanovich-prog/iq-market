@@ -332,15 +332,19 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.phone_in_talk_rounded, color: Colors.white, size: 28),
-                      const SizedBox(width: 14),
-                      Text(
-                        'ВЫЗВАТЬ 112 (ЕДИНАЯ СЛУЖБА)',
-                        style: GoogleFonts.inter(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w900,
-                          fontSize: 15,
-                          letterSpacing: 0.5,
+                      const Icon(Icons.phone_in_talk_rounded, color: Colors.white, size: 26),
+                      const SizedBox(width: 12),
+                      Flexible(
+                        child: Text(
+                          'ВЫЗВАТЬ 112 (ЕДИНАЯ СЛУЖБА)',
+                          style: GoogleFonts.inter(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 13,
+                            letterSpacing: 0.5,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
