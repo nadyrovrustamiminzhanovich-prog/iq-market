@@ -310,12 +310,16 @@ class AdService {
   /// Get ads for a specific user
   static Stream<List<AdModel>> getAdsByUserStream(String userId) {
     return _adsCollection
-        .orderBy('timestamp', descending: true)
+        .where('userId', isEqualTo: userId)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => AdModel.fromMap(doc.data() as Map<String, dynamic>, doc.id))
-            .where((ad) => ad.userId == userId && ad.active)
-            .toList());
+        .map((snapshot) {
+          final list = snapshot.docs
+              .map((doc) => AdModel.fromMap(doc.data() as Map<String, dynamic>, doc.id))
+              .where((ad) => ad.active)
+              .toList();
+          list.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+          return list;
+        });
   }
 
   /// Get current user ads (Includes active, pending, and archived ads for proper tabs population)
@@ -323,12 +327,15 @@ class AdService {
     final user = _auth.currentUser;
     if (user == null) return Stream.value([]);
     return _adsCollection
-        .orderBy('timestamp', descending: true)
+        .where('userId', isEqualTo: user.uid)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => AdModel.fromMap(doc.data() as Map<String, dynamic>, doc.id))
-            .where((ad) => ad.userId == user.uid)
-            .toList());
+        .map((snapshot) {
+          final list = snapshot.docs
+              .map((doc) => AdModel.fromMap(doc.data() as Map<String, dynamic>, doc.id))
+              .toList();
+          list.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+          return list;
+        });
   }
 
   /// Update an existing ad
@@ -579,13 +586,16 @@ class AdService {
   /// Get similar ads by category
   static Stream<List<AdModel>> getSimilarAdsStream(String category, String currentAdId) {
     return _adsCollection
-        .orderBy('timestamp', descending: true)
+        .where('category', isEqualTo: category)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => AdModel.fromMap(doc.data() as Map<String, dynamic>, doc.id))
-            .where((ad) => ad.category == category && ad.active && ad.id != currentAdId)
-            .take(6)
-            .toList());
+        .map((snapshot) {
+          final list = snapshot.docs
+              .map((doc) => AdModel.fromMap(doc.data() as Map<String, dynamic>, doc.id))
+              .where((ad) => ad.active && ad.id != currentAdId)
+              .toList();
+          list.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+          return list.take(6).toList();
+        });
   }
 
   /// Get multiple ads by their IDs
@@ -634,9 +644,8 @@ class AdService {
   static Future<void> deleteUserAds(String userId) async {
     try {
       final snapshot = await _adsCollection.where('userId', isEqualTo: userId).get();
-      for (var doc in snapshot.docs) {
-        await deleteAd(doc.id);
-      }
+      final deleteFutures = snapshot.docs.map((doc) => deleteAd(doc.id));
+      await Future.wait(deleteFutures);
       debugPrint('All ads for user $userId deleted ✅');
     } catch (e) {
       debugPrint('Error deleting user ads: $e');
