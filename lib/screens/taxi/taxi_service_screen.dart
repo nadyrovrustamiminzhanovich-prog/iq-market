@@ -1277,61 +1277,10 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
     );
   }
 
+  // Issue #4 msg2: _activeTripBanner removed - unnecessary info banner
   Widget _activeTripBanner(TaxiProvider provider, TaxiTheme t) {
-    final currentUser = FirebaseAuth.instance.currentUser;
-    if (currentUser == null) return const SizedBox.shrink();
-
-    final myOrder = provider.allPassengerOrders.firstWhere(
-      (o) => o['passengerId'] == currentUser.uid && o['status'] == 'active',
-      orElse: () => <String, dynamic>{},
-    );
-
-    final myDrive = provider.allDrives.firstWhere(
-      (d) => d['driverId'] == currentUser.uid && d['status'] == 'active',
-      orElse: () => <String, dynamic>{},
-    );
-
-    final bool hasOrder = myOrder.isNotEmpty && provider.tab == 0;
-    final bool hasDrive = myDrive.isNotEmpty && provider.tab == 1;
-
-    if (!hasOrder && !hasDrive) return const SizedBox.shrink();
-
-    final String from = hasOrder ? (myOrder['from'] ?? '') : (myDrive['from'] ?? '');
-    final String to = hasOrder ? (myOrder['to'] ?? '') : (myDrive['to'] ?? '');
-    final String roleText = hasOrder ? 'Пассажир' : 'Водитель';
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(
-        color: t.card,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: t.accent.withValues(alpha: 0.15)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 8, height: 8,
-            decoration: const BoxDecoration(color: Color(0xFF84CC16), shape: BoxShape.circle),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              'Вы $roleText: $from → $to',
-              style: GoogleFonts.inter(color: t.text, fontWeight: FontWeight.bold, fontSize: 12),
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(color: t.accent.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-            child: Text(
-              'В ПУТИ',
-              style: GoogleFonts.inter(color: t.accent, fontWeight: FontWeight.w900, fontSize: 9, letterSpacing: 0.5),
-            ),
-          ),
-        ],
-      ),
-    );
+    // Removed per user request - unnecessary 'В пути' banner
+    return const SizedBox.shrink();
   }
 
   void _promptTripCompletion(TaxiProvider provider, TaxiTheme t, String docId, bool isOrder, String targetUserId, String targetUserName) {
@@ -1563,6 +1512,19 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
     final currentPrice = (order['price'] ?? 0) as int;
     final bids = provider.activeBids.where((b) => b['targetId'] == orderId).toList();
 
+    // Format date nicely
+    String displayDate = '';
+    final rawDate = order['date'] ?? '';
+    if (rawDate == 'today') {
+      displayDate = 'Сегодня';
+    } else if (rawDate == 'tomorrow') {
+      displayDate = 'Завтра';
+    } else {
+      displayDate = rawDate;
+    }
+    final rawTime = order['time'] ?? '';
+    final displayTime = (rawTime == 'time' || rawTime.isEmpty) ? '' : rawTime;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Column(
@@ -1588,6 +1550,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                       'АКТИВНЫЙ ЗАКАЗ',
                       style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: const Color(0xFF4A80F0), fontSize: 11, letterSpacing: 1),
                     ),
+                    // Removed: статус поиска водителей (issue #1 message 3)
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
@@ -1595,7 +1558,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
-                        'Поиск водителей',
+                        '${currentPrice} ₸',
                         style: GoogleFonts.inter(color: const Color(0xFF4A80F0), fontWeight: FontWeight.w800, fontSize: 10),
                       ),
                     ),
@@ -1612,8 +1575,8 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _infoChip(Icons.calendar_today_rounded, order['date'] == 'today' ? 'Сегодня' : (order['date'] == 'tomorrow' ? 'Завтра' : order['date'] ?? ''), t),
-                    _infoChip(Icons.access_time_rounded, order['time'] == 'time' ? 'Время не указано' : order['time'] ?? '', t),
+                    _infoChip(Icons.calendar_today_rounded, displayDate.isEmpty ? 'Дата' : displayDate, t),
+                    _infoChip(Icons.access_time_rounded, displayTime.isEmpty ? 'Время не указано' : displayTime, t),
                     _infoChip(Icons.group_rounded, '${order['seats'] ?? 1} мест', t),
                   ],
                 ),
@@ -1633,6 +1596,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
               }
               int typedPrice = int.tryParse(_activeOrderPriceController.text.replaceAll(RegExp(r'\D'), '')) ?? currentPrice;
 
+              // Issue #5 msg2: Fix +/- buttons to update price independently
               return Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
@@ -1646,8 +1610,13 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                 child: Column(
                   children: [
                     Text(
-                      'Предложить новую стоимость поездки (указано $currentPrice ₸):',
-                      style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF1E293B), fontWeight: FontWeight.bold),
+                      'Предложить новую стоимость',
+                      style: GoogleFonts.inter(fontSize: 14, color: const Color(0xFF1E293B), fontWeight: FontWeight.w900),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Ваша цена: $currentPrice ₸',
+                      style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B), fontWeight: FontWeight.w500),
                     ),
                     const SizedBox(height: 14),
                     Row(
@@ -1656,17 +1625,12 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                         GestureDetector(
                           onTap: () {
                             HapticFeedback.lightImpact();
-                            if (typedPrice > currentPrice + 100) {
-                              ss(() {
+                            ss(() {
+                              if (typedPrice > 100) {
                                 typedPrice -= 100;
                                 _activeOrderPriceController.text = typedPrice.toString();
-                              });
-                            } else if (typedPrice > currentPrice) {
-                              ss(() {
-                                typedPrice = currentPrice;
-                                _activeOrderPriceController.text = typedPrice.toString();
-                              });
-                            }
+                              }
+                            });
                           },
                           child: _circleBtn(t, Icons.remove),
                         ),
@@ -1702,11 +1666,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                           onTap: () {
                             HapticFeedback.lightImpact();
                             ss(() {
-                              if (typedPrice < currentPrice) {
-                                typedPrice = currentPrice + 100;
-                              } else {
-                                typedPrice += 100;
-                              }
+                              typedPrice += 100;
                               _activeOrderPriceController.text = typedPrice.toString();
                             });
                           },
@@ -1813,44 +1773,44 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                     ),
                     const SizedBox(height: 16),
                     GestureDetector(
-                      onTap: typedPrice <= currentPrice
+                      onTap: typedPrice < 100
                           ? null
                           : () async {
                               _activeOrderPriceFocusNode.unfocus();
                               HapticFeedback.heavyImpact();
                               await provider.updateOrderPrice(orderId, typedPrice);
-                              NotificationService.notify(context, 'Цена повышена', 'Вы подняли цену до $typedPrice ₸', isSuccess: true);
+                              if (mounted) NotificationService.notify(context, 'Цена обновлена', 'Новая цена: $typedPrice ₸', isSuccess: true);
                             },
                       child: Container(
                         width: double.infinity,
-                        height: 48,
+                        height: 52,
                         decoration: BoxDecoration(
-                          gradient: typedPrice <= currentPrice
+                          gradient: typedPrice < 100
                               ? null
                               : const LinearGradient(
                                   colors: [Color(0xFF4A80F0), Color(0xFF1D4ED8)],
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                 ),
-                          color: typedPrice <= currentPrice ? const Color(0xFFE2E8F0) : null,
-                          borderRadius: BorderRadius.circular(14),
-                          boxShadow: typedPrice <= currentPrice
+                          color: typedPrice < 100 ? const Color(0xFFE2E8F0) : null,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: typedPrice < 100
                               ? null
                               : [
                                   BoxShadow(
-                                    color: const Color(0xFF4A80F0).withValues(alpha: 0.25),
-                                    blurRadius: 10,
+                                    color: const Color(0xFF4A80F0).withValues(alpha: 0.3),
+                                    blurRadius: 12,
                                     offset: const Offset(0, 4),
                                   )
                                 ],
                         ),
                         child: Center(
                           child: Text(
-                            typedPrice <= currentPrice ? 'УКАЖИТЕ СУММУ БОЛЬШЕ ТЕКУЩЕЙ' : 'ПОВЫСИТЬ СТОИМОСТЬ ДО $typedPrice ₸',
+                            typedPrice < 100 ? 'ВВЕДИТЕ СУММУ' : 'ПРЕДЛОЖИТЬ $typedPrice ₸',
                             style: GoogleFonts.inter(
-                              color: typedPrice <= currentPrice ? const Color(0xFF94A3B8) : Colors.white,
+                              color: typedPrice < 100 ? const Color(0xFF94A3B8) : Colors.white,
                               fontWeight: FontWeight.w900,
-                              fontSize: 11,
+                              fontSize: 13,
                               letterSpacing: 0.5,
                             ),
                           ),
@@ -1975,34 +1935,108 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
               }).toList(),
             ),
           ] else ...[
+            // Issue #7 msg1, #1 msg3: Показать красивое сообщение вместо "ждем откликов"
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(28),
-                border: Border.all(color: const Color(0xFFF1F5F9)),
-              ),
-              child: Center(
-                child: Column(
-                  children: [
-                    const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF4A80F0)),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Ждем откликов от водителей...',
-                      style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B), fontWeight: FontWeight.w600),
-                    ),
-                  ],
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFEFF6FF), Color(0xFFF0F9FF)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
+                borderRadius: BorderRadius.circular(28),
+                border: Border.all(color: const Color(0xFF4A80F0).withValues(alpha: 0.2)),
+                boxShadow: [
+                  BoxShadow(color: const Color(0xFF4A80F0).withValues(alpha: 0.06), blurRadius: 15, offset: const Offset(0, 6))
+                ],
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF4A80F0).withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.check_circle_rounded, color: Color(0xFF4A80F0), size: 36),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    '✅ Ваша поездка создана!',
+                    style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w900, color: const Color(0xFF1E293B)),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Водители видят ваш заказ и скоро свяжутся с вами по телефону или в чате. Ожидайте звонка! 📞',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.inter(fontSize: 12.5, color: const Color(0xFF64748B), fontWeight: FontWeight.w500, height: 1.5),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF4A80F0).withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const SizedBox(
+                          width: 10, height: 10,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF4A80F0)),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Ожидаем предложения от водителей...',
+                          style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF4A80F0), fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
           
           const SizedBox(height: 32),
           
+          // Issue #6 msg2: "Изменить" кнопка (была "Отменить")
+          GestureDetector(
+            onTap: () async {
+              HapticFeedback.heavyImpact();
+              await provider.cancelOrder(orderId, reason: 'Изменение параметров заказа');
+              if (mounted) NotificationService.notify(context, 'Редактирование', 'Параметры сброшены. Введите новые данные поездки!', isSuccess: true);
+            },
+            child: Container(
+              width: double.infinity,
+              height: 56,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF4A80F0), Color(0xFF2563EB)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(color: const Color(0xFF4A80F0).withValues(alpha: 0.25), blurRadius: 12, offset: const Offset(0, 4))
+                ],
+              ),
+              child: Center(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.edit_rounded, color: Colors.white, size: 18),
+                    const SizedBox(width: 8),
+                    Text(
+                      'ИЗМЕНИТЬ ЗАКАЗ',
+                      style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 0.5),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
           // Cancel order button
           GestureDetector(
             onTap: () {
@@ -2011,40 +2045,16 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
             },
             child: Container(
               width: double.infinity,
-              height: 56,
+              height: 50,
               decoration: BoxDecoration(
                 color: Colors.red.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.red.withValues(alpha: 0.1)),
+                border: Border.all(color: Colors.red.withValues(alpha: 0.15)),
               ),
               child: Center(
                 child: Text(
                   'ОТМЕНИТЬ ЗАКАЗ',
                   style: GoogleFonts.inter(color: Colors.red, fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 0.5),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          // Edit/Modify order button
-          GestureDetector(
-            onTap: () async {
-              HapticFeedback.heavyImpact();
-              await provider.cancelOrder(orderId, reason: 'Изменение параметров заказа');
-              NotificationService.notify(context, 'Редактирование', 'Вы можете изменить параметры поездки и запустить поиск снова!', isSuccess: true);
-            },
-            child: Container(
-              width: double.infinity,
-              height: 56,
-              decoration: BoxDecoration(
-                color: const Color(0xFF4A80F0).withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: const Color(0xFF4A80F0).withValues(alpha: 0.1)),
-              ),
-              child: Center(
-                child: Text(
-                  'ИЗМЕНИТЬ ПАРАМЕТРЫ ЗАКАЗА',
-                  style: GoogleFonts.inter(color: const Color(0xFF4A80F0), fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 0.5),
                 ),
               ),
             ),
@@ -2932,9 +2942,9 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                 const SizedBox(height: 28),
 
                 if (!codeSent) ...[
-                  // Phone Number Input screen
+                  // Issue #6 msg1: Only Kazakhstan flag (no Russia)
                   Text(
-                    'НОМЕР ТЕЛЕФОНА',
+                    'НОМЕР ТЕЛЕФОНА КАЗАХСТАНА',
                     style: GoogleFonts.inter(color: t.sub, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.5),
                   ),
                   const SizedBox(height: 8),
@@ -2947,13 +2957,25 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                     ),
                     child: Row(
                       children: [
-                        Text(
-                          '🇰🇿',
-                          style: GoogleFonts.inter(fontSize: 16),
+                        // Only KZ flag - issue #6
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text('🇰🇿', style: const TextStyle(fontSize: 16)),
+                              const SizedBox(width: 4),
+                              Text('+7', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w800, color: const Color(0xFF1E293B))),
+                            ],
+                          ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 10),
                         Container(width: 1, height: 24, color: t.border),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 10),
                         Expanded(
                           child: TextField(
                             controller: phoneC,
@@ -2976,7 +2998,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                             },
                             decoration: InputDecoration(
                               border: InputBorder.none,
-                              hintText: '+7 (701) 000-00-00',
+                              hintText: '(701) 000-00-00',
                               hintStyle: GoogleFonts.inter(color: t.sub.withValues(alpha: 0.4)),
                             ),
                           ),
@@ -4077,6 +4099,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
             ),
           ),
           const SizedBox(height: 16),
+          // Issue #5 msg1: Phone field with KZ flag and proper format
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             height: 54,
@@ -4087,8 +4110,28 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
             ),
             child: Row(
               children: [
-                Icon(Icons.phone_android_rounded, color: _showPhoneError ? const Color(0xFFE11D48) : const Color(0xFF4A80F0), size: 18),
-                const SizedBox(width: 12),
+                // KZ flag + code
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _showPhoneError ? const Color(0xFFFFE4E6) : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('🇰🇿', style: const TextStyle(fontSize: 14)),
+                      const SizedBox(width: 4),
+                      Text('+7', style: GoogleFonts.inter(
+                        color: _showPhoneError ? const Color(0xFFE11D48) : const Color(0xFF1E293B),
+                        fontSize: 13, fontWeight: FontWeight.w800)
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(width: 1, height: 24, color: _showPhoneError ? const Color(0xFFFDA4AF) : const Color(0xFFE2E8F0)),
+                const SizedBox(width: 8),
                 Expanded(
                   child: TextField(
                     controller: _mainPhoneController,
@@ -4097,7 +4140,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                     style: GoogleFonts.inter(color: _showPhoneError ? const Color(0xFFE11D48) : const Color(0xFF1E293B), fontSize: 14, fontWeight: FontWeight.w700),
                     decoration: InputDecoration(
                       border: InputBorder.none,
-                      hintText: 'Ваш номер телефона для связи...',
+                      hintText: '(700) 000-00-00',
                       hintStyle: GoogleFonts.inter(color: _showPhoneError ? const Color(0xFFFDA4AF) : const Color(0xFF94A3B8), fontSize: 13, fontWeight: FontWeight.w500),
                       counterText: '',
                     ),
@@ -4875,6 +4918,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
             const SizedBox(height: 20),
             Text(
               'Доступ ограничен 🔒',
+              textAlign: TextAlign.center,
               style: GoogleFonts.inter(
                 fontSize: 20,
                 fontWeight: FontWeight.w900,
@@ -4883,7 +4927,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
             ),
             const SizedBox(height: 12),
             Text(
-              'Создайте объявление о поездке, вы получите доступ к заказам по этому маршруту на 24ч',
+              'Создайте объявление о поездке — вы получите доступ к заказам по этому маршруту на 24ч',
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
                 fontSize: 14.5,
@@ -4893,78 +4937,90 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
               ),
             ),
             const SizedBox(height: 28),
-            Row(
-              children: [
-                Expanded(
-                  child: TextButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        side: BorderSide(color: t.border),
-                      ),
-                    ),
-                    child: Text(
-                      'Назад',
-                      style: GoogleFonts.inter(
-                        color: t.sub,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () {
-                      Navigator.pop(ctx);
-                      HapticFeedback.heavyImpact();
-                      
-                      provider.setFrom(from);
-                      provider.setTo(to);
-                      
-                      if (provider.selDate == 'date' || provider.selDate.isEmpty) {
-                        provider.setDate('today');
-                      }
-                      if (provider.selTime == 'time' || provider.selTime.isEmpty) {
-                        provider.setTime('12:00');
-                      }
-                      
-                      _showDriverRideConfirmation(provider, t);
-                    },
-                    child: Container(
-                      height: 52,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF4A80F0), Color(0xFF2563EB)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFF4A80F0).withValues(alpha: 0.3),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
+            // Issue #3 msg2: Кнопки по центру
+            Center(
+              child: Column(
+                children: [
+                  SizedBox(
+                    width: double.infinity,
+                    child: GestureDetector(
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        HapticFeedback.heavyImpact();
+                        
+                        provider.setFrom(from);
+                        provider.setTo(to);
+                        
+                        if (provider.selDate == 'date' || provider.selDate.isEmpty) {
+                          provider.setDate('today');
+                        }
+                        if (provider.selTime == 'time' || provider.selTime.isEmpty) {
+                          provider.setTime('12:00');
+                        }
+                        
+                        _showDriverRideConfirmation(provider, t);
+                      },
+                      child: Container(
+                        height: 56,
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF4A80F0), Color(0xFF2563EB)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
                           ),
-                        ],
-                      ),
-                      child: Center(
-                        child: Text(
-                          'Создать объявление',
-                          style: GoogleFonts.inter(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w900,
-                            fontSize: 13,
+                          borderRadius: BorderRadius.circular(18),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF4A80F0).withValues(alpha: 0.3),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Center(
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.add_road_rounded, color: Colors.white, size: 20),
+                              const SizedBox(width: 10),
+                              Text(
+                                'Создать объявление',
+                                style: GoogleFonts.inter(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 15,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          side: BorderSide(color: t.border),
+                        ),
+                      ),
+                      child: Text(
+                        'Назад',
+                        style: GoogleFonts.inter(
+                          color: t.sub,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -4972,95 +5028,10 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
     );
   }
 
+  // Issue #2 msg1, #9 msg2: passengerDashboard removed from main screen
+  // (Новичок, кол-во поездок, история → перенесены в настройки/профиль)
   Widget _passengerDashboard(TaxiProvider provider, TaxiTheme t) {
-    final uid = FirebaseAuth.instance.currentUser?.uid ?? "";
-    final reviewCount = provider.getUserReviewCount(uid);
-    final rating = provider.getUserRating(uid);
-    final tripsCount = provider.passengerTripsCount;
-
-    String ratingStr = reviewCount < 5 ? 'Новичок' : '${rating.toStringAsFixed(1)} ★';
-    String tripsStr = tripsCount == 0 ? 'Первая!' : '$tripsCount пов.';
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: t.card,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: t.border.withValues(alpha: 0.6)),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10, offset: const Offset(0, 4))
-        ],
-      ),
-      child: Row(
-        children: [
-          // Rating
-          Expanded(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.star_rounded, color: Colors.amber, size: 18),
-                const SizedBox(width: 6),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(ratingStr, style: GoogleFonts.inter(color: t.text, fontWeight: FontWeight.w900, fontSize: 13)),
-                    Text(reviewCount < 5 ? 'Оценок: $reviewCount/5' : '$reviewCount отзывов', 
-                      style: GoogleFonts.inter(color: t.sub, fontSize: 9, fontWeight: FontWeight.w600)),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          Container(height: 24, width: 1, color: t.border.withValues(alpha: 0.4)),
-          // Trips count
-          Expanded(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(LineIcons.car, color: t.accent, size: 18),
-                const SizedBox(width: 6),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(tripsStr, style: GoogleFonts.inter(color: t.text, fontWeight: FontWeight.w900, fontSize: 13)),
-                    Text(tripsCount == 0 ? 'Начните путь' : 'Завершено', 
-                      style: GoogleFonts.inter(color: t.sub, fontSize: 9, fontWeight: FontWeight.w600)),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          Container(height: 24, width: 1, color: t.border.withValues(alpha: 0.4)),
-          // History Button
-          Expanded(
-            child: GestureDetector(
-              onTap: () {
-                HapticFeedback.mediumImpact();
-                Navigator.push(context, MaterialPageRoute(builder: (_) => TaxiHistoryScreen(t: t)));
-              },
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(LineIcons.history, color: t.accent, size: 18),
-                  const SizedBox(width: 6),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text('ИСТОРИЯ', style: GoogleFonts.inter(color: t.accent, fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 0.5)),
-                      Text('Все поездки', style: GoogleFonts.inter(color: t.sub, fontSize: 9, fontWeight: FontWeight.w600)),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+    return const SizedBox.shrink();
   }
 
   void _showUserProfile(TaxiProvider provider, TaxiTheme t, String name, String img, String car, bool isDriver, String targetUserId, {bool isVerified = false}) {
@@ -5131,6 +5102,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
   }
 
   Widget _createRideButton(TaxiProvider provider, TaxiTheme t) {
+    // Issue #3 msg1: Green button changed to blue (#4A80F0)
     return GestureDetector(
       onTap: () {
         if (!provider.isLoggedIn) {
@@ -5164,14 +5136,17 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         decoration: BoxDecoration(
-          color: t.card,
+          gradient: const LinearGradient(
+            colors: [Color(0xFF4A80F0), Color(0xFF2563EB)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: t.accent.withValues(alpha: 0.15), width: 1.5),
           boxShadow: [
             BoxShadow(
-              color: t.accent.withValues(alpha: 0.04),
+              color: const Color(0xFF4A80F0).withValues(alpha: 0.3),
               blurRadius: 15,
-              offset: const Offset(0, 5),
+              offset: const Offset(0, 6),
             ),
           ],
         ),
@@ -5179,12 +5154,8 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
           children: [
             Container(
               padding: const EdgeInsets.all(10),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Color(0xFF84CC16), Color(0xFF65A30D)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.2),
                 shape: BoxShape.circle,
               ),
               child: const Icon(Icons.add_road_rounded, color: Colors.white, size: 24),
@@ -5197,7 +5168,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                   Text(
                     'Создать поездку 🚗',
                     style: GoogleFonts.inter(
-                      color: t.text,
+                      color: Colors.white,
                       fontWeight: FontWeight.w900,
                       fontSize: 16,
                     ),
@@ -5206,7 +5177,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                   Text(
                     'Добавьте свой рейс для поиска пассажиров',
                     style: GoogleFonts.inter(
-                      color: t.sub,
+                      color: Colors.white.withValues(alpha: 0.85),
                       fontSize: 11,
                       fontWeight: FontWeight.w500,
                     ),
@@ -5214,7 +5185,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                 ],
               ),
             ),
-            Icon(Icons.arrow_forward_ios_rounded, color: t.sub.withValues(alpha: 0.5), size: 16),
+            Icon(Icons.arrow_forward_ios_rounded, color: Colors.white.withValues(alpha: 0.7), size: 16),
           ],
         ),
       ),
@@ -5739,10 +5710,10 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                 ]),
                 const SizedBox(height: 16),
 
-                // Phone Input inside sheet
+                // Issue #6 msg1: KZ flag phone input in driver ride sheet
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  height: 54,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  height: 56,
                   decoration: BoxDecoration(
                     color: sPhoneError ? const Color(0xFFFFF1F2) : Colors.white,
                     borderRadius: BorderRadius.circular(18),
@@ -5750,8 +5721,28 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.phone_android_rounded, color: sPhoneError ? const Color(0xFFE11D48) : const Color(0xFF4A80F0), size: 18),
-                      const SizedBox(width: 12),
+                      // KZ flag only - issue #6
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: sPhoneError ? const Color(0xFFFFE4E6) : const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text('🇰🇿', style: const TextStyle(fontSize: 14)),
+                            const SizedBox(width: 4),
+                            Text('+7', style: GoogleFonts.inter(
+                              color: sPhoneError ? const Color(0xFFE11D48) : const Color(0xFF1E293B),
+                              fontSize: 13, fontWeight: FontWeight.w800)
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(width: 1, height: 24, color: sPhoneError ? const Color(0xFFFDA4AF) : const Color(0xFFE2E8F0)),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: TextField(
                           controller: phoneC,
@@ -5760,7 +5751,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                           style: GoogleFonts.inter(color: sPhoneError ? const Color(0xFFE11D48) : const Color(0xFF1E293B), fontSize: 14, fontWeight: FontWeight.w700),
                           decoration: InputDecoration(
                             border: InputBorder.none,
-                            hintText: 'Ваш номер телефона для связи...',
+                            hintText: '(700) 000-00-00',
                             hintStyle: GoogleFonts.inter(color: sPhoneError ? const Color(0xFFFDA4AF) : t.sub.withValues(alpha: 0.5), fontSize: 13, fontWeight: FontWeight.w500),
                             counterText: '',
                           ),

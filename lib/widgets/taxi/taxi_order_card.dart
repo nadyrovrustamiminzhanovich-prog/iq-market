@@ -74,6 +74,7 @@ class TaxiOrderCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     GestureDetector(
                       onTap: onShowProfile,
@@ -95,7 +96,8 @@ class TaxiOrderCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 14),
-                    Expanded(
+                    // Issue #1 msg2: Use Flexible to prevent name clipping
+                    Flexible(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -103,8 +105,9 @@ class TaxiOrderCard extends StatelessWidget {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: GoogleFonts.inter(
-                                  color: t.text, fontWeight: FontWeight.w900, fontSize: 16)),
+                                  color: t.text, fontWeight: FontWeight.w900, fontSize: 15)),
                           const SizedBox(height: 3),
+                          // Issue #1 msg2: Rating shown below name, not competing with price
                           Row(
                             children: [
                               const Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 13),
@@ -124,14 +127,20 @@ class TaxiOrderCard extends StatelessWidget {
                             children: [
                               Icon(LineIcons.clock, color: t.sub.withValues(alpha: 0.5), size: 12),
                               const SizedBox(width: 4),
-                              Text(created,
-                                  style: GoogleFonts.inter(
-                                      color: t.sub, fontSize: 10, fontWeight: FontWeight.w600)),
+                              Expanded(
+                                child: Text(created,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: GoogleFonts.inter(
+                                        color: t.sub, fontSize: 10, fontWeight: FontWeight.w600)),
+                              ),
                             ],
                           ),
                         ],
                       ),
                     ),
+                    const SizedBox(width: 12),
+                    // Price on the right - no longer competed by novice badge
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
@@ -224,8 +233,9 @@ class TaxiOrderCard extends StatelessWidget {
           children: [
             Expanded(
               flex: 5,
+              // Issue #2 msg2: Bigger "Торговаться" button with larger font
               child: _stripBtn(provider.translate('bargain'), LineIcons.coins, const Color(0xFF0052FF), onNegotiate,
-                  isFilled: true, fontSize: 13),
+                  isFilled: true, fontSize: 14),
             ),
             const SizedBox(width: 10),
             _iconBtn(LineIcons.phone, const Color(0xFF0052FF), onCall),

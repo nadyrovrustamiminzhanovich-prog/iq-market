@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:line_icons/line_icons.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:iqmarket/providers/taxi_provider.dart';
+import 'package:iqmarket/screens/taxi/taxi_history_screen.dart';
 
 class TaxiSettingsScreen extends StatelessWidget {
   const TaxiSettingsScreen({super.key});
@@ -10,6 +14,13 @@ class TaxiSettingsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final taxiProvider = Provider.of<TaxiProvider>(context);
     final t = taxiProvider.theme;
+
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? "";
+    final reviewCount = taxiProvider.getUserReviewCount(uid);
+    final rating = taxiProvider.getUserRating(uid);
+    final tripsCount = taxiProvider.passengerTripsCount;
+    final String ratingStr = reviewCount < 5 ? 'Новичок' : '${rating.toStringAsFixed(1)} ★';
+    final String tripsStr = tripsCount == 0 ? 'Первая поездка!' : '$tripsCount поездок';
 
     return Scaffold(
       backgroundColor: t.bg,
@@ -22,12 +33,85 @@ class TaxiSettingsScreen extends StatelessWidget {
         ),
         title: Text(
           taxiProvider.translate('settings'),
-          style: GoogleFonts.inter(color: t.text),
+          style: GoogleFonts.inter(color: t.text, fontWeight: FontWeight.w800),
         ),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          // Profile stats section (moved from main screen - issue #2 msg1, #9 msg2)
+          _sectionHeader(t, 'Мой профиль'),
+          Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            decoration: BoxDecoration(
+              color: t.card,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: t.border.withValues(alpha: 0.6)),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10, offset: const Offset(0, 4))
+              ],
+            ),
+            child: Row(
+              children: [
+                // Rating
+                Expanded(
+                  child: Column(
+                    children: [
+                      Icon(Icons.star_rounded, color: Colors.amber, size: 28),
+                      const SizedBox(height: 6),
+                      Text(ratingStr, style: GoogleFonts.inter(color: t.text, fontWeight: FontWeight.w900, fontSize: 14)),
+                      const SizedBox(height: 2),
+                      Text(
+                        reviewCount < 5 ? 'Оценок: $reviewCount/5' : '$reviewCount отзывов',
+                        style: GoogleFonts.inter(color: t.sub, fontSize: 10, fontWeight: FontWeight.w600),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+                Container(height: 50, width: 1, color: t.border.withValues(alpha: 0.4)),
+                // Trips count
+                Expanded(
+                  child: Column(
+                    children: [
+                      Icon(LineIcons.car, color: t.accent, size: 28),
+                      const SizedBox(height: 6),
+                      Text(tripsStr, style: GoogleFonts.inter(color: t.text, fontWeight: FontWeight.w900, fontSize: 14)),
+                      const SizedBox(height: 2),
+                      Text(
+                        tripsCount == 0 ? 'Начните путь' : 'Завершено',
+                        style: GoogleFonts.inter(color: t.sub, fontSize: 10, fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(height: 50, width: 1, color: t.border.withValues(alpha: 0.4)),
+                // History shortcut
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () {
+                      HapticFeedback.mediumImpact();
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => TaxiHistoryScreen(t: t)));
+                    },
+                    child: Column(
+                      children: [
+                        Icon(LineIcons.history, color: t.accent, size: 28),
+                        const SizedBox(height: 6),
+                        Text('ИСТОРИЯ', style: GoogleFonts.inter(color: t.accent, fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 0.5)),
+                        const SizedBox(height: 2),
+                        Text('Все поездки', style: GoogleFonts.inter(color: t.sub, fontSize: 10, fontWeight: FontWeight.w600)),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const Divider(height: 8),
+
+          // App settings section
           _sectionHeader(t, 'Приложение'),
           _tile(t, Icons.notifications_none, taxiProvider.translate('notif'), _notif(taxiProvider)),
           const Divider(height: 32),
@@ -41,11 +125,9 @@ class TaxiSettingsScreen extends StatelessWidget {
   }
 
   Widget _sectionHeader(dynamic t, String title) => Padding(
-    padding: const EdgeInsets.only(left: 16, bottom: 8, top: 8),
+    padding: const EdgeInsets.only(left: 4, bottom: 10, top: 12),
     child: Text(title.toUpperCase(), style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w800, color: t.sub, letterSpacing: 1)),
   );
-
-
 
   Widget _tile(dynamic t, IconData i, String title, Widget a) => ListTile(
     leading: Icon(i, color: t.lime),
