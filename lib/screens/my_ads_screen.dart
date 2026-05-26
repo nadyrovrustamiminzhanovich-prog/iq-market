@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:iqmarket/screens/post_ad_screen.dart';
+import 'package:iqmarket/screens/product_details_screen.dart';
 import 'package:iqmarket/services/ad_service.dart';
 import 'package:iqmarket/models/ad_model.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -143,84 +144,155 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
   }
 
   Widget _buildAdCard(AdModel ad) {
+    final bool isPending = ad.status == 'pending';
+    final bool isArchived = !ad.active || ad.status == 'archived' || ad.status == 'archive';
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))],
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFF1F5F9), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
+          )
+        ],
       ),
-      child: Column(
-        children: [
-          ListTile(
-            contentPadding: const EdgeInsets.all(12),
-            leading: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: ad.images.isNotEmpty 
-                ? CachedNetworkImage(
-                    imageUrl: ad.images.first,
-                    width: 70, height: 70, fit: BoxFit.cover,
-                    placeholder: (context, url) => Container(color: Colors.grey[200]),
-                    errorWidget: (context, url, error) => const Icon(Icons.image),
-                  )
-                : Container(width: 70, height: 70, color: Colors.grey[200], child: const Icon(Icons.image)),
-            ),
-            title: Text(ad.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 15)),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 4),
-                Text('${ad.price.toInt()} ₸', style: GoogleFonts.inter(color: const Color(0xFF4A80F0), fontWeight: FontWeight.w900, fontSize: 16)),
-                const SizedBox(height: 4),
-                Text(ad.location, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-                const SizedBox(height: 6),
-                Row(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: Column(
+          children: [
+            InkWell(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (ctx) => ProductDetailsScreen(
+                      ad: ad,
+                      lang: widget.lang,
+                      onReport: (adId) {},
+                    ),
+                  ),
+                );
+              },
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (ad.condition != null && ad.condition!.isNotEmpty)
-                      _miniTag(ad.condition!, ad.condition == 'Новый' ? Colors.green : Colors.blueGrey),
-                    if (ad.hasDelivery)
-                      const Padding(padding: EdgeInsets.only(right: 6), child: Icon(Icons.local_shipping_rounded, size: 14, color: Color(0xFF4A80F0))),
-                    if (ad.canExchange)
-                      const Padding(padding: EdgeInsets.only(right: 6), child: Icon(Icons.swap_horizontal_circle_rounded, size: 14, color: Colors.orange)),
+                    Stack(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: ad.images.isNotEmpty 
+                            ? CachedNetworkImage(
+                                imageUrl: ad.images.first,
+                                width: 85, height: 85, fit: BoxFit.cover,
+                                placeholder: (context, url) => Container(color: const Color(0xFFF1F5F9)),
+                                errorWidget: (context, url, error) => const Icon(Icons.image),
+                              )
+                            : Container(width: 85, height: 85, color: const Color(0xFFF1F5F9), child: const Icon(Icons.image)),
+                        ),
+                        if (isPending)
+                          Positioned(
+                            top: 4, left: 4,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(color: Colors.amber, borderRadius: BorderRadius.circular(6)),
+                              child: Text('ПРОВЕРКА', style: GoogleFonts.inter(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
+                            ),
+                          ),
+                        if (isArchived)
+                          Positioned(
+                            top: 4, left: 4,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(color: Colors.grey, borderRadius: BorderRadius.circular(6)),
+                              child: Text('АРХИВ', style: GoogleFonts.inter(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(ad.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 15, color: const Color(0xFF1E293B))),
+                          const SizedBox(height: 6),
+                          Text('${ad.price.toInt()} ₸', style: GoogleFonts.inter(color: const Color(0xFF4A80F0), fontWeight: FontWeight.w900, fontSize: 17)),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              const Icon(Icons.location_on_rounded, size: 12, color: Colors.grey),
+                              const SizedBox(width: 4),
+                              Expanded(child: Text(ad.location, maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(color: Colors.grey[600], fontSize: 12, fontWeight: FontWeight.w500))),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              if (ad.condition != null && ad.condition!.isNotEmpty)
+                                _miniTag(ad.condition!, ad.condition == 'Новый' ? const Color(0xFF10B981) : Colors.blueGrey),
+                              if (ad.hasDelivery)
+                                const Padding(padding: EdgeInsets.only(right: 6), child: Icon(Icons.local_shipping_rounded, size: 14, color: Color(0xFF4A80F0))),
+                              if (ad.canExchange)
+                                const Padding(padding: EdgeInsets.only(right: 6), child: Icon(Icons.swap_horizontal_circle_rounded, size: 14, color: Colors.orange)),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
-              ],
+              ),
             ),
-          ),
-          const Divider(height: 1),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                if (ad.expiresAt != null && (ad.expiresAt!.difference(DateTime.now()).inDays <= 3 || !ad.active))
+            Container(height: 1, color: const Color(0xFFF1F5F9)),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  if (ad.expiresAt != null && (ad.expiresAt!.difference(DateTime.now()).inDays <= 3 || !ad.active))
+                    Container(
+                      margin: const EdgeInsets.only(right: 8),
+                      child: TextButton.icon(
+                        onPressed: () {
+                          AdService.extendAd(ad.id);
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Объявление продлено на 30 дней', style: GoogleFonts.inter()), backgroundColor: Colors.green));
+                        },
+                        icon: const Icon(Icons.update_rounded, size: 18, color: Colors.green),
+                        label: Text(_t('extend'), style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
                   TextButton.icon(
-                    onPressed: () {
-                      AdService.extendAd(ad.id);
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Объявление продлено на 30 дней', style: GoogleFonts.inter()), backgroundColor: Colors.green));
-                    },
-                    icon: const Icon(Icons.update_rounded, size: 18, color: Colors.green),
-                    label: Text(_t('extend'), style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                    onPressed: () => _editAd(ad),
+                    style: TextButton.styleFrom(foregroundColor: const Color(0xFF4A80F0)),
+                    icon: const Icon(Icons.edit_outlined, size: 18),
+                    label: Text('Редакт.', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
                   ),
-                TextButton.icon(
-                  onPressed: () => _editAd(ad),
-                  icon: const Icon(Icons.edit_outlined, size: 18),
-                  label: const Text('Редакт.'),
-                ),
-                if (ad.active && (ad.expiresAt == null || ad.expiresAt!.difference(DateTime.now()).inDays > 3))
-                  TextButton.icon(
-                    onPressed: () => AdService.toggleAdStatus(ad.id, !ad.active),
-                    icon: Icon(ad.active ? Icons.archive_outlined : Icons.unarchive_outlined, size: 18),
-                    label: Text(ad.active ? 'В архив' : 'Активир.'),
+                  const SizedBox(width: 8),
+                  if (ad.active && (ad.expiresAt == null || ad.expiresAt!.difference(DateTime.now()).inDays > 3))
+                    TextButton.icon(
+                      onPressed: () => AdService.toggleAdStatus(ad.id, !ad.active),
+                      style: TextButton.styleFrom(foregroundColor: const Color(0xFF64748B)),
+                      icon: Icon(ad.active ? Icons.archive_outlined : Icons.unarchive_outlined, size: 18),
+                      label: Text(ad.active ? 'В архив' : 'Активир.', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+                    ),
+                  const Spacer(),
+                  IconButton(
+                    onPressed: () => _confirmDelete(ad.id),
+                    style: IconButton.styleFrom(foregroundColor: Colors.redAccent.withValues(alpha: 0.1)),
+                    icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
                   ),
-                IconButton(
-                  onPressed: () => _confirmDelete(ad.id),
-                  icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

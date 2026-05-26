@@ -37,6 +37,7 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
   int _reviewsCount = 0;
   List<ReviewModel> _reviewsList = [];
   String _userPhone = '';
+  bool _isDriverVerified = false;
 
   @override
   void initState() {
@@ -86,6 +87,20 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
           }
         }
       }
+
+      bool isVerified = widget.user['verified'] == true;
+      try {
+        final verifSnap = await FirebaseFirestore.instance
+            .collection('driver_verifications')
+            .where('driver_name', isEqualTo: (widget.user['name'] ?? '').toString().trim())
+            .get();
+        if (verifSnap.docs.isNotEmpty) {
+          final status = verifSnap.docs.first.data()['status'];
+          if (status == 'approved' || status == 'approved_by_ai') {
+            isVerified = true;
+          }
+        }
+      } catch (_) {}
 
       // 2. Fetch completed trips count
       int count = 0;
@@ -141,6 +156,7 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
         _reviewsList = list;
         _reviewsCount = rCount;
         _avgRating = avg;
+        _isDriverVerified = isVerified;
         _isLoadingStats = false;
       });
     } catch (e) {
@@ -223,7 +239,7 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
                       icon: Icon(Icons.arrow_back_ios_new_rounded, color: t.text),
                       onPressed: () => Navigator.pop(context),
                     ),
-                    title: Text('ПРОФИЛЬ', style: GoogleFonts.inter(color: t.text, fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: 2)),
+                    title: Text('ПРОФИЛЬ', style: GoogleFonts.inter(color: t.text, fontWeight: FontWeight.w700, fontSize: 16, letterSpacing: 2)),
                     centerTitle: true,
                   ),
                 SliverToBoxAdapter(
@@ -249,7 +265,7 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
                                   bottom: 5, right: 5,
                                   child: Container(
                                     padding: const EdgeInsets.all(6),
-                                    decoration: BoxDecoration(color: Colors.green, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)),
+                                    decoration: BoxDecoration(color: const Color(0xFF4A80F0), shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)),
                                     child: const Icon(Icons.check, color: Colors.white, size: 14),
                                   ),
                                 ),
@@ -268,27 +284,45 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
                                     u['name'] ?? 'User',
                                     style: GoogleFonts.inter(
                                       color: t.text,
-                                      fontWeight: FontWeight.w900,
+                                      fontWeight: FontWeight.w700,
                                       fontSize: 28,
                                     ),
                                   ),
                                   const SizedBox(height: 4),
-                                  Row(
-                                    mainAxisAlignment: widget.isDriver ? MainAxisAlignment.start : MainAxisAlignment.center,
-                                    children: [
-                                      Icon(Icons.verified_rounded, color: t.accent, size: 18),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        'ВЕРИФИЦИРОВАН',
-                                        style: GoogleFonts.inter(
-                                          color: t.accent,
-                                          fontWeight: FontWeight.w800,
-                                          fontSize: 12,
-                                          letterSpacing: 1,
+                                  if (_isDriverVerified)
+                                    Row(
+                                      mainAxisAlignment: widget.isDriver ? MainAxisAlignment.start : MainAxisAlignment.center,
+                                      children: [
+                                        const Icon(Icons.verified_rounded, color: Color(0xFF4A80F0), size: 18),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          'ВЕРИФИЦИРОВАН',
+                                          style: GoogleFonts.inter(
+                                            color: const Color(0xFF4A80F0),
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 12,
+                                            letterSpacing: 1,
+                                          ),
                                         ),
-                                      ),
-                                    ],
-                                  ),
+                                      ],
+                                    )
+                                  else
+                                    Row(
+                                      mainAxisAlignment: widget.isDriver ? MainAxisAlignment.start : MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.shield_outlined, color: t.sub, size: 18),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          'НЕ ВЕРИФИЦИРОВАН',
+                                          style: GoogleFonts.inter(
+                                            color: t.sub,
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 12,
+                                            letterSpacing: 1,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                 ],
                               ),
                             ),
@@ -353,7 +387,7 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
     title,
     style: GoogleFonts.inter(
       color: t.sub,
-      fontWeight: FontWeight.w900,
+      fontWeight: FontWeight.w700,
       fontSize: 11,
       letterSpacing: 1.5,
     ),
@@ -367,9 +401,9 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
         child: Icon(icon, color: color, size: 24),
       ),
       const SizedBox(height: 8),
-      Text(val, style: GoogleFonts.inter(color: t.text, fontWeight: FontWeight.w900, fontSize: val.length > 5 ? 12 : 16)),
+      Text(val, style: GoogleFonts.inter(color: t.text, fontWeight: FontWeight.w700, fontSize: val.length > 5 ? 12 : 16)),
       const SizedBox(height: 2),
-      Text(label, style: GoogleFonts.inter(color: t.sub, fontWeight: FontWeight.w800, fontSize: 8, letterSpacing: 0.5)),
+      Text(label, style: GoogleFonts.inter(color: t.sub, fontWeight: FontWeight.w600, fontSize: 8, letterSpacing: 0.5)),
     ],
   );
 
@@ -388,7 +422,7 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
           rate,
           style: GoogleFonts.inter(
             color: Colors.amber.shade700,
-            fontWeight: FontWeight.w900,
+            fontWeight: FontWeight.w700,
             fontSize: rate.length > 5 ? 12 : 16,
           ),
         ),
@@ -431,7 +465,7 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
                 value,
                 style: GoogleFonts.inter(
                   color: t.text,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w600,
                   fontSize: 15,
                 ),
               ),
@@ -462,7 +496,7 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
                   name,
                   style: GoogleFonts.inter(
                     color: t.text,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w600,
                     fontSize: 14,
                   ),
                 ),
@@ -626,7 +660,7 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
             label,
             style: GoogleFonts.inter(
               color: text,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w700,
               fontSize: 13,
               letterSpacing: 1,
             ),
@@ -675,7 +709,7 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
                         style: GoogleFonts.inter(
                           color: Colors.white,
                           fontSize: 24,
-                          fontWeight: FontWeight.w900,
+                          fontWeight: FontWeight.w700,
                           letterSpacing: 5,
                         ),
                       ),

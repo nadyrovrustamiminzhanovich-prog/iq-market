@@ -87,7 +87,7 @@ class _TaxiProfileScreenState extends State<TaxiProfileScreen> {
                   decoration: BoxDecoration(
                     color: widget.t.card2,
                     shape: BoxShape.circle,
-                    border: Border.all(color: widget.t.lime, width: 3),
+                    border: Border.all(color: widget.t.accent, width: 3),
                   ),
                   child: ClipOval(
                     child: imageFile != null
@@ -103,7 +103,7 @@ class _TaxiProfileScreenState extends State<TaxiProfileScreen> {
                     child: Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: widget.t.lime,
+                        color: widget.t.accent,
                         shape: BoxShape.circle,
                         border: Border.all(color: widget.t.bg, width: 2),
                       ),
@@ -130,16 +130,16 @@ class _TaxiProfileScreenState extends State<TaxiProfileScreen> {
             child: Container(
               height: 60,
               decoration: BoxDecoration(
-                color: widget.t.lime,
+                color: widget.t.accent,
                 borderRadius: BorderRadius.circular(18),
                 boxShadow: [
-                  BoxShadow(color: widget.t.lime.withValues(alpha: 0.3), blurRadius: 10, offset: const Offset(0, 5))
+                  BoxShadow(color: widget.t.accent.withValues(alpha: 0.3), blurRadius: 10, offset: const Offset(0, 5))
                 ],
               ),
               child: Center(
                 child: Text(
                   tr('save'),
-                  style: GoogleFonts.inter(color: Colors.black, fontWeight: FontWeight.w800, fontSize: 16),
+                  style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 16),
                 ),
               ),
             ),
@@ -152,7 +152,7 @@ class _TaxiProfileScreenState extends State<TaxiProfileScreen> {
   Widget _pf(String l, TextEditingController c) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Text(l, style: GoogleFonts.inter(color: widget.t.sub, fontSize: 12, fontWeight: FontWeight.bold)),
+      Text(l, style: GoogleFonts.inter(color: widget.t.sub, fontSize: 12, fontWeight: FontWeight.w600)),
       const SizedBox(height: 8),
       Container(
         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -190,7 +190,7 @@ class _TaxiProfileScreenState extends State<TaxiProfileScreen> {
             const SizedBox(height: 25),
             Text(
               provider.translate('profile_photo') ?? 'Фото профиля', 
-              style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w900, color: widget.t.text)
+              style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w700, color: widget.t.text)
             ),
             const SizedBox(height: 10),
             Text(
@@ -204,7 +204,7 @@ class _TaxiProfileScreenState extends State<TaxiProfileScreen> {
               icon: Icons.camera_alt_rounded,
               title: provider.translate('camera'),
               sub: 'Сделать снимок сейчас',
-              color: widget.t.lime,
+              color: widget.t.accent,
               onTap: () {
                 Navigator.pop(context);
                 _pickImage(provider, ImageSource.camera);
@@ -253,9 +253,9 @@ class _TaxiProfileScreenState extends State<TaxiProfileScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: GoogleFonts.inter(color: color, fontWeight: FontWeight.w900, fontSize: 15)),
+                Text(title, style: GoogleFonts.inter(color: color, fontWeight: FontWeight.w700, fontSize: 15)),
                 const SizedBox(height: 2),
-                Text(sub, style: GoogleFonts.inter(color: color.withValues(alpha: 0.6), fontWeight: FontWeight.w600, fontSize: 11)),
+                Text(sub, style: GoogleFonts.inter(color: color.withValues(alpha: 0.6), fontWeight: FontWeight.w500, fontSize: 11)),
               ],
             ),
           ),

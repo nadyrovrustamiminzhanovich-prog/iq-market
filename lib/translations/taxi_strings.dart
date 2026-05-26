@@ -8,7 +8,7 @@ const Map<String, Map<String, String>> taxiStrings = {
     'search': 'ПОИСК МАШИНЫ 🚀',
     'create': 'СОЗДАТЬ ПОЕЗДКУ 🚗',
     'drivers': 'ДОСТУПНЫЕ ВОДИТЕЛИ',
-    'orders': 'ОКРЫТЫЕ ЗАКАЗЫ',
+    'orders': 'АКТИВНЫЕ ЗАКАЗЫ',
     'found': 'найдено',
     'price_hint': 'Цена поездки (₸)',
     'seats': 'места',

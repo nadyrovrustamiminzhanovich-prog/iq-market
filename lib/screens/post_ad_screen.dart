@@ -64,6 +64,7 @@ class _PostAdScreenState extends State<PostAdScreen> {
   
   // Media
   final List<File> _imageFiles = [];
+  List<String> _existingImageUrls = [];
   File? _videoFile;
   final ImagePicker _picker = ImagePicker();
 
@@ -131,6 +132,7 @@ class _PostAdScreenState extends State<PostAdScreen> {
     _bargainAvailable = ad.isBargainAllowed;
     _canExchange = ad.canExchange;
     _hasDelivery = ad.hasDelivery;
+    _existingImageUrls = List<String>.from(ad.images);
     if (ad.userPhone != null && ad.userPhone!.isNotEmpty) {
       final digits = ad.userPhone!.replaceAll(RegExp(r'\D'), '');
       String localDigits = digits;
@@ -172,10 +174,12 @@ class _PostAdScreenState extends State<PostAdScreen> {
                 children: [
                   ImagePickerSection(
                     imageFiles: _imageFiles,
+                    existingImageUrls: _existingImageUrls,
                     videoFile: _videoFile,
                     onPickImages: () => _pickMedia(false),
                     onPickVideo: () => _pickMedia(true),
                     onRemoveImage: (i) => setState(() { _imageFiles.removeAt(i); _saveDraft(); }),
+                    onRemoveExistingImage: (i) => setState(() { _existingImageUrls.removeAt(i); }),
                     onRemoveVideo: () => setState(() { _videoFile = null; _saveDraft(); }),
                   ),
                   const SizedBox(height: 30),
@@ -423,6 +427,7 @@ class _PostAdScreenState extends State<PostAdScreen> {
         category: _selectedCategory,
         location: _selectedLocation,
         images: _imageFiles,
+        existingImages: _existingImageUrls,
         video: _videoFile,
         condition: _condition,
         bargain: _bargainAvailable,

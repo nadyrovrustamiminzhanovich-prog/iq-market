@@ -61,6 +61,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
   bool _showDateError = false;
   bool _showTimeError = false;
   bool _showPhoneError = false;
+  bool _showPriceError = false;
 
   @override
   void initState() {
@@ -201,183 +202,301 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
     HapticFeedback.vibrate();
     
     final List<Map<String, dynamic>> emergencyNumbers = [
-      {'number': '112', 'label': 'Единая служба спасения', 'icon': Icons.emergency_rounded, 'color': Colors.red},
-      {'number': '102', 'label': 'Полиция', 'icon': Icons.local_police_rounded, 'color': Colors.blue},
-      {'number': '103', 'label': 'Скорая помощь', 'icon': Icons.medical_services_rounded, 'color': Colors.redAccent},
-      {'number': '101', 'label': 'Пожарная служба', 'icon': Icons.local_fire_department_rounded, 'color': Colors.orange},
-      {'number': '104', 'label': 'Служба газа', 'icon': Icons.oil_barrel_rounded, 'color': Colors.amber},
-    ];
-
-    showModalBottomSheet(
+      {'number': '102', 'label': 'Полиция', 'desc': 'Криминальные ситуации', 'icon': Icons.local_police_rounded, 'color': const Color(0xFF3B82F6), 'bg': const Color(0xFFEFF6FF)},
+      {'number': '103', 'label': 'Скорая помощь', 'desc': 'Медицинские экстренные случаи', 'icon': Icons.medical_services_rounded, 'color': const Color(0xFFF43F5E), 'bg': const Color(0xFFFFF1F2)},
+      {'number': '101', 'label': 'Пожарная служба', 'desc': 'Возгорания и пожары', 'icon': Icons.local_fire_department_rounded, 'color': const Color(0xFFF97316), 'bg': const Color(0xFFFFF7ED)},
+      {'number': '104', 'label': 'Служба газа', 'desc': 'Утечка га�    showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: t.bg,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-      ),
-      builder: (ctx) => SingleChildScrollView(
-        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom, top: 24, left: 24, right: 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: t.border,
-                  borderRadius: BorderRadius.circular(10),
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: BoxDecoration(
+          color: t.bg,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(35)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.25),
+              blurRadius: 35,
+              offset: const Offset(0, -10),
+            ),
+          ],
+        ),
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom + 24, top: 12, left: 24, right: 24),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 45,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: t.border.withValues(alpha: 0.6),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 24),
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.red.withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
+              const SizedBox(height: 24),
+              
+              // Ultra-Premium Header with beautiful glow
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFFFE4E6), Color(0xFFFFE4E6)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
-                  child: const Icon(Icons.gpp_maybe_rounded, color: Colors.red, size: 28),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: const Color(0xFFFECDD3), width: 1.5),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFE11D48).withValues(alpha: 0.08),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Экстренные службы (SOS)',
-                        style: GoogleFonts.inter(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                          color: t.text,
-                        ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFE11D48),
+                        shape: BoxShape.circle,
                       ),
-                      const SizedBox(height: 4),
+                      child: const Icon(Icons.gpp_maybe_rounded, color: Colors.white, size: 30),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'СЛУЖБА СПАСЕНИЯ SOS',
+                            style: GoogleFonts.inter(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                              color: const Color(0xFF9F1239),
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            'Экстренный вызов спецслужб Казахстана',
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              color: const Color(0xFFBE123C),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+  
+              // Giant Premium Pulse Button for 112
+              GestureDetector(
+                onTap: () async {
+                  HapticFeedback.heavyImpact();
+                  final Uri url = Uri.parse('tel:112');
+                  if (await canLaunchUrl(url)) {
+                    await launchUrl(url);
+                  }
+                },
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 20),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFE11D48), Color(0xFFBE123C)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFE11D48).withValues(alpha: 0.4),
+                        blurRadius: 25,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.phone_in_talk_rounded, color: Colors.white, size: 28),
+                      const SizedBox(width: 14),
                       Text(
-                        'Выберите номер для немедленного вызова',
+                        'ВЫЗВАТЬ 112 (ЕДИНАЯ СЛУЖБА)',
                         style: GoogleFonts.inter(
-                          fontSize: 12,
-                          color: t.sub,
-                          fontWeight: FontWeight.w500,
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 15,
+                          letterSpacing: 0.5,
                         ),
                       ),
                     ],
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            ...emergencyNumbers.map((item) {
-              final String number = item['number'] as String;
-              final String label = item['label'] as String;
-              final IconData icon = item['icon'] as IconData;
-              final Color color = item['color'] as Color;
-
-              return Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                decoration: BoxDecoration(
-                  color: t.card,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: t.border, width: 1),
+              ),
+              
+              const SizedBox(height: 24),
+              Text(
+                'ДРУГИЕ ЭКСТРЕННЫЕ СЛУЖБЫ:',
+                style: GoogleFonts.inter(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w900,
+                  color: t.sub,
+                  letterSpacing: 1.0,
                 ),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(20),
+              ),
+              const SizedBox(height: 12),
+  
+              // Symmetrical Sizable Grids of Other Emergency services
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  childAspectRatio: 1.5,
+                ),
+                itemCount: emergencyNumbers.length,
+                itemBuilder: (context, idx) {
+                  final item = emergencyNumbers[idx];
+                  final String number = item['number'];
+                  final String label = item['label'];
+                  final String desc = item['desc'];
+                  final IconData icon = item['icon'];
+                  final Color color = item['color'];
+                  final Color bg = item['bg'];
+  
+                  return GestureDetector(
                     onTap: () async {
                       HapticFeedback.heavyImpact();
                       final Uri url = Uri.parse('tel:$number');
                       if (await canLaunchUrl(url)) {
                         await launchUrl(url);
-                      } else {
-                        if (ctx.mounted) {
-                          NotificationService.notify(
-                            context,
-                            'Ошибка',
-                            'Не удалось совершить вызов на номер $number',
-                            isSuccess: false,
-                          );
-                        }
                       }
                     },
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                      child: Row(
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: bg,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: color.withValues(alpha: 0.15), width: 1.5),
+                        boxShadow: [
+                          BoxShadow(
+                            color: color.withValues(alpha: 0.03),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: color.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            child: Icon(icon, color: color, size: 24),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  label,
-                                  style: GoogleFonts.inter(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w700,
-                                    color: t.text,
-                                  ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: color.withValues(alpha: 0.15),
+                                  shape: BoxShape.circle,
                                 ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Номер: $number',
+                                child: Icon(icon, color: color, size: 20),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: color,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  number,
                                   style: GoogleFonts.inter(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w900,
                                     fontSize: 12,
-                                    fontWeight: FontWeight.w500,
-                                    color: t.sub,
                                   ),
                                 ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: t.accent.withValues(alpha: 0.08),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(Icons.call_rounded, color: t.accent, size: 18),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                label,
+                                style: GoogleFonts.inter(
+                                  color: const Color(0xFF1E293B),
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                desc,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.inter(
+                                  color: const Color(0xFF64748B),
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 9,
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
                     ),
+                  );
+                },
+              ),
+              
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      side: BorderSide(color: t.border),
+                    ),
+                  ),
+                  child: Text(
+                    'ЗАКРЫТЬ',
+                    style: GoogleFonts.inter(
+                      color: t.sub,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                      letterSpacing: 0.5,
+                    ),
                   ),
                 ),
-              );
-            }).toList(),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                    side: BorderSide(color: t.border),
-                  ),
-                ),
-                child: Text(
-                  'Закрыть',
-                  style: GoogleFonts.inter(
-                    color: t.sub,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
+              ),
+              const SizedBox(height: 15),
+            ],
+          ),
+        ),
+      ),
+    );ntSize: 14,
+                    letterSpacing: 0.5,
                   ),
                 ),
               ),
             ),
-            const SizedBox(height: 30),
+            const SizedBox(height: 15),
           ],
         ),
       ),
@@ -453,6 +572,14 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
           t: t,
           onTap: () {
             HapticFeedback.selectionClick();
+            setState(() {
+              _showFromError = false;
+              _showToError = false;
+              _showDateError = false;
+              _showTimeError = false;
+              _showPhoneError = false;
+              _showPriceError = false;
+            });
             provider.setTab(0);
           },
         ),
@@ -463,6 +590,14 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
           t: t,
           onTap: () {
             HapticFeedback.selectionClick();
+            setState(() {
+              _showFromError = false;
+              _showToError = false;
+              _showDateError = false;
+              _showTimeError = false;
+              _showPhoneError = false;
+              _showPriceError = false;
+            });
             provider.setTab(1);
           },
         ),
@@ -1388,7 +1523,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                   provider: provider,
                   t: t,
                   driver: d,
-                  onShowProfile: () => _showUserProfile(provider, t, d['name'] ?? 'Водитель', d['img'] ?? '', d['car'] ?? '', true, d['driverId'] ?? ''),
+                  onShowProfile: () => _showUserProfile(provider, t, d['name'] ?? 'Водитель', d['img'] ?? '', d['car'] ?? '', true, d['driverId'] ?? '', isVerified: d['driverVerified'] == true || d['isVehicleVerified'] == true || d['driverVerified'] == 'true'),
                   onCall: () => _handlePassengerCallOrChat(provider, t, d, isCall: true),
                   onChat: () => _handlePassengerCallOrChat(provider, t, d, isCall: false),
                   onNegotiate: () {
@@ -1417,7 +1552,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                 provider: provider,
                 t: t,
                 driver: d,
-                onShowProfile: () => _showUserProfile(provider, t, d['name'] ?? 'Водитель', d['img'] ?? '', d['car'] ?? '', true, d['driverId'] ?? ''),
+                onShowProfile: () => _showUserProfile(provider, t, d['name'] ?? 'Водитель', d['img'] ?? '', d['car'] ?? '', true, d['driverId'] ?? '', isVerified: d['driverVerified'] == true || d['isVehicleVerified'] == true || d['driverVerified'] == 'true'),
                 onCall: () => _handlePassengerCallOrChat(provider, t, d, isCall: true),
                 onChat: () => _handlePassengerCallOrChat(provider, t, d, isCall: false),
                 onNegotiate: () {
@@ -3364,8 +3499,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                            provider.to.isNotEmpty || 
                            (provider.selDate != 'date' && provider.selDate != 'time' && provider.selDate.isNotEmpty);
 
-    // Suppress other active orders if driver is actively filtering routes
-    final otherOrders = hasFilter ? <Map<String, dynamic>>[] : provider.allPassengerOrders.where((o) {
+    final otherOrders = provider.allPassengerOrders.where((o) {
       if (o['status'] != 'active') return false;
       final bool isCurrentMatch = orders.any((element) => element['id'] == o['id']);
       return !isCurrentMatch;
@@ -3375,14 +3509,11 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
       children: [
         _activeBidsWidget(provider, t),
         _activeTripBanner(provider, t),
-        _driverDashboard(provider, t),
-        const SizedBox(height: 16),
         _createRideButton(provider, t),
         const SizedBox(height: 16),
-        _complexForm(provider, t),
+        _driverSearchForm(provider, t),
         const SizedBox(height: 16),
-        _quickActions(t),
-        const SizedBox(height: 16),
+
         _sectionHeader(t, '${provider.translate('orders')} 📦'),
         const SizedBox(height: 8),
         
@@ -3393,50 +3524,35 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
             decoration: BoxDecoration(
               color: t.card,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: t.lime.withValues(alpha: 0.18), width: 1),
+              border: Border.all(color: const Color(0xFF4A80F0).withValues(alpha: 0.18), width: 1),
               boxShadow: [
                 BoxShadow(
-                  color: t.lime.withValues(alpha: 0.04),
+                  color: const Color(0xFF4A80F0).withValues(alpha: 0.04),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
               ],
             ),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: t.lime.withValues(alpha: 0.08),
+                    color: const Color(0xFF4A80F0).withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(Icons.info_outline_rounded, color: t.lime, size: 20),
+                  child: const Icon(Icons.info_outline_rounded, color: Color(0xFF4A80F0), size: 20),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'На этом маршруте пока нет заказов',
-                        style: GoogleFonts.inter(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w700,
-                          color: t.text,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Пассажиры пока не создали заказы по этому направлению. Ниже доступны активные заказы по другим направлениям Казахстана!',
-                        style: GoogleFonts.inter(
-                          fontSize: 11,
-                          color: t.sub,
-                          height: 1.35,
-                          fontWeight: FontWeight.w400,
-                        ),
-                      ),
-                    ],
+                  child: Text(
+                    'На этом маршруте пока нет заказов',
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: t.text,
+                    ),
                   ),
                 ),
               ],
@@ -3572,7 +3688,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 gradient: (provider.isLoggedIn && provider.isVehicleVerified)
-                  ? LinearGradient(colors: [Colors.green.withValues(alpha: 0.1), Colors.green.withValues(alpha: 0.05)])
+                  ? LinearGradient(colors: [const Color(0xFF4A80F0).withValues(alpha: 0.12), const Color(0xFF4A80F0).withValues(alpha: 0.06)])
                   : LinearGradient(colors: [t.accent, t.accent.withValues(alpha: 0.8)], begin: Alignment.topLeft, end: Alignment.bottomRight),
                 borderRadius: BorderRadius.circular(24),
                 boxShadow: (provider.isLoggedIn && provider.isVehicleVerified) ? [] : [BoxShadow(color: t.accent.withValues(alpha: 0.3), blurRadius: 10, offset: const Offset(0, 4))]
@@ -3582,75 +3698,27 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(color: Colors.white.withValues(alpha: (provider.isLoggedIn && provider.isVehicleVerified) ? 0.0 : 0.2), shape: BoxShape.circle),
                   child: Icon((provider.isLoggedIn && provider.isVehicleVerified) ? Icons.verified_user_rounded : Icons.shield_outlined, 
-                      color: (provider.isLoggedIn && provider.isVehicleVerified) ? Colors.green : Colors.white, size: 20),
+                      color: (provider.isLoggedIn && provider.isVehicleVerified) ? const Color(0xFF4A80F0) : Colors.white, size: 20),
                 ),
                 const SizedBox(width: 14),
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
                   if (provider.isLoggedIn)
                     Text(
                       provider.isVehicleVerified ? provider.translate('verif_ok') : provider.translate('verif_req'), 
-                      style: GoogleFonts.inter(color: provider.isVehicleVerified ? Colors.green : Colors.white, fontWeight: FontWeight.w600, fontSize: 13, letterSpacing: 0.5)
+                      style: GoogleFonts.inter(color: provider.isVehicleVerified ? const Color(0xFF4A80F0) : Colors.white, fontWeight: FontWeight.w600, fontSize: 13, letterSpacing: 0.5)
                     ),
                   Padding(
                     padding: EdgeInsets.only(top: provider.isLoggedIn ? 2 : 0),
                     child: Text(
                       !provider.isLoggedIn ? "Войдите, чтобы пройти верификацию" : (provider.isVehicleVerified ? provider.translate('verif_ok') : provider.translate('verif_sub')), 
-                      style: GoogleFonts.inter(color: Colors.white.withValues(alpha: 0.8), fontSize: provider.isLoggedIn ? 10 : 13, fontWeight: FontWeight.bold)
+                      style: GoogleFonts.inter(color: provider.isVehicleVerified ? const Color(0xFF4A80F0) : Colors.white.withValues(alpha: 0.8), fontSize: provider.isLoggedIn ? 10 : 13, fontWeight: FontWeight.bold)
                     ),
                   ),
                 ])),
-                Icon(Icons.arrow_forward_ios_rounded, color: (provider.isLoggedIn && provider.isVehicleVerified) ? Colors.green : Colors.white, size: 14),
+                Icon(Icons.arrow_forward_ios_rounded, color: (provider.isLoggedIn && provider.isVehicleVerified) ? const Color(0xFF4A80F0) : Colors.white, size: 14),
               ]),
             ),
           ),
-          if (provider.isLoggedIn) ...[
-            const SizedBox(height: 20),
-            if (provider.isVehicleVerified)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _dashItem(
-                    t, 
-                    provider.translate('rate'), 
-                    provider.getUserReviewCount(FirebaseAuth.instance.currentUser?.uid ?? "") < 5
-                        ? 'Новый (${provider.getUserReviewCount(FirebaseAuth.instance.currentUser?.uid ?? "")}/5)'
-                        : '${provider.getUserRating(FirebaseAuth.instance.currentUser?.uid ?? "")}', 
-                    Icons.star_rounded
-                  ),
-                  _dashItem(t, provider.translate('tasks'), '${provider.driverTripsCount} поездок', LineIcons.checkCircle),
-                ],
-              )
-            else
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.lock_rounded, color: Color(0xFF64748B), size: 18),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        'Статистика доступна после верификации',
-                        style: GoogleFonts.inter(
-                          color: const Color(0xFF64748B),
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-          ],
         ]),
       );
 
@@ -3714,6 +3782,92 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
         ]),
   );
 
+  Widget _driverSearchForm(TaxiProvider provider, TaxiTheme t) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 20, offset: const Offset(0, 10))
+        ],
+        border: Border.all(color: const Color(0xFFF1F5F9)),
+      ),
+      child: Column(
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Stack(
+              children: [
+                Positioned(
+                  left: 21,
+                  top: 30,
+                  bottom: 30,
+                  child: Container(
+                    width: 1.5,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF4A80F0).withValues(alpha: 0.3),
+                    ),
+                  ),
+                ),
+                Column(children: [
+                  _routeRow(t, provider.translate('from'), provider.from, true, provider, hasError: false),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 50, right: 10),
+                    child: Divider(height: 1, color: const Color(0xFFE2E8F0)),
+                  ),
+                  _routeRow(t, provider.translate('to'), provider.to, false, provider, hasError: false),
+                ]),
+                Positioned(
+                  right: 15,
+                  top: 0,
+                  bottom: 0,
+                  child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: const Color(0xFFF1F5F9)),
+                      ),
+                      child: const Icon(Icons.swap_vert_rounded, color: Color(0xFF4A80F0), size: 20),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          _miniBtn(t, Icons.calendar_today_rounded, 
+            provider.selDate == 'date' || provider.selDate.isEmpty ? 'Дата' :
+            provider.selDate == 'today' ? 'Сегодня' : 
+            provider.selDate == 'tomorrow' ? 'Завтра' : 
+            provider.selDate == 'yesterday' ? 'Вчера' : 
+            provider.selDate, () => _pickDate(provider, t)),
+          const SizedBox(height: 24),
+          _actBtn(t, 'ПОИСК 🔍', const Color(0xFF4A80F0), () {
+            HapticFeedback.heavyImpact();
+            setState(() {
+              _showFromError = false;
+              _showToError = false;
+              _showDateError = false;
+            });
+            NotificationService.notify(
+              context, 
+              'Поиск обновлен 🔍', 
+              'Показаны заказы по выбранному направлению и все активные поездки Kazakhstana ниже!', 
+              isSuccess: true
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
   Widget _complexForm(TaxiProvider provider, TaxiTheme t) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -3747,12 +3901,12 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                   ),
                 ),
                 Column(children: [
-                  _routeRow(t, provider.translate('from'), provider.from, true, provider),
+                  _routeRow(t, provider.translate('from'), provider.from, true, provider, hasError: _showFromError),
                   Padding(
                     padding: const EdgeInsets.only(left: 50, right: 10),
                     child: Divider(height: 1, color: const Color(0xFFE2E8F0)),
                   ),
-                  _routeRow(t, provider.translate('to'), provider.to, false, provider),
+                  _routeRow(t, provider.translate('to'), provider.to, false, provider, hasError: _showToError),
                 ]),
                 Positioned(
                   right: 15,
@@ -3790,36 +3944,57 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
               hasError: _showTimeError)),
           ]),
           const SizedBox(height: 16),
-          // ── Сумма заказа / желаемая цена (укажите сумму) ──
+          // ── Сумма заказа / желаемая цена ──
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             height: 64, // slightly taller
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: _showPriceError ? const Color(0xFFFFF1F2) : Colors.white,
               borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: const Color(0xFFF1F5F9)),
+              border: Border.all(color: _showPriceError ? const Color(0xFFFDA4AF) : const Color(0xFFF1F5F9), width: 1.5),
             ),
             child: Row(
               children: [
-                const Icon(Icons.monetization_on_rounded, color: Color(0xFF4A80F0), size: 20),
+                // Tenge symbol badge
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: _showPriceError ? const Color(0xFFFFE4E6) : const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '₸',
+                    style: GoogleFonts.inter(
+                      color: _showPriceError ? const Color(0xFFE11D48) : const Color(0xFF4A80F0),
+                      fontWeight: FontWeight.w900,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: TextField(
                     controller: _priceController,
                     keyboardType: TextInputType.number,
-                    style: GoogleFonts.inter(color: const Color(0xFF1E293B), fontWeight: FontWeight.w800, fontSize: 15),
+                    style: GoogleFonts.inter(color: _showPriceError ? const Color(0xFFE11D48) : const Color(0xFF1E293B), fontWeight: FontWeight.w800, fontSize: 16),
                     onChanged: (v) {
                       final val = int.tryParse(v.replaceAll(RegExp(r'[^\d]'), '')) ?? 0;
                       provider.setMaxPrice(val);
+                      if (val > 0) {
+                        setState(() => _showPriceError = false);
+                      }
                     },
                     decoration: InputDecoration(
                       border: InputBorder.none,
-                      hintText: 'Укажите желаемую сумму (₸)...',
-                      hintStyle: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 13, fontWeight: FontWeight.w600),
+                      hintText: 'Сумма',
+                      hintStyle: GoogleFonts.inter(color: _showPriceError ? const Color(0xFFFDA4AF) : const Color(0xFF94A3B8), fontSize: 14, fontWeight: FontWeight.w600),
                     ),
                   ),
                 ),
-                if (provider.maxPrice > 0)
+                if (_showPriceError) ...[
+                  const SizedBox(width: 4),
+                  Text('*', style: GoogleFonts.inter(color: const Color(0xFFE11D48), fontWeight: FontWeight.bold, fontSize: 16)),
+                ] else if (provider.maxPrice > 0)
                   GestureDetector(
                     onTap: () {
                       HapticFeedback.lightImpact();
@@ -3836,24 +4011,24 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             height: 54,
             decoration: BoxDecoration(
-              color: _showPhoneError ? const Color(0xFFFEF2F2) : t.card,
+              color: _showPhoneError ? const Color(0xFFFFF1F2) : Colors.white,
               borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: _showPhoneError ? Colors.redAccent.withValues(alpha: 0.4) : t.border.withValues(alpha: 0.6)),
+              border: Border.all(color: _showPhoneError ? const Color(0xFFFDA4AF) : const Color(0xFFF1F5F9), width: 1.5),
             ),
             child: Row(
               children: [
-                Icon(Icons.phone_android_rounded, color: _showPhoneError ? Colors.redAccent : t.accent, size: 18),
+                Icon(Icons.phone_android_rounded, color: _showPhoneError ? const Color(0xFFE11D48) : const Color(0xFF4A80F0), size: 18),
                 const SizedBox(width: 12),
                 Expanded(
                   child: TextField(
                     controller: _mainPhoneController,
                     keyboardType: TextInputType.phone,
                     inputFormatters: [_mainPhoneMask],
-                    style: GoogleFonts.inter(color: _showPhoneError ? Colors.redAccent : t.text, fontSize: 13.5, fontWeight: FontWeight.w700),
+                    style: GoogleFonts.inter(color: _showPhoneError ? const Color(0xFFE11D48) : const Color(0xFF1E293B), fontSize: 14, fontWeight: FontWeight.w700),
                     decoration: InputDecoration(
                       border: InputBorder.none,
                       hintText: 'Ваш номер телефона для связи...',
-                      hintStyle: GoogleFonts.inter(color: _showPhoneError ? Colors.redAccent.withValues(alpha: 0.5) : t.sub.withValues(alpha: 0.5), fontSize: 13, fontWeight: FontWeight.w500),
+                      hintStyle: GoogleFonts.inter(color: _showPhoneError ? const Color(0xFFFDA4AF) : const Color(0xFF94A3B8), fontSize: 13, fontWeight: FontWeight.w500),
                       counterText: '',
                     ),
                     onChanged: (val) {
@@ -3867,7 +4042,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                 ),
                 if (_showPhoneError) ...[
                   const SizedBox(width: 4),
-                  Text('*', style: GoogleFonts.inter(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 16)),
+                  Text('*', style: GoogleFonts.inter(color: const Color(0xFFE11D48), fontWeight: FontWeight.bold, fontSize: 16)),
                 ],
               ],
             ),
@@ -3911,9 +4086,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
   }
 
 
-  Widget _routeRow(TaxiTheme t, String label, String val, bool isF, TaxiProvider provider) {
-    final bool hasError = isF ? _showFromError : _showToError;
-    final String displayVal = val.isEmpty ? (isF ? 'Откуда' : 'Куда') : val;
+  Widget _routeRow(TaxiTheme t, String label, String val, bool isF, TaxiProvider provider, {bool hasError = false}) {
     return GestureDetector(
       onTap: () {
         HapticFeedback.selectionClick();
@@ -3924,42 +4097,125 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
         });
       },
       child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
-          color: Colors.transparent,
-          child: Row(children: [
-            Container(
-              width: 20,
-              height: 20,
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+        color: Colors.transparent,
+        child: Row(
+          children: [
+            // Breathtaking Premium Path Point Indicator
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              width: 22,
+              height: 22,
               decoration: BoxDecoration(
-                color: isF ? (hasError ? Colors.redAccent : const Color(0xFF4A80F0)) : Colors.white,
+                color: hasError
+                    ? const Color(0xFFFFF1F2)
+                    : isF
+                        ? const Color(0xFFEFF6FF)
+                        : const Color(0xFFF0FDF4),
                 shape: BoxShape.circle,
-                border: Border.all(color: hasError ? Colors.redAccent : const Color(0xFF4A80F0), width: 2),
-              ),
-              child: isF ? const Center(child: Icon(Icons.circle, color: Colors.white, size: 6)) : null,
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(
-                children: [
-                  Text(label, style: GoogleFonts.inter(fontSize: 11, color: hasError ? Colors.redAccent : const Color(0xFF94A3B8), fontWeight: FontWeight.w500)),
-                  if (hasError) ...[
-                    const SizedBox(width: 4),
-                    Text('*', style: GoogleFonts.inter(fontSize: 12, color: Colors.redAccent, fontWeight: FontWeight.bold)),
-                  ],
+                border: Border.all(
+                  color: hasError
+                      ? const Color(0xFFFDA4AF)
+                      : isF
+                          ? const Color(0xFF3B82F6)
+                          : const Color(0xFF22C55E),
+                  width: 2.2,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: (hasError
+                            ? const Color(0xFFE11D48)
+                            : isF
+                                ? const Color(0xFF3B82F6)
+                                : const Color(0xFF22C55E))
+                        .withValues(alpha: 0.12),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
                 ],
               ),
-              const SizedBox(height: 2),
-              Text(
-                displayVal, 
-                style: GoogleFonts.inter(
-                  fontSize: 16, 
-                  fontWeight: FontWeight.w700, 
-                  color: val.isEmpty ? const Color(0xFF94A3B8) : const Color(0xFF1E293B)
-                )
-              )
-            ])),
-          ])));
+              child: Center(
+                child: isF
+                    ? Icon(
+                        Icons.circle,
+                        color: hasError
+                            ? const Color(0xFFE11D48)
+                            : const Color(0xFF3B82F6),
+                        size: 6.5,
+                      )
+                    : Icon(
+                        Icons.location_on_rounded,
+                        color: hasError
+                            ? const Color(0xFFE11D48)
+                            : const Color(0xFF22C55E),
+                        size: 10,
+                      ),
+              ),
+            ),
+            const SizedBox(width: 18),
+            Expanded(
+              child: val.isEmpty
+                  ? Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          isF ? 'Откуда' : 'Куда',
+                          style: GoogleFonts.inter(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: hasError ? const Color(0xFFE11D48) : const Color(0xFF94A3B8),
+                            letterSpacing: -0.3,
+                          ),
+                        ),
+                        if (hasError)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFF1F2),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: const Color(0xFFFDA4AF), width: 0.8),
+                            ),
+                            child: Text(
+                              'укажите',
+                              style: GoogleFonts.inter(
+                                color: const Color(0xFFE11D48),
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                      ],
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          isF ? 'ОТКУДА' : 'КУДА',
+                          style: GoogleFonts.inter(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                            color: const Color(0xFF94A3B8),
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          val,
+                          style: GoogleFonts.inter(
+                            fontSize: 16.5,
+                            fontWeight: FontWeight.w800,
+                            color: const Color(0xFF1E293B),
+                            letterSpacing: -0.4,
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
 
@@ -4000,13 +4256,29 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
 
 
 
-  Widget _actBtn(TaxiTheme t, String l, Color c, VoidCallback onTap) => SizedBox(
+  Widget _actBtn(TaxiTheme t, String l, Color c, VoidCallback onTap) => Container(
         width: double.infinity,
         height: 54,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [c, c.withValues(alpha: 0.85)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: c.withValues(alpha: 0.25),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
         child: ElevatedButton(
           onPressed: onTap,
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF4A80F0),
+            backgroundColor: Colors.transparent,
+            shadowColor: Colors.transparent,
             foregroundColor: Colors.white,
             elevation: 0,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -4019,9 +4291,9 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
       );
 
 
-  void _openPicker(TaxiTheme t, bool isF, TaxiProvider provider) {
+  Future<void> _openPicker(TaxiTheme t, bool isF, TaxiProvider provider) async {
     String q = '';
-    showModalBottomSheet(
+    return await showModalBottomSheet(
         context: context,
         isScrollControlled: true,
         backgroundColor: t.bg,
@@ -4386,6 +4658,202 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
     );
   }
 
+  void _checkDriverActionGate(TaxiProvider provider, TaxiTheme t, Map<String, dynamic> order, VoidCallback onAuthorized) {
+    if (!provider.isLoggedIn) {
+      _navigateToLogin(provider);
+      return;
+    }
+
+    final String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final String orderFrom = order['from'] ?? '';
+    final String orderTo = order['to'] ?? '';
+
+    final bool hasActiveRide = provider.allDrives.any((drive) {
+      final bool isMyDrive = drive['driverId'] == currentUserId;
+      final bool isMatchingRoute = drive['from'].toString().trim().toLowerCase() == orderFrom.trim().toLowerCase() &&
+                                   drive['to'].toString().trim().toLowerCase() == orderTo.trim().toLowerCase();
+      
+      final bool isActive = drive['status'] == 'active' || drive['status'] == 'accepted';
+
+      bool isRecent = true;
+      if (drive['createdAt'] != null) {
+        try {
+          final timestamp = drive['createdAt'];
+          DateTime? createdDate;
+          if (timestamp is Timestamp) {
+            createdDate = timestamp.toDate();
+          } else if (timestamp is String) {
+            createdDate = DateTime.tryParse(timestamp);
+          } else if (timestamp is int) {
+            createdDate = DateTime.fromMillisecondsSinceEpoch(timestamp);
+          }
+          if (createdDate != null) {
+            final difference = DateTime.now().difference(createdDate);
+            isRecent = difference.inHours <= 24;
+          }
+        } catch (_) {}
+      }
+      
+      return isMyDrive && isMatchingRoute && isActive && isRecent;
+    });
+
+    if (provider.isVehicleVerified && hasActiveRide) {
+      onAuthorized();
+    } else {
+      _showCreateDrivePromptSheet(provider, t, orderFrom, orderTo);
+    }
+  }
+
+  void _showCreateDrivePromptSheet(TaxiProvider provider, TaxiTheme t, String from, String to) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) => Container(
+        decoration: BoxDecoration(
+          color: t.card,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(30),
+            topRight: Radius.circular(30),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.15),
+              blurRadius: 25,
+              offset: const Offset(0, -5),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: t.border,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: const BoxDecoration(
+                color: Color(0xFFEFF6FF),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.lock_outline_rounded,
+                color: Color(0xFF4A80F0),
+                size: 40,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Доступ ограничен 🔒',
+              style: GoogleFonts.inter(
+                fontSize: 20,
+                fontWeight: FontWeight.w900,
+                color: t.text,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Создайте объявление о поездке, вы получите доступ к заказам по этому маршруту на 24ч',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(
+                fontSize: 14.5,
+                color: t.sub,
+                height: 1.45,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 28),
+            Row(
+              children: [
+                Expanded(
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        side: BorderSide(color: t.border),
+                      ),
+                    ),
+                    child: Text(
+                      'Назад',
+                      style: GoogleFonts.inter(
+                        color: t.sub,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF4A80F0), Color(0xFF2563EB)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF4A80F0).withValues(alpha: 0.3),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        HapticFeedback.heavyImpact();
+                        
+                        provider.setFrom(from);
+                        provider.setTo(to);
+                        
+                        if (provider.selDate == 'date' || provider.selDate.isEmpty) {
+                          provider.setDate('today');
+                        }
+                        if (provider.selTime == 'time' || provider.selTime.isEmpty) {
+                          provider.setTime('12:00');
+                        }
+                        
+                        _showDriverRideConfirmation(provider, t);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        shadowColor: Colors.transparent,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      child: Text(
+                        'Создать объявление',
+                        style: GoogleFonts.inter(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _passengerDashboard(TaxiProvider provider, TaxiTheme t) {
     final uid = FirebaseAuth.instance.currentUser?.uid ?? "";
     final reviewCount = provider.getUserReviewCount(uid);
@@ -4477,7 +4945,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
     );
   }
 
-  void _showUserProfile(TaxiProvider provider, TaxiTheme t, String name, String img, String car, bool isDriver, String targetUserId) {
+  void _showUserProfile(TaxiProvider provider, TaxiTheme t, String name, String img, String car, bool isDriver, String targetUserId, {bool isVerified = false}) {
     if (!provider.isLoggedIn) {
       _navigateToLogin(provider);
       return;
@@ -4492,6 +4960,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
             'img': img.isNotEmpty ? img : 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=800',
             'car': car,
             'phone': '87001234567', // Mock phone
+            'verified': isVerified,
           },
           isDriver: isDriver,
           theme: t,
@@ -4548,7 +5017,10 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
       onTap: () {
         if (!provider.isLoggedIn) {
           _navigateToLogin(provider);
-        } else if (provider.phone.isEmpty || provider.phone == "+7 701 000 11 22" || provider.phone == "87010001122") {
+          return;
+        }
+
+        if (provider.phone.isEmpty || provider.phone == "+7 701 000 11 22" || provider.phone == "87010001122") {
           _showPhoneBindingSheet(context, provider, t, () {
             if (!provider.isVehicleVerified) {
               _showDriverVerificationGateDialog(
@@ -4591,7 +5063,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
               padding: const EdgeInsets.all(10),
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Color(0xFF4A80F0), Color(0xFF3B82F6)],
+                  colors: [Color(0xFF84CC16), Color(0xFF65A30D)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -4605,7 +5077,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Опубликовать поездку 🚗',
+                    'Создать поездку 🚗',
                     style: GoogleFonts.inter(
                       color: t.text,
                       fontWeight: FontWeight.w900,
@@ -4866,11 +5338,34 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
   }
 
   void _showDriverRideConfirmation(TaxiProvider provider, TaxiTheme t) {
+    String localFrom = provider.from;
+    String localTo = provider.to;
+    String localDate = (provider.selDate == 'date' || provider.selDate.isEmpty) ? 'today' : provider.selDate;
+    String localTime = (provider.selTime == 'time' || provider.selTime.isEmpty) ? '12:00' : provider.selTime;
     int price = provider.maxPrice > 0 ? provider.maxPrice : 3000;
     int seats = 4;
+    
+    final MaskTextInputFormatter sheetPhoneMask = MaskTextInputFormatter(
+      mask: '+7 (###) ###-##-##',
+      filter: {"#": RegExp(r'[0-9]')},
+      type: MaskAutoCompletionType.lazy,
+    );
+    final TextEditingController phoneC = TextEditingController();
+    final initialPhone = (provider.phone == "+7 701 000 11 22" || provider.phone == "87010001122") ? "" : provider.phone;
+    if (initialPhone.isNotEmpty) {
+      phoneC.text = initialPhone;
+    }
+    
     final TextEditingController commentC = TextEditingController();
     final TextEditingController priceCtrl = TextEditingController(text: price.toString());
     bool isPublishing = false;
+    
+    bool sFromError = false;
+    bool sToError = false;
+    bool sDateError = false;
+    bool sTimeError = false;
+    bool sPhoneError = false;
+    bool sPriceError = false;
 
     showModalBottomSheet(
       context: context,
@@ -4926,59 +5421,226 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                 ),
                 const SizedBox(height: 24),
                 
-                // Route visualizer card
+                // Route Picker Card inside sheet
                 Container(
-                  padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: const Color(0xFFF1F5F9)),
-                    boxShadow: [
-                      BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10, offset: const Offset(0, 4))
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: (sFromError || sToError) ? const Color(0xFFFDA4AF) : const Color(0xFFE2E8F0), width: (sFromError || sToError) ? 1.5 : 1.0),
+                  ),
+                  child: Stack(
+                    children: [
+                      Positioned(
+                        left: 21,
+                        top: 30,
+                        bottom: 30,
+                        child: Container(
+                          width: 1.5,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF4A80F0).withValues(alpha: 0.3),
+                          ),
+                        ),
+                      ),
+                      Column(children: [
+                        // From Row
+                        GestureDetector(
+                          onTap: () {
+                            HapticFeedback.selectionClick();
+                            _openPicker(t, true, provider).then((_) {
+                              ss(() {
+                                localFrom = provider.from;
+                                sFromError = false;
+                              });
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+                            color: Colors.transparent,
+                            child: Row(children: [
+                              Container(
+                                width: 20,
+                                height: 20,
+                                decoration: BoxDecoration(
+                                  color: sFromError ? const Color(0xFFE11D48) : const Color(0xFF4A80F0),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: sFromError ? const Color(0xFFFDA4AF) : const Color(0xFF4A80F0), width: 2),
+                                ),
+                                child: const Center(child: Icon(Icons.circle, color: Colors.white, size: 6)),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                  Text('ОТКУДА', style: GoogleFonts.inter(fontSize: 10, color: sFromError ? const Color(0xFFE11D48) : const Color(0xFF94A3B8), fontWeight: FontWeight.w800)),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    localFrom.isEmpty ? 'Выберите город отправления' : localFrom,
+                                    style: GoogleFonts.inter(color: localFrom.isEmpty ? const Color(0xFF94A3B8) : t.text, fontWeight: FontWeight.w800, fontSize: 14),
+                                  ),
+                                ]),
+                              ),
+                            ]),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.only(left: 50, right: 10),
+                          child: Divider(height: 1, color: const Color(0xFFE2E8F0)),
+                        ),
+                        // To Row
+                        GestureDetector(
+                          onTap: () {
+                            HapticFeedback.selectionClick();
+                            _openPicker(t, false, provider).then((_) {
+                              ss(() {
+                                localTo = provider.to;
+                                sToError = false;
+                              });
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+                            color: Colors.transparent,
+                            child: Row(children: [
+                              Container(
+                                width: 20,
+                                height: 20,
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: sToError ? const Color(0xFFFDA4AF) : const Color(0xFF4A80F0), width: 2),
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                  Text('КУДА', style: GoogleFonts.inter(fontSize: 10, color: sToError ? const Color(0xFFE11D48) : const Color(0xFF94A3B8), fontWeight: FontWeight.w800)),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    localTo.isEmpty ? 'Выберите город прибытия' : localTo,
+                                    style: GoogleFonts.inter(color: localTo.isEmpty ? const Color(0xFF94A3B8) : t.text, fontWeight: FontWeight.w800, fontSize: 14),
+                                  ),
+                                ]),
+                              ),
+                            ]),
+                          ),
+                        ),
+                      ]),
                     ],
                   ),
-                  child: Column(
+                ),
+                const SizedBox(height: 16),
+                
+                // Date & Time Row inside sheet
+                Row(children: [
+                  Expanded(
+                    child: _miniBtn(t, Icons.calendar_today_rounded, 
+                      localDate == 'today' ? 'Сегодня' : 
+                      localDate == 'tomorrow' ? 'Завтра' : 
+                      localDate == 'yesterday' ? 'Вчера' : 
+                      localDate.isEmpty || localDate == 'date' ? 'Дата' : localDate, 
+                      () async {
+                        final d = await showDatePicker(
+                          context: context,
+                          initialDate: DateTime.now(),
+                          firstDate: DateTime.now(),
+                          lastDate: DateTime.now().add(const Duration(days: 30)),
+                          builder: (ctx, child) => Theme(
+                            data: Theme.of(context).copyWith(
+                              colorScheme: ColorScheme.dark(
+                                primary: t.accent, onPrimary: Colors.white, surface: t.card, onSurface: t.text
+                              )
+                            ),
+                            child: child!
+                          )
+                        );
+                        if (d != null) {
+                          final now = DateTime.now();
+                          final today = DateTime(now.year, now.month, now.day);
+                          final selected = DateTime(d.year, d.month, d.day);
+                          ss(() {
+                            if (selected == today) {
+                              localDate = 'today';
+                            } else if (selected == today.add(const Duration(days: 1))) {
+                              localDate = 'tomorrow';
+                            } else {
+                              final months = [
+                                'янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'
+                              ];
+                              localDate = '${d.day} ${months[d.month - 1]}';
+                            }
+                            sDateError = false;
+                          });
+                        }
+                      },
+                      hasError: sDateError
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _miniBtn(t, Icons.access_time_rounded, 
+                      localTime == 'time' ? 'Время' : localTime, 
+                      () async {
+                        final tVal = await showTimePicker(
+                          context: context,
+                          initialTime: TimeOfDay.now(),
+                          builder: (ctx, child) => Theme(
+                            data: Theme.of(context).copyWith(
+                              colorScheme: ColorScheme.dark(
+                                primary: t.accent, onPrimary: Colors.white, surface: t.card, onSurface: t.text
+                              )
+                            ),
+                            child: child!
+                          )
+                        );
+                        if (tVal != null) {
+                          ss(() {
+                            localTime = '${tVal.hour}:${tVal.minute.toString().padLeft(2, '0')}';
+                            sTimeError = false;
+                          });
+                        }
+                      },
+                      hasError: sTimeError
+                    ),
+                  ),
+                ]),
+                const SizedBox(height: 16),
+
+                // Phone Input inside sheet
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  height: 54,
+                  decoration: BoxDecoration(
+                    color: sPhoneError ? const Color(0xFFFFF1F2) : Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: sPhoneError ? const Color(0xFFFDA4AF) : const Color(0xFFF1F5F9), width: 1.5),
+                  ),
+                  child: Row(
                     children: [
-                      Row(
-                        children: [
-                          Container(
-                            width: 12,
-                            height: 12,
-                            decoration: const BoxDecoration(
-                              color: Color(0xFF84CC16),
-                              shape: BoxShape.circle,
-                            ),
+                      Icon(Icons.phone_android_rounded, color: sPhoneError ? const Color(0xFFE11D48) : const Color(0xFF4A80F0), size: 18),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextField(
+                          controller: phoneC,
+                          keyboardType: TextInputType.phone,
+                          inputFormatters: [sheetPhoneMask],
+                          style: GoogleFonts.inter(color: sPhoneError ? const Color(0xFFE11D48) : const Color(0xFF1E293B), fontSize: 14, fontWeight: FontWeight.w700),
+                          decoration: InputDecoration(
+                            border: InputBorder.none,
+                            hintText: 'Ваш номер телефона для связи...',
+                            hintStyle: GoogleFonts.inter(color: sPhoneError ? const Color(0xFFFDA4AF) : t.sub.withValues(alpha: 0.5), fontSize: 13, fontWeight: FontWeight.w500),
+                            counterText: '',
                           ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'ОТКУДА → КУДА',
-                                  style: GoogleFonts.inter(color: t.sub, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 0.5),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  '${provider.from} → ${provider.to}',
-                                  style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: t.text, fontSize: 16),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
+                          onChanged: (val) {
+                            final cleanVal = val.replaceAll(RegExp(r'\D'), '');
+                            if (cleanVal.length == 10) {
+                              ss(() => sPhoneError = false);
+                            }
+                          },
+                        ),
                       ),
-                      const SizedBox(height: 16),
-                      const Divider(color: Color(0xFFF1F5F9), height: 1),
-                      const SizedBox(height: 16),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          _infoChip(Icons.calendar_today_rounded, provider.selDate == 'today' ? 'Сегодня' : (provider.selDate == 'tomorrow' ? 'Завтра' : provider.selDate), t),
-                          _infoChip(Icons.access_time_rounded, provider.selTime == 'time' ? 'Время не указано' : provider.selTime, t),
-                          _infoChip(Icons.directions_car_rounded, provider.driverCar, t),
-                        ],
-                      ),
+                      if (sPhoneError) ...[
+                        const SizedBox(width: 4),
+                        Text('*', style: GoogleFonts.inter(color: const Color(0xFFE11D48), fontWeight: FontWeight.bold, fontSize: 16)),
+                      ],
                     ],
                   ),
                 ),
@@ -5042,9 +5704,9 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                 Container(
                   padding: const EdgeInsets.all(18),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: sPriceError ? const Color(0xFFFFF1F2) : Colors.white,
                     borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: const Color(0xFFF1F5F9)),
+                    border: Border.all(color: sPriceError ? const Color(0xFFFDA4AF) : const Color(0xFFF1F5F9), width: 1.5),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -5056,6 +5718,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                             ss(() {
                               price -= 100;
                               priceCtrl.text = price.toString();
+                              sPriceError = false;
                             });
                           }
                         },
@@ -5076,10 +5739,10 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                           controller: priceCtrl,
                           keyboardType: TextInputType.number,
                           textAlign: TextAlign.center,
-                          style: GoogleFonts.inter(fontSize: 28, fontWeight: FontWeight.w900, color: t.text),
+                          style: GoogleFonts.inter(fontSize: 28, fontWeight: FontWeight.w900, color: sPriceError ? const Color(0xFFE11D48) : t.text),
                           decoration: InputDecoration(
                             suffixText: ' ₸',
-                            suffixStyle: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.bold, color: t.text),
+                            suffixStyle: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.bold, color: sPriceError ? const Color(0xFFE11D48) : t.text),
                             border: InputBorder.none,
                           ),
                           onChanged: (val) {
@@ -5088,6 +5751,9 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                               price = int.tryParse(valClean) ?? 0;
                             } else {
                               price = 0;
+                            }
+                            if (price >= 100) {
+                              ss(() => sPriceError = false);
                             }
                           },
                         ),
@@ -5098,6 +5764,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                           ss(() {
                             price += 100;
                             priceCtrl.text = price.toString();
+                            sPriceError = false;
                           });
                         },
                         child: Container(
@@ -5147,36 +5814,41 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                   : GestureDetector(
                       onTap: () async {
                         HapticFeedback.heavyImpact();
-                        ss(() => isPublishing = true);
-                        if (price < 100) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Row(
-                                children: [
-                                  const Icon(Icons.error_outline_rounded, color: Colors.white, size: 20),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      'Пожалуйста, укажите корректную стоимость поездки (минимум 100 ₸)! 💰',
-                                      style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 12, color: Colors.white),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              backgroundColor: const Color(0xFFEF4444),
-                              behavior: SnackBarBehavior.floating,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                            )
+                        
+                        final cleanPhone = phoneC.text.replaceAll(RegExp(r'\D'), '');
+                        final bool isPhoneValid = cleanPhone.length == 11 || cleanPhone.length == 10;
+                        
+                        ss(() {
+                          sFromError = localFrom.isEmpty;
+                          sToError = localTo.isEmpty;
+                          sDateError = localDate.isEmpty || localDate == 'date';
+                          sTimeError = localTime.isEmpty || localTime == 'time';
+                          sPhoneError = !isPhoneValid;
+                          sPriceError = price < 100;
+                        });
+                        
+                        if (sFromError || sToError || sDateError || sTimeError || sPhoneError || sPriceError) {
+                          NotificationService.notify(
+                            context,
+                            'Заполните детали 📋',
+                            'Пожалуйста, укажите пункты поездки, дату, время, сумму и телефон!',
+                            isSuccess: false
                           );
-                          ss(() => isPublishing = false);
                           return;
                         }
+
+                        ss(() => isPublishing = true);
                         try {
+                          // Update provider profile phone if it was modified
+                          if (phoneC.text.isNotEmpty) {
+                            provider.updateProfile(provider.firstName, provider.lastName, phoneC.text);
+                          }
+
                           await provider.createDriverRide(
-                            from: provider.from,
-                            to: provider.to,
-                            date: provider.selDate,
-                            time: provider.selTime,
+                            from: localFrom,
+                            to: localTo,
+                            date: localDate,
+                            time: localTime,
                             seats: seats,
                             price: price,
                             comment: commentC.text,
@@ -5184,7 +5856,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                           if (mounted) {
                             NotificationService.notify(
                               context,
-                              'Поездка создана',
+                              'Поездка создана 🎉',
                               'Ваш рейс успешно добавлен и виден пассажирам!',
                               isSuccess: true,
                             );
@@ -5208,19 +5880,19 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                         height: 58,
                         decoration: BoxDecoration(
                           gradient: const LinearGradient(
-                            colors: [Color(0xFF84CC16), Color(0xFF4D7C0F)],
+                            colors: [Color(0xFF4A80F0), Color(0xFF2563EB)],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           ),
                           borderRadius: BorderRadius.circular(20),
                           boxShadow: [
-                            BoxShadow(color: const Color(0xFF84CC16).withValues(alpha: 0.3), blurRadius: 15, offset: const Offset(0, 6)),
+                            BoxShadow(color: const Color(0xFF4A80F0).withValues(alpha: 0.3), blurRadius: 15, offset: const Offset(0, 6)),
                           ],
                         ),
                         child: Center(
                           child: Text(
-                            'Опубликовать поездку'.toUpperCase(),
-                            style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 14, color: Colors.white, letterSpacing: 0.5),
+                            'ПОЕХАЛИ!',
+                            style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: 0.5),
                           ),
                         ),
                       ),
