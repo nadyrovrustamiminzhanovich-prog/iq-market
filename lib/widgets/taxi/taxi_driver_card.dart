@@ -36,7 +36,7 @@ class TaxiDriverCard extends StatelessWidget {
     final String driverId = driver['driverId'] ?? '';
     final double realRating = provider.getUserRating(driverId);
     final int realReviewCount = provider.getUserReviewCount(driverId);
-    final bool isVerified = driver['isVerified'] == true || driver['driverVerified'] == true || driver['isVehicleVerified'] == true || driverId == 'taxi_driver';
+    final bool isVerified = driver['isVerified'] == true || driverId == 'taxi_driver';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -134,39 +134,10 @@ class TaxiDriverCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Row(
+            mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              GestureDetector(
-                onTap: onNegotiate,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(colors: [Color(0xFF4A80F0), Color(0xFF1E40AF)]),
-
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(color: const Color(0xFF84CC16).withValues(alpha: 0.3), blurRadius: 10, offset: const Offset(0, 4)),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.bolt_rounded, color: Colors.white, size: 16),
-                      const SizedBox(width: 4),
-                      Text(
-                        'ТОРГОВАТЬСЯ',
-                        style: GoogleFonts.inter(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.white,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const Spacer(),
               _actionBtn(Icons.chat_bubble_outline_rounded, onChat),
-              const SizedBox(width: 8),
+              const SizedBox(width: 12),
               _actionBtn(Icons.phone_rounded, onCall),
             ],
           ),

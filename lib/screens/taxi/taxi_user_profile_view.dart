@@ -30,14 +30,17 @@ class TaxiProfileViewScreen extends StatefulWidget {
 }
 
 class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
-  int _completedTripsCount = 0;
-  String _registrationDate = 'Сентябрь 2023';
   bool _isLoadingStats = true;
-  double _avgRating = 0.0;
-  int _reviewsCount = 0;
-  List<ReviewModel> _reviewsList = [];
+  double _taxiAvgRating = 0.0;
+  int _taxiReviewsCount = 0;
+  double _marketAvgRating = 0.0;
+  int _marketReviewsCount = 0;
+  List<ReviewModel> _taxiReviewsList = [];
+  List<ReviewModel> _marketReviewsList = [];
+  int _activeReviewTab = 0; // 0: Taxi, 1: Market
   String _userPhone = '';
   bool _isDriverVerified = false;
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -48,6 +51,7 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
 
   @override
   void dispose() {
+    _scrollController.dispose();
     _disableProtection();
     super.dispose();
   }
@@ -71,92 +75,81 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
 
     try {
       // 1. Fetch user doc
+      bool isTelegramVerified = false;
       final userDoc = await FirebaseFirestore.instance.collection('users').doc(userId).get();
       if (userDoc.exists) {
         final userData = userDoc.data();
         if (userData != null) {
           _userPhone = userData['phone'] ?? '';
-          final timestamp = userData['createdAt'];
-          if (timestamp is Timestamp) {
-            final date = timestamp.toDate();
-            final months = [
-              'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
-              'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
-            ];
-            _registrationDate = '${months[date.month - 1]} ${date.year}';
+          if (_userPhone.isEmpty) {
+            _userPhone = widget.user['phone'] ?? '';
           }
+          isTelegramVerified = userData['isVerified'] == true;
         }
       }
 
-      bool isVerified = widget.user['verified'] == true;
-      try {
-        final verifSnap = await FirebaseFirestore.instance
-            .collection('driver_verifications')
-            .where('driver_name', isEqualTo: (widget.user['name'] ?? '').toString().trim())
-            .get();
-        if (verifSnap.docs.isNotEmpty) {
-          final status = verifSnap.docs.first.data()['status'];
-          if (status == 'approved' || status == 'approved_by_ai') {
-            isVerified = true;
-          }
-        }
-      } catch (_) {}
-
-      // 2. Fetch completed trips count
-      int count = 0;
-      if (widget.isDriver) {
-        final ordersSnap = await FirebaseFirestore.instance
-            .collection('taxi_orders')
-            .where('driverId', isEqualTo: userId)
-            .where('status', isEqualTo: 'completed')
-            .get();
-
-        final ridesSnap = await FirebaseFirestore.instance
-            .collection('taxi_rides')
-            .where('driverId', isEqualTo: userId)
-            .where('status', isEqualTo: 'completed')
-            .get();
-        count = ordersSnap.docs.length + ridesSnap.docs.length;
-      } else {
-        final ordersSnap = await FirebaseFirestore.instance
-            .collection('taxi_orders')
-            .where('passengerId', isEqualTo: userId)
-            .where('status', isEqualTo: 'completed')
-            .get();
-
-        final ridesSnap = await FirebaseFirestore.instance
-            .collection('taxi_rides')
-            .where('passengerId', isEqualTo: userId)
-            .where('status', isEqualTo: 'completed')
-            .get();
-        count = ordersSnap.docs.length + ridesSnap.docs.length;
-      }
-
-      // 3. Fetch reviews & calculate rating
+      // 2. Fetch Market reviews
       final reviewsSnap = await FirebaseFirestore.instance
           .collection('reviews')
           .where('toUserId', isEqualTo: userId)
           .get();
 
-      final list = reviewsSnap.docs
+      final marketList = reviewsSnap.docs
           .map((doc) => ReviewModel.fromMap(doc.data(), doc.id))
           .toList();
       
-      list.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+      marketList.sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
-      int rCount = list.length;
-      double avg = 0.0;
-      if (rCount > 0) {
-        double sum = list.fold(0.0, (prev, element) => prev + element.rating);
-        avg = sum / rCount;
+      int marketCount = marketList.length;
+      double marketAvg = 0.0;
+      if (marketCount > 0) {
+        double sum = marketList.fold(0.0, (prev, element) => prev + element.rating);
+        marketAvg = sum / marketCount;
+      }
+
+      // 3. Fetch Taxi reviews
+      final taxiReviewsSnap = await FirebaseFirestore.instance
+          .collection('taxi_reviews')
+          .where('targetUserId', isEqualTo: userId)
+          .get();
+
+      final taxiList = taxiReviewsSnap.docs.map((doc) {
+        final data = doc.data();
+        DateTime ts = DateTime.now();
+        if (data['createdAt'] is Timestamp) {
+          ts = (data['createdAt'] as Timestamp).toDate();
+        }
+        return ReviewModel(
+          id: doc.id,
+          adId: '',
+          adTitle: '',
+          fromUserId: data['authorId'] ?? '',
+          fromUserName: data['authorName'] ?? 'Пользователь',
+          toUserId: data['targetUserId'] ?? '',
+          rating: (data['rating'] ?? 0.0).toDouble(),
+          comment: data['comment'] ?? '',
+          images: [],
+          timestamp: ts,
+        );
+      }).toList();
+      
+      taxiList.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+
+      int taxiCount = taxiList.length;
+      double taxiAvg = 0.0;
+      if (taxiCount > 0) {
+        double sum = taxiList.fold(0.0, (prev, element) => prev + element.rating);
+        taxiAvg = sum / taxiCount;
       }
 
       setState(() {
-        _completedTripsCount = count;
-        _reviewsList = list;
-        _reviewsCount = rCount;
-        _avgRating = avg;
-        _isDriverVerified = isVerified;
+        _taxiReviewsList = taxiList;
+        _marketReviewsList = marketList;
+        _taxiAvgRating = taxiAvg;
+        _taxiReviewsCount = taxiCount;
+        _marketAvgRating = marketAvg;
+        _marketReviewsCount = marketCount;
+        _isDriverVerified = isTelegramVerified;
         _isLoadingStats = false;
       });
     } catch (e) {
@@ -167,14 +160,23 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
     }
   }
 
-  String _getInServiceDuration() {
-    if (_registrationDate.contains(' ')) {
-      final parts = _registrationDate.split(' ');
-      if (parts.length >= 2) {
-        return 'c ${parts.last}';
-      }
+  String _pluralReviews(int count) {
+    if (count % 100 >= 11 && count % 100 <= 19) return '$count отзывов';
+    switch (count % 10) {
+      case 1: return '$count отзыв';
+      case 2: case 3: case 4: return '$count отзыва';
+      default: return '$count отзывов';
     }
-    return 'c 2023';
+  }
+
+  void _scrollToReviews() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 600),
+        curve: Curves.easeInOut,
+      );
+    }
   }
 
   @override
@@ -187,6 +189,7 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
       body: _isLoadingStats
           ? Center(child: CircularProgressIndicator(color: t.accent))
           : CustomScrollView(
+              controller: _scrollController,
               slivers: [
                 if (widget.isDriver)
                   SliverAppBar(
@@ -252,23 +255,27 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
                           Center(
                             child: Stack(
                               children: [
-                                Container(
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: t.accent.withValues(alpha: 0.2), width: 3)),
-                                  child: CircleAvatar(
-                                    radius: 60,
-                                    backgroundImage: NetworkImage(u['img'] ?? 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=800'),
-                                    backgroundColor: t.card2,
-                                  ),
-                                ),
-                                Positioned(
-                                  bottom: 5, right: 5,
+                                GestureDetector(
+                                  onTap: () => _showFullScreenImage(context, u['img'] ?? ''),
                                   child: Container(
-                                    padding: const EdgeInsets.all(6),
-                                    decoration: BoxDecoration(color: const Color(0xFF4A80F0), shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)),
-                                    child: const Icon(Icons.check, color: Colors.white, size: 14),
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: t.accent.withValues(alpha: 0.2), width: 3)),
+                                    child: CircleAvatar(
+                                      radius: 60,
+                                      backgroundImage: NetworkImage(u['img'] ?? 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=800'),
+                                      backgroundColor: t.card2,
+                                    ),
                                   ),
                                 ),
+                                if (_isDriverVerified)
+                                  Positioned(
+                                    bottom: 5, right: 5,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(6),
+                                      decoration: BoxDecoration(color: const Color(0xFF4A80F0), shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)),
+                                      child: const Icon(Icons.check, color: Colors.white, size: 14),
+                                    ),
+                                  ),
                               ],
                             ),
                           ),
@@ -326,18 +333,39 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
                                 ],
                               ),
                             ),
-                            if (widget.isDriver) _ratingBox(t, _reviewsCount < 5 ? 'Новичок' : _avgRating.toStringAsFixed(1)),
+                            if (widget.isDriver)
+                              GestureDetector(
+                                onTap: _scrollToReviews,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    _ratingBox(t, _taxiReviewsCount < 5 ? 'Новичок' : _taxiAvgRating.toStringAsFixed(1)),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      _pluralReviews(_taxiReviewsCount),
+                                      style: GoogleFonts.inter(color: t.sub, fontSize: 10, fontWeight: FontWeight.w600),
+                                    ),
+                                  ],
+                                ),
+                              ),
                           ],
                         ),
                         if (!widget.isDriver) ...[
-                          const SizedBox(height: 32),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: [
-                              _statChip(t, _reviewsCount < 5 ? 'Новичок' : _avgRating.toStringAsFixed(1), 'РЕЙТИНГ', Icons.star_rounded, Colors.amber),
-                              _statChip(t, _completedTripsCount.toString(), 'ПОЕЗДОК', LineIcons.car, t.accent),
-                              _statChip(t, _getInServiceDuration(), 'В СЕРВИСЕ', LineIcons.calendar, Colors.blue),
-                            ],
+                          const SizedBox(height: 24),
+                          Center(
+                            child: GestureDetector(
+                              onTap: _scrollToReviews,
+                              child: Column(
+                                children: [
+                                  _statChip(t, _taxiReviewsCount < 5 ? 'Новичок' : _taxiAvgRating.toStringAsFixed(1), 'РЕЙТИНГ', Icons.star_rounded, Colors.amber),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    _pluralReviews(_taxiReviewsCount),
+                                    style: GoogleFonts.inter(color: t.sub, fontSize: 11, fontWeight: FontWeight.w600),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         ],
                         const SizedBox(height: 32),
@@ -347,31 +375,178 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
                           _infoCard(t, LineIcons.car, u['car'] ?? 'Toyota Camry', u['plate'] ?? '01 KZ 777'),
                           const SizedBox(height: 24),
                         ],
-                        _sectionTitle(t, 'ИНФОРМАЦИЯ'),
-                        const SizedBox(height: 12),
-                        _infoCard(t, LineIcons.calendar, 'Дата регистрации', _registrationDate),
-                        const SizedBox(height: 12),
-                        _infoCard(t, LineIcons.checkCircle, 'Завершено поездок', _completedTripsCount.toString()),
-                        const SizedBox(height: 32),
-                        _sectionTitle(t, 'ОТЗЫВЫ (${_reviewsCount})'),
-                        const SizedBox(height: 12),
-                        if (_reviewsList.isEmpty)
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 24),
-                            child: Center(
-                              child: Text(
-                                'Нет отзывов',
-                                style: GoogleFonts.inter(color: t.sub, fontSize: 14),
-                              ),
-                            ),
-                          )
-                        else
-                          Column(
-                            children: _reviewsList.map((r) {
-                              final dateStr = '${r.timestamp.day.toString().padLeft(2, '0')}.${r.timestamp.month.toString().padLeft(2, '0')}.${r.timestamp.year}';
-                              return _reviewItem(t, r.fromUserName, r.comment, r.rating.toStringAsFixed(1), dateStr);
-                            }).toList(),
+                        // Custom premium reviews segment tab control
+                        Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: t.card2,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: t.border),
                           ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: () => setState(() => _activeReviewTab = 0),
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 250),
+                                    curve: Curves.easeInOut,
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    decoration: BoxDecoration(
+                                      color: _activeReviewTab == 0 ? const Color(0xFF4A80F0) : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    alignment: Alignment.center,
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Text(
+                                          'Такси 🚕',
+                                          style: GoogleFonts.inter(
+                                            color: _activeReviewTab == 0 ? Colors.white : t.sub,
+                                            fontWeight: FontWeight.w800,
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: _activeReviewTab == 0 ? Colors.white.withValues(alpha: 0.2) : t.border,
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: Text(
+                                            _taxiReviewsList.length.toString(),
+                                            style: GoogleFonts.inter(
+                                              color: _activeReviewTab == 0 ? Colors.white : t.text,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w900,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: () => setState(() => _activeReviewTab = 1),
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 250),
+                                    curve: Curves.easeInOut,
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    decoration: BoxDecoration(
+                                      color: _activeReviewTab == 1 ? const Color(0xFF4A80F0) : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    alignment: Alignment.center,
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Text(
+                                          'Маркет 🛍️',
+                                          style: GoogleFonts.inter(
+                                            color: _activeReviewTab == 1 ? Colors.white : t.sub,
+                                            fontWeight: FontWeight.w800,
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: _activeReviewTab == 1 ? Colors.white.withValues(alpha: 0.2) : t.border,
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: Text(
+                                            _marketReviewsList.length.toString(),
+                                            style: GoogleFonts.inter(
+                                              color: _activeReviewTab == 1 ? Colors.white : t.text,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w900,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        // Per-tab rating summary card
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 16),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: t.card,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: t.border),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 20),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    _activeReviewTab == 0
+                                        ? (_taxiReviewsCount < 5 ? 'Новичок' : _taxiAvgRating.toStringAsFixed(1))
+                                        : (_marketReviewsCount < 5 ? 'Новичок' : _marketAvgRating.toStringAsFixed(1)),
+                                    style: GoogleFonts.inter(color: t.text, fontWeight: FontWeight.w900, fontSize: 16),
+                                  ),
+                                ],
+                              ),
+                              Text(
+                                _activeReviewTab == 0
+                                    ? _pluralReviews(_taxiReviewsCount)
+                                    : _pluralReviews(_marketReviewsCount),
+                                style: GoogleFonts.inter(color: t.sub, fontSize: 12, fontWeight: FontWeight.w600),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (_activeReviewTab == 0) ...[
+                          if (_taxiReviewsList.isEmpty)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 24),
+                              child: Center(
+                                child: Text(
+                                  'Нет отзывов по поездкам 🚕',
+                                  style: GoogleFonts.inter(color: t.sub, fontSize: 13, fontWeight: FontWeight.w600),
+                                ),
+                              ),
+                            )
+                          else
+                            Column(
+                              children: _taxiReviewsList.map((r) {
+                                final dateStr = '${r.timestamp.day.toString().padLeft(2, '0')}.${r.timestamp.month.toString().padLeft(2, '0')}.${r.timestamp.year}';
+                                return _reviewItem(t, r.fromUserName, r.comment, r.rating.toStringAsFixed(1), dateStr);
+                              }).toList(),
+                            ),
+                        ] else ...[
+                          if (_marketReviewsList.isEmpty)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 24),
+                              child: Center(
+                                child: Text(
+                                  'Нет отзывов по объявлениям 🛍️',
+                                  style: GoogleFonts.inter(color: t.sub, fontSize: 13, fontWeight: FontWeight.w600),
+                                ),
+                              ),
+                            )
+                          else
+                            Column(
+                              children: _marketReviewsList.map((r) {
+                                final dateStr = '${r.timestamp.day.toString().padLeft(2, '0')}.${r.timestamp.month.toString().padLeft(2, '0')}.${r.timestamp.year}';
+                                return _reviewItem(t, r.fromUserName, r.comment, r.rating.toStringAsFixed(1), dateStr);
+                              }).toList(),
+                            ),
+                        ],
                         const SizedBox(height: 120),
                       ],
                     ),
@@ -674,52 +849,105 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => Scaffold(
-          backgroundColor: Colors.black,
-          appBar: AppBar(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            leading: IconButton(
-              icon: const Icon(Icons.close_rounded, color: Colors.white, size: 28),
-              onPressed: () => Navigator.pop(context),
+        builder: (context) => SecureImageViewerScreen(
+          imageUrl: imageUrl,
+          heroTag: 'taxi_p_${widget.user['name']}',
+        ),
+      ),
+    );
+  }
+}
+
+class SecureImageViewerScreen extends StatefulWidget {
+  final String imageUrl;
+  final String heroTag;
+
+  const SecureImageViewerScreen({
+    super.key,
+    required this.imageUrl,
+    required this.heroTag,
+  });
+
+  @override
+  State<SecureImageViewerScreen> createState() => _SecureImageViewerScreenState();
+}
+
+class _SecureImageViewerScreenState extends State<SecureImageViewerScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _enableScreenshotProtection();
+  }
+
+  @override
+  void dispose() {
+    _disableScreenshotProtection();
+    super.dispose();
+  }
+
+  void _enableScreenshotProtection() async {
+    try {
+      await ScreenProtector.preventScreenshotOn();
+    } catch (e) {
+      debugPrint("Error enabling screenshot protection: $e");
+    }
+  }
+
+  void _disableScreenshotProtection() async {
+    try {
+      await ScreenProtector.preventScreenshotOff();
+    } catch (e) {
+      debugPrint("Error disabling screenshot protection: $e");
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.close_rounded, color: Colors.white, size: 28),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      body: Stack(
+        children: [
+          Center(
+            child: InteractiveViewer(
+              child: Hero(
+                tag: widget.heroTag,
+                child: Image.network(
+                  widget.imageUrl,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => const Icon(Icons.broken_image_rounded, size: 64, color: Colors.white24),
+                ),
+              ),
             ),
           ),
-          body: Stack(
-            children: [
-              Center(
-                child: InteractiveViewer(
-                  child: Hero(
-                    tag: 'taxi_p_${widget.user['name']}',
-                    child: Image.network(
-                      imageUrl,
-                      fit: BoxFit.contain,
+          IgnorePointer(
+            child: Center(
+              child: Opacity(
+                opacity: 0.12,
+                child: Transform.rotate(
+                  angle: -0.4,
+                  child: Text(
+                    'COPYRIGHT IQ MARKET\nSECURE VIEW ONLY',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.inter(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 4,
                     ),
                   ),
                 ),
               ),
-              IgnorePointer(
-                child: Center(
-                  child: Opacity(
-                    opacity: 0.15,
-                    child: Transform.rotate(
-                      angle: -0.5,
-                      child: Text(
-                        'COPYRIGHT IQ MARKET\nSECURE VIEW ONLY',
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.inter(
-                          color: Colors.white,
-                          fontSize: 24,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 5,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

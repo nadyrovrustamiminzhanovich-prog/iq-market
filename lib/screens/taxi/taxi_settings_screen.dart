@@ -18,9 +18,7 @@ class TaxiSettingsScreen extends StatelessWidget {
     final uid = FirebaseAuth.instance.currentUser?.uid ?? "";
     final reviewCount = taxiProvider.getUserReviewCount(uid);
     final rating = taxiProvider.getUserRating(uid);
-    final tripsCount = taxiProvider.passengerTripsCount;
     final String ratingStr = reviewCount < 5 ? 'Новичок' : '${rating.toStringAsFixed(1)} ★';
-    final String tripsStr = tripsCount == 0 ? 'Первая поездка!' : '$tripsCount поездок';
 
     return Scaffold(
       backgroundColor: t.bg,
@@ -39,7 +37,6 @@ class TaxiSettingsScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // Profile stats section (moved from main screen - issue #2 msg1, #9 msg2)
           _sectionHeader(t, 'Мой профиль'),
           Container(
             margin: const EdgeInsets.only(bottom: 16),
@@ -54,11 +51,11 @@ class TaxiSettingsScreen extends StatelessWidget {
             ),
             child: Row(
               children: [
-                // Rating
+                // Taxi Rating
                 Expanded(
                   child: Column(
                     children: [
-                      Icon(Icons.star_rounded, color: Colors.amber, size: 28),
+                      const Icon(Icons.star_rounded, color: Colors.amber, size: 28),
                       const SizedBox(height: 6),
                       Text(ratingStr, style: GoogleFonts.inter(color: t.text, fontWeight: FontWeight.w900, fontSize: 14)),
                       const SizedBox(height: 2),
@@ -66,22 +63,6 @@ class TaxiSettingsScreen extends StatelessWidget {
                         reviewCount < 5 ? 'Оценок: $reviewCount/5' : '$reviewCount отзывов',
                         style: GoogleFonts.inter(color: t.sub, fontSize: 10, fontWeight: FontWeight.w600),
                         textAlign: TextAlign.center,
-                      ),
-                    ],
-                  ),
-                ),
-                Container(height: 50, width: 1, color: t.border.withValues(alpha: 0.4)),
-                // Trips count
-                Expanded(
-                  child: Column(
-                    children: [
-                      Icon(LineIcons.car, color: t.accent, size: 28),
-                      const SizedBox(height: 6),
-                      Text(tripsStr, style: GoogleFonts.inter(color: t.text, fontWeight: FontWeight.w900, fontSize: 14)),
-                      const SizedBox(height: 2),
-                      Text(
-                        tripsCount == 0 ? 'Начните путь' : 'Завершено',
-                        style: GoogleFonts.inter(color: t.sub, fontSize: 10, fontWeight: FontWeight.w600),
                       ),
                     ],
                   ),

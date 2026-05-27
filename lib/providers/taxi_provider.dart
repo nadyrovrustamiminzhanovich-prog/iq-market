@@ -98,98 +98,9 @@ class TaxiProvider extends ChangeNotifier {
 
   TaxiTheme get theme => TaxiTheme(_isDarkGlobal);
 
-  final List<Map<String, dynamic>> _drives = [
-    {
-      'name': 'Берик М.',
-      'car': 'Toyota Camry 70',
-      'plate': '777 BBA 05',
-      'price': 3000,
-      'from': 'Чунджа',
-      'to': 'Алматы',
-      'date': 'today',
-      'phone': '87010001122',
-      'img': 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=300',
-      'seats': 3,
-    },
-    {
-      'name': 'Азамат К.',
-      'car': 'Hyundai Sonata',
-      'plate': '123 ABC 02',
-      'price': 2500,
-      'from': 'Алматы',
-      'to': 'Чунджа',
-      'date': 'today',
-      'phone': '87071112233',
-      'img': 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300',
-      'seats': 4,
-    },
-    {
-      'name': 'Игорь С.',
-      'car': 'Mercedes S-Class',
-      'plate': '001 VVIP 01',
-      'price': 15000,
-      'from': 'Астана',
-      'to': 'Алматы',
-      'date': 'tomorrow',
-      'phone': '87770000001',
-      'img': 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=300',
-      'seats': 3,
-    },
-    {
-      'name': 'Марат Б.',
-      'car': 'Lexus LX570',
-      'plate': '555 KZT 05',
-      'price': 5000,
-      'from': 'Чунджа',
-      'to': 'Алматы',
-      'date': 'tomorrow',
-      'phone': '87015555555',
-      'img': 'https://images.unsplash.com/photo-1542909168-82c3e7fdca5c?w=300',
-      'seats': 2,
-    }
-  ];
+  final List<Map<String, dynamic>> _drives = [];
 
-  final List<Map<String, dynamic>> _passengerOrders = [
-    {
-      'name': 'Кайрат С.',
-      'from': 'Алматы',
-      'to': 'Чунджа',
-      'date': 'today',
-      'price': 3500,
-      'seats': 2,
-      'comment': 'Едем с ребенком, нужно место в багажнике',
-      'isNegotiated': true,
-      'created': '13:45',
-      'img': 'https://images.unsplash.com/photo-1599566150163-29194dcaad36?w=300',
-      'phone': '87012223344',
-    },
-    {
-      'name': 'Мадина А.',
-      'from': 'Алматы',
-      'to': 'Чунджа',
-      'date': 'today',
-      'price': 3000,
-      'seats': 1,
-      'comment': 'Срочно, выезд через час',
-      'isNegotiated': false,
-      'created': '13:20',
-      'img': 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=300',
-      'phone': '87074445566',
-    },
-    {
-      'name': 'Арман К.',
-      'from': 'Алматы',
-      'to': 'Чунджа',
-      'date': 'tomorrow',
-      'price': 12000,
-      'seats': 4,
-      'comment': 'Выкупаю весь салон полностью',
-      'isNegotiated': true,
-      'created': '12:50',
-      'img': 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=300',
-      'phone': '87771110099',
-    },
-  ];
+  final List<Map<String, dynamic>> _passengerOrders = [];
 
   List<Map<String, dynamic>> get filteredDrives {
     return _drives.where((d) {
@@ -424,7 +335,7 @@ class TaxiProvider extends ChangeNotifier {
   void setVerificationStatus(String status) {
     _verificationStatus = status;
     _save('taxi_verif_status', status);
-    if (status == 'approved') {
+    if (status == 'approved' || status == 'approved_by_ai') {
       _isVehicleVerified = true;
       _save('taxi_verified', true);
     }
@@ -676,7 +587,7 @@ class TaxiProvider extends ChangeNotifier {
       final data = snapshot.docs.first.data();
       final status = data['status'];
       _verificationStatus = status ?? 'none';
-      if (status == 'approved') {
+      if (status == 'approved' || status == 'approved_by_ai') {
         _isVehicleVerified = true;
         await _save('taxi_verified', true);
       } else {

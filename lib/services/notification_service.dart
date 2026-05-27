@@ -8,6 +8,7 @@ import 'package:iqmarket/services/storage_service.dart';
 import 'package:iqmarket/services/chat_service.dart';
 import 'package:iqmarket/models/ad_model.dart';
 import 'package:iqmarket/screens/chat_screen.dart';
+import 'package:iqmarket/screens/taxi/taxi_service_screen.dart';
 
 class NotificationService {
   static final FirebaseMessaging _messaging = FirebaseMessaging.instance;
@@ -121,6 +122,15 @@ class NotificationService {
   }
 
   static void _navigateToChat(Map<String, dynamic> data) {
+    final String type = data['type'] ?? '';
+    if (type == 'taxi_bid' || type == 'taxi_bid_accepted') {
+      debugPrint('Navigating to TaxiServiceScreen from notification type: $type');
+      navigatorKey.currentState?.push(
+        MaterialPageRoute(builder: (_) => const TaxiServiceScreen(lang: 'ru')),
+      );
+      return;
+    }
+
     final adId = data['adId'] ?? '';
     final adTitle = data['adTitle'] ?? 'Объявление';
     final adImage = data['adImage'] ?? '';

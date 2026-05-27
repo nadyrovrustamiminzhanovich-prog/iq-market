@@ -101,11 +101,14 @@ class TaxiOrderCard extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.inter(
-                                  color: t.text, fontWeight: FontWeight.w900, fontSize: 15)),
+                          GestureDetector(
+                            onTap: onShowProfile,
+                            child: Text(name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.inter(
+                                    color: t.text, fontWeight: FontWeight.w900, fontSize: 15)),
+                          ),
                           const SizedBox(height: 3),
                           // Issue #1 msg2: Rating shown below name, not competing with price
                           Row(
@@ -165,46 +168,49 @@ class TaxiOrderCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                       color: t.bg.withValues(alpha: 0.4),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(color: t.border.withValues(alpha: 0.5))),
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.location_on_rounded, color: t.accent, size: 18),
-                      const SizedBox(width: 10),
-                      Expanded(
-                          child: Text('$from → $to',
+                      Row(
+                        children: [
+                          Icon(Icons.location_on_rounded, color: t.accent, size: 18),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text('$from → $to',
+                                style: GoogleFonts.inter(
+                                    color: t.text, fontSize: 13, fontWeight: FontWeight.w700))),
+                          const SizedBox(width: 8),
+                          _badge(t, '$seats ${provider.translate('seats')}', LineIcons.users),
+                        ],
+                      ),
+                      if (comment.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Padding(
+                          padding: const EdgeInsets.only(left: 28),
+                          child: Text(comment,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                               style: GoogleFonts.inter(
-                                  color: t.text, fontSize: 13, fontWeight: FontWeight.w700))),
+                                  color: t.sub,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  fontStyle: FontStyle.italic)),
+                        ),
+                      ],
                     ],
                   ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    _badge(t, '$seats ${provider.translate('seats')}', LineIcons.users),
-                    const SizedBox(width: 8),
-                    if (comment.isNotEmpty)
-                      Expanded(
-                        child: Text(comment,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.inter(
-                                color: t.sub,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                fontStyle: FontStyle.italic)),
-                      ),
-                  ],
                 ),
               ],
             ),
           ),
-          _actionStrip(),
+          _actionStrip(context),
         ],
       ),
     ),
@@ -227,20 +233,70 @@ class TaxiOrderCard extends StatelessWidget {
         ),
       );
 
-  Widget _actionStrip() => Container(
+  void _showBargainHelpDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Row(
+          children: [
+            const Icon(Icons.lightbulb_outline_rounded, color: Color(0xFF4A80F0), size: 24),
+            const SizedBox(width: 8),
+            Text('Как это работает? 💡', style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 16, color: const Color(0xFF1E293B))),
+          ],
+        ),
+        content: Text(
+          'Вы можете предложить пассажиру свою стоимость поездки! Пассажир получит моментальное пуш-уведомление с вашей ценой и сможет согласиться или отказать.',
+          style: GoogleFonts.inter(fontSize: 13, height: 1.45, fontWeight: FontWeight.w500, color: const Color(0xFF475569)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: Text('ПОНЯТНО', style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: const Color(0xFF4A80F0), fontSize: 13)),
+          )
+        ],
+      ),
+    );
+  }
+
+  Widget _actionStrip(BuildContext context) => Container(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         child: Row(
           children: [
             Expanded(
               flex: 5,
-              // Issue #2 msg2: Bigger "Торговаться" button with larger font
-              child: _stripBtn(provider.translate('bargain'), LineIcons.coins, const Color(0xFF0052FF), onNegotiate,
-                  isFilled: true, fontSize: 14),
+              child: _stripBtn(
+                provider.translate('bargain'), 
+                LineIcons.coins, 
+                const Color(0xFF4A80F0), 
+                onNegotiate,
+                isFilled: true, 
+                fontSize: 14
+              ),
             ),
-            const SizedBox(width: 10),
-            _iconBtn(LineIcons.phone, const Color(0xFF0052FF), onCall),
-            const SizedBox(width: 10),
-            _iconBtn(LineIcons.comment, const Color(0xFF0052FF), onChat),
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: () => _showBargainHelpDialog(context),
+              child: Container(
+                width: 32,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF4A80F0).withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFF4A80F0).withValues(alpha: 0.15)),
+                ),
+                child: const Icon(Icons.help_outline_rounded, color: Color(0xFF4A80F0), size: 18),
+              ),
+            ),
+            const SizedBox(width: 8),
+            _iconBtn(LineIcons.phone, const Color(0xFF4A80F0), onCall),
+            const SizedBox(width: 8),
+            _iconBtn(LineIcons.comment, const Color(0xFF4A80F0), onChat),
           ],
         ),
       );

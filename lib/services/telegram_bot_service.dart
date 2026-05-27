@@ -84,6 +84,7 @@ class TelegramBotService {
     String? techF,
     String? techB,
     String? selfie,
+    String? carFront,
   }) async {
     if (_adminChatId.isEmpty || _adminChatId == '5555555555') return;
     
@@ -95,14 +96,15 @@ class TelegramBotService {
     sb.writeln('🔢 Госномер: <code>$plate</code>');
     sb.writeln('⚠️ Причина: $reason');
     
-    if (licF != null || licB != null || techF != null || techB != null || selfie != null) {
+    if (licF != null || licB != null || techF != null || techB != null || selfie != null || carFront != null) {
       sb.writeln();
-      sb.writeln('📂 <b>ДОКУМЕНТЫ:</b>');
+      sb.writeln('📂 <b>ДОКУМЕНТЫ И АВТО:</b>');
       if (licF != null) sb.writeln('🪪 <a href="$licF">Права (Лицевая)</a>');
       if (licB != null) sb.writeln('🪪 <a href="$licB">Права (Обратная)</a>');
       if (techF != null) sb.writeln('📄 <a href="$techF">Техпаспорт (Лицевая)</a>');
       if (techB != null) sb.writeln('📄 <a href="$techB">Техпаспорт (Обратная)</a>');
       if (selfie != null) sb.writeln('🤳 <a href="$selfie">Фото селфи</a>');
+      if (carFront != null) sb.writeln('🚘 <a href="$carFront">Фото машины</a>');
     }
     
     sb.writeln();

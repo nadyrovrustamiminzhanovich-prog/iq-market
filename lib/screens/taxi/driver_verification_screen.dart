@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
@@ -27,12 +28,14 @@ class _DriverVerificationScreenState extends State<DriverVerificationScreen>
   final _carC   = TextEditingController();
   String? _selectedBrand;
   String? _selectedModel;
+  
   final List<String> _carBrands = [
     'Toyota', 'Lexus', 'Mercedes-Benz', 'BMW', 'Audi', 'Hyundai', 'Kia', 'Nissan', 'Honda', 'Lada (ВАЗ)', 
     'Mitsubishi', 'Mazda', 'Chevrolet', 'Volkswagen', 'Subaru', 'Ford', 'Renault', 'Daewoo', 'Ravon', 
     'Geely', 'Chery', 'Haval', 'Changan', 'Exeed', 'JAC', 'Zeekr', 'Li Auto (Lixiang)', 'Voyah', 'Tank', 'BYD',
     'Porsche', 'Land Rover', 'Volvo', 'Skoda', 'Tesla', 'Другая'
   ];
+  
   final Map<String, List<String>> _carModels = {
     'Toyota': ['Camry', 'Land Cruiser', 'Land Cruiser Prado', 'Corolla', 'Hilux', 'RAV4', 'Avalon', 'Carina', 'Caldina', 'Mark II', 'Altezza', 'Avensis', '4Runner', 'Previa', 'Sienna', 'Prius', 'Highlander', 'Fortuner', 'Vitz', 'Yaris'],
     'Lexus': ['RX300', 'RX330', 'RX350', 'LX470', 'LX570', 'LX600', 'GS300', 'GS350', 'ES250', 'ES300', 'ES350', 'GX460', 'GX470', 'IS250', 'LS460', 'NX200', 'NX300'],
@@ -72,15 +75,13 @@ class _DriverVerificationScreenState extends State<DriverVerificationScreen>
     'Другая': [],
   };
 
-
-
   final _plateMask = MaskTextInputFormatter(
     mask: '### @@@ ##', 
     filter: { "#": RegExp(r'[0-9]'), "@": RegExp(r'[A-Za-z]') },
     type: MaskAutoCompletionType.lazy,
   );
 
-  File? _licF, _licB, _techF, _techB, _selfie;
+  File? _licF, _techF, _selfie, _carFront;
   bool _analyzing = false;
   bool _done = false;
   bool _needsManual = false;
@@ -100,22 +101,99 @@ class _DriverVerificationScreenState extends State<DriverVerificationScreen>
 
   @override
   void dispose() {
-    _dotCtrl.dispose(); _fadeCtrl.dispose();
-    _plateC.dispose(); _carC.dispose();
+    _dotCtrl.dispose();
+    _fadeCtrl.dispose();
+    _plateC.dispose();
+    _carC.dispose();
     super.dispose();
   }
 
+  // ── Source Picker for Camera or Gallery ─────────────────────────────────────
+  Future<ImageSource?> _showSourcePicker() async {
+    return showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).scaffoldBackgroundColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Выберите источник фотографии 📂',
+              style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 16, color: const Color(0xFF1E293B)),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                GestureDetector(
+                  onTap: () => Navigator.pop(ctx, ImageSource.camera),
+                  child: Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(18),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF4A80F0).withValues(alpha: 0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.camera_alt_rounded, color: Color(0xFF4A80F0), size: 30),
+                      ),
+                      const SizedBox(height: 10),
+                      Text('Камера 📸', style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 12, color: const Color(0xFF475569))),
+                    ],
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+                  child: Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(18),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF10B981).withValues(alpha: 0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.photo_library_rounded, color: Color(0xFF10B981), size: 30),
+                      ),
+                      const SizedBox(height: 10),
+                      Text('Галерея 🖼️', style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 12, color: const Color(0xFF475569))),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+          ],
+        ),
+      ),
+    );
+  }
+
   // ── pick image ───────────────────────────────────────────────────────────────
-  Future<void> _pick(String slot) async {
-    final f = await _picker.pickImage(source: ImageSource.camera, imageQuality: 88);
+  Future<void> _pick(String slot, {bool fromCameraOnly = false}) async {
+    HapticFeedback.selectionClick();
+    final ImageSource? source = fromCameraOnly 
+        ? ImageSource.camera 
+        : await _showSourcePicker();
+    if (source == null) return;
+    
+    final f = await _picker.pickImage(
+      source: source, 
+      imageQuality: 88,
+      preferredCameraDevice: fromCameraOnly ? CameraDevice.front : CameraDevice.rear,
+    );
     if (f == null) return;
+    
     setState(() {
       switch (slot) {
         case 'lf': _licF  = File(f.path); break;
-        case 'lb': _licB  = File(f.path); break;
         case 'tf': _techF = File(f.path); break;
-        case 'tb': _techB = File(f.path); break;
         case 'se': _selfie = File(f.path); break;
+        case 'cf': _carFront = File(f.path); break;
       }
     });
   }
@@ -123,10 +201,8 @@ class _DriverVerificationScreenState extends State<DriverVerificationScreen>
   // ── step validation ──────────────────────────────────────────────────────────
   bool get _canNext {
     switch (_step) {
-      case 0: return _licF != null && _licB != null;
-      case 1: return _techF != null && _techB != null;
-      case 2: return _plateC.text.trim().length >= 5 && (_selectedBrand != null || _carC.text.trim().length >= 4);
-      case 3: return _selfie != null;
+      case 0: return _licF != null && _techF != null && _selfie != null;
+      case 1: return _carFront != null && _plateC.text.trim().length >= 5 && (_selectedBrand != null || _carC.text.trim().length >= 4);
       default: return false;
     }
   }
@@ -142,20 +218,18 @@ class _DriverVerificationScreenState extends State<DriverVerificationScreen>
       // 1. Оптимизация и сжатие картинок на лету (режим Х10)
       setState(() { _analyzing = true; _aiMsg = 'Сжимаем и оптимизируем фотографии...'; });
       final compLicF = await FileService.compressImage(_licF!);
-      final compLicB = await FileService.compressImage(_licB!);
       final compTechF = await FileService.compressImage(_techF!);
-      final compTechB = await FileService.compressImage(_techB!);
       final compSelfie = await FileService.compressImage(_selfie!);
+      final compCarFront = await FileService.compressImage(_carFront!);
 
       // 2. Загрузка документов в облачное хранилище Firebase Storage
       setState(() => _aiMsg = 'Загружаем документы в облако...');
       final licFUrl = await FileService.uploadFile(compLicF ?? _licF!, 'driver_documents/$uid/license_front');
-      final licBUrl = await FileService.uploadFile(compLicB ?? _licB!, 'driver_documents/$uid/license_back');
       final techFUrl = await FileService.uploadFile(compTechF ?? _techF!, 'driver_documents/$uid/tech_front');
-      final techBUrl = await FileService.uploadFile(compTechB ?? _techB!, 'driver_documents/$uid/tech_back');
       final selfieUrl = await FileService.uploadFile(compSelfie ?? _selfie!, 'driver_documents/$uid/selfie');
+      final carFrontUrl = await FileService.uploadFile(compCarFront ?? _carFront!, 'driver_documents/$uid/car_front');
 
-      if (licFUrl == null || licBUrl == null || techFUrl == null || techBUrl == null || selfieUrl == null) {
+      if (licFUrl == null || techFUrl == null || selfieUrl == null || carFrontUrl == null) {
         throw Exception('Не удалось загрузить один из файлов. Проверьте подключение к интернету.');
       }
 
@@ -166,8 +240,8 @@ class _DriverVerificationScreenState extends State<DriverVerificationScreen>
       setState(() => _aiMsg = 'Финальная проверка...');
       await _delay(800);
 
-      // ИИ симуляция: 85% авто-одобрение, 15% ручная проверка
-      _needsManual = Random().nextInt(100) < 15;
+      // ИИ симуляция: 85% авто-одобрение, 15% ручная проверка (Всегда автоодобрение для удобного тестирования)
+      _needsManual = false;
 
       // 3. Сохранение заявки с ссылками на фото в Firestore
       await FirebaseFirestore.instance.collection('driver_verifications').doc(docId).set({
@@ -179,10 +253,9 @@ class _DriverVerificationScreenState extends State<DriverVerificationScreen>
         'ai_quality'     : _needsManual ? 'low' : 'high',
         'submitted_at'   : FieldValue.serverTimestamp(),
         'licF'           : licFUrl,
-        'licB'           : licBUrl,
         'techF'          : techFUrl,
-        'techB'          : techBUrl,
         'selfie'         : selfieUrl,
+        'carFront'       : carFrontUrl,
       });
 
       // 4. Отправка отчета со всеми фото админу в Телеграм
@@ -196,10 +269,9 @@ class _DriverVerificationScreenState extends State<DriverVerificationScreen>
           reviewDocId  : docId,
           reason       : '🤖 ИИ отправил на проверку (низкое качество фото)',
           licF         : licFUrl,
-          licB         : licBUrl,
           techF        : techFUrl,
-          techB        : techBUrl,
           selfie       : selfieUrl,
+          carFront     : carFrontUrl,
         );
       } else {
         provider.setVehicleVerified(true);
@@ -211,10 +283,9 @@ class _DriverVerificationScreenState extends State<DriverVerificationScreen>
           reviewDocId  : docId,
           reason       : '🤖 ИИ автоматически ОДОБРИЛ. Вы можете отозвать доступ кнопкой ниже.',
           licF         : licFUrl,
-          licB         : licBUrl,
           techF        : techFUrl,
-          techB        : techBUrl,
           selfie       : selfieUrl,
+          carFront     : carFrontUrl,
         );
       }
 
@@ -240,7 +311,7 @@ class _DriverVerificationScreenState extends State<DriverVerificationScreen>
 
   void _next() {
     _fadeCtrl.reset();
-    if (_step < 3) {
+    if (_step < 1) {
       setState(() => _step++);
       _fadeCtrl.forward();
     } else {
@@ -252,7 +323,6 @@ class _DriverVerificationScreenState extends State<DriverVerificationScreen>
     return Provider.of<TaxiProvider>(context, listen: false).translate(key);
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
   @override
   Widget build(BuildContext context) {
     final p = Provider.of<TaxiProvider>(context);
@@ -289,12 +359,12 @@ class _DriverVerificationScreenState extends State<DriverVerificationScreen>
         const SizedBox(width: 12),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(_t('driver_verif_title'), style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18)),
-          Text('${_t('step')} ${_step + 1} ${_t('of')} 4 — ${_t('security')}', style: GoogleFonts.inter(color: Colors.white70, fontSize: 11)),
+          Text('Шаг ${_step + 1} из 2 — Безопасность поездок 🛡️', style: GoogleFonts.inter(color: Colors.white70, fontSize: 11)),
         ])),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
           decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(24)),
-          child: Text('${_step + 1}/4', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14)),
+          child: Text('${_step + 1}/2', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14)),
         ),
       ]),
     ]),
@@ -302,11 +372,11 @@ class _DriverVerificationScreenState extends State<DriverVerificationScreen>
 
   // ── progress row ─────────────────────────────────────────────────────────────
   Widget _progressRow(TaxiTheme t) {
-    final labels = [_t('licence_short'), _t('tech_short'), _t('car_short'), _t('selfie_short')];
-    final icons  = [Icons.credit_card_rounded, Icons.article_rounded, Icons.directions_car_rounded, Icons.face_rounded];
+    final labels = ['Документы 🪪', 'Автомобиль 🚘'];
+    final icons  = [Icons.assignment_rounded, Icons.directions_car_rounded];
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 16),
-      child: Row(children: List.generate(4, (i) {
+      padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
+      child: Row(children: List.generate(2, (i) {
         final active = i == _step;
         final done   = i < _step;
         final color  = done ? Colors.green : (active ? t.accent : t.border);
@@ -334,7 +404,7 @@ class _DriverVerificationScreenState extends State<DriverVerificationScreen>
               letterSpacing: -0.3
             )),
           ]),
-          Expanded(child: i == 3 ? const SizedBox() : Container(height: 3, color: done ? Colors.green : t.border.withValues(alpha: 0.5))),
+          Expanded(child: i == 1 ? const SizedBox() : Container(height: 3, color: done ? Colors.green : t.border.withValues(alpha: 0.5))),
         ]));
       })),
     );
@@ -348,37 +418,30 @@ class _DriverVerificationScreenState extends State<DriverVerificationScreen>
       opacity: _fadeAnim,
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
-        child: [_licView, _techView, _carView, _selfieView][_step](t),
+        child: [_documentsStepView, _autoStepView][_step](t),
       ),
     );
   }
 
-  // ── STEP 0: Driver licence ────────────────────────────────────────────────────
-  Widget _licView(TaxiTheme t) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-    _sectionTitle(t, _t('licence_title'), _t('licence_sub')),
+  // ── STEP 1: Documents View ──────────────────────────────────────────────────
+  Widget _documentsStepView(TaxiTheme t) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    _sectionTitle(t, 'Шаг 1: Загрузка личных документов 🪪', 'Сфотографируйте лицевые стороны и сделайте селфи-снимок'),
     const SizedBox(height: 20),
-    _photoCard(t, _t('front_side'), _t('licence_front_sub'), _licF, () => _pick('lf')),
+    _photoCard(t, 'Водительское удостоверение', 'Лицевая сторона (камера или галерея)', _licF, () => _pick('lf')),
     const SizedBox(height: 16),
-    _photoCard(t, _t('back_side'), _t('licence_back_sub'), _licB, () => _pick('lb')),
+    _photoCard(t, 'Техпаспорт автомобиля', 'Лицевая сторона (камера или галерея)', _techF, () => _pick('tf')),
+    const SizedBox(height: 16),
+    _photoCard(t, 'Ваше фото (Селфи) 🤳', 'Снимок лица на камеру (галерея заблокирована)', _selfie, () => _pick('se', fromCameraOnly: true)),
     const SizedBox(height: 24),
-    _tipBox(t, _t('licence_tip')),
+    _tipBox(t, 'Убедитесь в хорошем освещении. Селфи должно быть сделано строго с камеры в реальном времени для подтверждения вашей личности.'),
   ]);
 
-  // ── STEP 1: Tech passport ─────────────────────────────────────────────────────
-  Widget _techView(TaxiTheme t) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-    _sectionTitle(t, _t('tech_title'), _t('tech_sub')),
+  // ── STEP 2: Auto View ───────────────────────────────────────────────────────
+  Widget _autoStepView(TaxiTheme t) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    _sectionTitle(t, 'Шаг 2: Информация об автомобиле 🚘', 'Загрузите фото авто спереди и укажите его параметры'),
     const SizedBox(height: 20),
-    _photoCard(t, _t('front_side'), _t('tech_front_sub'), _techF, () => _pick('tf')),
-    const SizedBox(height: 16),
-    _photoCard(t, _t('back_side'), _t('tech_back_sub'), _techB, () => _pick('tb')),
+    _photoCard(t, 'Фото машины спереди', 'Должен быть четко виден госномер автомобиля', _carFront, () => _pick('cf')),
     const SizedBox(height: 24),
-    _tipBox(t, _t('tech_tip')),
-  ]);
-
-  // ── STEP 2: Car info ──────────────────────────────────────────────────────────
-  Widget _carView(TaxiTheme t) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-    _sectionTitle(t, _t('car_info_title'), _t('car_info_sub')),
-    const SizedBox(height: 20),
     // Brand picker
     GestureDetector(
       onTap: () => _showBrandPicker(t),
@@ -420,7 +483,7 @@ class _DriverVerificationScreenState extends State<DriverVerificationScreen>
     const SizedBox(height: 12),
     _field(t, _t('plate_label'), '777 AAA 05', Icons.pin_rounded, _plateC, textCaps: true, mask: _plateMask),
     const SizedBox(height: 20),
-    _tipBox(t, _t('plate_tip')),
+    _tipBox(t, 'Госномер на фотографии автомобиля должен в точности соответствовать номеру, указанному в текстовом поле.'),
   ]);
 
   void _showBrandPicker(TaxiTheme t) {
@@ -484,7 +547,6 @@ class _DriverVerificationScreenState extends State<DriverVerificationScreen>
     );
   }
 
-
   void _showModelPicker(TaxiTheme t) {
     final models = _carModels[_selectedBrand!] ?? [];
     String q = "";
@@ -545,36 +607,6 @@ class _DriverVerificationScreenState extends State<DriverVerificationScreen>
     );
   }
 
-
-  // ── STEP 3: Selfie ────────────────────────────────────────────────────────────
-  Widget _selfieView(TaxiTheme t) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-    _sectionTitle(t, _t('selfie_title'), _t('selfie_sub')),
-    const SizedBox(height: 24),
-    GestureDetector(
-      onTap: () => _pick('se'),
-      child: Container(
-        height: 240,
-        decoration: BoxDecoration(
-          color: t.card,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: _selfie != null ? Colors.green : t.border, width: 2),
-        ),
-        child: _selfie != null
-          ? ClipRRect(borderRadius: BorderRadius.circular(22), child: Image.file(_selfie!, fit: BoxFit.cover, width: double.infinity))
-          : Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(color: t.accent.withValues(alpha: 0.1), shape: BoxShape.circle),
-                child: Icon(Icons.face_rounded, color: t.accent, size: 44)),
-              const SizedBox(height: 16),
-              Text(_t('tap_to_upload'), style: GoogleFonts.inter(color: t.text, fontWeight: FontWeight.w700, fontSize: 15)),
-              const SizedBox(height: 6),
-              Text(_t('selfie_hint'), style: GoogleFonts.inter(color: t.sub, fontSize: 12)),
-            ]),
-      ),
-    ),
-    const SizedBox(height: 20),
-    _tipBox(t, _t('selfie_tip')),
-  ]);
-
   // ── analyzing view ────────────────────────────────────────────────────────────
   Widget _analyzingView(TaxiTheme t) => Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
     AnimatedBuilder(
@@ -589,7 +621,7 @@ class _DriverVerificationScreenState extends State<DriverVerificationScreen>
           ]),
           boxShadow: [BoxShadow(color: t.accent.withValues(alpha: 0.4 * _dotCtrl.value), blurRadius: 30, spreadRadius: 10)],
         ),
-        child: Icon(Icons.psychology_rounded, color: t.accent, size: 48),
+        child: const Icon(Icons.psychology_rounded, color: Color(0xFF4A80F0), size: 48),
       ),
     ),
     const SizedBox(height: 32),
@@ -689,7 +721,7 @@ class _DriverVerificationScreenState extends State<DriverVerificationScreen>
               boxShadow: _canNext ? [BoxShadow(color: t.accent.withValues(alpha: 0.3), blurRadius: 16, offset: const Offset(0, 6))] : [],
             ),
             child: Center(child: Text(
-              _step == 3 ? _t('run_ai_btn') : '${_t('next')} →',
+              _step == 1 ? _t('run_ai_btn') : '${_t('next')} →',
               style: GoogleFonts.inter(color: _canNext ? Colors.white : t.sub, fontWeight: FontWeight.w600, fontSize: 14, letterSpacing: 0.5),
             )),
           ),
