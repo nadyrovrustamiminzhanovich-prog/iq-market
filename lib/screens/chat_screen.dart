@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -59,6 +60,9 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   late Stream<List<MessageModel>> _messagesStream;
   final Map<String, UploadTask> _activeUploads = {};
   bool _showEmoji = false;
+  bool _isOtherOnline = false;
+  bool _isOtherTyping = false;
+  StreamSubscription? _presenceSubscription;
 
   final List<String> _emojis = [
     '😀','😃','😄','😁','😆','😅','😂','🤣','😊','😇','🙂','🙃','😉','😌','😍','🥰','😘','😗','😙','😚','😋','😛','😝','😜','🤪','🤨','🧐','🤓','😎','🤩','🥳','😏','😒','😞','😔','😟','😕','🙁','☹️','😣','😖','😫','😩','🥺','😢','😭','😤','😠','😡','🤬','🤯','😳','🥵','🥶','😱','😨','😰','😥','😓','🤗','🤔','🤭','🤫','🤥','😶','😐','😑','😬','🙄','😯','😦','😧','😮','😲','🥱','😴','🤤','😪','😵','🤐','🥴','🤢','🤮','🤧','😷','🤒','🤕','🤑','🤠','😈','👿','👹','👺','🤡','💩','👻','💀','☠️','👽','👾','🤖','🎃','😺','😸','😹','😻','😼','😽','🙀','😿','😾','🔥','✨','🌟','💯','👍','👎','❤️','💔','✔️','❌'
@@ -70,6 +74,19 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     _recorder = AudioRecorder();
     _audioPlayer = AudioPlayer();
     _audioPlayer.setReleaseMode(ReleaseMode.release);
+    _audioPlayer.setAudioContext(AudioContext(
+      android: AudioContextAndroid(
+        isSpeakerphoneOn: false,
+        stayAwake: false,
+        contentType: AndroidContentType.music,
+        usageType: AndroidUsageType.media,
+        audioFocus: AndroidAudioFocus.gain,
+      ),
+      iOS: AudioContextIOS(
+        category: AVAudioSessionCategory.playback,
+        options: {AVAudioSessionOptions.defaultToSpeaker},
+      ),
+    ));
     
     final otherId = widget.ad.userId;
     _messagesStream = ChatService.getMessagesStream(otherId);
@@ -89,6 +106,23 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       ChatService.markAsRead(otherId);
     }
     _loadUserNames();
+
+    // Listen for online/typing presence of the other user
+    final chatId = ChatService.getChatId(otherId);
+    _presenceSubscription = FirebaseFirestore.instance
+        .collection('chats')
+        .doc(chatId)
+        .snapshots()
+        .listen((snapshot) {
+      if (!mounted) return;
+      final data = snapshot.data();
+      if (data != null) {
+        setState(() {
+          _isOtherTyping = data['typing_${otherId}'] == true;
+          _isOtherOnline = data['online_${otherId}'] == true;
+        });
+      }
+    });
   }
 
   void _loadUserNames() async {
@@ -107,6 +141,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   @override
   void dispose() {
     _recordTimer?.cancel();
+    _presenceSubscription?.cancel();
     _recorder.dispose();
     _audioPlayer.dispose();
     _msgController.dispose();
@@ -173,12 +208,17 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   void _playVoice(String id, String url) async {
     try {
+      debugPrint('Playing voice: id=$id, url=$url');
       if (_currentPlayingId == id) {
         await _audioPlayer.pause();
         setState(() => _currentPlayingId = null);
       } else {
-        await _audioPlayer.stop(); // Stop any currently playing audio first!
-        await _audioPlayer.play(UrlSource(url));
+        await _audioPlayer.stop();
+        if (url.startsWith('http')) {
+          await _audioPlayer.play(UrlSource(url));
+        } else {
+          await _audioPlayer.play(DeviceFileSource(url));
+        }
         setState(() {
           _currentPlayingId = id;
           _currentPos = Duration.zero;
@@ -187,6 +227,11 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       }
     } catch (e) {
       debugPrint('Error playing voice: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Ошибка воспроизведения: $e'), backgroundColor: Colors.redAccent),
+        );
+      }
     }
   }
 
@@ -258,6 +303,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
               children: [
                 ChatGlassHeader(
                   ad: widget.ad, sellerAvatarUrl: _sellerAvatarUrl,
+                  isOnline: _isOtherOnline,
+                  isTyping: _isOtherTyping,
                   onBack: () => Navigator.of(context).maybePop(),
                   onProfileTap: _navigateToSellerProfile,
                   onCall: () async {

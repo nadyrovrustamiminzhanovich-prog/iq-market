@@ -12,6 +12,8 @@ import 'package:iqmarket/screens/product_details_screen.dart';
 class ChatGlassHeader extends StatelessWidget {
   final AdModel ad;
   final String? sellerAvatarUrl;
+  final bool isOnline;
+  final bool isTyping;
   final VoidCallback onBack;
   final VoidCallback onProfileTap;
   final VoidCallback onCall;
@@ -20,6 +22,8 @@ class ChatGlassHeader extends StatelessWidget {
     super.key,
     required this.ad,
     this.sellerAvatarUrl,
+    this.isOnline = false,
+    this.isTyping = false,
     required this.onBack,
     required this.onProfileTap,
     required this.onCall,
@@ -53,7 +57,13 @@ class ChatGlassHeader extends StatelessWidget {
                   StreamBuilder<bool>(
                     stream: ChatService.getTypingStatusStream(ad.userId),
                     builder: (context, snapshot) {
-                      if (snapshot.data == true) return const Text('печатает...', style: TextStyle(color: Color(0xFF4A80F0), fontSize: 11, fontWeight: FontWeight.bold));
+                      final streamTyping = snapshot.data == true;
+                      if (streamTyping || isTyping) {
+                        return Text('печатает...', style: TextStyle(color: const Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold));
+                      }
+                      if (isOnline) {
+                        return const Text('в сети', style: TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold));
+                      }
                       return FutureBuilder<UserModel?>(
                         future: UserService.getUserById(ad.userId),
                         builder: (context, userSnap) {
@@ -62,7 +72,7 @@ class ChatGlassHeader extends StatelessWidget {
                             final timeStr = DateFormat('d MMMM в HH:mm').format(date);
                             return Text('был(а) в сети $timeStr', style: const TextStyle(color: Colors.white38, fontSize: 11));
                           }
-                          return const Text('в сети', style: TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold));
+                          return const Text('не в сети', style: TextStyle(color: Colors.white38, fontSize: 11));
                         }
                       );
                     },

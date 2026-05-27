@@ -339,36 +339,134 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.end,
                                   children: [
-                                    _ratingBox(t, _taxiReviewsCount < 5 ? 'Новичок' : _taxiAvgRating.toStringAsFixed(1)),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      _pluralReviews(_taxiReviewsCount),
-                                      style: GoogleFonts.inter(color: t.sub, fontSize: 10, fontWeight: FontWeight.w600),
-                                    ),
+                                _ratingBox(t, _taxiReviewsCount < 5 ? 'Новичок' : _taxiAvgRating.toStringAsFixed(1)),
+                                    if (_taxiReviewsCount < 5)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 2),
+                                        child: Tooltip(
+                                          message: 'Рейтинг формируется после 5 оценок от других пользователей',
+                                          child: Text(
+                                            'Рейтинг после 5 оценок',
+                                            style: GoogleFonts.inter(fontSize: 9, color: Colors.grey, fontWeight: FontWeight.w500),
+                                          ),
+                                        ),
+                                      ),
                                   ],
                                 ),
                               ),
                           ],
                         ),
                         if (!widget.isDriver) ...[
-                          const SizedBox(height: 24),
-                          Center(
-                            child: GestureDetector(
-                              onTap: _scrollToReviews,
-                              child: Column(
-                                children: [
-                                  _statChip(t, _taxiReviewsCount < 5 ? 'Новичок' : _taxiAvgRating.toStringAsFixed(1), 'РЕЙТИНГ', Icons.star_rounded, Colors.amber),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    _pluralReviews(_taxiReviewsCount),
-                                    style: GoogleFonts.inter(color: t.sub, fontSize: 11, fontWeight: FontWeight.w600),
-                                  ),
-                                ],
+                          const SizedBox(height: 16),
+                          GestureDetector(
+                            onTap: _scrollToReviews,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+                              decoration: BoxDecoration(
+                                color: t.card,
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: t.border),
+                              ),
+                              child: IntrinsicHeight(
+                                child: Row(
+                                  children: [
+                                    // Rating stat
+                                    Expanded(
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Row(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              const Text('⭐', style: TextStyle(fontSize: 16)),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                _taxiReviewsCount < 5 ? 'Новичок' : _taxiAvgRating.toStringAsFixed(1),
+                                                style: GoogleFonts.inter(
+                                                  color: t.text,
+                                                  fontWeight: FontWeight.w900,
+                                                  fontSize: _taxiReviewsCount < 5 ? 12 : 18,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            _taxiReviewsCount < 5 ? 'Рейтинг после 5 оценок' : 'РЕЙТИНГ',
+                                            style: GoogleFonts.inter(color: t.sub, fontSize: 9, fontWeight: FontWeight.w600, letterSpacing: 0.3),
+                                            textAlign: TextAlign.center,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    VerticalDivider(width: 1, thickness: 1, color: t.border),
+                                    // Reviews stat
+                                    Expanded(
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Row(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              const Text('💬', style: TextStyle(fontSize: 14)),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                '$_taxiReviewsCount',
+                                                style: GoogleFonts.inter(
+                                                  color: t.text,
+                                                  fontWeight: FontWeight.w900,
+                                                  fontSize: 18,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            'ОТЗЫВОВ',
+                                            style: GoogleFonts.inter(color: t.sub, fontSize: 9, fontWeight: FontWeight.w600, letterSpacing: 0.3),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    VerticalDivider(width: 1, thickness: 1, color: t.border),
+                                    // Trips stat
+                                    Expanded(
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Row(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              const Text('🚗', style: TextStyle(fontSize: 14)),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                '${_taxiReviewsCount > 0 ? _taxiReviewsCount : 0}',
+                                                style: GoogleFonts.inter(
+                                                  color: t.text,
+                                                  fontWeight: FontWeight.w900,
+                                                  fontSize: 18,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            'ПОЕЗДОК',
+                                            style: GoogleFonts.inter(color: t.sub, fontSize: 9, fontWeight: FontWeight.w600, letterSpacing: 0.3),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
                         ],
-                        const SizedBox(height: 32),
+                        const SizedBox(height: 20),
                         if (widget.isDriver) ...[
                           _sectionTitle(t, 'АВТОМОБИЛЬ'),
                           const SizedBox(height: 12),

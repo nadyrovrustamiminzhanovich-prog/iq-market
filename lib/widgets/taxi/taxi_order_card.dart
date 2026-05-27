@@ -59,9 +59,9 @@ class TaxiOrderCard extends StatelessWidget {
           border: Border.all(color: t.border),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.02),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
+              color: const Color(0xFF4A80F0).withValues(alpha: 0.08),
+              blurRadius: 16,
+              offset: const Offset(0, 4),
             )
           ],
         ),
@@ -123,6 +123,13 @@ class TaxiOrderCard extends StatelessWidget {
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
+                              if (realReviewCount < 5) ...[
+                                const SizedBox(width: 3),
+                                Tooltip(
+                                  message: 'Рейтинг формируется после 5 оценок от других пользователей',
+                                  child: Icon(Icons.info_outline_rounded, size: 11, color: const Color(0xFF94A3B8)),
+                                ),
+                              ],
                             ],
                           ),
                           const SizedBox(height: 4),
@@ -149,7 +156,7 @@ class TaxiOrderCard extends StatelessWidget {
                       children: [
                         Text('$price ₸',
                             style: GoogleFonts.inter(
-                                color: t.accent, fontWeight: FontWeight.w900, fontSize: 20)),
+                                color: const Color(0xFF4A80F0), fontWeight: FontWeight.w900, fontSize: 18)),
                         const SizedBox(height: 6),
                         if (isNegotiated)
                           Container(
@@ -185,9 +192,26 @@ class TaxiOrderCard extends StatelessWidget {
                           Expanded(
                             child: Text('$from → $to',
                                 style: GoogleFonts.inter(
-                                    color: t.text, fontSize: 13, fontWeight: FontWeight.w700))),
+                                    color: t.text, fontSize: 15, fontWeight: FontWeight.w700))),
                           const SizedBox(width: 8),
-                          _badge(t, '$seats ${provider.translate('seats')}', LineIcons.users),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF4A80F0).withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: const Color(0xFF4A80F0).withValues(alpha: 0.15)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.person_rounded, size: 14, color: Color(0xFF4A80F0)),
+                                const SizedBox(width: 4),
+                                Text('$seats',
+                                    style: GoogleFonts.inter(
+                                        fontSize: 14, fontWeight: FontWeight.w800, color: const Color(0xFF4A80F0))),
+                              ],
+                            ),
+                          ),
                         ],
                       ),
                       if (comment.isNotEmpty) ...[

@@ -12,6 +12,8 @@ import 'dart:math';
 
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:iqmarket/widgets/offline_banner.dart';
 
 import 'package:iqmarket/data/kazakhstan_locations.dart';
 import 'package:iqmarket/screens/chat_screen.dart';
@@ -65,9 +67,18 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
   bool _showPhoneError = false;
   bool _showPriceError = false;
 
+  bool _isOffline = false;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
+
   @override
   void initState() {
     super.initState();
+    _checkConnectivity();
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen((List<ConnectivityResult> results) {
+      setState(() {
+        _isOffline = results.isEmpty || results.every((r) => r == ConnectivityResult.none);
+      });
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final provider = Provider.of<TaxiProvider>(context, listen: false);
       if (provider.curLang != widget.lang) {
@@ -89,12 +100,22 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
 
   @override
   void dispose() {
+    _connectivitySubscription?.cancel();
     _mainPhoneController.dispose();
     _priceController.dispose();
     _activeOrderPriceController.dispose();
     _activeOrderPriceFocusNode.dispose();
     _commentController.dispose();
     super.dispose();
+  }
+
+  Future<void> _checkConnectivity() async {
+    final results = await Connectivity().checkConnectivity();
+    if (mounted) {
+      setState(() {
+        _isOffline = results.isEmpty || results.every((r) => r == ConnectivityResult.none);
+      });
+    }
   }
 
   @override
@@ -115,22 +136,27 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
         key: _scaffoldKey,
         backgroundColor: t.bg,
         drawer: _sideMenu(taxiProvider, t),
-        body: Column(
+        body: Stack(
           children: [
-            _topBar(taxiProvider, t),
-            Expanded(
-              child: taxiProvider.loading
-                  ? _loader(t)
-                  : ListView(
-                      padding: EdgeInsets.zero,
-                      physics: const BouncingScrollPhysics(),
-                      children: [
-                        _newHeader(taxiProvider, t),
-                        _premiumSelector(taxiProvider, t),
-                        taxiProvider.tab == 0 ? _passengerView(taxiProvider, t) : _driverView(taxiProvider, t),
-                      ],
-                    ),
-            )
+            Column(
+              children: [
+                _topBar(taxiProvider, t),
+                Expanded(
+                  child: taxiProvider.loading
+                      ? _loader(t)
+                      : ListView(
+                          padding: EdgeInsets.zero,
+                          physics: const BouncingScrollPhysics(),
+                          children: [
+                            _newHeader(taxiProvider, t),
+                            _premiumSelector(taxiProvider, t),
+                            taxiProvider.tab == 0 ? _passengerView(taxiProvider, t) : _driverView(taxiProvider, t),
+                          ],
+                        ),
+                )
+              ],
+            ),
+            OfflineBanner(isOffline: _isOffline),
           ],
         ),
 
@@ -1077,7 +1103,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
 
   void _showFeedbackDialog(TaxiProvider provider, TaxiTheme t, String targetUserId, String targetUserName) {
     double selectedRating = 5.0;
-    final List<String> tags = ['Быстро', 'Вежливо', 'Чистое авто', 'Безопасное вождение', 'Комфортно'];
+    final List<String> tags = ['Быстро ⚡', 'Вежливый 😊', 'Чистое авто 🚗', 'Безопасно 🛡️', 'Комфортно 🛋️'];
     final List<String> selectedTags = [];
     final TextEditingController commentController = TextEditingController();
 
@@ -1148,18 +1174,34 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                       });
                     },
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
                       decoration: BoxDecoration(
-                        color: isSelected ? t.accent : t.card,
+                        gradient: isSelected
+                            ? const LinearGradient(
+                                colors: [Color(0xFF4A80F0), Color(0xFF6366F1)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              )
+                            : null,
+                        color: isSelected ? null : t.card,
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: isSelected ? t.accent : t.border),
+                        border: isSelected ? null : Border.all(color: t.border),
+                        boxShadow: isSelected
+                            ? [
+                                BoxShadow(
+                                  color: const Color(0xFF4A80F0).withValues(alpha: 0.3),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ]
+                            : null,
                       ),
                       child: Text(
                         tag,
                         style: GoogleFonts.inter(
                           color: isSelected ? Colors.white : t.text,
                           fontSize: 12,
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                     ),
@@ -1925,14 +1967,14 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                       style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: const Color(0xFF4A80F0), fontSize: 10, letterSpacing: 0.8),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF4A80F0).withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(10),
+                        color: const Color(0xFF4A80F0),
+                        borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
                         '${currentPrice} ₸',
-                        style: GoogleFonts.inter(color: const Color(0xFF4A80F0), fontWeight: FontWeight.w800, fontSize: 10),
+                        style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 12),
                       ),
                     ),
                   ],
@@ -1940,14 +1982,14 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                 const SizedBox(height: 10),
                 Text(
                   '${order['from']} → ${order['to']}',
-                  style: GoogleFonts.inter(fontWeight: FontWeight.w800, color: const Color(0xFF1E293B), fontSize: 15),
+                  style: GoogleFonts.inter(fontWeight: FontWeight.w800, color: const Color(0xFF4A80F0), fontSize: 16),
                 ),
                 const SizedBox(height: 8),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _infoChip(Icons.calendar_today_rounded, displayDate.isEmpty ? 'Дата' : displayDate, t),
-                    _infoChip(Icons.access_time_rounded, displayTime.isEmpty ? 'Время не указано' : displayTime, t),
+                    _blueInfoChip(Icons.calendar_today_rounded, displayDate.isEmpty ? 'Дата' : displayDate),
+                    _blueInfoChip(Icons.access_time_rounded, displayTime.isEmpty ? 'Время не указано' : displayTime),
                     _infoChip(Icons.group_rounded, '${order['seats'] ?? 1} мест', t),
                   ],
                 ),
@@ -2442,14 +2484,14 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                   ],
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF4A80F0).withValues(alpha: 0.08), // Blue badge tint
-                    borderRadius: BorderRadius.circular(10),
+                    color: const Color(0xFF4A80F0),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     '${currentPrice} ₸/место',
-                    style: GoogleFonts.inter(color: const Color(0xFF4A80F0), fontWeight: FontWeight.w800, fontSize: 10),
+                    style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 12),
                   ),
                 ),
               ],
@@ -2457,14 +2499,14 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
             const SizedBox(height: 10),
             Text(
               '${ride['from']} → ${ride['to']}',
-              style: GoogleFonts.inter(fontWeight: FontWeight.w800, color: const Color(0xFF1E293B), fontSize: 15),
+              style: GoogleFonts.inter(fontWeight: FontWeight.w800, color: const Color(0xFF4A80F0), fontSize: 16),
             ),
             const SizedBox(height: 8),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _infoChip(Icons.calendar_today_rounded, displayDate.isEmpty ? 'Дата' : displayDate, t),
-                _infoChip(Icons.access_time_rounded, displayTime.isEmpty ? 'Время' : displayTime, t),
+                _blueInfoChip(Icons.calendar_today_rounded, displayDate.isEmpty ? 'Дата' : displayDate),
+                _blueInfoChip(Icons.access_time_rounded, displayTime.isEmpty ? 'Время' : displayTime),
                 _infoChip(Icons.airline_seat_recline_normal_rounded, '${ride['seats'] ?? 4} мест', t),
               ],
             ),
@@ -2644,13 +2686,15 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Flexible(
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text(
-                          'Стоимость: $price ₸',
-                          style: GoogleFonts.inter(color: t.text, fontWeight: FontWeight.bold, fontSize: 13),
-                        ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF4A80F0),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        '$price ₸',
+                        style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 14),
                       ),
                     ),
                   ],
@@ -2658,12 +2702,12 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                 const SizedBox(height: 16),
                 Text(
                   '${order['from']} → ${order['to']}',
-                  style: GoogleFonts.inter(color: t.text, fontWeight: FontWeight.w800, fontSize: 16),
+                  style: GoogleFonts.inter(color: const Color(0xFF4A80F0), fontWeight: FontWeight.w800, fontSize: 16),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   'Выезд: ${order['date'] == 'today' ? 'Сегодня' : order['date'] == 'tomorrow' ? 'Завтра' : order['date'] ?? ''} в ${order['time']}',
-                  style: GoogleFonts.inter(color: t.sub, fontSize: 12, fontWeight: FontWeight.w500),
+                  style: GoogleFonts.inter(color: const Color(0xFF4A80F0), fontSize: 15, fontWeight: FontWeight.w600),
                 ),
               ],
             ),
@@ -2946,21 +2990,28 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                         ),
                       ],
                     ),
-                    Text(
-                      'Стоимость: $price ₸',
-                      style: GoogleFonts.inter(color: t.text, fontWeight: FontWeight.bold, fontSize: 13),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF4A80F0),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        '$price ₸',
+                        style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 14),
+                      ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 16),
                 Text(
                   '${data['from']} → ${data['to']}',
-                  style: GoogleFonts.inter(color: t.text, fontWeight: FontWeight.w800, fontSize: 16),
+                  style: GoogleFonts.inter(color: const Color(0xFF4A80F0), fontWeight: FontWeight.w800, fontSize: 16),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   'Выезд: ${data['date'] == 'today' ? 'Сегодня' : data['date'] == 'tomorrow' ? 'Завтра' : data['date'] ?? ''} в ${data['time']}',
-                  style: GoogleFonts.inter(color: t.sub, fontSize: 12, fontWeight: FontWeight.w500),
+                  style: GoogleFonts.inter(color: const Color(0xFF4A80F0), fontSize: 15, fontWeight: FontWeight.w600),
                 ),
               ],
             ),
@@ -3061,7 +3112,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                           Text(
                             'Позвонить',
                             style: GoogleFonts.inter(
-                              color: const Color(0xFF4A80F0),
+                              color: Color(0xFF4A80F0),
                               fontWeight: FontWeight.w700,
                               fontSize: 14,
                             ),
@@ -3110,7 +3161,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                           Text(
                             'Написать',
                             style: GoogleFonts.inter(
-                              color: const Color(0xFF4A80F0),
+                              color: Color(0xFF4A80F0),
                               fontWeight: FontWeight.w700,
                               fontSize: 14,
                             ),
@@ -5576,16 +5627,30 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
     final double rating = provider.getUserRating(userId);
 
     if (count < 5) {
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.star_rounded, color: Colors.amber.withValues(alpha: 0.35), size: size + 2),
-          const SizedBox(width: 4),
-          Text(
-            'Новичок',
-            style: GoogleFonts.inter(fontSize: size - 1, color: t.sub, fontWeight: FontWeight.w600),
-          ),
-        ],
+      return Tooltip(
+        message: 'Рейтинг формируется после 5 оценок от других пользователей',
+        preferBelow: true,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.star_rounded, color: Colors.amber.withValues(alpha: 0.35), size: size + 2),
+            const SizedBox(width: 4),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Новичок',
+                  style: GoogleFonts.inter(fontSize: size - 1, color: t.sub, fontWeight: FontWeight.w600),
+                ),
+                Text(
+                  'Рейтинг после 5 оценок',
+                  style: GoogleFonts.inter(fontSize: 9, color: Colors.grey, fontWeight: FontWeight.w500),
+                ),
+              ],
+            ),
+          ],
+        ),
       );
     } else {
       return Row(
@@ -6654,6 +6719,32 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
           Text(
             text,
             style: GoogleFonts.inter(color: const Color(0xFF64748B), fontSize: 11, fontWeight: FontWeight.bold),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _blueInfoChip(IconData icon, String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFF4A80F0).withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF4A80F0).withValues(alpha: 0.15)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: const Color(0xFF4A80F0), size: 13),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            style: GoogleFonts.inter(
+              color: const Color(0xFF4A80F0),
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ],
       ),

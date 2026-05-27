@@ -33,7 +33,7 @@ class FileService {
     return uploadFile(file, 'chats');
   }
 
-  /// Image compression logic
+  /// Image compression logic (Aggressive for low bandwidth)
   static Future<File?> compressImage(File file) async {
     try {
       final tempDir = await getTemporaryDirectory();
@@ -42,7 +42,9 @@ class FileService {
       final result = await FlutterImageCompress.compressAndGetFile(
         file.absolute.path,
         targetPath,
-        quality: 70, // Оптимально для мобильных приложений
+        minWidth: 1024,
+        minHeight: 1024,
+        quality: 45, // Агрессивное сжатие для размера ~100-200 KB
         format: CompressFormat.jpeg,
       );
 

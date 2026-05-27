@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:http/http.dart' as http;
@@ -117,6 +118,96 @@ class GeminiService {
     } catch (e) {
       debugPrint('Gemini checkContent error: $e');
       return 'MANUAL_REVIEW';
+    }
+  }
+
+  /// AI Driver Document Verification Method (Multimodal Gemini 1.5 Flash)
+  Future<Map<String, dynamic>> analyzeDriverDocuments({
+    required File license,
+    required File techPassport,
+    required File selfie,
+    required File carFront,
+    required String driverName,
+    required String plate,
+    required String carModel,
+  }) async {
+    try {
+      final List<DataPart> imageParts = [];
+      
+      if (await license.exists()) {
+        final bytes = await license.readAsBytes();
+        imageParts.add(DataPart('image/jpeg', bytes));
+      }
+      if (await techPassport.exists()) {
+        final bytes = await techPassport.readAsBytes();
+        imageParts.add(DataPart('image/jpeg', bytes));
+      }
+      if (await selfie.exists()) {
+        final bytes = await selfie.readAsBytes();
+        imageParts.add(DataPart('image/jpeg', bytes));
+      }
+      if (await carFront.exists()) {
+        final bytes = await carFront.readAsBytes();
+        imageParts.add(DataPart('image/jpeg', bytes));
+      }
+
+      final prompt = """
+Вы являетесь экспертной системой искусственного интеллекта для верификации водителей такси в IQ-Taxi.
+Ваша задача — тщательно проанализировать 4 предоставленные фотографии:
+1. Водительское удостоверение (License)
+2. Техпаспорт автомобиля (Tech Passport)
+3. Селфи водителя (Selfie)
+4. Фото автомобиля спереди (Car Front)
+
+Сравните данные с введенными водителем:
+- Имя водителя: $driverName
+- Госномер автомобиля: $plate
+- Модель автомобиля: $carModel
+
+Проверьте:
+1. Имя на водительском удостоверении совпадает с "$driverName".
+2. Госномер на фото автомобиля спереди и в техпаспорте совпадает с "$plate".
+3. Модель автомобиля на фото совпадает с "$carModel".
+4. Селфи является реальным фото лица человека, а не картинкой или фото экрана.
+5. Нет ли признаков сильного размытия или подделки документов (Photoshop, фото экрана).
+
+Верните строго валидный JSON-ответ без markdown (без ```json), содержащий следующие поля:
+{
+  "license_valid": true/false (водительские права четкие и действительные),
+  "tech_passport_valid": true/false (техпаспорт четкий и действительный),
+  "selfie_valid": true/false (селфи нормального качества),
+  "car_valid": true/false (фото машины соответствует),
+  "name_matches": true/false (имя совпадает с правами),
+  "plate_matches": true/false (госномер совпадает),
+  "car_model_matches": true/false (марка авто совпадает),
+  "blurry_photo_detected": true/false (обнаружено ли сильное размытие),
+  "reason": "описание найденных несоответствий на русском языке, либо 'Документы успешно проверены ИИ'",
+  "confidence": "high/medium/low" (уровень уверенности ИИ)
+}
+""";
+
+      final response = await _model.generateContent([
+        Content.multi([
+          TextPart(prompt),
+          ...imageParts,
+        ]),
+      ]);
+
+      final text = response.text ?? '';
+      // Clean up markdown block if Gemini adds it
+      final cleanJson = text
+          .replaceAll('```json', '')
+          .replaceAll('```', '')
+          .trim();
+      
+      return jsonDecode(cleanJson) as Map<String, dynamic>;
+    } catch (e) {
+      debugPrint('Gemini analyzeDriverDocuments error: $e');
+      return {
+        'error': e.toString(),
+        'confidence': 'low',
+        'reason': 'Ошибка подключения к ИИ-ассистенту'
+      };
     }
   }
 }

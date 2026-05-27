@@ -125,7 +125,7 @@ class ChatBubble extends StatelessWidget {
                 const SizedBox(height: 4),
                 Row(mainAxisSize: MainAxisSize.min, children: [
                   Text(DateFormat('HH:mm').format(msg.timestamp), style: TextStyle(fontSize: 10, color: subTextColor)),
-                  if (isMe) ...[const SizedBox(width: 4), Icon(msg.isRead ? Icons.done_all_rounded : Icons.done_rounded, size: 14, color: const Color(0xFF4FC3F7))],
+                  if (isMe) ...[const SizedBox(width: 4), Icon(msg.isRead ? Icons.done_all_rounded : Icons.done_rounded, size: 14, color: msg.isRead ? const Color(0xFF00E5FF) : Colors.white38)],
                 ]),
               ]),
             ),

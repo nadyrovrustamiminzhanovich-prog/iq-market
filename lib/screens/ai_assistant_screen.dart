@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
@@ -536,16 +537,12 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
         preferredSize: const Size.fromHeight(80),
         child: Container(
           margin: const EdgeInsets.only(top: 15, left: 16, right: 16),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(28),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.9),
-                  borderRadius: BorderRadius.circular(28),
-                  border: Border.all(color: const Color(0xFF4A80F0).withOpacity(0.15), width: 1.5),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.95), // Lite mode instead of BackdropFilter
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(color: const Color(0xFF4A80F0).withValues(alpha: 0.15), width: 1.5),
                   boxShadow: [
                     BoxShadow(
                         color: Colors.black.withOpacity(0.04),
@@ -611,8 +608,6 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
               ),
             ),
           ),
-        ),
-      ),
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(

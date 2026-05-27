@@ -13,6 +13,7 @@ import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:iqmarket/services/file_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:iqmarket/services/gemini_service.dart';
 
 class DriverVerificationScreen extends StatefulWidget {
   const DriverVerificationScreen({super.key});
@@ -233,15 +234,43 @@ class _DriverVerificationScreenState extends State<DriverVerificationScreen>
         throw Exception('Не удалось загрузить один из файлов. Проверьте подключение к интернету.');
       }
 
-      setState(() => _aiMsg = 'ИИ анализирует текст на удостоверении...');
-      await _delay(900);
-      setState(() => _aiMsg = 'ИИ сверяет госномер с техпаспортом...');
-      await _delay(1100);
-      setState(() => _aiMsg = 'Финальная проверка...');
-      await _delay(800);
+      setState(() => _aiMsg = 'ИИ анализирует документы (Gemini 1.5 Flash)...');
+      
+      final gemini = GeminiService();
+      gemini.init(provider.curLang);
+      
+      final aiResult = await gemini.analyzeDriverDocuments(
+        license: compLicF ?? _licF!,
+        techPassport: compTechF ?? _techF!,
+        selfie: compSelfie ?? _selfie!,
+        carFront: compCarFront ?? _carFront!,
+        driverName: '${provider.firstName} ${provider.lastName}',
+        plate: _plateC.text.trim().toUpperCase(),
+        carModel: _carC.text.trim(),
+      );
 
-      // ИИ симуляция: 85% авто-одобрение, 15% ручная проверка (Всегда автоодобрение для удобного тестирования)
-      _needsManual = false;
+      final bool isLicenseValid = aiResult['license_valid'] ?? false;
+      final bool isTechPassportValid = aiResult['tech_passport_valid'] ?? false;
+      final bool isSelfieValid = aiResult['selfie_valid'] ?? false;
+      final bool isCarValid = aiResult['car_valid'] ?? false;
+      final bool isNameMatches = aiResult['name_matches'] ?? false;
+      final bool isPlateMatches = aiResult['plate_matches'] ?? false;
+      final bool isCarModelMatches = aiResult['car_model_matches'] ?? false;
+      final bool isBlurry = aiResult['blurry_photo_detected'] ?? false;
+      final String aiReason = aiResult['reason'] ?? 'Нет описания';
+      final String aiConfidence = aiResult['confidence'] ?? 'low';
+      
+      final bool aiApproved = isLicenseValid &&
+          isTechPassportValid &&
+          isSelfieValid &&
+          isCarValid &&
+          isNameMatches &&
+          isPlateMatches &&
+          isCarModelMatches &&
+          !isBlurry &&
+          aiConfidence == 'high';
+
+      _needsManual = !aiApproved;
 
       // 3. Сохранение заявки с ссылками на фото в Firestore
       await FirebaseFirestore.instance.collection('driver_verifications').doc(docId).set({
@@ -250,7 +279,8 @@ class _DriverVerificationScreenState extends State<DriverVerificationScreen>
         'car'            : _carC.text.trim(),
         'driver_chat_id' : chatId,
         'status'         : _needsManual ? 'pending_manual' : 'approved_by_ai',
-        'ai_quality'     : _needsManual ? 'low' : 'high',
+        'ai_result'      : aiResult,
+        'ai_quality'     : aiConfidence,
         'submitted_at'   : FieldValue.serverTimestamp(),
         'licF'           : licFUrl,
         'techF'          : techFUrl,
@@ -267,11 +297,11 @@ class _DriverVerificationScreenState extends State<DriverVerificationScreen>
           carModel     : _carC.text.trim(),
           driverChatId : chatId,
           reviewDocId  : docId,
-          reason       : '🤖 ИИ отправил на проверку (низкое качество фото)',
+          reason       : '⚠️ ИИ обнаружил проблему: $aiReason (Уверенность: $aiConfidence)',
           licF         : licFUrl,
           techF        : techFUrl,
           selfie       : selfieUrl,
-          carFront     : carFrontUrl,
+          carFront       : carFrontUrl,
         );
       } else {
         provider.setVehicleVerified(true);

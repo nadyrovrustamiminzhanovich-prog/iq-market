@@ -59,6 +59,15 @@ class TaxiSettingsScreen extends StatelessWidget {
                       const SizedBox(height: 6),
                       Text(ratingStr, style: GoogleFonts.inter(color: t.text, fontWeight: FontWeight.w900, fontSize: 14)),
                       const SizedBox(height: 2),
+                      if (reviewCount < 5)
+                        Tooltip(
+                          message: 'Рейтинг формируется после 5 оценок от других пользователей',
+                          child: Text(
+                            'Рейтинг после 5 оценок',
+                            style: GoogleFonts.inter(color: Colors.grey, fontSize: 9, fontWeight: FontWeight.w500),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
                       Text(
                         reviewCount < 5 ? 'Оценок: $reviewCount/5' : '$reviewCount отзывов',
                         style: GoogleFonts.inter(color: t.sub, fontSize: 10, fontWeight: FontWeight.w600),
