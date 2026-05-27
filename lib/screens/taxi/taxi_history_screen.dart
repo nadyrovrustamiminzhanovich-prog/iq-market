@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:line_icons/line_icons.dart';
 import 'package:iqmarket/theme/taxi_theme.dart';
-
+import 'package:url_launcher/url_launcher.dart';
 import 'package:provider/provider.dart';
 import 'package:iqmarket/providers/taxi_provider.dart';
 
@@ -65,19 +65,24 @@ class TaxiHistoryScreen extends StatelessWidget {
             ? 'Сегодня' 
             : (trip['date'] == 'tomorrow' ? 'Завтра' : (trip['date'] ?? ''));
         final String role = trip['role'] == 'driver' ? 'Водитель' : 'Пассажир';
+        final String phone = (trip['role'] == 'driver' ? (trip['passengerPhone'] ?? trip['phone'] ?? '') : (trip['driverPhone'] ?? trip['phone'] ?? '')).toString();
+        final String comment = (trip['comment'] ?? '').toString();
+
         return _hItem(
           '$date ($role)', 
           from, 
           to, 
           priceStr, 
           provider.translate('completed'), 
+          phone,
+          comment,
           provider
         );
       }).toList(),
     );
   }
 
-  Widget _hItem(String d, String f, String to, String p, String s, TaxiProvider provider) => Container(
+  Widget _hItem(String d, String f, String to, String p, String s, String phone, String comment, TaxiProvider provider) => Container(
     margin: const EdgeInsets.only(bottom: 12),
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
@@ -86,6 +91,7 @@ class TaxiHistoryScreen extends StatelessWidget {
       border: Border.all(color: t.border),
     ),
     child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -99,7 +105,7 @@ class TaxiHistoryScreen extends StatelessWidget {
           children: [
             Icon(LineIcons.mapMarker, color: t.lime, size: 16),
             const SizedBox(width: 8),
-            Text('$f → $to', style: GoogleFonts.inter(color: t.text, fontWeight: FontWeight.bold)),
+            Expanded(child: Text('$f → $to', style: GoogleFonts.inter(color: t.text, fontWeight: FontWeight.bold))),
           ],
         ),
         const SizedBox(height: 8),
@@ -110,6 +116,46 @@ class TaxiHistoryScreen extends StatelessWidget {
             Text(p, style: GoogleFonts.inter(color: t.text, fontWeight: FontWeight.w900)),
           ],
         ),
+        if (comment.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          const Divider(height: 1, color: Color(0xFFF1F5F9)),
+          const SizedBox(height: 8),
+          Text(
+            'Комментарий: $comment',
+            style: GoogleFonts.inter(color: t.sub, fontSize: 12, fontStyle: FontStyle.italic),
+          ),
+        ],
+        if (phone.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          const Divider(height: 1, color: Color(0xFFF1F5F9)),
+          const SizedBox(height: 8),
+          GestureDetector(
+            onTap: () async {
+              final url = Uri.parse('tel:$phone');
+              if (await canLaunchUrl(url)) await launchUrl(url);
+            },
+            child: Row(
+              children: [
+                Icon(Icons.phone_rounded, color: t.lime, size: 16),
+                const SizedBox(width: 8),
+                Text(
+                  phone,
+                  style: GoogleFonts.inter(
+                    color: t.lime,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  '(Позвонить)',
+                  style: GoogleFonts.inter(color: t.sub, fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+        ],
       ],
     ),
   );

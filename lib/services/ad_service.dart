@@ -397,8 +397,16 @@ class AdService {
       final doc = await _adsCollection.doc(adId).get();
       if (doc.exists) {
         final ad = AdModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
-        if (ad.images.isNotEmpty) await FileService.deleteMultipleFiles(ad.images);
-        if (ad.videoUrl != null && ad.videoUrl!.isNotEmpty) await FileService.deleteFile(ad.videoUrl!);
+        try {
+          if (ad.images.isNotEmpty) await FileService.deleteMultipleFiles(ad.images);
+        } catch (e) {
+          debugPrint('Error deleting ad images from storage: $e');
+        }
+        try {
+          if (ad.videoUrl != null && ad.videoUrl!.isNotEmpty) await FileService.deleteFile(ad.videoUrl!);
+        } catch (e) {
+          debugPrint('Error deleting ad video from storage: $e');
+        }
       }
       await _adsCollection.doc(adId).delete();
     } catch (e) {

@@ -9,6 +9,7 @@ import 'package:iqmarket/screens/admin/admin_users_screen.dart';
 import 'package:iqmarket/screens/admin/admin_notifications_screen.dart';
 import 'package:iqmarket/screens/admin/admin_reports_screen.dart';
 import 'package:iqmarket/screens/admin/admin_dashboard_screen.dart';
+import 'package:iqmarket/screens/admin/admin_taxi_screen.dart';
 import 'package:iqmarket/services/ad_service.dart';
 import 'package:iqmarket/services/user_service.dart';
 
@@ -78,6 +79,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                 _buildToolCard(context, 'Аналитика', 'Пульс рынка', PhosphorIcons.chartPieSlice(), Colors.teal, () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminDashboardScreen()))),
                 _buildToolCard(context, 'Модерация', 'Контроль контента', PhosphorIcons.shieldCheck(), Colors.orange, () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminAdsScreen()))),
                 _buildToolCard(context, 'Юзеры', 'Сообщество', PhosphorIcons.userList(), Colors.indigo, () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminUsersScreen()))),
+                _buildToolCard(context, 'Такси', 'Контроль поездок', PhosphorIcons.taxi(), Colors.blue, () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminTaxiScreen()))),
                 _buildToolCard(context, 'Рассылка', 'Push-уведомления', PhosphorIcons.paperPlaneTilt(), Colors.pink, () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminNotificationsScreen()))),
                 _buildToolCard(context, 'Жалобы', 'Конфликты', PhosphorIcons.warningCircle(), Colors.red, () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminReportsScreen()))),
               ],

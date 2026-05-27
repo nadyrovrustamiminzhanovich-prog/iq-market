@@ -252,10 +252,10 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
 
   void _addInitialMessage() {
     String welcomeText = _currentLang == 'KZ'
-        ? 'Сәлем! Маған фото жіберіп, дауыспен немесе мәтінмен сұрақ қоя аласың! 🧠🎙️'
+        ? 'Сәлем! Мен сенің ЖИ-көмекшің IQ GPT-мін. Қалааралық такси сапарлары, жариялау ережелері немесе IQ Market қосымшасымен жұмыс істеу туралы кез келген сұрағыңды қой! 🚕✨'
         : _currentLang == 'UG'
-            ? 'Әссаламу әләйкүм! Маңа сүрәт әвәтип, давис йаки текст билән соал қойсиңиз болиду! 🧠🎙️'
-            : 'Привет! Я твой IQ GPT. Можешь присылать фотографии, писать текстом или просто говорить голосом! Я оценю цену и помогу с описанием! 🧠🎙️';
+            ? 'Әссаламу әләйкум! Мән сизниң Сүнъий әқил йардәмчиңиз IQ GPT. Шәһәрләр ара такси сапарлири, елан чиқириш қаидилири яки IQ Market программиси тоғрисида һәр қандақ соал қойсиңиз болиду! 🚕✨'
+            : 'Привет! Я твой ИИ-помощник IQ GPT. Задай любой вопрос о поездках межгородского такси, правилах публикации или по работе с приложением IQ Market! 🚕✨';
     setState(() {
       _messages.add(
           {'isMe': false, 'text': welcomeText, 'time': DateFormat('HH:mm').format(DateTime.now())});
@@ -531,7 +531,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     final bool isKeyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
     return Scaffold(
       extendBodyBehindAppBar: true,
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(80),
         child: Container(
@@ -539,16 +539,16 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(28),
             child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.22),
+                  color: Colors.white.withOpacity(0.9),
                   borderRadius: BorderRadius.circular(28),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 1.5),
+                  border: Border.all(color: const Color(0xFF4A80F0).withOpacity(0.15), width: 1.5),
                   boxShadow: [
                     BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.2),
+                        color: Colors.black.withOpacity(0.04),
                         blurRadius: 20,
                         offset: const Offset(0, 10))
                   ],
@@ -556,7 +556,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                 child: Row(
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
+                      icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF4A80F0), size: 20),
                       onPressed: () => Navigator.pop(context),
                     ),
                     const SizedBox(width: 8),
@@ -565,12 +565,12 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                         Container(
                           padding: const EdgeInsets.all(2),
                           decoration: const BoxDecoration(
-                              gradient: LinearGradient(colors: [Color(0xFF00FF85), Color(0xFF00E5FF)]),
+                              gradient: LinearGradient(colors: [Color(0xFF4A80F0), Color(0xFF6366F1)]),
                               shape: BoxShape.circle),
                           child: const CircleAvatar(
                               radius: 17,
-                              backgroundColor: Colors.black,
-                              child: Icon(Icons.psychology_rounded, color: Colors.white, size: 20)),
+                              backgroundColor: Colors.white,
+                              child: Icon(Icons.psychology_rounded, color: Color(0xFF4A80F0), size: 20)),
                         ),
                         Positioned(
                             right: 0,
@@ -581,7 +581,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                                 decoration: BoxDecoration(
                                     color: const Color(0xFF00FF85),
                                     shape: BoxShape.circle,
-                                    border: Border.all(color: Colors.black, width: 2)))),
+                                    border: Border.all(color: Colors.white, width: 2)))),
                       ],
                     ),
                     const SizedBox(width: 12),
@@ -589,25 +589,18 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        ShaderMask(
-                          shaderCallback: (bounds) => const LinearGradient(
-                            colors: [Color(0xFFFFFFFF), Color(0xFFE2E8F0), Color(0xFF94A3B8)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ).createShader(bounds),
-                          child: const Text("IQ GPT ✨",
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 18,
-                                  letterSpacing: 0.8)),
-                        ),
+                        Text("IQ GPT ✨",
+                            style: GoogleFonts.inter(
+                                color: const Color(0xFF1E293B),
+                                fontWeight: FontWeight.w900,
+                                fontSize: 17,
+                                letterSpacing: 0.5)),
                         Text(
                           _currentLang == 'KZ'
-                              ? "Желіде • Тегін"
-                              : _currentLang == 'UG' ? "Онлайн • Төләпсиз" : "В сети • Бесплатно",
-                          style: TextStyle(
-                              color: const Color(0xFF00FF85).withValues(alpha: 0.9),
+                              ? "Желіде • Көмекші"
+                              : _currentLang == 'UG' ? "Онлайн • Йардәмчи" : "В сети • Ассистент",
+                          style: GoogleFonts.inter(
+                              color: const Color(0xFF4A80F0),
                               fontSize: 10,
                               fontWeight: FontWeight.w800),
                         ),
@@ -626,22 +619,52 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              Color(0xFF1E3A8A),
-              Color(0xFF1E40AF),
-              Color(0xFF2563EB),
-              Color(0xFF3B82F6),
+              Color(0xFFEDF2F7),
+              Color(0xFFF7FAFC),
+              Color(0xFFFFFFFF),
             ],
-            stops: [0.1, 0.4, 0.8, 1.0],
           ),
         ),
         child: Stack(
           children: [
             Column(
               children: [
+                const SizedBox(height: 105), // Space for header
+                // 💡 Premium daily limit notification banner!
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF4A80F0).withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFF4A80F0).withOpacity(0.15), width: 1),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.info_outline_rounded, color: Color(0xFF4A80F0), size: 20),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          _currentLang == 'KZ'
+                              ? "Күнделікті жалпы сұрақтар лимиті: 3 сұрақ. Такси және хабарландыру сұрақтары — шектеусіз!"
+                              : _currentLang == 'UG'
+                                  ? "Умумий соалларға күнлүк лимит: 3 соал. Такси вә елан соаллири — чәкләнмигән!"
+                                  : "Лимит на общие вопросы: 3 в день. Вопросы о такси и объявлениях — безлимитно!",
+                          style: GoogleFonts.inter(
+                            color: const Color(0xFF1E293B),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            height: 1.3,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
                 Expanded(
                   child: ListView.builder(
                     controller: _scrollController,
-                    padding: const EdgeInsets.only(left: 16, right: 16, top: 120, bottom: 20),
+                    padding: const EdgeInsets.only(left: 16, right: 16, top: 4, bottom: 20),
                     itemCount: _messages.length,
                     itemBuilder: (context, index) => _buildMessage(_messages[index]),
                   ),

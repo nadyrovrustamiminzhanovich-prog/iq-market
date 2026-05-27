@@ -760,6 +760,7 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
                 _showGatedDialog(context, t);
                 return;
               }
+              final String targetId = u['id'] ?? 'taxi_user';
               Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(ad: AdModel(
                 id: 'taxi_user_${u['name']}_${DateTime.now().millisecondsSinceEpoch}',
                 title: 'Taxi Trip',
@@ -767,7 +768,7 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
                 price: 0.0,
                 category: 'Taxi',
                 images: u['img'] != null && u['img'].toString().isNotEmpty ? [u['img']] : [],
-                userId: 'taxi_user',
+                userId: targetId,
                 userName: u['name'] ?? 'User',
                 userEmail: '',
                 timestamp: DateTime.now(),

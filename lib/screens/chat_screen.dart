@@ -172,12 +172,21 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   }
 
   void _playVoice(String id, String url) async {
-    if (_currentPlayingId == id) {
-      await _audioPlayer.pause();
-      setState(() => _currentPlayingId = null);
-    } else {
-      await _audioPlayer.play(UrlSource(url));
-      setState(() => _currentPlayingId = id);
+    try {
+      if (_currentPlayingId == id) {
+        await _audioPlayer.pause();
+        setState(() => _currentPlayingId = null);
+      } else {
+        await _audioPlayer.stop(); // Stop any currently playing audio first!
+        await _audioPlayer.play(UrlSource(url));
+        setState(() {
+          _currentPlayingId = id;
+          _currentPos = Duration.zero;
+          _currentDur = Duration.zero;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error playing voice: $e');
     }
   }
 
@@ -349,10 +358,41 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   }
 
   void _showContextMenu(MessageModel msg) {
-    showModalBottomSheet(context: context, builder: (context) => SafeArea(child: Column(mainAxisSize: MainAxisSize.min, children: [
-      if (msg.type == 'text') ListTile(leading: const Icon(Icons.copy_rounded), title: const Text('Копировать текст'), onTap: () { Clipboard.setData(ClipboardData(text: msg.text)); Navigator.pop(context); }),
-      ListTile(leading: const Icon(Icons.delete_outline_rounded, color: Colors.red), title: const Text('Удалить у меня', style: TextStyle(color: Colors.red)), onTap: () { ChatService.deleteMessages(widget.ad.userId, [msg.id]); Navigator.pop(context); }),
-    ])));
+    final bool isMyMessage = msg.senderId == UserService.currentUid;
+    showModalBottomSheet(
+      context: context, 
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min, 
+          children: [
+            if (msg.type == 'text') ListTile(
+              leading: const Icon(Icons.copy_rounded), 
+              title: const Text('Копировать текст'), 
+              onTap: () { 
+                Clipboard.setData(ClipboardData(text: msg.text)); 
+                Navigator.pop(context); 
+              }
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline_rounded, color: Colors.grey), 
+              title: const Text('Удалить у меня'), 
+              onTap: () { 
+                ChatService.deleteMessages(widget.ad.userId, [msg.id]); 
+                Navigator.pop(context); 
+              }
+            ),
+            if (isMyMessage) ListTile(
+              leading: const Icon(Icons.delete_forever_rounded, color: Colors.red), 
+              title: const Text('Удалить у всех', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)), 
+              onTap: () { 
+                ChatService.deleteMessages(widget.ad.userId, [msg.id]); 
+                Navigator.pop(context); 
+              }
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _showFullScreenImage(String url) {

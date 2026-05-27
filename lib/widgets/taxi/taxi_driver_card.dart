@@ -48,94 +48,140 @@ class TaxiDriverCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 24,
-                backgroundImage: (img.isNotEmpty && img.startsWith('http')) 
-                    ? CachedNetworkImageProvider(img) 
-                    : null,
-                child: (img.isEmpty || !img.startsWith('http')) 
-                    ? const Icon(Icons.person, color: Color(0xFF94A3B8)) 
-                    : null,
-              ),
+          GestureDetector(
+            onTap: onShowProfile,
+            behavior: HitTestBehavior.opaque,
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 24,
+                  backgroundImage: (img.isNotEmpty && img.startsWith('http')) 
+                      ? CachedNetworkImageProvider(img) 
+                      : null,
+                  child: (img.isEmpty || !img.startsWith('http')) 
+                      ? const Icon(Icons.person, color: Color(0xFF94A3B8)) 
+                      : null,
+                ),
 
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.inter(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              color: const Color(0xFF1E293B),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.inter(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: const Color(0xFF1E293B),
+                              ),
                             ),
                           ),
-                        ),
-                        if (isVerified) ...[
-                          const SizedBox(width: 4),
-                          const Icon(Icons.verified_user_rounded, color: Colors.green, size: 16),
+                          if (isVerified) ...[
+                            const SizedBox(width: 4),
+                            const Icon(Icons.verified_user_rounded, color: Color(0xFF4A80F0), size: 16),
+                          ],
                         ],
-
-                        const SizedBox(width: 8),
-                        const Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 16),
-                        const SizedBox(width: 4),
-                        Text(
-                          realReviewCount < 5 ? 'Новичок' : '$realRating ($realReviewCount)',
-                          style: GoogleFonts.inter(
-                            fontSize: 13,
-                            color: const Color(0xFF94A3B8),
-                            fontWeight: FontWeight.w500,
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          const Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 16),
+                          const SizedBox(width: 4),
+                          Text(
+                            realReviewCount < 5 ? 'Новичок' : '$realRating ($realReviewCount)',
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              color: const Color(0xFFF59E0B),
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
+                          const SizedBox(width: 6),
+                          Container(
+                            width: 4,
+                            height: 4,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFF94A3B8),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              car,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.inter(
+                                fontSize: 13,
+                                color: const Color(0xFF64748B),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
                     Text(
-                      car,
+                      '$price ₸',
                       style: GoogleFonts.inter(
-                        fontSize: 14,
-                        color: const Color(0xFF64748B),
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF1E293B),
+                      ),
+                    ),
+                    Text(
+                      'за место',
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        color: const Color(0xFF94A3B8),
                         fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
                 ),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    '$price ₸',
-                    style: GoogleFonts.inter(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      color: const Color(0xFF1E293B),
-                    ),
-                  ),
-                  Text(
-                    'за место',
-                    style: GoogleFonts.inter(
-                      fontSize: 11,
-                      color: const Color(0xFF94A3B8),
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ],
+              ],
+            ),
           ),
           const SizedBox(height: 12),
           Row(
-            mainAxisAlignment: MainAxisAlignment.end,
             children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: onNegotiate,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(colors: [Color(0xFF4A80F0), Color(0xFF4A80F0)]),
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: [
+                        BoxShadow(color: const Color(0xFF4A80F0).withValues(alpha: 0.15), blurRadius: 8, offset: const Offset(0, 4))
+                      ],
+                    ),
+                    child: Center(
+                      child: Text(
+                        'ТОРГОВАТЬСЯ',
+                        style: GoogleFonts.inter(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 12,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
               _actionBtn(Icons.chat_bubble_outline_rounded, onChat),
               const SizedBox(width: 12),
               _actionBtn(Icons.phone_rounded, onCall),

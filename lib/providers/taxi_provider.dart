@@ -789,9 +789,23 @@ class TaxiProvider extends ChangeNotifier {
   }
 
   Future<void> rejectBid(String bidId) async {
+    final bidSnap = await FirebaseFirestore.instance.collection('taxi_bids').doc(bidId).get();
+    if (!bidSnap.exists) return;
+    
+    final bidData = bidSnap.data();
+    if (bidData == null) return;
+
     await FirebaseFirestore.instance.collection('taxi_bids').doc(bidId).update({
       'status': 'rejected',
     });
+
+    // 🔔 Notify the sender of the bid that their offer was declined
+    await NotificationService.saveNotificationToFirestore(
+      title: 'Предложение отклонено ❌',
+      body: 'Ваше предложение на ${bidData['offeredPrice']} ₸ было отклонено.',
+      type: 'taxi_bid_rejected',
+      uid: bidData['senderId'],
+    );
   }
 
   Future<void> cancelOrder(String orderId, {String? reason}) async {
