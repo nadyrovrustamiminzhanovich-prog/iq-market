@@ -65,17 +65,19 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     super.initState();
     _pageController = PageController();
     if (widget.ad.videoUrl != null && widget.ad.videoUrl!.startsWith('http')) {
-      try {
-        _videoController = VideoPlayerController.networkUrl(Uri.parse(widget.ad.videoUrl!))
-          ..initialize().then((_) {
-            if (!mounted) return;
-            setState(() { _isVideoInitialized = true; });
-            _videoController!.setLooping(true);
-            // Do NOT autoplay - user will tap play icon
-          });
-      } catch (e) {
-        debugPrint('Video init error: $e');
-      }
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (!mounted) return;
+        try {
+          _videoController = VideoPlayerController.networkUrl(Uri.parse(widget.ad.videoUrl!))
+            ..initialize().then((_) {
+              if (!mounted) return;
+              setState(() { _isVideoInitialized = true; });
+              _videoController!.setLooping(true);
+            });
+        } catch (e) {
+          debugPrint('Video init error: $e');
+        }
+      });
     }
 
     _fetchSeller();
@@ -200,7 +202,10 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
           );
         }
       ),
-    );
+    ).then((_) {
+      // ✅ Освобождаем контроллер ПОСЛЕ закрытия шторки — предотвращает утечку памяти
+      commentCtrl.dispose();
+    });
   }
 
   Widget _reportChip(String title, String type, String? selectedType, Function(String) onSelect) {
@@ -635,7 +640,20 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
             final bool hasReviewedThisAd = _currentUser != null && reviews.any((r) => r.fromUserId == _currentUser!.uid && r.adId == widget.ad.id);
             
             if (reviews.isEmpty) return Column(children: [const Center(child: Text('Отзывов пока нет. Будьте первым!')), const SizedBox(height: 20), if (!isMyAd && !hasReviewedThisAd) _buildLeaveReviewButton()]);
-            return Column(children: [...reviews.take(3).map((r) => _buildReviewItem(r)), if (reviews.length > 3) TextButton(onPressed: () {}, child: Text('Смотреть все ${reviews.length} отзывов')), const SizedBox(height: 16), if (!isMyAd && !hasReviewedThisAd) _buildLeaveReviewButton()]);
+            return Column(children: [
+              ...reviews.take(3).map((r) => _buildReviewItem(r)),
+              if (reviews.length > 3)
+                // ✅ Работающая кнопка — открывает шторку со всеми отзывами
+                TextButton(
+                  onPressed: () => _showAllReviewsSheet(reviews),
+                  child: Text(
+                    'Смотреть все ${reviews.length} отзывов',
+                    style: const TextStyle(color: Color(0xFF4A80F0), fontWeight: FontWeight.bold),
+                  ),
+                ),
+              const SizedBox(height: 16),
+              if (!isMyAd && !hasReviewedThisAd) _buildLeaveReviewButton(),
+            ]);
           },
         ),
       ],
@@ -730,7 +748,49 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   }
 
 
+  // ✅ Полноценная шторка со всеми отзывами (вместо пустого onPressed: () {})
+  void _showAllReviewsSheet(List<ReviewModel> reviews) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.85,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        child: Column(
+          children: [
+            const SizedBox(height: 12),
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(10))),
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                children: [
+                  Text('Все отзывы (${reviews.length})', style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w900)),
+                  const Spacer(),
+                  IconButton(icon: const Icon(Icons.close_rounded), onPressed: () => Navigator.pop(context)),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.all(20),
+                itemCount: reviews.length,
+                itemBuilder: (context, index) => _buildReviewItem(reviews[index]),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildLeaveReviewButton() => SizedBox(width: double.infinity, height: 54, child: OutlinedButton.icon(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => LeaveReviewScreen(ad: widget.ad))), icon: const Icon(Icons.rate_review_rounded), label: const Text('Оставить отзыв'), style: OutlinedButton.styleFrom(foregroundColor: const Color(0xFF4A80F0), side: const BorderSide(color: Color(0xFF4A80F0)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)))));
+
 
   Widget _buildSellerCard() => InkWell(
     onTap: () { if (_seller != null) Navigator.push(context, MaterialPageRoute(builder: (context) => SellerProfileScreen(seller: widget.ad, lang: widget.lang, sellerAds: const []))); },
@@ -751,7 +811,13 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
         const SizedBox(width: 16),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(_seller?.name ?? widget.ad.userName, style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w800)),
-          Text('На рынке с 2023', style: GoogleFonts.inter(fontSize: 13, color: Colors.grey)),
+          // ✅ Динамическая дата регистрации из Firestore
+          Text(
+            _seller?.registrationDate != null
+              ? 'На рынке с ${_seller!.registrationDate!.year}'
+              : 'Продавец IQ Market',
+            style: GoogleFonts.inter(fontSize: 13, color: Colors.grey),
+          ),
         ])),
         const Icon(Icons.chevron_right_rounded),
       ]),

@@ -27,7 +27,7 @@ class AdminDashboardScreen extends StatelessWidget {
             const SizedBox(height: 20),
             
             StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance.collection('ads').snapshots(),
+              stream: FirebaseFirestore.instance.collection('ads').limit(100).snapshots(),
               builder: (context, snapshot) {
                 final totalAds = snapshot.data?.docs.length ?? 0;
                 final pendingAds = snapshot.data?.docs.where((d) => (d.data() as Map)['status'] == 'pending').length ?? 0;
@@ -93,7 +93,7 @@ class AdminDashboardScreen extends StatelessWidget {
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(28), border: Border.all(color: Colors.grey.withOpacity(0.05))),
       child: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance.collection('ads').snapshots(),
+        stream: FirebaseFirestore.instance.collection('ads').limit(100).snapshots(),
         builder: (context, snapshot) {
           if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
           

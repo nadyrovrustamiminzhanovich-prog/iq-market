@@ -1303,7 +1303,10 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
           const SizedBox(height: 30),
         ]),
       )),
-    );
+    ).then((_) {
+      phoneC.dispose();
+      codeC.dispose();
+    });
   }
 
   Widget _buildDialogField(String hint, TextEditingController controller, IconData icon, {List<TextInputFormatter>? formatters}) {

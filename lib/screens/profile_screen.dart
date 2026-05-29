@@ -102,6 +102,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   );
   final TextEditingController _phoneCtrl = TextEditingController();
   final TextEditingController _codeCtrl = TextEditingController();
+
+  // ✅ Кэш стрима: создается один раз в initState, а не новый watcher при каждом setState()
+  late final Stream<UserModel?> _userStream;
   
   void _startTimer() {
     setState(() {
@@ -148,6 +151,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _isVerified = widget.isVerified;
     _firestorePhotoUrl = '';
     _loadSalesCount();
+    // ✅ Инициализируем стрим один раз — Firestore watcher живёт весь жизненный цикл экрана
+    _userStream = UserService.getUserStream();
   }
 
   int _adminTapCount = 0;
@@ -177,7 +182,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Scaffold(
       backgroundColor: _bgColor,
       body: StreamBuilder<UserModel?>(
-        stream: UserService.getUserStream(),
+        stream: _userStream, // ✅ Кэшированный стрим: без дублирования Reads
         builder: (context, snapshot) {
           final user = snapshot.data;
           if (user != null) {
@@ -1579,7 +1584,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
       ),
-    );
+    ).then((_) {
+      passwordController.dispose();
+      confirmController.dispose();
+    });
   }
 
   void _handleLogout() async {

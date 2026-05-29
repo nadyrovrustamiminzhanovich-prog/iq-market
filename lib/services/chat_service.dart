@@ -32,9 +32,11 @@ class ChatService {
         .orderBy('timestamp', descending: false)
         .snapshots()
         .map((snapshot) {
-          return snapshot.docs
+          final messages = snapshot.docs
             .map((doc) => MessageModel.fromMap(doc.data(), doc.id))
             .toList();
+          messages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+          return messages;
         });
   }
 
@@ -373,7 +375,7 @@ class ChatService {
     return _db
         .collection('chats')
         .where('users', arrayContains: uid)
-        // Убрали orderBy, чтобы чаты не пропадали без индексов
+        .limit(50) // 🔒 КРИТИЧНО: без limit() у продавца с 500+ чатами = 500+ Reads каждый рефреш
         .snapshots()
         .map((snapshot) {
           final chats = snapshot.docs.map((doc) {

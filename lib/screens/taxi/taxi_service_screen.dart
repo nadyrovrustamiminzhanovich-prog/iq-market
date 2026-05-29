@@ -72,6 +72,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
 
   bool _isOffline = false;
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
+  late TaxiProvider _taxiProvider;
 
   @override
   void initState() {
@@ -83,20 +84,21 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
       });
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final provider = Provider.of<TaxiProvider>(context, listen: false);
-      if (provider.curLang != widget.lang) {
-        provider.setLanguage(widget.lang);
+      _taxiProvider = Provider.of<TaxiProvider>(context, listen: false);
+      _taxiProvider.resumeFirebaseSync();
+      if (_taxiProvider.curLang != widget.lang) {
+        _taxiProvider.setLanguage(widget.lang);
       }
-      final initialPhone = (provider.phone == "+7 701 000 11 22" || provider.phone == "87010001122") ? "" : provider.phone;
+      final initialPhone = (_taxiProvider.phone == "+7 701 000 11 22" || _taxiProvider.phone == "87010001122") ? "" : _taxiProvider.phone;
       if (_mainPhoneController.text.isEmpty && initialPhone.isNotEmpty) {
         _mainPhoneController.text = initialPhone;
       }
-      final initialPrice = provider.maxPrice > 0 ? provider.maxPrice.toString() : "";
+      final initialPrice = _taxiProvider.maxPrice > 0 ? _taxiProvider.maxPrice.toString() : "";
       if (_priceController.text.isEmpty && initialPrice.isNotEmpty) {
         _priceController.text = initialPrice;
       }
-      if (_commentController.text.isEmpty && provider.comment.isNotEmpty) {
-        _commentController.text = provider.comment;
+      if (_commentController.text.isEmpty && _taxiProvider.comment.isNotEmpty) {
+        _commentController.text = _taxiProvider.comment;
       }
     });
   }
@@ -123,6 +125,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
 
   @override
   void dispose() {
+    _taxiProvider.pauseFirebaseSync();
     _connectivitySubscription?.cancel();
     _mainPhoneController.dispose();
     _priceController.dispose();

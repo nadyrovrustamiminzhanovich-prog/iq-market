@@ -92,6 +92,7 @@ class _AdminTaxiScreenState extends State<AdminTaxiScreen> with SingleTickerProv
       stream: FirebaseFirestore.instance
           .collection('taxi_orders')
           .orderBy('createdAt', descending: true)
+          .limit(100)
           .snapshots(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
@@ -126,6 +127,7 @@ class _AdminTaxiScreenState extends State<AdminTaxiScreen> with SingleTickerProv
       stream: FirebaseFirestore.instance
           .collection('taxi_rides')
           .orderBy('createdAt', descending: true)
+          .limit(100)
           .snapshots(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());

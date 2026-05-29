@@ -51,6 +51,11 @@ class _IQMarketHomeState extends State<IQMarketHome> {
   bool _isListening = false;
   Timer? _searchDebounce;
 
+  // ✅ Кэш пользователя: вместо постоянного Firestore-watcher-а в BottomNav
+  // загружаем данные один раз при открытии экрана
+  UserModel? _cachedUser;
+  bool _isAdmin = false;
+
   static const _pageSize = 20;
   
   // В версии 5.1.1 параметры передаются иначе, либо оставляем пустым, если используем refresh()
@@ -64,6 +69,20 @@ class _IQMarketHomeState extends State<IQMarketHome> {
     _pagingController.addPageRequestListener((pageKey) {
       _fetchPage(pageKey);
     });
+    // Загрузить пользователя один раз вместо висящего Firestore listener-а
+    _loadCachedUser();
+  }
+
+  Future<void> _loadCachedUser() async {
+    final uid = UserService.currentUid;
+    if (uid == null) return;
+    final user = await UserService.getUserById(uid);
+    if (mounted) {
+      setState(() {
+        _cachedUser = user;
+        _isAdmin = user?.accountType == 'admin';
+      });
+    }
   }
 
   Future<void> _fetchPage(DocumentSnapshot? pageKey) async {
@@ -172,7 +191,7 @@ class _IQMarketHomeState extends State<IQMarketHome> {
           controller: _searchController, 
           onChanged: (v) {
             _searchDebounce?.cancel();
-            _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+            _searchDebounce = Timer(const Duration(milliseconds: 1000), () {
               if (mounted) {
                 setState(() => _searchQuery = v);
                 _pagingController.refresh();
@@ -593,68 +612,64 @@ class _IQMarketHomeState extends State<IQMarketHome> {
     }
   );
 
-  Widget _buildBottomNav() => StreamBuilder<UserModel?>(
-    stream: UserService.getUserStream(),
-    builder: (context, snapshot) {
-      final isAdmin = snapshot.data?.accountType == 'admin';
-      final navTheme = Theme.of(context);
-      return Container(
-        decoration: BoxDecoration(
-          color: navTheme.colorScheme.surface,
-          border: Border(top: BorderSide(color: Colors.grey.withValues(alpha: 0.1), width: 1)),
-          boxShadow: [
-            BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, -5))
-          ],
-        ),
-        child: BottomNavigationBar(
-          currentIndex: _currentIndex > 4 && !isAdmin ? 0 : (_currentIndex > 5 ? 0 : _currentIndex),
-          onTap: (i) {
-            if (i == 2) {
-              // World-Class UX: Navigate to Add Ad as a full page
-              final config = Provider.of<AppConfigProvider>(context, listen: false);
-              Navigator.push(context, MaterialPageRoute(builder: (_) => PostAdScreen(lang: config.language)));
-            } else if (i == 4) {
-              // World-Class UX: Navigate to Profile as a full page
-              final config = Provider.of<AppConfigProvider>(context, listen: false);
-              Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileScreen(
-                allAds: const [], 
-                favoriteAds: const [], 
-                onDeleteAd: (_){}, 
-                onApproveAd: (_){}, 
-                onUpdateAd: (_,__){}, 
-                onUpdateProfile: (a,b,c,d,e){}, 
-                currentName: snapshot.data?.name ?? 'Гость', 
-                isBioEnabled: false, 
-                accType: snapshot.data?.accountType ?? 'user', 
-                lang: config.language, 
-                onToggleFavorite: (id) => config.toggleFavorite(id), 
-                onShowProductDetails: _showDetails, 
-                currentTheme: 'Light', 
-                themes: AppTheme.homeThemes, 
-                onThemeChanged: (t){},
-                isGuest: snapshot.data == null,
-              )));
-            } else {
-              setState(() => _currentIndex = i);
-            }
-          },
-          type: BottomNavigationBarType.fixed,
-          selectedItemColor: navTheme.colorScheme.primary,
-          unselectedItemColor: navTheme.colorScheme.onSurface.withValues(alpha: 0.4),
-          elevation: 0,
-          backgroundColor: navTheme.colorScheme.surface,
-          items: [
-            const BottomNavigationBarItem(icon: Icon(Icons.home_rounded), label: 'Главная'),
-            const BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_outline), label: 'Чаты'),
-            BottomNavigationBarItem(icon: Icon(Icons.add_circle, size: 40, color: navTheme.colorScheme.primary), label: ''),
-            const BottomNavigationBarItem(icon: Icon(Icons.favorite_outline), label: 'Избранное'),
-            const BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Профиль'),
-            if (isAdmin) const BottomNavigationBarItem(icon: Icon(Icons.admin_panel_settings_outlined), label: 'Админ'),
-          ],
-        ),
-      );
-    }
-  );
+  Widget _buildBottomNav() {
+    // ✅ Используем кэш вместо StreamBuilder — нет постоянного Firestore listener-а в BottomNav
+    final isAdmin = _isAdmin;
+    final navTheme = Theme.of(context);
+    return Container(
+      decoration: BoxDecoration(
+        color: navTheme.colorScheme.surface,
+        border: Border(top: BorderSide(color: Colors.grey.withValues(alpha: 0.1), width: 1)),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, -5))
+        ],
+      ),
+      child: BottomNavigationBar(
+        currentIndex: _currentIndex > 4 && !isAdmin ? 0 : (_currentIndex > 5 ? 0 : _currentIndex),
+        onTap: (i) {
+          if (i == 2) {
+            final config = Provider.of<AppConfigProvider>(context, listen: false);
+            Navigator.push(context, MaterialPageRoute(builder: (_) => PostAdScreen(lang: config.language)));
+          } else if (i == 4) {
+            final config = Provider.of<AppConfigProvider>(context, listen: false);
+            Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileScreen(
+              allAds: const [], 
+              favoriteAds: const [], 
+              onDeleteAd: (_){}, 
+              onApproveAd: (_){}, 
+              onUpdateAd: (_,__){}, 
+              onUpdateProfile: (a,b,c,d,e){}, 
+              currentName: _cachedUser?.name ?? 'Гость', 
+              isBioEnabled: false, 
+              accType: _cachedUser?.accountType ?? 'user', 
+              lang: config.language, 
+              onToggleFavorite: (id) => config.toggleFavorite(id), 
+              onShowProductDetails: _showDetails, 
+              currentTheme: 'Light', 
+              themes: AppTheme.homeThemes, 
+              onThemeChanged: (t){},
+              isGuest: _cachedUser == null,
+            )));
+          } else {
+            setState(() => _currentIndex = i);
+          }
+        },
+        type: BottomNavigationBarType.fixed,
+        selectedItemColor: navTheme.colorScheme.primary,
+        unselectedItemColor: navTheme.colorScheme.onSurface.withValues(alpha: 0.4),
+        elevation: 0,
+        backgroundColor: navTheme.colorScheme.surface,
+        items: [
+          const BottomNavigationBarItem(icon: Icon(Icons.home_rounded), label: 'Главная'),
+          const BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_outline), label: 'Чаты'),
+          BottomNavigationBarItem(icon: Icon(Icons.add_circle, size: 40, color: navTheme.colorScheme.primary), label: ''),
+          const BottomNavigationBarItem(icon: Icon(Icons.favorite_outline), label: 'Избранное'),
+          const BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Профиль'),
+          if (isAdmin) const BottomNavigationBarItem(icon: Icon(Icons.admin_panel_settings_outlined), label: 'Админ'),
+        ],
+      ),
+    );
+  }
 
   Widget _buildOtherPage() {
     final config = Provider.of<AppConfigProvider>(context, listen: false);

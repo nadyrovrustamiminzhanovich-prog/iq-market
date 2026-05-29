@@ -244,19 +244,30 @@ class AdService {
       // Их можно создать в Firebase Console → Firestore → Indexes.
       Query query = _adsCollection
           .where('active', isEqualTo: true)
-          .where('status', isEqualTo: 'active')
-          .orderBy('timestamp', descending: sortBy != 'oldest');
+          .where('status', isEqualTo: 'active');
+
+      if (category != null && category != 'Все') {
+        query = query.where('category', isEqualTo: category);
+      }
+      
+      if (city != null && city != 'Все') {
+        query = query.where('location', isEqualTo: city);
+      }
+
+      if (condition != null && condition != 'Все') {
+        query = query.where('condition', isEqualTo: condition);
+      }
+
+      query = query.orderBy('timestamp', descending: sortBy != 'oldest');
 
       if (startAfter != null) {
         query = query.startAfterDocument(startAfter);
       }
 
-      // Буфер limit*2 (вместо limit*4) нужен только для клиентских фильтров
-      // (searchQuery, condition, minPrice, maxPrice), которые пока нельзя
-      // выразить составным индексом. Если все фильтры сняты — буфер не нужен,
-      // и мы читаем ровно limit документов.
+      // Буфер limit*2 нужен только для клиентских фильтров
+      // (searchQuery, minPrice, maxPrice), которые пока нельзя
+      // выразить составным индексом вместе с другими where.
       final bool hasClientFilters = (searchQuery != null && searchQuery.isNotEmpty) ||
-          (condition != null && condition != 'Все') ||
           minPrice != null ||
           maxPrice != null;
       final int fetchLimit = hasClientFilters ? limit * 2 : limit;
@@ -271,23 +282,11 @@ class AdService {
           .toList(); // active/status уже отфильтрованы Firestore
 
       // Клиентские фильтры, которые пока не поддерживаются составным индексом
-      if (category != null && category != 'Все') {
-        ads = ads.where((ad) => ad.category == category).toList();
-      }
-      
-      if (city != null && city != 'Все') {
-        ads = ads.where((ad) => ad.location == city).toList();
-      }
-
       if (searchQuery != null && searchQuery.isNotEmpty) {
         ads = ads.where((ad) => 
           ad.title.toLowerCase().contains(searchQuery.toLowerCase()) || 
           ad.description.toLowerCase().contains(searchQuery.toLowerCase())
         ).toList();
-      }
-
-      if (condition != null && condition != 'Все') {
-        ads = ads.where((ad) => ad.condition == condition).toList();
       }
 
       if (minPrice != null) {

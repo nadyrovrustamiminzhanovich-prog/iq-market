@@ -12,7 +12,23 @@ import 'package:iqmarket/services/notification_service.dart';
 class TaxiProvider extends ChangeNotifier {
   TaxiProvider() {
     loadPreferences();
-    startFirebaseSync();
+    // Firebase sync is now managed by TaxiServiceScreen to save battery and reads
+  }
+
+  bool _isSyncing = false;
+
+  void pauseFirebaseSync() {
+    _ridesSub?.cancel();
+    _ordersSub?.cancel();
+    _ridesSub = null;
+    _ordersSub = null;
+    _isSyncing = false;
+  }
+
+  void resumeFirebaseSync() {
+    if (!_isSyncing) {
+      startFirebaseSync();
+    }
   }
 
   StreamSubscription? _ridesSub;
@@ -359,6 +375,7 @@ class TaxiProvider extends ChangeNotifier {
   int getUserReviewCount(String userId) => _userReviewCounts[userId] ?? 0;
 
   void startFirebaseSync() {
+    _isSyncing = true;
     fetchDriverTripsCount();
     fetchPassengerTripsCount();
     fetchHistoryTrips();

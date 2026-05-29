@@ -36,6 +36,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
     final Map<String, Map<String, String>> localizedValues = {
       'Русский': {
         'center': 'Центр уведомлений',
+        'title': 'Мои сообщения',
         'notifications': 'Уведомления',
         'chats': 'Чаты',
         'mark_all': 'Прочитать всё',
@@ -45,12 +46,24 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
       },
       'Қазақша': {
         'center': 'Хабарландыру орталығы',
+        'title': 'Менің хабарларым',
         'notifications': 'Хабарламалар',
         'chats': 'Чаттар',
         'mark_all': 'Барлығын оқу',
         'today': 'БҮГІН',
         'yesterday': 'КЕШЕ',
         'earlier': 'ЕРТЕРЕК',
+      },
+      // ✅ Уйгурский язык — полный набор переводов
+      'Уйғурчә': {
+        'center': 'ئۇقتۇرۇش مەركىزى',
+        'title': 'مېنىڭ خەۋەرلىرىم',
+        'notifications': 'ئۇقتۇرۇشلار',
+        'chats': 'چاتلار',
+        'mark_all': 'ھەممىسىنى ئوقۇ',
+        'today': 'بۈگۈن',
+        'yesterday': 'تۈنۈگۈن',
+        'earlier': 'ئىلگىرى',
       },
     };
     return (localizedValues[widget.lang]?[key] ?? localizedValues['Русский']?[key] ?? key).toString();
@@ -68,7 +81,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
           icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF1A1D1E), size: 20),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text('Мои сообщения', style: TextStyle(color: Color(0xFF1A1D1E), fontWeight: FontWeight.w900, fontSize: 18)),
+        title: Text(
+          _t('title'), // ✅ Переводится на все 3 языка (было захардкожено 'Мои сообщения')
+          style: const TextStyle(color: Color(0xFF1A1D1E), fontWeight: FontWeight.w900, fontSize: 18),
+        ),
         actions: [
           TextButton(
             onPressed: () => NotificationService.markAllAsRead(),

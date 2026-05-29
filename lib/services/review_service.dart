@@ -27,6 +27,7 @@ class ReviewService {
     return _db
         .collection('reviews')
         .where('toUserId', isEqualTo: userId)
+        .limit(50) // 🔒 Без limit: 500 отзывов = 500 Reads × 3 экрана × каждый просмотр
         .snapshots()
         .map((snapshot) {
           final reviews = snapshot.docs

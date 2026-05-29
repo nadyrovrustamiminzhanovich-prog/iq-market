@@ -40,7 +40,7 @@ service cloud.firestore {
 
     match /chats/{chatId} {
       function isChatParticipant() {
-        return chatId.matches('.*' + request.auth.uid + '.*');
+        return request.auth.uid in resource.data.users;
       }
 
       allow read, create, update: if isSignedIn() && isChatParticipant();

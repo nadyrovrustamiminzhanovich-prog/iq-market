@@ -96,6 +96,12 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
   }
 
   @override
+  void dispose() {
+    _commentCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,

@@ -63,6 +63,10 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   bool _isOtherOnline = false;
   bool _isOtherTyping = false;
   StreamSubscription? _presenceSubscription;
+  // 🔒 AudioPlayer stream subscriptions — хранятся явно для отмены в dispose()
+  StreamSubscription? _audioPositionSub;
+  StreamSubscription? _audioDurationSub;
+  StreamSubscription? _audioCompleteSub;
 
   final List<String> _emojis = [
     '😀','😃','😄','😁','😆','😅','😂','🤣','😊','😇','🙂','🙃','😉','😌','😍','🥰','😘','😗','😙','😚','😋','😛','😝','😜','🤪','🤨','🧐','🤓','😎','🤩','🥳','😏','😒','😞','😔','😟','😕','🙁','☹️','😣','😖','😫','😩','🥺','😢','😭','😤','😠','😡','🤬','🤯','😳','🥵','🥶','😱','😨','😰','😥','😓','🤗','🤔','🤭','🤫','🤥','😶','😐','😑','😬','🙄','😯','😦','😧','😮','😲','🥱','😴','🤤','😪','😵','🤐','🥴','🤢','🤮','🤧','😷','🤒','🤕','🤑','🤠','😈','👿','👹','👺','🤡','💩','👻','💀','☠️','👽','👾','🤖','🎃','😺','😸','😹','😻','😼','😽','🙀','😿','😾','🔥','✨','🌟','💯','👍','👎','❤️','💔','✔️','❌'
@@ -76,7 +80,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     _audioPlayer.setReleaseMode(ReleaseMode.release);
     _audioPlayer.setAudioContext(AudioContext(
       android: AudioContextAndroid(
-        isSpeakerphoneOn: false,
+        isSpeakerphoneOn: true,
         stayAwake: false,
         contentType: AndroidContentType.music,
         usageType: AndroidUsageType.media,
@@ -93,13 +97,13 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     final otherId = widget.ad.userId;
     _messagesStream = ChatService.getMessagesStream(otherId);
 
-    _audioPlayer.onPositionChanged.listen((p) {
+    _audioPositionSub = _audioPlayer.onPositionChanged.listen((p) {
       if (mounted) setState(() => _currentPos = p);
     });
-    _audioPlayer.onDurationChanged.listen((d) {
+    _audioDurationSub = _audioPlayer.onDurationChanged.listen((d) {
       if (mounted) setState(() => _currentDur = d);
     });
-    _audioPlayer.onPlayerComplete.listen((_) {
+    _audioCompleteSub = _audioPlayer.onPlayerComplete.listen((_) {
       if (mounted) setState(() => _currentPlayingId = null);
     });
     
@@ -145,6 +149,10 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   void dispose() {
     _recordTimer?.cancel();
     _presenceSubscription?.cancel();
+    // ✅ Явная отмена AudioPlayer-стримов — предотвращает утечку памяти
+    _audioPositionSub?.cancel();
+    _audioDurationSub?.cancel();
+    _audioCompleteSub?.cancel();
     _recorder.dispose();
     _audioPlayer.dispose();
     _msgController.dispose();

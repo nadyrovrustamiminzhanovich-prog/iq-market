@@ -201,6 +201,7 @@ class NotificationService {
         .doc(uid)
         .collection('notifications')
         .orderBy('timestamp', descending: true)
+        .limit(100) // 🔒 Без лимита — при 1000+ уведомлениях всё скачивается каждый раз
         .snapshots()
         .map((snap) => snap.docs.map((doc) => NotificationModel.fromMap(doc.data(), doc.id)).toList());
   }

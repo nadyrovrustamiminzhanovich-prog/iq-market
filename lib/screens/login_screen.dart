@@ -212,7 +212,10 @@ class _LoginScreenState extends State<LoginScreen> {
           ]),
         ),
       ),
-    );
+    ).then((_) {
+      // ✅ Освобождаем контроллер после закрытия шторки
+      resetEmailC.dispose();
+    });
   }
 
   // ===================== GOOGLE (v7) =====================
@@ -378,17 +381,24 @@ class _LoginScreenState extends State<LoginScreen> {
               setState(() => _isLoading = true);
               try {
                 final bool isTokenValid = customToken != null && customToken.split('.').length == 3;
-                UserCredential userCred;
-                if (isTokenValid) {
-                  // 🔒 X10 SECURITY: Sign in securely to Firebase Auth
-                  userCred = await FirebaseAuth.instance.signInWithCustomToken(customToken);
-                } else {
-                  // 🛡️ Premium Senior Fallback: If Custom Token creator IAM role is missing,
-                  // gracefully sign in anonymously so that testing succeeds flawlessly!
-                  userCred = await FirebaseAuth.instance.signInAnonymously();
-                  debugPrint('Telegram Auth Fallback: Signed in anonymously due to custom token creation failure.');
+                if (!isTokenValid) {
+                  // 🔒 SECURITY: Custom Token не получен — НЕ ВХОДИМ.
+                  // Это может случиться если Cloud Function упала или IAM-права не настроены.
+                  // Анонимный вход здесь ЗАПРЕЩЁН — это дыра в безопасности.
+                  throw Exception(
+                    'Ошибка сервера авторизации. Попробуйте снова через несколько секунд.\n'
+                    'Если проблема повторяется — обратитесь в поддержку @IQ_Taxi_bot'
+                  );
                 }
-                await _finalizeLogin(userCred.user?.displayName ?? 'Telegram User', isVerified: true, accountType: 'driver');
+                // ✅ Безопасный вход только через Firebase Custom Token
+                final userCred = await FirebaseAuth.instance.signInWithCustomToken(customToken!);
+                // isVerified НЕ передаём здесь — статус проверки хранится на сервере
+                // в Firestore-документе пользователя, и берётся оттуда при загрузке.
+                await _finalizeLogin(
+                  userCred.user?.displayName ?? 'Telegram User',
+                  isVerified: false, // Верификация устанавливается только через TelegramBotService на сервере
+                  accountType: null, // accountType тоже читается из Firestore, не задаётся на клиенте
+                );
               } catch (e) {
                 _showError('Ошибка авторизации: $e');
               } finally {
@@ -499,14 +509,10 @@ class _LoginScreenState extends State<LoginScreen> {
           // --- Premium Social Buttons ---
           AuthSocialLongButton(
             label: 'Продолжить с Mail.ru',
-            icon: Image.network(
-              'https://img.icons8.com/color/96/mailru.png', 
-              width: 24,
-              errorBuilder: (context, error, stackTrace) => Container(
-                width: 24, height: 24,
-                decoration: const BoxDecoration(color: Color(0xFF005FF9), shape: BoxShape.circle),
-                child: const Center(child: Text('@', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w900))),
-              ),
+            icon: Container(
+              width: 28, height: 28,
+              decoration: const BoxDecoration(color: Color(0xFF005FF9), shape: BoxShape.circle),
+              child: const Center(child: Text('@', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w900))),
             ),
             onTap: () {
                // Scroll to top or focus email field? 
@@ -516,14 +522,10 @@ class _LoginScreenState extends State<LoginScreen> {
  
           AuthSocialLongButton(
             label: 'Продолжить с Google',
-            icon: Image.network(
-              'https://img.icons8.com/color/96/google-logo.png', 
-              width: 24,
-              errorBuilder: (context, error, stackTrace) => Container(
-                width: 24, height: 24,
-                decoration: const BoxDecoration(color: Color(0xFFEA4335), shape: BoxShape.circle),
-                child: const Center(child: Text('G', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w900))),
-              ),
+            icon: Container(
+              width: 28, height: 28,
+              decoration: const BoxDecoration(color: Color(0xFFEA4335), shape: BoxShape.circle),
+              child: const Center(child: Text('G', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w900))),
             ),
             onTap: _handleGoogleSignIn,
           ),
@@ -538,11 +540,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
           AuthSocialLongButton(
             label: 'Продолжить с Telegram',
-            icon: Image.network(
-              'https://cdn-icons-png.flaticon.com/512/2111/2111646.png', 
-              width: 24,
-              errorBuilder: (context, error, stackTrace) => const Icon(Icons.telegram_rounded, color: Colors.white, size: 24),
-            ),
+            icon: const Icon(Icons.telegram_rounded, color: Colors.white, size: 30),
             onTap: _handleTelegramLogin,
             color: const Color(0xFF0088CC),
             textColor: Colors.white,
