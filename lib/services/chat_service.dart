@@ -342,6 +342,29 @@ class ChatService {
     });
   }
 
+  /// Установка статуса Online в чате и обновление lastActive
+  static Future<void> updateOnlineStatus(String sellerId, bool isOnline) async {
+    final uid = UserService.currentUid;
+    if (uid == null) return;
+    
+    // Обновляем онлайн статус в чате
+    final chatId = getChatId(sellerId);
+    try {
+      await _db.collection('chats').doc(chatId).set({
+        'online_$uid': isOnline,
+      }, SetOptions(merge: true));
+    } catch (_) {} // Игнорируем, если чат еще не создан
+
+    // Обновляем lastActive в глобальном профиле
+    if (!isOnline) {
+      try {
+        await _db.collection('users').doc(uid).update({
+          'lastActive': FieldValue.serverTimestamp(),
+        });
+      } catch (_) {}
+    }
+  }
+
   /// Get list of chats for the current user
   static Stream<List<Map<String, dynamic>>> getChatListStream() {
     final uid = UserService.currentUid;
@@ -363,8 +386,9 @@ class ChatService {
           chats.sort((a, b) {
             final tsA = a['lastTimestamp'] as Timestamp?;
             final tsB = b['lastTimestamp'] as Timestamp?;
-            if (tsA == null) return 1;
-            if (tsB == null) return -1;
+            if (tsA == null && tsB == null) return 0;
+            if (tsA == null) return -1; // Новые сообщения (pending writes) наверх
+            if (tsB == null) return 1;
             return tsB.compareTo(tsA); // По убыванию
           });
           

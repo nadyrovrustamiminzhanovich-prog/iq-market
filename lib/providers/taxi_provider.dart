@@ -577,9 +577,11 @@ class TaxiProvider extends ChangeNotifier {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
+    // Ищем по userId (uid), а не по driver_name —
+    // два водителя с одинаковым именем не должны влиять друг на друга.
     final snapshot = await FirebaseFirestore.instance
         .collection('driver_verifications')
-        .where('driver_name', isEqualTo: '$_firstName $_lastName'.trim())
+        .where('userId', isEqualTo: user.uid)
         .limit(1)
         .get();
 

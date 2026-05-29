@@ -3,6 +3,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:iqmarket/services/telegram_bot_service.dart';
 
 class AuthService {
@@ -133,6 +134,9 @@ class AuthService {
   // ===================== UTILS =====================
 
   static Future<void> signOut() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+
     await _auth.signOut();
     try {
       await _googleSignIn.signOut();

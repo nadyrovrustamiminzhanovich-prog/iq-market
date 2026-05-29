@@ -48,6 +48,9 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final ImagePicker _picker = ImagePicker();
   final Set<String> _shownAutoResolutionRides = {};
+  // Снапшот id-шников при последней проверке — чтобы не сканировать список
+  // при каждом build(), а только когда его состав реально изменился.
+  Set<String> _lastCheckedRideIds = {};
   final TextEditingController _mainPhoneController = TextEditingController();
   final MaskTextInputFormatter _mainPhoneMask = MaskTextInputFormatter(
     mask: '+7 (###) ###-##-##',
@@ -99,6 +102,26 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Вызываем проверку только когда набор активных поездок реально изменился,
+    // а не при каждом build() — это устраняет побочный эффект в методе построения.
+    final provider = Provider.of<TaxiProvider>(context, listen: false);
+    final currentIds = {
+      ...provider.myAcceptedOrders.map((o) => o['id']?.toString() ?? ''),
+      ...provider.myAcceptedRides.map((r) => r['id']?.toString() ?? ''),
+    };
+    if (currentIds != _lastCheckedRideIds) {
+      _lastCheckedRideIds = currentIds;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final p = Provider.of<TaxiProvider>(context, listen: false);
+        _checkAndShowPendingRidesDialog(p, p.theme);
+      });
+    }
+  }
+
+  @override
   void dispose() {
     _connectivitySubscription?.cancel();
     _mainPhoneController.dispose();
@@ -122,7 +145,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
   Widget build(BuildContext context) {
     final taxiProvider = Provider.of<TaxiProvider>(context);
     final t = taxiProvider.theme;
-    _checkAndShowPendingRidesDialog(taxiProvider, t);
+    // Проверка вынесена в didChangeDependencies() — здесь больше не вызываем.
 
     return PopScope(
       canPop: true,

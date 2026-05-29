@@ -236,23 +236,41 @@ class AdService {
     String? sortBy,
   }) async {
     try {
-      // Чтобы не требовать сложные составные индексы в Firestore, делаем простой orderBy и фильтруем на клиенте!
-      Query query = _adsCollection.orderBy('timestamp', descending: sortBy != 'oldest');
+      // Базовые фильтры статуса — выполняются на стороне Firestore.
+      // Для category и city требуются составные индексы:
+      //   • status ASC + timestamp DESC
+      //   • status ASC + category ASC + timestamp DESC
+      //   • status ASC + location ASC + timestamp DESC
+      // Их можно создать в Firebase Console → Firestore → Indexes.
+      Query query = _adsCollection
+          .where('active', isEqualTo: true)
+          .where('status', isEqualTo: 'active')
+          .orderBy('timestamp', descending: sortBy != 'oldest');
 
       if (startAfter != null) {
         query = query.startAfterDocument(startAfter);
       }
 
+      // Буфер limit*2 (вместо limit*4) нужен только для клиентских фильтров
+      // (searchQuery, condition, minPrice, maxPrice), которые пока нельзя
+      // выразить составным индексом. Если все фильтры сняты — буфер не нужен,
+      // и мы читаем ровно limit документов.
+      final bool hasClientFilters = (searchQuery != null && searchQuery.isNotEmpty) ||
+          (condition != null && condition != 'Все') ||
+          minPrice != null ||
+          maxPrice != null;
+      final int fetchLimit = hasClientFilters ? limit * 2 : limit;
+
       final isOffline = await NetworkService.isOffline();
-      final snapshot = await query.limit(limit * 4).get( // Увеличиваем запас для надежной локальной фильтрации
+      final snapshot = await query.limit(fetchLimit).get(
         GetOptions(source: isOffline ? Source.cache : Source.serverAndCache),
       );
       
       List<AdModel> ads = snapshot.docs
           .map((doc) => AdModel.fromMap(doc.data() as Map<String, dynamic>, doc.id))
-          .where((ad) => ad.active && ad.status == 'active')
-          .toList();
+          .toList(); // active/status уже отфильтрованы Firestore
 
+      // Клиентские фильтры, которые пока не поддерживаются составным индексом
       if (category != null && category != 'Все') {
         ads = ads.where((ad) => ad.category == category).toList();
       }
@@ -592,18 +610,22 @@ class AdService {
   }
 
   /// Get similar ads by category
+  /// Фильтры active/status применяются на стороне Firestore, а не на клиенте,
+  /// чтобы не скачивать всю коллекцию категории целиком.
+  /// Составной индекс: category ASC + active ASC + status ASC + timestamp DESC
   static Stream<List<AdModel>> getSimilarAdsStream(String category, String currentAdId) {
     return _adsCollection
         .where('category', isEqualTo: category)
+        .where('active', isEqualTo: true)
+        .where('status', isEqualTo: 'active')
+        .orderBy('timestamp', descending: true)
+        .limit(20) // Берём 20 с запасом, чтобы исключить currentAdId и взять 6
         .snapshots()
-        .map((snapshot) {
-          final list = snapshot.docs
-              .map((doc) => AdModel.fromMap(doc.data() as Map<String, dynamic>, doc.id))
-              .where((ad) => ad.active && ad.id != currentAdId)
-              .toList();
-          list.sort((a, b) => b.timestamp.compareTo(a.timestamp));
-          return list.take(6).toList();
-        });
+        .map((snapshot) => snapshot.docs
+            .map((doc) => AdModel.fromMap(doc.data() as Map<String, dynamic>, doc.id))
+            .where((ad) => ad.id != currentAdId)
+            .take(6)
+            .toList());
   }
 
   /// Get multiple ads by their IDs

@@ -1,0 +1,208 @@
+{
+  "indexes": [
+
+    // ─── ОБЪЯВЛЕНИЯ (ads) ────────────────────────────────────────────────────
+
+    // getActiveAdsPaginated — базовый (без фильтров): лента, сортировка по новизне
+    {
+      "collectionGroup": "ads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "active",    "order": "ASCENDING"  },
+        { "fieldPath": "status",    "order": "ASCENDING"  },
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
+      ]
+    },
+    // getActiveAdsPaginated — сортировка "сначала старые"
+    {
+      "collectionGroup": "ads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "active",    "order": "ASCENDING" },
+        { "fieldPath": "status",    "order": "ASCENDING" },
+        { "fieldPath": "timestamp", "order": "ASCENDING" }
+      ]
+    },
+
+    // getSimilarAdsStream — похожие объявления по категории
+    {
+      "collectionGroup": "ads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "category",  "order": "ASCENDING"  },
+        { "fieldPath": "active",    "order": "ASCENDING"  },
+        { "fieldPath": "status",    "order": "ASCENDING"  },
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
+      ]
+    },
+
+    // getActiveAdsPaginated — фильтр по городу (cityFilter)
+    {
+      "collectionGroup": "ads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "active",    "order": "ASCENDING"  },
+        { "fieldPath": "status",    "order": "ASCENDING"  },
+        { "fieldPath": "location",  "order": "ASCENDING"  },
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
+      ]
+    },
+
+    // getPendingAdsStream — очередь модерации для администратора
+    {
+      "collectionGroup": "ads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status",    "order": "ASCENDING"  },
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
+      ]
+    },
+
+    // getRecommendationsStream — блок рекомендаций на главной
+    {
+      "collectionGroup": "ads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "active",    "order": "ASCENDING"  },
+        { "fieldPath": "status",    "order": "ASCENDING"  },
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
+      ]
+    },
+
+    // checkMyAdsLifecycle — проверка истекающих объявлений пользователя
+    {
+      "collectionGroup": "ads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId",         "order": "ASCENDING"  },
+        { "fieldPath": "status",         "order": "ASCENDING"  },
+        { "fieldPath": "notifiedExpiry", "order": "ASCENDING"  },
+        { "fieldPath": "timestamp",      "order": "DESCENDING" }
+      ]
+    },
+
+    // ─── ТАКСИ (taxi_rides / taxi_orders) ───────────────────────────────────
+
+    // fetchHistoryTrips — история поездок пассажира
+    {
+      "collectionGroup": "taxi_orders",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "passengerId", "order": "ASCENDING"  },
+        { "fieldPath": "status",      "order": "ASCENDING"  },
+        { "fieldPath": "createdAt",   "order": "DESCENDING" }
+      ]
+    },
+    // fetchHistoryTrips — история поездок водителя (taxi_orders)
+    {
+      "collectionGroup": "taxi_orders",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "driverId", "order": "ASCENDING"  },
+        { "fieldPath": "status",   "order": "ASCENDING"  },
+        { "fieldPath": "createdAt","order": "DESCENDING" }
+      ]
+    },
+    // fetchHistoryTrips — история поездок водителя (taxi_rides)
+    {
+      "collectionGroup": "taxi_rides",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "driverId", "order": "ASCENDING"  },
+        { "fieldPath": "status",   "order": "ASCENDING"  },
+        { "fieldPath": "createdAt","order": "DESCENDING" }
+      ]
+    },
+    // fetchHistoryTrips — история поездок пассажира (taxi_rides)
+    {
+      "collectionGroup": "taxi_rides",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "passengerId", "order": "ASCENDING"  },
+        { "fieldPath": "status",      "order": "ASCENDING"  },
+        { "fieldPath": "createdAt",   "order": "DESCENDING" }
+      ]
+    },
+
+    // startFirebaseSync — активные принятые заказы пассажира
+    {
+      "collectionGroup": "taxi_orders",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "passengerId", "order": "ASCENDING" },
+        { "fieldPath": "status",      "order": "ASCENDING" }
+      ]
+    },
+    // startFirebaseSync — активные принятые заказы водителя
+    {
+      "collectionGroup": "taxi_orders",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "driverId", "order": "ASCENDING" },
+        { "fieldPath": "status",   "order": "ASCENDING" }
+      ]
+    },
+    // startFirebaseSync — принятые поездки водителя
+    {
+      "collectionGroup": "taxi_rides",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "driverId", "order": "ASCENDING" },
+        { "fieldPath": "status",   "order": "ASCENDING" }
+      ]
+    },
+    // startFirebaseSync — принятые поездки пассажира
+    {
+      "collectionGroup": "taxi_rides",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "passengerId", "order": "ASCENDING" },
+        { "fieldPath": "status",      "order": "ASCENDING" }
+      ]
+    },
+
+    // ─── УВЕДОМЛЕНИЯ (notifications) ────────────────────────────────────────
+
+    // markAllAsRead — непрочитанные уведомления (isRead + timestamp — составной)
+    {
+      "collectionGroup": "notifications",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "isRead",    "order": "ASCENDING"  },
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
+      ]
+    },
+
+    // ─── СТАВКИ ТАКСИ (taxi_bids) ────────────────────────────────────────────
+
+    // startFirebaseSync — активные ставки отправителя
+    {
+      "collectionGroup": "taxi_bids",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status",   "order": "ASCENDING" },
+        { "fieldPath": "senderId", "order": "ASCENDING" }
+      ]
+    },
+    // startFirebaseSync — активные ставки получателя
+    {
+      "collectionGroup": "taxi_bids",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status",     "order": "ASCENDING" },
+        { "fieldPath": "receiverId", "order": "ASCENDING" }
+      ]
+    },
+    // acceptBid / cancelOrder — ставки по целевому объявлению
+    {
+      "collectionGroup": "taxi_bids",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "targetId", "order": "ASCENDING" },
+        { "fieldPath": "status",   "order": "ASCENDING" }
+      ]
+    }
+
+  ],
+  "fieldOverrides": []
+}

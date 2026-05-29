@@ -9,6 +9,7 @@ class UserModel {
   final String accountType;
   final bool isVerified;
   final DateTime registrationDate;
+  final DateTime lastActive;
   final int reviewsCount;
   final double rating;
   final String location;
@@ -23,6 +24,7 @@ class UserModel {
     required this.accountType,
     this.isVerified = false,
     required this.registrationDate,
+    required this.lastActive,
     this.reviewsCount = 0,
     this.rating = 0.0,
     this.location = 'Чунджа',
@@ -39,6 +41,7 @@ class UserModel {
       accountType: map['accountType'] ?? 'Личный',
       isVerified: map['isVerified'] ?? false,
       registrationDate: (map['registrationDate'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      lastActive: (map['lastActive'] as Timestamp?)?.toDate() ?? DateTime.now(),
       reviewsCount: map['reviewsCount'] ?? 0,
       rating: (map['rating'] as num?)?.toDouble() ?? 0.0,
       location: map['location'] ?? 'Чунджа',
@@ -56,6 +59,7 @@ class UserModel {
       'accountType': accountType,
       'isVerified': isVerified,
       'registrationDate': registrationDate,
+      'lastActive': lastActive,
       'reviewsCount': reviewsCount,
       'rating': rating,
       'location': location,

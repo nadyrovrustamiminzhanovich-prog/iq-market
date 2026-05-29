@@ -68,8 +68,16 @@ class ChatGlassHeader extends StatelessWidget {
                         future: UserService.getUserById(ad.userId),
                         builder: (context, userSnap) {
                           if (userSnap.hasData && userSnap.data != null) {
-                            final date = userSnap.data!.registrationDate;
-                            final timeStr = DateFormat('d MMMM в HH:mm').format(date);
+                            final date = userSnap.data!.lastActive;
+                            final now = DateTime.now();
+                            String timeStr;
+                            if (now.day == date.day && now.month == date.month && now.year == date.year) {
+                              timeStr = 'сегодня в ${DateFormat('HH:mm').format(date)}';
+                            } else if (now.difference(date).inDays == 1 || (now.day - 1 == date.day && now.month == date.month && now.year == date.year)) {
+                              timeStr = 'вчера в ${DateFormat('HH:mm').format(date)}';
+                            } else {
+                              timeStr = DateFormat('d MMMM в HH:mm', 'ru').format(date);
+                            }
                             return Text('был(а) в сети $timeStr', style: const TextStyle(color: Colors.white38, fontSize: 11));
                           }
                           return const Text('не в сети', style: TextStyle(color: Colors.white38, fontSize: 11));

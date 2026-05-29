@@ -12,6 +12,9 @@ class ChatsListScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final uid = UserService.currentUid;
+    // Показываем кнопку «назад» только если есть куда возвращаться
+    // (экран открыт через push), а не встроен как вкладка BottomNavBar.
+    final canPop = Navigator.canPop(context);
     if (uid == null) {
       return Scaffold(
         backgroundColor: theme.scaffoldBackgroundColor,
@@ -23,10 +26,14 @@ class ChatsListScreen extends StatelessWidget {
       appBar: AppBar(
         elevation: 0,
         backgroundColor: theme.colorScheme.surface,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios_new_rounded, color: theme.colorScheme.onSurface),
-          onPressed: () => Navigator.pop(context),
-        ),
+        // Кнопку «назад» показываем только если экран открыт как отдельный route
+        leading: canPop
+            ? IconButton(
+                icon: Icon(Icons.arrow_back_ios_new_rounded, color: theme.colorScheme.onSurface),
+                onPressed: () => Navigator.pop(context),
+              )
+            : null,
+        automaticallyImplyLeading: false,
         title: Text('Мои сообщения', style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.w900, fontSize: 20)),
         centerTitle: false,
         actions: [

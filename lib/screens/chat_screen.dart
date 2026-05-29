@@ -83,8 +83,10 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         audioFocus: AndroidAudioFocus.gain,
       ),
       iOS: AudioContextIOS(
+        // defaultToSpeaker разрешён только с playAndRecord — убираем его.
+        // playback сам по себе воспроизводит через основной динамик.
         category: AVAudioSessionCategory.playback,
-        options: {AVAudioSessionOptions.defaultToSpeaker},
+        options: {},
       ),
     ));
     
@@ -104,6 +106,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     ChatService.activeChatId = ChatService.getChatId(otherId);
     if (UserService.currentUid != null) {
       ChatService.markAsRead(otherId);
+      ChatService.updateOnlineStatus(otherId, true);
     }
     _loadUserNames();
 
@@ -149,6 +152,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     _msgFocusNode.dispose();
     if (ChatService.activeChatId == ChatService.getChatId(widget.ad.userId)) {
       ChatService.activeChatId = null;
+      ChatService.updateOnlineStatus(widget.ad.userId, false);
     }
     super.dispose();
   }

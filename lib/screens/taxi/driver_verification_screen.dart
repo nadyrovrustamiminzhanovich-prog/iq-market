@@ -274,6 +274,7 @@ class _DriverVerificationScreenState extends State<DriverVerificationScreen>
 
       // 3. Сохранение заявки с ссылками на фото в Firestore
       await FirebaseFirestore.instance.collection('driver_verifications').doc(docId).set({
+        'userId'         : uid,               // ← ключевое поле для поиска по uid
         'driver_name'    : '${provider.firstName} ${provider.lastName}',
         'plate'          : _plateC.text.trim().toUpperCase(),
         'car'            : _carC.text.trim(),

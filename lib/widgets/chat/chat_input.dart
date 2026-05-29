@@ -98,6 +98,7 @@ class ChatInput extends StatelessWidget {
                 onTap: isTyping ? onSend : null,
                 onLongPressStart: (_) => onLongPressStart(),
                 onLongPressEnd: (_) => onLongPressEnd(),
+                onLongPressCancel: () => onLongPressEnd(), // Если палец сместили — останавливаем запись
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
                   width: 50, height: 50,
