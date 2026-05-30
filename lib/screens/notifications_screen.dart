@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:iqmarket/screens/chat_screen.dart';
+import 'package:iqmarket/screens/product_details_screen.dart';
 
 import 'package:iqmarket/models/ad_model.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';

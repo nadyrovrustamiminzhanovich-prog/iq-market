@@ -932,7 +932,7 @@ class TaxiProvider extends ChangeNotifier {
 
     await FirebaseFirestore.instance.collection('taxi_reviews').doc(docId).set(newReview);
     _userRatings.remove(targetUserId); // invalidate cache
-    await fetchUserRating(targetUserId);
+    await fetchUserRatingsBatch([targetUserId]);
   }
 
   int _driverTripsCount = 0;
