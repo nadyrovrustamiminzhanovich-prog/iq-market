@@ -94,6 +94,7 @@ exports.telegramWebhook = functions.https.onRequest(async (req, res) => {
   // ── Contact sharing handler ───────────────────────────────────────────────
   if (msg.contact) {
     const contact = msg.contact;
+    console.log(`[contact] Received contact from chatId=${chatId}`, JSON.stringify(contact));
     const contactUserId = contact.user_id ? contact.user_id.toString() : '';
 
     // Safety check: ensure they shared THEIR OWN contact
@@ -151,6 +152,7 @@ exports.telegramWebhook = functions.https.onRequest(async (req, res) => {
     }
 
     // Verification successful! Generate and send OTP!
+    console.log(`[contact] Phone match OK for chatId=${chatId}. Generating OTP...`);
     const otp = String(Math.floor(100000 + Math.random() * 900000));
 
     // 🔒 X10 SECURITY: Generating a Firebase Custom Token
@@ -158,15 +160,19 @@ exports.telegramWebhook = functions.https.onRequest(async (req, res) => {
     try {
       const uid = `telegram_${chatId}`;
       customToken = await admin.auth().createCustomToken(uid);
+      console.log(`[contact] Custom token created for uid=${uid}`);
     } catch (tokenError) {
       console.error("WARNING: Failed to generate custom token:", tokenError);
     }
 
+    // Mark verified:true so the app's Firestore listener fires the OTP dialog
     await sessionDoc.ref.update({
       otp,
       customToken: customToken,
+      verified: true,
       linked_at: admin.firestore.FieldValue.serverTimestamp(),
     });
+    console.log(`[contact] Session ${sessionDoc.id} updated: otp=${otp}, verified=true`);
 
     await tgSend(chatId,
       `✅ *Номер телефона успешно подтвержден!*\n\n`
@@ -600,3 +606,53 @@ exports.sendTelegramOtp = functions.https.onRequest(async (req, res) => {
     return res.status(500).send(error.toString());
   }
 });
+
+// ─── FIRESTORE TRIGGER: Send FCM for all new notifications ───────────────────
+exports.onNewNotification = functions.firestore
+  .document('users/{userId}/notifications/{notifId}')
+  .onCreate(async (snapshot, context) => {
+    const notification = snapshot.data();
+    const userId = context.params.userId;
+
+    // Get user's FCM token
+    const userSnap = await db.collection('users').doc(userId).get();
+    if (!userSnap.exists) return;
+
+    const token = userSnap.data().fcmToken;
+    if (!token) return;
+
+    const payload = {
+      token: token,
+      notification: {
+        title: notification.title,
+        body: notification.body,
+      },
+      data: {
+        type: notification.type || 'system',
+        ...(notification.data || {}),
+        click_action: 'FLUTTER_NOTIFICATION_CLICK',
+      },
+      android: {
+        priority: 'high',
+        notification: {
+          channelId: 'high_importance_channel',
+          sound: 'default',
+        }
+      },
+      apns: {
+        payload: {
+          aps: {
+            sound: 'default',
+            badge: 1,
+          }
+        }
+      }
+    };
+
+    try {
+      await admin.messaging().send(payload);
+      console.log(`Successfully sent notification to ${userId}`);
+    } catch (error) {
+      console.error('Error sending FCM for notification:', error);
+    }
+  });

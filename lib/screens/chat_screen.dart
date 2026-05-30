@@ -320,8 +320,13 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                   onBack: () => Navigator.of(context).maybePop(),
                   onProfileTap: _navigateToSellerProfile,
                   onCall: () async {
-                    final url = Uri.parse('tel:${widget.ad.userPhone ?? '+77000000000'}');
-                    if (await canLaunchUrl(url)) await launchUrl(url);
+                    final phoneNum = _otherUserPhone ?? widget.ad.userPhone ?? '';
+                    if (phoneNum.isNotEmpty) {
+                      final url = Uri.parse('tel:$phoneNum');
+                      if (await canLaunchUrl(url)) await launchUrl(url);
+                    } else {
+                      NotificationService.notify(context, 'Ошибка', 'Номер телефона этого пользователя не указан.', isSuccess: false);
+                    }
                   },
                 ),
                 ChatAdInfoBar(ad: widget.ad),

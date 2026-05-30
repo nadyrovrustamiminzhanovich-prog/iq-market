@@ -16,6 +16,8 @@ import 'package:iqmarket/translations/login_strings.dart';
 import 'package:iqmarket/widgets/auth/auth_components.dart';
 import 'package:iqmarket/services/user_service.dart';
 import 'package:iqmarket/services/auth_service.dart';
+import 'package:iqmarket/services/telegram_bot_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class LoginScreen extends StatefulWidget {
   final String lang;
@@ -38,7 +40,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
 
   String? _tgSessionToken;
+  String? _tgBotUrl;
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _tgSessionSub;
+  Timer? _tgCountdownTimer;
+  int _tgCountdown = 4;
 
 
   late final TapGestureRecognizer _tosRecognizer;
@@ -100,6 +105,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void dispose() {
     _tgSessionSub?.cancel();
+    _tgCountdownTimer?.cancel();
     _nameController.dispose(); _emailController.dispose();
     _passwordController.dispose(); _confirmPasswordController.dispose();
     _tosRecognizer.dispose(); _privacyRecognizer.dispose();
@@ -268,14 +274,15 @@ class _LoginScreenState extends State<LoginScreen> {
     if (_isLoading) return;
     setState(() { _isLoading = true; });
     try {
-      // 1. Create Firestore session + open bot with deep link
+      // 1. Create Firestore session (WITHOUT auto-launching Telegram)
       _tgSessionToken = await AuthService.startTelegramSession();
+      _tgBotUrl = TelegramBotService.buildBotUrl(_tgSessionToken!);
 
       if (!mounted) return;
-      
+
       bool hasNavigated = false;
-      
-      // Show waiting sheet
+
+      // Show waiting sheet with countdown
       showModalBottomSheet(
         context: context,
         isScrollControlled: true,
@@ -284,31 +291,32 @@ class _LoginScreenState extends State<LoginScreen> {
         backgroundColor: Colors.transparent,
         builder: (ctx) => _tgWaitingSheet(ctx),
       );
-      
-      // Listen to the session stream in a controlled subscription
+
+      // Listen to the session stream
       _tgSessionSub?.cancel();
       _tgSessionSub = AuthService.watchTelegramSession(_tgSessionToken!).listen((snap) {
         if (!snap.exists) return;
         final data = snap.data();
         if (data == null) return;
-        
+
         final String? chatId = data['chat_id'];
         final String? otp = data['otp'];
         final String? customToken = data['customToken'];
-        
+
         if (chatId != null && otp != null && otp.isNotEmpty && !hasNavigated) {
           hasNavigated = true;
-          _tgSessionSub?.cancel(); // Cancel immediately to prevent duplicate triggers!
-          
+          _tgSessionSub?.cancel();
+          _tgCountdownTimer?.cancel();
+
           if (Navigator.canPop(context)) {
             Navigator.pop(context); // Close waiting sheet
           }
-          
+
           _generatedCode = otp;
           _showOtpDialog(chatId, customToken);
         }
       });
-      
+
     } catch (e) {
       _showError('Ошибка: $e');
     } finally {
@@ -316,41 +324,191 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _openTelegramBot() async {
+    if (_tgBotUrl == null) return;
+    await launchUrl(Uri.parse(_tgBotUrl!), mode: LaunchMode.externalApplication);
+  }
+
   Widget _tgWaitingSheet(BuildContext ctx) {
-    return Container(
-      padding: const EdgeInsets.all(28),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+    // Start countdown on first build
+    if (_tgCountdownTimer == null || !_tgCountdownTimer!.isActive) {
+      _tgCountdown = 4;
+      _tgCountdownTimer?.cancel();
+      _tgCountdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+        if (!mounted) { timer.cancel(); return; }
+        setState(() { _tgCountdown--; });
+        if (_tgCountdown <= 0) {
+          timer.cancel();
+          _openTelegramBot();
+        }
+      });
+    }
+
+    return StatefulBuilder(
+      builder: (ctx, ss) => Container(
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Drag handle
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.withValues(alpha: 0.25), borderRadius: BorderRadius.circular(10))),
+            const SizedBox(height: 24),
+
+            // Telegram icon with glow
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: const RadialGradient(
+                  colors: [Color(0xFFD6EEFF), Color(0xFFEBF5FF)],
+                ),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(color: const Color(0xFF0088CC).withValues(alpha: 0.18), blurRadius: 24, spreadRadius: 4),
+                ],
+              ),
+              child: const Icon(Icons.telegram_rounded, color: Color(0xFF0088CC), size: 52),
+            ),
+            const SizedBox(height: 20),
+
+            // Title
+            const Text(
+              'Верификация через Telegram',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFF1A1D1E)),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Следуйте инструкции для подтверждения номера',
+              style: TextStyle(color: Colors.black45, fontSize: 13),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 28),
+
+            // Step-by-step guide
+            _tgStep('1', Icons.open_in_new_rounded, 'Откройте бота @IQ_Taxi_bot', 'Ссылка откроется автоматически'),
+            const SizedBox(height: 14),
+            _tgStep('2', Icons.play_circle_outline_rounded, 'Нажмите кнопку «START»', 'Бот запустится и попросит контакт'),
+            const SizedBox(height: 14),
+            _tgStep('3', Icons.contact_phone_rounded, 'Поделитесь своим контактом', 'Нажмите кнопку в боте'),
+            const SizedBox(height: 14),
+            _tgStep('4', Icons.keyboard_rounded, 'Введите код в приложении', 'Бот пришлёт 6-значный код'),
+            const SizedBox(height: 28),
+
+            // Countdown + auto-open button
+            StreamBuilder<int>(
+              stream: Stream.periodic(const Duration(milliseconds: 200), (_) => _tgCountdown).distinct(),
+              builder: (_, __) {
+                final remaining = _tgCountdown;
+                return Column(
+                  children: [
+                    if (remaining > 0)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0088CC).withValues(alpha: 0.07),
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(color: const Color(0xFF0088CC).withValues(alpha: 0.15)),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.timer_outlined, color: Color(0xFF0088CC), size: 20),
+                            const SizedBox(width: 10),
+                            Text(
+                              'Открытие Telegram через $remaining сек...',
+                              style: const TextStyle(color: Color(0xFF0088CC), fontWeight: FontWeight.w700, fontSize: 14),
+                            ),
+                          ],
+                        ),
+                      )
+                    else
+                      Container(
+                        width: double.infinity,
+                        height: 52,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0088CC),
+                          borderRadius: BorderRadius.circular(18),
+                          boxShadow: [BoxShadow(color: const Color(0xFF0088CC).withValues(alpha: 0.35), blurRadius: 16, offset: const Offset(0, 6))],
+                        ),
+                        child: const Center(
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.telegram_rounded, color: Colors.white, size: 22),
+                              SizedBox(width: 10),
+                              Text('Открыть Telegram', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 15)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    const SizedBox(height: 12),
+                    // Always-visible manual button
+                    GestureDetector(
+                      onTap: _openTelegramBot,
+                      child: const Text(
+                        'Открыть вручную →',
+                        style: TextStyle(color: Color(0xFF0088CC), fontWeight: FontWeight.w700, fontSize: 13, decoration: TextDecoration.underline),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+
+            const SizedBox(height: 20),
+            // Waiting indicator
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                SizedBox(
+                  width: 16, height: 16,
+                  child: CircularProgressIndicator(color: const Color(0xFF0088CC).withValues(alpha: 0.5), strokeWidth: 2),
+                ),
+                const SizedBox(width: 10),
+                const Text('Ожидаем подтверждения...', style: TextStyle(color: Colors.black38, fontSize: 12)),
+              ],
+            ),
+            const SizedBox(height: 16),
+            TextButton(
+              onPressed: () {
+                _tgSessionSub?.cancel();
+                _tgCountdownTimer?.cancel();
+                Navigator.pop(ctx);
+              },
+              child: const Text('Отмена', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
       ),
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(10))),
-        const SizedBox(height: 28),
+    );
+  }
+
+  Widget _tgStep(String num, IconData icon, String title, String sub) {
+    return Row(
+      children: [
         Container(
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(color: const Color(0xFF0088CC).withValues(alpha: 0.1), shape: BoxShape.circle),
-          child: const Icon(Icons.telegram, color: Color(0xFF0088CC), size: 48),
+          width: 36, height: 36,
+          decoration: const BoxDecoration(color: Color(0xFF0088CC), shape: BoxShape.circle),
+          child: Center(child: Text(num, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 15))),
         ),
-        const SizedBox(height: 20),
-        const Text('Откройте Telegram', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
-        const SizedBox(height: 10),
-        const Text(
-          'Нажмите кнопку «Старт» в боте @IQ_Taxi_bot.\n\nКод придёт автоматически — вводить Chat ID не нужно.\n\n⏳ Код действителен 5 минут.',
-          textAlign: TextAlign.center,
-          style: TextStyle(color: Colors.black54, fontSize: 13, height: 1.5),
+        const SizedBox(width: 14),
+        Icon(icon, color: const Color(0xFF0088CC), size: 22),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Color(0xFF1A1D1E))),
+              Text(sub, style: const TextStyle(color: Colors.black45, fontSize: 11)),
+            ],
+          ),
         ),
-        const SizedBox(height: 24),
-        const CircularProgressIndicator(color: Color(0xFF0088CC), strokeWidth: 3),
-        const SizedBox(height: 28),
-        TextButton(
-          onPressed: () { 
-            _tgSessionSub?.cancel();
-            Navigator.pop(ctx); 
-          },
-          child: const Text('Отмена', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
-        ),
-        const SizedBox(height: 10),
-      ]),
+      ],
     );
   }
 
@@ -391,7 +549,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   );
                 }
                 // ✅ Безопасный вход только через Firebase Custom Token
-                final userCred = await FirebaseAuth.instance.signInWithCustomToken(customToken!);
+                final userCred = await FirebaseAuth.instance.signInWithCustomToken(customToken);
                 // isVerified НЕ передаём здесь — статус проверки хранится на сервере
                 // в Firestore-документе пользователя, и берётся оттуда при загрузке.
                 await _finalizeLogin(

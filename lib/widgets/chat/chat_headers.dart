@@ -135,12 +135,78 @@ class ChatAdInfoBar extends StatelessWidget {
         ])),
         TextButton(
           onPressed: () {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => ProductDetailsScreen(ad: ad, onReport: (_) {}, lang: 'Русский', heroPrefix: 'chat_')));
+            if (ad.category == 'Taxi') {
+              _showTaxiDetails(context);
+            } else {
+              Navigator.push(context, MaterialPageRoute(builder: (context) => ProductDetailsScreen(ad: ad, onReport: (_) {}, lang: 'Русский', heroPrefix: 'chat_')));
+            }
           },
           style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
           child: const Text('Смотреть', style: TextStyle(fontSize: 12, color: Color(0xFF4A80F0))),
         ),
       ]),
+    );
+  }
+
+  void _showTaxiDetails(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.fromLTRB(24, 24, 24, 34),
+        decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(10)))),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                const Icon(Icons.local_taxi_rounded, color: Color(0xFF4A80F0), size: 28),
+                const SizedBox(width: 12),
+                Expanded(child: Text(ad.title.replaceAll('Поездка: ', ''), style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w900))),
+              ],
+            ),
+            const SizedBox(height: 24),
+            _infoRow(Icons.person_rounded, 'Собеседник', ad.userName),
+            const SizedBox(height: 16),
+            _infoRow(Icons.payments_rounded, 'Стоимость', '${ad.price.toInt()} ₸'),
+            const SizedBox(height: 16),
+            _infoRow(Icons.info_outline_rounded, 'Тип чата', 'Чат по поездке (IQ-Taxi)'),
+            const SizedBox(height: 32),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4A80F0), foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), elevation: 0),
+                child: Text('Закрыть', style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _infoRow(IconData icon, String label, String value) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(color: const Color(0xFF4A80F0).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(14)),
+          child: Icon(icon, color: const Color(0xFF4A80F0), size: 22),
+        ),
+        const SizedBox(width: 16),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: GoogleFonts.inter(color: Colors.grey[500], fontSize: 12, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 2),
+            Text(value, style: GoogleFonts.inter(color: const Color(0xFF1E293B), fontSize: 15, fontWeight: FontWeight.bold)),
+          ],
+        ),
+      ],
     );
   }
 }

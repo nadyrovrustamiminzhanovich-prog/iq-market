@@ -2321,7 +2321,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                                   _ratingWidget(provider, t, driverId),
                                   const SizedBox(height: 4),
                                   Text(
-                                    'Предлагает: $bidPrice ₸ за место',
+                                    'Предлагает: $bidPrice ₸',
                                     style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF4A80F0)),
                                   ),
                                 ],
@@ -2516,7 +2516,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    '${currentPrice} ₸/место',
+                    '${currentPrice} ₸',
                     style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 12),
                   ),
                 ),

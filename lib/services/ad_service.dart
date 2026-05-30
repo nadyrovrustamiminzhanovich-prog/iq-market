@@ -115,7 +115,7 @@ class AdService {
           final thumbnailFile = await VideoCompress.getFileThumbnail(
             video.path,
             quality: 75,
-            position: -1,
+            position: 100, // 100ms is safer than -1 which often fails
           );
           final thumbnailUrl = await FileService.uploadFile(thumbnailFile, 'ads/images');
           if (thumbnailUrl != null) {
@@ -254,9 +254,7 @@ class AdService {
         query = query.where('location', isEqualTo: city);
       }
 
-      if (condition != null && condition != 'Все') {
-        query = query.where('condition', isEqualTo: condition);
-      }
+      // condition filter is applied client-side below, after snapshot fetch
 
       query = query.orderBy('timestamp', descending: sortBy != 'oldest');
 
@@ -296,6 +294,12 @@ class AdService {
       if (maxPrice != null) {
         ads = ads.where((ad) => ad.price <= maxPrice).toList();
       }
+
+      // ✅ condition filter: client-side to avoid missing Firestore composite index
+      if (condition != null && condition != 'Все') {
+        ads = ads.where((ad) => ad.condition == condition).toList();
+      }
+
       
       // Ограничиваем возвращаемый список размером limit
       if (ads.length > limit) {
@@ -316,11 +320,11 @@ class AdService {
   /// Get pending ads stream for admin review
   static Stream<List<AdModel>> getPendingAdsStream() {
     return _adsCollection
+        .where('status', isEqualTo: 'pending')
         .orderBy('timestamp', descending: true)
         .snapshots()
         .map((snapshot) => snapshot.docs
             .map((doc) => AdModel.fromMap(doc.data() as Map<String, dynamic>, doc.id))
-            .where((ad) => ad.status == 'pending')
             .toList());
   }
 

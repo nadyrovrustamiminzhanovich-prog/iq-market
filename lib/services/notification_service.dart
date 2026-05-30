@@ -9,6 +9,7 @@ import 'package:iqmarket/services/chat_service.dart';
 import 'package:iqmarket/models/ad_model.dart';
 import 'package:iqmarket/screens/chat_screen.dart';
 import 'package:iqmarket/screens/taxi/taxi_service_screen.dart';
+import 'package:iqmarket/screens/product_details_screen.dart';
 
 class NotificationService {
   static final FirebaseMessaging _messaging = FirebaseMessaging.instance;
@@ -130,6 +131,21 @@ class NotificationService {
       );
       return;
     }
+
+    if (type == 'review') {
+      final adId = data['adId'];
+      if (adId != null && adId.isNotEmpty) {
+        AdService.getAdById(adId).then((ad) {
+          if (ad != null && navigatorKey.currentState != null) {
+            navigatorKey.currentState?.push(
+              MaterialPageRoute(builder: (_) => ProductDetailsScreen(ad: ad, onReport: (_){}, lang: 'ru')),
+            );
+          }
+        });
+      }
+      return;
+    }
+
 
     final adId = data['adId'] ?? '';
     final adTitle = data['adTitle'] ?? 'Объявление';

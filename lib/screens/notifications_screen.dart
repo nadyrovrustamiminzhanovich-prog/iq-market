@@ -191,12 +191,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(notif.title, style: TextStyle(fontWeight: notif.isRead ? FontWeight.w700 : FontWeight.w900, fontSize: 15, color: const Color(0xFF1A1D1E))),
+                          Expanded(
+                            child: Text(notif.title, style: TextStyle(fontWeight: notif.isRead ? FontWeight.w700 : FontWeight.w900, fontSize: 15, color: const Color(0xFF1A1D1E))),
+                          ),
+                          const SizedBox(width: 8),
                           Text(_formatTimestamp(notif.timestamp), style: TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold)),
                         ],
                       ),
                       const SizedBox(height: 4),
-                      Text(notif.body, style: TextStyle(color: const Color(0xFF64748B), fontSize: 13, height: 1.4), maxLines: 2, overflow: TextOverflow.ellipsis),
+                      Text(notif.body, style: TextStyle(color: const Color(0xFF64748B), fontSize: 13, height: 1.4)),
                     ],
                   ),
                 ),
@@ -225,6 +228,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
           userEmail: '', timestamp: DateTime.now(), location: '',
         );
         Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(ad: ad)));
+      }
+    } else if (notif.data != null && notif.data!['adId'] != null && mounted) {
+      // Поддержка других типов (review, price_drop и т.д.)
+      final adId = notif.data!['adId'];
+      try {
+        final adDoc = await FirebaseFirestore.instance.collection('ads').doc(adId).get();
+        if (adDoc.exists && mounted) {
+          final ad = AdModel.fromMap(adDoc.data() as Map<String, dynamic>, adDoc.id);
+          Navigator.push(context, MaterialPageRoute(builder: (_) => ProductDetailsScreen(ad: ad, onReport: (_){}, lang: widget.lang)));
+        }
+      } catch (e) {
+        debugPrint('Error loading ad from notification: $e');
       }
     }
   }

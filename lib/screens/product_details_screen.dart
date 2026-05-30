@@ -143,61 +143,63 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
           return Container(
             padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(context).viewInsets.bottom + 24),
             decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(10)))),
-                const SizedBox(height: 24),
-                Text('Пожаловаться', style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w900)),
-                const SizedBox(height: 8),
-                Text('Выберите причину и опишите проблему', style: GoogleFonts.inter(color: Colors.grey[600], fontSize: 14)),
-                const SizedBox(height: 20),
-                Wrap(
-                  spacing: 8, runSpacing: 8,
-                  children: [
-                    _reportChip('Мошенничество', 'fraud', selectedType, (v) => setModalState(() => selectedType = v)),
-                    _reportChip('Неверная цена', 'wrong_price', selectedType, (v) => setModalState(() => selectedType = v)),
-                    _reportChip('Товар продан', 'sold', selectedType, (v) => setModalState(() => selectedType = v)),
-                    _reportChip('Запрещенный товар', 'prohibited', selectedType, (v) => setModalState(() => selectedType = v)),
-                    _reportChip('Другое', 'other', selectedType, (v) => setModalState(() => selectedType = v)),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                TextField(
-                  controller: commentCtrl,
-                  maxLines: 3,
-                  decoration: InputDecoration(
-                    hintText: 'Опишите подробнее (необязательно)...',
-                    filled: true, fillColor: const Color(0xFFF1F5F9),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(10)))),
+                  const SizedBox(height: 24),
+                  Text('Пожаловаться', style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w900)),
+                  const SizedBox(height: 8),
+                  Text('Выберите причину и опишите проблему', style: GoogleFonts.inter(color: Colors.grey[600], fontSize: 14)),
+                  const SizedBox(height: 20),
+                  Wrap(
+                    spacing: 8, runSpacing: 8,
+                    children: [
+                      _reportChip('Мошенничество', 'fraud', selectedType, (v) => setModalState(() => selectedType = v)),
+                      _reportChip('Неверная цена', 'wrong_price', selectedType, (v) => setModalState(() => selectedType = v)),
+                      _reportChip('Товар продан', 'sold', selectedType, (v) => setModalState(() => selectedType = v)),
+                      _reportChip('Запрещенный товар', 'prohibited', selectedType, (v) => setModalState(() => selectedType = v)),
+                      _reportChip('Другое', 'other', selectedType, (v) => setModalState(() => selectedType = v)),
+                    ],
                   ),
-                ),
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: selectedType == null ? null : () async {
-                      final reporterId = FirebaseAuth.instance.currentUser?.uid;
-                      await FirebaseFirestore.instance.collection('reports').add({
-                        'adId': widget.ad.id,
-                        'adTitle': widget.ad.title,
-                        'reportedUserId': widget.ad.userId,
-                        'reporterUserId': reporterId ?? 'anonymous',
-                        'type': selectedType,
-                        'comment': commentCtrl.text.trim(),
-                        'timestamp': FieldValue.serverTimestamp(),
-                      });
-                      if (mounted) {
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Жалоба отправлена. Спасибо за помощь!')));
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4A80F0), foregroundColor: Colors.white, disabledBackgroundColor: Colors.grey[300], padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), elevation: 0),
-                    child: Text('Отправить жалобу', style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 16)),
+                  const SizedBox(height: 20),
+                  TextField(
+                    controller: commentCtrl,
+                    maxLines: 3,
+                    decoration: InputDecoration(
+                      hintText: 'Опишите подробнее (необязательно)...',
+                      filled: true, fillColor: const Color(0xFFF1F5F9),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                    ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: selectedType == null ? null : () async {
+                        final reporterId = FirebaseAuth.instance.currentUser?.uid;
+                        await FirebaseFirestore.instance.collection('reports').add({
+                          'adId': widget.ad.id,
+                          'adTitle': widget.ad.title,
+                          'reportedUserId': widget.ad.userId,
+                          'reporterUserId': reporterId ?? 'anonymous',
+                          'type': selectedType,
+                          'comment': commentCtrl.text.trim(),
+                          'timestamp': FieldValue.serverTimestamp(),
+                        });
+                        if (mounted) {
+                          Navigator.pop(context);
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Жалоба отправлена. Спасибо за помощь!')));
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4A80F0), foregroundColor: Colors.white, disabledBackgroundColor: Colors.grey[300], padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), elevation: 0),
+                      child: Text('Отправить жалобу', style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 16)),
+                    ),
+                  ),
+                ],
+              ),
             ),
           );
         }
@@ -631,7 +633,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
         ]),
         const SizedBox(height: 16),
         StreamBuilder<List<ReviewModel>>(
-          stream: ReviewService.getUserReviewsStream(widget.ad.userId),
+          stream: ReviewService.getAdReviewsStream(widget.ad.id),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
             final reviews = snapshot.data ?? [];
@@ -666,6 +668,8 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
         Text(review.fromUserName, style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 14)), 
+        const SizedBox(width: 8),
+        Text(_formatRelativeDate(review.timestamp), style: GoogleFonts.inter(fontSize: 12, color: Colors.grey[500], fontWeight: FontWeight.w500)),
         const Spacer(), 
         if (_currentUser?.accountType == 'admin') 
           IconButton(
@@ -991,16 +995,17 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     return price > 0 ? '${NumberFormat.decimalPattern('ru').format(price.toInt())} ₸' : 'Договорная'; 
   }
   String _formatFullDate(DateTime dt) {
+    return '${dt.day.toString().padLeft(2, '0')}.${dt.month.toString().padLeft(2, '0')}.${dt.year} ${dt.hour}:${dt.minute.toString().padLeft(2, '0')}';
+  }
+
+  String _formatRelativeDate(DateTime dt) {
     final now = DateTime.now();
-    final timeStr = '${dt.hour}:${dt.minute.toString().padLeft(2, '0')}';
-    
     if (dt.day == now.day && dt.month == now.month && dt.year == now.year) {
-      return 'Сегодня $timeStr';
+      return 'Сегодня ${dt.hour}:${dt.minute.toString().padLeft(2, '0')}';
     }
-    
     final yesterday = now.subtract(const Duration(days: 1));
     if (dt.day == yesterday.day && dt.month == yesterday.month && dt.year == yesterday.year) {
-      return 'Вчера $timeStr';
+      return 'Вчера ${dt.hour}:${dt.minute.toString().padLeft(2, '0')}';
     }
     
     return '${dt.day} ${['','янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек'][dt.month]}';

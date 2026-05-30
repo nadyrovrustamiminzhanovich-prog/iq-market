@@ -40,6 +40,23 @@ class ReviewService {
         });
   }
 
+  /// Get reviews strictly for a specific Ad
+  static Stream<List<ReviewModel>> getAdReviewsStream(String adId) {
+    return _db
+        .collection('reviews')
+        .where('adId', isEqualTo: adId)
+        .limit(50)
+        .snapshots()
+        .map((snapshot) {
+          final reviews = snapshot.docs
+            .map((doc) => ReviewModel.fromMap(doc.data(), doc.id))
+            .toList();
+          
+          reviews.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+          return reviews;
+        });
+  }
+
 
   /// Check if a user has already reviewed a specific ad
   static Future<bool> hasUserReviewedAd(String userId, String adId) async {

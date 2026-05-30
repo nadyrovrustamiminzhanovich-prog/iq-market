@@ -29,13 +29,13 @@ class ChatService {
         .collection('chats')
         .doc(chatId)
         .collection('messages')
-        .orderBy('timestamp', descending: false)
+        .orderBy('timestamp', descending: true)
+        .limit(50)
         .snapshots()
         .map((snapshot) {
           final messages = snapshot.docs
             .map((doc) => MessageModel.fromMap(doc.data(), doc.id))
             .toList();
-          messages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
           return messages;
         });
   }
@@ -81,6 +81,7 @@ class ChatService {
       'users': [uid, sellerId],
       'unreadCount_$sellerId': FieldValue.increment(1),
       'name_$uid': actualSenderName,
+      'name_$sellerId': ad.userName,
       'adId': ad.id,
       'adTitle': ad.title,
       'adImage': ad.images.isNotEmpty ? ad.images.first : '',

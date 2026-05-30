@@ -386,15 +386,17 @@ class TaxiProvider extends ChangeNotifier {
         .where('status', isEqualTo: 'active')
         .snapshots()
         .listen((snapshot) {
+      final List<String> userIdsToFetch = [];
       _drives.clear();
       for (var doc in snapshot.docs) {
         final data = doc.data();
         data['id'] = doc.id;
         _drives.add(data);
         if (data['driverId'] != null) {
-          fetchUserRating(data['driverId']);
+          userIdsToFetch.add(data['driverId']);
         }
       }
+      if (userIdsToFetch.isNotEmpty) fetchUserRatingsBatch(userIdsToFetch);
       notifyListeners();
     }, onError: (e) {
       debugPrint("Error syncing taxi_rides: $e");
@@ -406,15 +408,17 @@ class TaxiProvider extends ChangeNotifier {
         .where('status', isEqualTo: 'active')
         .snapshots()
         .listen((snapshot) {
+      final List<String> userIdsToFetch = [];
       _passengerOrders.clear();
       for (var doc in snapshot.docs) {
         final data = doc.data();
         data['id'] = doc.id;
         _passengerOrders.add(data);
         if (data['passengerId'] != null) {
-          fetchUserRating(data['passengerId']);
+          userIdsToFetch.add(data['passengerId']);
         }
       }
+      if (userIdsToFetch.isNotEmpty) fetchUserRatingsBatch(userIdsToFetch);
       notifyListeners();
     }, onError: (e) {
       debugPrint("Error syncing taxi_orders: $e");
@@ -480,15 +484,17 @@ class TaxiProvider extends ChangeNotifier {
           .where('status', isEqualTo: 'accepted')
           .snapshots()
           .listen((snapshot) {
+        final List<String> userIdsToFetch = [];
         _myAcceptedOrders.removeWhere((o) => o['passengerId'] == user.uid);
         for (var doc in snapshot.docs) {
           final data = doc.data();
           data['id'] = doc.id;
           _myAcceptedOrders.add(data);
           if (data['driverId'] != null) {
-            fetchUserRating(data['driverId']);
+            userIdsToFetch.add(data['driverId']);
           }
         }
+        if (userIdsToFetch.isNotEmpty) fetchUserRatingsBatch(userIdsToFetch);
         notifyListeners();
       }, onError: (e) => debugPrint("Error syncing my accepted passenger orders: $e"));
 
@@ -500,15 +506,17 @@ class TaxiProvider extends ChangeNotifier {
           .where('status', isEqualTo: 'accepted')
           .snapshots()
           .listen((snapshot) {
+        final List<String> userIdsToFetch = [];
         _myAcceptedOrders.removeWhere((o) => o['driverId'] == user.uid);
         for (var doc in snapshot.docs) {
           final data = doc.data();
           data['id'] = doc.id;
           _myAcceptedOrders.add(data);
           if (data['passengerId'] != null) {
-            fetchUserRating(data['passengerId']);
+            userIdsToFetch.add(data['passengerId']);
           }
         }
+        if (userIdsToFetch.isNotEmpty) fetchUserRatingsBatch(userIdsToFetch);
         notifyListeners();
       }, onError: (e) => debugPrint("Error syncing my accepted driver orders: $e"));
 
@@ -520,15 +528,17 @@ class TaxiProvider extends ChangeNotifier {
           .where('status', isEqualTo: 'accepted')
           .snapshots()
           .listen((snapshot) {
+        final List<String> userIdsToFetch = [];
         _myAcceptedRides.removeWhere((r) => r['driverId'] == user.uid);
         for (var doc in snapshot.docs) {
           final data = doc.data();
           data['id'] = doc.id;
           _myAcceptedRides.add(data);
           if (data['passengerId'] != null) {
-            fetchUserRating(data['passengerId']);
+            userIdsToFetch.add(data['passengerId']);
           }
         }
+        if (userIdsToFetch.isNotEmpty) fetchUserRatingsBatch(userIdsToFetch);
         notifyListeners();
       }, onError: (e) => debugPrint("Error syncing my accepted rides: $e"));
 
@@ -540,15 +550,17 @@ class TaxiProvider extends ChangeNotifier {
           .where('status', isEqualTo: 'accepted')
           .snapshots()
           .listen((snapshot) {
+        final List<String> userIdsToFetch = [];
         _myAcceptedRides.removeWhere((r) => r['passengerId'] == user.uid);
         for (var doc in snapshot.docs) {
           final data = doc.data();
           data['id'] = doc.id;
           _myAcceptedRides.add(data);
           if (data['driverId'] != null) {
-            fetchUserRating(data['driverId']);
+            userIdsToFetch.add(data['driverId']);
           }
         }
+        if (userIdsToFetch.isNotEmpty) fetchUserRatingsBatch(userIdsToFetch);
         notifyListeners();
       }, onError: (e) => debugPrint("Error syncing my accepted passenger rides: $e"));
     } else {
@@ -561,32 +573,47 @@ class TaxiProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> fetchUserRating(String userId) async {
-    if (_userRatings.containsKey(userId)) return;
+  Future<void> fetchUserRatingsBatch(List<String> userIds) async {
+    final missingIds = userIds.where((id) => !_userRatings.containsKey(id)).toSet().toList();
+    if (missingIds.isEmpty) return;
+    
+    // Блокируем дублирующие вызовы для тех же ID
+    for (var id in missingIds) {
+      _userRatings[id] = 0.0;
+      _userReviewCounts[id] = 0;
+    }
+
     try {
-      final snap = await FirebaseFirestore.instance
-          .collection('taxi_reviews')
-          .where('targetUserId', isEqualTo: userId)
-          .get();
-      if (snap.docs.isEmpty) {
-        _userRatings[userId] = 0.0;
-        _userReviewCounts[userId] = 0;
-      } else {
-        final int count = snap.docs.length;
-        _userReviewCounts[userId] = count;
-        if (count < 5) {
-          _userRatings[userId] = 0.0;
-        } else {
-          double sum = 0.0;
-          for (var doc in snap.docs) {
-            sum += (doc.data()['rating'] as num).toDouble();
+      for (int i = 0; i < missingIds.length; i += 10) {
+        final chunk = missingIds.sublist(i, (i + 10 < missingIds.length) ? i + 10 : missingIds.length);
+        final snap = await FirebaseFirestore.instance
+            .collection('taxi_reviews')
+            .where('targetUserId', whereIn: chunk)
+            .get();
+            
+        final Map<String, List<double>> userReviews = {};
+        for (var doc in snap.docs) {
+          final data = doc.data();
+          final String targetId = data['targetUserId'];
+          final double rating = (data['rating'] as num).toDouble();
+          userReviews.putIfAbsent(targetId, () => []).add(rating);
+        }
+
+        for (var id in chunk) {
+          final reviews = userReviews[id] ?? [];
+          final count = reviews.length;
+          _userReviewCounts[id] = count;
+          if (count < 5) {
+            _userRatings[id] = 0.0;
+          } else {
+            final sum = reviews.reduce((a, b) => a + b);
+            _userRatings[id] = double.parse((sum / count).toStringAsFixed(1));
           }
-          _userRatings[userId] = double.parse((sum / count).toStringAsFixed(1));
         }
       }
       notifyListeners();
     } catch (e) {
-      debugPrint("Error fetching rating: $e");
+      debugPrint("Error fetching ratings batch: $e");
     }
   }
 
@@ -617,6 +644,8 @@ class TaxiProvider extends ChangeNotifier {
     }
   }
 
+  bool _isCreatingOrder = false;
+
   Future<void> createPassengerOrder({
     required String from,
     required String to,
@@ -626,29 +655,37 @@ class TaxiProvider extends ChangeNotifier {
     required int price,
     required String comment,
   }) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
+    if (_isCreatingOrder) return;
+    _isCreatingOrder = true;
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
 
-    final docId = 'order_${user.uid}_${DateTime.now().millisecondsSinceEpoch}';
-    final newOrder = {
-      'id': docId,
-      'passengerId': user.uid,
-      'passengerName': '$_firstName $_lastName'.trim().isEmpty ? 'Пассажир' : '$_firstName $_lastName'.trim(),
-      'passengerPhone': _phone,
-      'passengerImg': user.photoURL ?? '',
-      'from': from,
-      'to': to,
-      'date': date,
-      'time': time,
-      'seats': seats,
-      'price': price,
-      'comment': comment,
-      'status': 'active',
-      'createdAt': FieldValue.serverTimestamp(),
-    };
+      final docRef = FirebaseFirestore.instance.collection('taxi_orders').doc();
+      final newOrder = {
+        'id': docRef.id,
+        'passengerId': user.uid,
+        'passengerName': '$_firstName $_lastName'.trim().isEmpty ? 'Пассажир' : '$_firstName $_lastName'.trim(),
+        'passengerPhone': _phone,
+        'passengerImg': user.photoURL ?? '',
+        'from': from,
+        'to': to,
+        'date': date,
+        'time': time,
+        'seats': seats,
+        'price': price,
+        'comment': comment,
+        'status': 'active',
+        'createdAt': FieldValue.serverTimestamp(),
+      };
 
-    await FirebaseFirestore.instance.collection('taxi_orders').doc(docId).set(newOrder);
+      await docRef.set(newOrder);
+    } finally {
+      _isCreatingOrder = false;
+    }
   }
+
+  bool _isCreatingRide = false;
 
   Future<void> createDriverRide({
     required String from,
@@ -659,31 +696,37 @@ class TaxiProvider extends ChangeNotifier {
     required int price,
     required String comment,
   }) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
+    if (_isCreatingRide) return;
+    _isCreatingRide = true;
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
 
-    final docId = 'ride_${user.uid}_${DateTime.now().millisecondsSinceEpoch}';
-    final newRide = {
-      'id': docId,
-      'driverId': user.uid,
-      'driverName': '$_firstName $_lastName'.trim().isEmpty ? 'Водитель' : '$_firstName $_lastName'.trim(),
-      'driverPhone': _phone,
-      'driverCar': _driverCar,
-      'driverPlate': _driverPlate,
-      'driverImg': user.photoURL ?? '',
-      'driverVerified': _isVehicleVerified,
-      'from': from,
-      'to': to,
-      'date': date,
-      'time': time,
-      'seats': seats,
-      'price': price,
-      'comment': comment,
-      'status': 'active',
-      'createdAt': FieldValue.serverTimestamp(),
-    };
+      final docRef = FirebaseFirestore.instance.collection('taxi_rides').doc();
+      final newRide = {
+        'id': docRef.id,
+        'driverId': user.uid,
+        'driverName': '$_firstName $_lastName'.trim().isEmpty ? 'Водитель' : '$_firstName $_lastName'.trim(),
+        'driverPhone': _phone,
+        'driverCar': _driverCar,
+        'driverPlate': _driverPlate,
+        'driverImg': user.photoURL ?? '',
+        'driverVerified': _isVehicleVerified,
+        'from': from,
+        'to': to,
+        'date': date,
+        'time': time,
+        'seats': seats,
+        'price': price,
+        'comment': comment,
+        'status': 'active',
+        'createdAt': FieldValue.serverTimestamp(),
+      };
 
-    await FirebaseFirestore.instance.collection('taxi_rides').doc(docId).set(newRide);
+      await docRef.set(newRide);
+    } finally {
+      _isCreatingRide = false;
+    }
   }
 
   // ─── BIDS & REVIEWS SERVICES ─────────────────────────────────────────────
@@ -727,83 +770,100 @@ class TaxiProvider extends ChangeNotifier {
   }
 
   Future<void> acceptBid(String bidId) async {
-    final bidSnap = await FirebaseFirestore.instance.collection('taxi_bids').doc(bidId).get();
-    if (!bidSnap.exists) return;
-    
-    final bidData = bidSnap.data();
-    if (bidData == null) return;
+    final db = FirebaseFirestore.instance;
+    final bidRef = db.collection('taxi_bids').doc(bidId);
 
-    final targetId = bidData['targetId'];
-    final targetType = bidData['targetType'];
+    try {
+      await db.runTransaction((transaction) async {
+        final bidSnap = await transaction.get(bidRef);
+        if (!bidSnap.exists) throw Exception('Bid not found');
+        
+        final bidData = bidSnap.data()!;
+        if (bidData['status'] != 'pending') {
+          throw Exception('Это предложение уже было обработано.');
+        }
 
-    // Update the accepted bid status
-    await FirebaseFirestore.instance.collection('taxi_bids').doc(bidId).update({
-      'status': 'accepted',
-    });
+        final targetId = bidData['targetId'];
+        final targetType = bidData['targetType'];
+        final collectionName = targetType == 'order' ? 'taxi_orders' : 'taxi_rides';
+        final targetRef = db.collection(collectionName).doc(targetId);
 
-    if (targetType == 'order') {
-      // 🚗 Driver bid accepted by Passenger
-      await FirebaseFirestore.instance.collection('taxi_orders').doc(targetId).update({
-        'status': 'accepted',
-        'driverId': bidData['senderId'],
-        'driverName': bidData['senderName'],
-        'driverPhone': bidData['senderPhone'],
-        'driverImg': bidData['senderImg'],
-        'driverCar': bidData['senderCar'] ?? 'Машина не указана',
-        'driverPlate': bidData['senderPlate'] ?? 'Б/Н',
-        'driverVerified': bidData['senderVerified'] ?? false,
-        'price': bidData['offeredPrice'], // Apply agreed price
+        final targetSnap = await transaction.get(targetRef);
+        if (!targetSnap.exists) throw Exception('Target not found');
+        
+        final targetData = targetSnap.data()!;
+        if (targetData['status'] != 'active') {
+          throw Exception('Извините, этот заказ уже принят другим пользователем.');
+        }
+
+        // 1. Обновляем статус ставки
+        transaction.update(bidRef, {'status': 'accepted'});
+
+        // 2. Обновляем статус самого заказа/поездки
+        if (targetType == 'order') {
+          transaction.update(targetRef, {
+            'status': 'accepted',
+            'driverId': bidData['senderId'],
+            'driverName': bidData['senderName'],
+            'driverPhone': bidData['senderPhone'],
+            'driverImg': bidData['senderImg'],
+            'driverCar': bidData['senderCar'] ?? 'Машина не указана',
+            'driverPlate': bidData['senderPlate'] ?? 'Б/Н',
+            'driverVerified': bidData['senderVerified'] ?? false,
+            'price': bidData['offeredPrice'],
+          });
+        } else if (targetType == 'ride') {
+          transaction.update(targetRef, {
+            'status': 'accepted',
+            'passengerId': bidData['senderId'],
+            'passengerName': bidData['senderName'],
+            'passengerPhone': bidData['senderPhone'],
+            'passengerImg': bidData['senderImg'],
+            'price': bidData['offeredPrice'],
+          });
+        }
       });
 
-      // 🔔 Notify driver that passenger accepted their bid!
-      await NotificationService.saveNotificationToFirestore(
-        title: 'Предложение принято! 🎉',
-        body: 'Пассажир принял вашу ставку на ${bidData['offeredPrice']} ₸. Свяжитесь для выезда!',
-        type: 'taxi_bid_accepted',
-        uid: bidData['senderId'],
-      );
+      // ─── После успешной транзакции выполняем сайд-эффекты ───
+      final bidSnap = await bidRef.get();
+      final bidData = bidSnap.data()!;
+      final targetId = bidData['targetId'];
+      final targetType = bidData['targetType'];
 
-      // Auto-reject other bids for this order
-      final otherBids = await FirebaseFirestore.instance
+      if (targetType == 'order') {
+        await NotificationService.saveNotificationToFirestore(
+          title: 'Предложение принято! 🎉',
+          body: 'Пассажир принял вашу ставку на ${bidData['offeredPrice']} ₸. Свяжитесь для выезда!',
+          type: 'taxi_bid_accepted',
+          uid: bidData['senderId'],
+        );
+      } else {
+        await NotificationService.saveNotificationToFirestore(
+          title: 'Поездка подтверждена! 🚙',
+          body: 'Водитель принял вашу ставку на ${bidData['offeredPrice']} ₸. Свяжитесь для выезда!',
+          type: 'taxi_bid_accepted',
+          uid: bidData['senderId'],
+        );
+      }
+
+      // Отменяем остальные ожидающие ставки
+      final otherBids = await db
           .collection('taxi_bids')
           .where('targetId', isEqualTo: targetId)
           .where('status', isEqualTo: 'pending')
           .get();
+          
+      final batch = db.batch();
       for (var doc in otherBids.docs) {
         if (doc.id != bidId) {
-          await doc.reference.update({'status': 'rejected'});
+          batch.update(doc.reference, {'status': 'rejected'});
         }
       }
-    } else if (targetType == 'ride') {
-      // 🚙 Passenger bid accepted by Driver
-      await FirebaseFirestore.instance.collection('taxi_rides').doc(targetId).update({
-        'status': 'accepted',
-        'passengerId': bidData['senderId'],
-        'passengerName': bidData['senderName'],
-        'passengerPhone': bidData['senderPhone'],
-        'passengerImg': bidData['senderImg'],
-        'price': bidData['offeredPrice'], // Apply agreed price
-      });
+      await batch.commit();
 
-      // 🔔 Notify passenger that driver accepted their bid!
-      await NotificationService.saveNotificationToFirestore(
-        title: 'Поездка подтверждена! 🚙',
-        body: 'Водитель принял вашу ставку на ${bidData['offeredPrice']} ₸. Свяжитесь для выезда!',
-        type: 'taxi_bid_accepted',
-        uid: bidData['senderId'],
-      );
-
-      // Auto-reject other bids for this ride
-      final otherBids = await FirebaseFirestore.instance
-          .collection('taxi_bids')
-          .where('targetId', isEqualTo: targetId)
-          .where('status', isEqualTo: 'pending')
-          .get();
-      for (var doc in otherBids.docs) {
-        if (doc.id != bidId) {
-          await doc.reference.update({'status': 'rejected'});
-        }
-      }
+    } catch (e) {
+      debugPrint('Transaction failed: $e');
+      rethrow; // Пробрасываем ошибку дальше, чтобы перехватить в UI (try-catch)
     }
   }
 

@@ -3,7 +3,6 @@ import 'dart:math';
 import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:iqmarket/services/api_keys.dart';
 
 class TelegramBotService {
@@ -24,8 +23,9 @@ class TelegramBotService {
     return List.generate(6, (_) => rand.nextInt(10)).join();
   }
 
-  // ─── STEP 1: Create Firebase session + open bot with deep link ───────────────
-  /// Returns sessionToken that you then poll for chat_id
+  // ─── STEP 1: Create Firebase session (without opening bot) ─────────────────────
+  /// Returns sessionToken. Call [buildBotUrl] to get the deep-link, then open
+  /// it at the right moment (e.g., after a countdown in the UI).
   static Future<String> startAuthSession({String? phone}) async {
     final token = _randomAlnum(24);
     await FirebaseFirestore.instance
@@ -38,13 +38,14 @@ class TelegramBotService {
       'otp': null,
       if (phone != null) 'phone': phone,
     });
-    // Wait a bit to ensure Firestore is synced before bot accesses it
-    await Future.delayed(const Duration(milliseconds: 1000));
-    
-    // Open bot via Telegram deep link — bot will capture chat_id from /start <token>
-    final botUrl = 'https://t.me/$_botUsername?start=$token';
-    await launchUrl(Uri.parse(botUrl), mode: LaunchMode.externalApplication);
+    // Brief pause to ensure Firestore is synced before the bot reads it
+    await Future.delayed(const Duration(milliseconds: 800));
     return token;
+  }
+
+  // ─── Build the Telegram deep-link URL for a session token ───────────────────
+  static String buildBotUrl(String token) {
+    return 'https://t.me/$_botUsername?start=$token';
   }
 
   // ─── STEP 2: Poll Firestore until bot assigns chat_id ───────────────────────

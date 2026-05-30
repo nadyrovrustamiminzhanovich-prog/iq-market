@@ -201,6 +201,19 @@
         { "fieldPath": "targetId", "order": "ASCENDING" },
         { "fieldPath": "status",   "order": "ASCENDING" }
       ]
+    },
+
+    // ─── TELEGRAM AUTH SESSIONS (tg_auth_sessions) ───────────────────────────
+
+    // telegramWebhook contact handler — find active unverified session by chat_id
+    {
+      "collectionGroup": "tg_auth_sessions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "chat_id",    "order": "ASCENDING"  },
+        { "fieldPath": "verified",   "order": "ASCENDING"  },
+        { "fieldPath": "created_at", "order": "DESCENDING" }
+      ]
     }
 
   ],
