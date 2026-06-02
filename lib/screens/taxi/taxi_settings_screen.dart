@@ -127,7 +127,7 @@ class TaxiSettingsScreen extends StatelessWidget {
 
   Widget _notif(TaxiProvider provider) => Switch(
     value: provider.notifEnabled,
-    activeColor: provider.theme.lime,
+    activeThumbColor: provider.theme.lime,
     activeTrackColor: provider.theme.lime.withValues(alpha: 0.5),
     onChanged: (v) => provider.setNotifEnabled(v),
   );

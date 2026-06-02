@@ -666,20 +666,6 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
     ),
   );
 
-  Widget _statChip(TaxiTheme t, String val, String label, IconData icon, Color color) => Column(
-    children: [
-      Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(color: color.withValues(alpha: 0.1), shape: BoxShape.circle),
-        child: Icon(icon, color: color, size: 24),
-      ),
-      const SizedBox(height: 8),
-      Text(val, style: GoogleFonts.inter(color: t.text, fontWeight: FontWeight.w700, fontSize: val.length > 5 ? 12 : 16)),
-      const SizedBox(height: 2),
-      Text(label, style: GoogleFonts.inter(color: t.sub, fontWeight: FontWeight.w600, fontSize: 8, letterSpacing: 0.5)),
-    ],
-  );
-
   Widget _ratingBox(TaxiTheme t, String rate) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
     decoration: BoxDecoration(

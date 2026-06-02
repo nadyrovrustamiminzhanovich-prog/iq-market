@@ -189,7 +189,7 @@ class _TaxiProfileScreenState extends State<TaxiProfileScreen> {
             Container(width: 40, height: 4, decoration: BoxDecoration(color: widget.t.sub.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(10))),
             const SizedBox(height: 25),
             Text(
-              provider.translate('profile_photo') ?? 'Фото профиля', 
+              provider.translate('profile_photo'), 
               style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w700, color: widget.t.text)
             ),
             const SizedBox(height: 10),
