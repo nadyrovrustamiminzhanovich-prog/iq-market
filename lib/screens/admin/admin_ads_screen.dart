@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+import 'package:iqmarket/providers/app_config_provider.dart';
 import 'package:iqmarket/services/ad_service.dart';
 
 import 'package:iqmarket/models/ad_model.dart';
@@ -170,7 +172,8 @@ class _AdminAdsScreenState extends State<AdminAdsScreen> with SingleTickerProvid
         if (_isSelectionMode) {
           setState(() { if (isSelected) { _selectedAdIds.remove(ad.id); if (_selectedAdIds.isEmpty) _isSelectionMode = false; } else { _selectedAdIds.add(ad.id); } });
         } else {
-          Navigator.push(context, MaterialPageRoute(builder: (c) => ProductDetailsScreen(ad: ad, lang: 'Русский', onReport: (_) {}, heroPrefix: 'admin_')));
+          final lang = Provider.of<AppConfigProvider>(context, listen: false).language;
+          Navigator.push(context, MaterialPageRoute(builder: (c) => ProductDetailsScreen(ad: ad, lang: lang, onReport: (_) {}, heroPrefix: 'admin_')));
         }
       },
       child: Container(

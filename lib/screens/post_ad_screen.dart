@@ -16,7 +16,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/services.dart';
 import 'package:iqmarket/widgets/post_ad/category_selector.dart';
 import 'package:iqmarket/widgets/post_ad/location_selector.dart';
 import 'package:iqmarket/widgets/post_ad/image_picker_section.dart';

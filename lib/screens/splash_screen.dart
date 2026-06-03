@@ -1,4 +1,3 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -23,15 +22,11 @@ class _SplashScreenState extends State<SplashScreen>
   // Логотип
   late final Animation<double> _logoScale;
   late final Animation<double> _logoOpacity;
-  late final Animation<double> _logoBlur;
 
   // Текст
   late final Animation<double> _textOpacity;
   late final Animation<Offset> _textSlide;
 
-  // Кольца
-  late final Animation<double> _ring1;
-  late final Animation<double> _ring2;
 
   // Выход
   late final Animation<double> _exitOpacity;
@@ -68,9 +63,6 @@ class _SplashScreenState extends State<SplashScreen>
           parent: _logoCtrl,
           curve: const Interval(0.0, 0.6, curve: Curves.easeOut)),
     );
-    _logoBlur = Tween<double>(begin: 12.0, end: 0.0).animate(
-      CurvedAnimation(parent: _logoCtrl, curve: Curves.easeOut),
-    );
 
     // ── Анимации текста ───────────────────────────────────────────────────
     _textOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
@@ -80,17 +72,6 @@ class _SplashScreenState extends State<SplashScreen>
             begin: const Offset(0, 0.4), end: Offset.zero)
         .animate(CurvedAnimation(parent: _textCtrl, curve: Curves.easeOutCubic));
 
-    // ── Кольца-пульс ─────────────────────────────────────────────────────
-    _ring1 = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-          parent: _ringCtrl,
-          curve: const Interval(0.0, 0.8, curve: Curves.easeOut)),
-    );
-    _ring2 = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-          parent: _ringCtrl,
-          curve: const Interval(0.25, 1.0, curve: Curves.easeOut)),
-    );
 
     // ── Выход ─────────────────────────────────────────────────────────────
     _exitOpacity = Tween<double>(begin: 1.0, end: 0.0).animate(
@@ -242,60 +223,3 @@ class _SplashScreenState extends State<SplashScreen>
   }
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// Painter для частиц (мерцающие звёздочки на фоне)
-// ──────────────────────────────────────────────────────────────────────────────
-class _ParticlePainter extends CustomPainter {
-  final double progress;
-  static final List<_Particle> _particles = List.generate(
-    35,
-    (i) => _Particle(seed: i),
-  );
-
-  _ParticlePainter(this.progress);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    for (final p in _particles) {
-      final t = (progress + p.offset) % 1.0;
-      final opacity = (sin(t * pi * 2) * 0.5 + 0.5) * 0.6;
-      final paint = Paint()
-        ..color = p.color.withValues(alpha: opacity)
-        ..style = PaintingStyle.fill;
-
-      canvas.drawCircle(
-        Offset(p.x * size.width, p.y * size.height),
-        p.radius,
-        paint,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(_ParticlePainter old) => true;
-}
-
-class _Particle {
-  final double x;
-  final double y;
-  final double radius;
-  final double offset;
-  final Color color;
-
-  _Particle({required int seed})
-      : x = _hash(seed * 7 + 1),
-        y = _hash(seed * 13 + 3),
-        radius = 1.0 + _hash(seed * 17 + 7) * 2.0,
-        offset = _hash(seed * 5 + 2),
-        color = seed % 3 == 0
-            ? const Color(0xFF4A80F0)
-            : seed % 3 == 1
-                ? const Color(0xFF00B2FF)
-                : Colors.white;
-
-  static double _hash(int n) {
-    // Простой детерминированный "рандом" для одинаковой картинки каждый раз
-    final x = (n * 1664525 + 1013904223) & 0xFFFFFFFF;
-    return (x / 0xFFFFFFFF).clamp(0.0, 1.0);
-  }
-}

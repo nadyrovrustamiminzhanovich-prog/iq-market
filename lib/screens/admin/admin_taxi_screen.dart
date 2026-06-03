@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
-import 'package:iqmarket/theme/taxi_theme.dart';
 
 class AdminTaxiScreen extends StatefulWidget {
   const AdminTaxiScreen({super.key});
@@ -163,6 +162,7 @@ class _AdminTaxiScreenState extends State<AdminTaxiScreen> with SingleTickerProv
     final String from = data['from'] ?? '';
     final String to = data['to'] ?? '';
     final int price = (data['price'] ?? 0) as int;
+    // ignore: unused_local_variable
     final int seats = (data['seats'] ?? 1) as int;
     final String comment = data['comment'] ?? '';
     final String phone = isOrder ? (data['passengerPhone'] ?? '') : (data['driverPhone'] ?? '');

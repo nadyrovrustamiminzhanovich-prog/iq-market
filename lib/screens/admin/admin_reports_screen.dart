@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import 'package:iqmarket/providers/app_config_provider.dart';
 import 'package:iqmarket/screens/product_details_screen.dart';
 import 'package:iqmarket/services/ad_service.dart';
 
@@ -137,7 +139,8 @@ class AdminReportsScreen extends StatelessWidget {
     try {
       final ad = await AdService.getAdById(adId);
       if (ad != null && context.mounted) {
-        Navigator.push(context, MaterialPageRoute(builder: (c) => ProductDetailsScreen(ad: ad, onReport: (_){}, lang: 'Русский', heroPrefix: null)));
+        final lang = Provider.of<AppConfigProvider>(context, listen: false).language;
+        Navigator.push(context, MaterialPageRoute(builder: (c) => ProductDetailsScreen(ad: ad, onReport: (_){}, lang: lang, heroPrefix: null)));
       }
     } catch (e) {
       if (context.mounted) {

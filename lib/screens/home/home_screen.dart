@@ -561,7 +561,10 @@ class _IQMarketHomeState extends State<IQMarketHome> {
   Widget _sectionHeader(String title) => Padding(padding: const EdgeInsets.fromLTRB(16, 24, 16, 16), child: Text(title, style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w900)));
   
   void _navToTaxi(AppConfigProvider config) => Navigator.push(context, MaterialPageRoute(builder: (_) => TaxiServiceScreen(lang: config.language)));
-  void _showDetails(AdModel ad) => Navigator.push(context, MaterialPageRoute(builder: (_) => ProductDetailsScreen(ad: ad, lang: 'Русский', onReport: (_){}, heroPrefix: 'home_')));
+  void _showDetails(AdModel ad) {
+    final lang = Provider.of<AppConfigProvider>(context, listen: false).language;
+    Navigator.push(context, MaterialPageRoute(builder: (_) => ProductDetailsScreen(ad: ad, lang: lang, onReport: (_){}, heroPrefix: 'home_')));
+  }
 
   void _listen() async {
     if (!_isListening) {

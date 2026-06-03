@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -24,7 +23,6 @@ import 'package:iqmarket/screens/leave_review_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:iqmarket/screens/post_ad_screen.dart';
-import 'package:iqmarket/services/ai_limit_service.dart';
 import 'package:iqmarket/services/chat_service.dart';
 import 'package:iqmarket/widgets/auth_gate_bottom_sheet.dart';
 
@@ -629,7 +627,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
           Text('Отзывы', style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w800)),
-          if (_seller?.rating != null) Row(children: [const Icon(Icons.star_rounded, color: Colors.orange, size: 20), const SizedBox(width: 4), Text(_seller!.rating!.toStringAsFixed(1), style: GoogleFonts.inter(fontWeight: FontWeight.w900))]),
+          if (_seller != null && _seller!.rating > 0) Row(children: [const Icon(Icons.star_rounded, color: Colors.orange, size: 20), const SizedBox(width: 4), Text(_seller!.rating.toStringAsFixed(1), style: GoogleFonts.inter(fontWeight: FontWeight.w900))]),
         ]),
         const SizedBox(height: 16),
         StreamBuilder<List<ReviewModel>>(
@@ -804,10 +802,10 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
         CircleAvatar(
           radius: 28, 
           backgroundColor: const Color(0xFFF1F5F9), 
-          backgroundImage: (_seller?.photoUrl != null && _seller!.photoUrl!.startsWith('http')) 
-            ? CachedNetworkImageProvider(_seller!.photoUrl!) 
+          backgroundImage: (_seller != null && _seller!.photoUrl.isNotEmpty && _seller!.photoUrl.startsWith('http')) 
+            ? CachedNetworkImageProvider(_seller!.photoUrl) 
             : null, 
-          child: (_seller?.photoUrl == null || !_seller!.photoUrl!.startsWith('http')) 
+          child: (_seller == null || _seller!.photoUrl.isEmpty || !_seller!.photoUrl.startsWith('http')) 
             ? const Icon(Icons.person) 
             : null
         ),
@@ -817,8 +815,8 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
           Text(_seller?.name ?? widget.ad.userName, style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w800)),
           // ✅ Динамическая дата регистрации из Firestore
           Text(
-            _seller?.registrationDate != null
-              ? 'На рынке с ${_seller!.registrationDate!.year}'
+            _seller != null
+              ? 'На рынке с ${_seller!.registrationDate.year}'
               : 'Продавец IQ Market',
             style: GoogleFonts.inter(fontSize: 13, color: Colors.grey),
           ),

@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:iqmarket/screens/ai_assistant_screen.dart';
-import 'package:iqmarket/screens/chat_screen.dart';
-import 'package:iqmarket/models/ad_model.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 class HelpCenterScreen extends StatefulWidget {

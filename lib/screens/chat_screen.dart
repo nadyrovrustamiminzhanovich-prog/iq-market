@@ -5,12 +5,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:record/record.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:iqmarket/models/ad_model.dart';
 import 'package:iqmarket/models/message_model.dart';
+import 'package:iqmarket/providers/app_config_provider.dart';
 
 import 'package:iqmarket/services/chat_service.dart';
 import 'package:iqmarket/services/user_service.dart';
@@ -483,8 +485,9 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       final ads = adsList;
       
       if (mounted) {
+        final lang = Provider.of<AppConfigProvider>(context, listen: false).language;
         Navigator.pop(context);
-        Navigator.push(context, MaterialPageRoute(builder: (_) => SellerProfileScreen(seller: widget.ad, lang: 'Русский', sellerAds: ads)));
+        Navigator.push(context, MaterialPageRoute(builder: (_) => SellerProfileScreen(seller: widget.ad, lang: lang, sellerAds: ads)));
       }
     } catch (e) {
       if (mounted) Navigator.pop(context);

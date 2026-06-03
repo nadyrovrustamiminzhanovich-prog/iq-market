@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import 'package:iqmarket/models/ad_model.dart';
 import 'package:iqmarket/models/user_model.dart';
+import 'package:iqmarket/providers/app_config_provider.dart';
 import 'package:iqmarket/services/chat_service.dart';
 import 'package:iqmarket/services/user_service.dart';
 import 'package:iqmarket/screens/product_details_screen.dart';
@@ -138,7 +140,8 @@ class ChatAdInfoBar extends StatelessWidget {
             if (ad.category == 'Taxi') {
               _showTaxiDetails(context);
             } else {
-              Navigator.push(context, MaterialPageRoute(builder: (context) => ProductDetailsScreen(ad: ad, onReport: (_) {}, lang: 'Русский', heroPrefix: 'chat_')));
+              final lang = Provider.of<AppConfigProvider>(context, listen: false).language;
+              Navigator.push(context, MaterialPageRoute(builder: (context) => ProductDetailsScreen(ad: ad, onReport: (_) {}, lang: lang, heroPrefix: 'chat_')));
             }
           },
           style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
