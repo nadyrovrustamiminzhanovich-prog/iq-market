@@ -34,16 +34,17 @@ class TaxiPassengerView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final currentUser = FirebaseAuth.instance.currentUser;
-    if (currentUser == null) return const SizedBox.shrink();
+    // Гости видят форму и список водителей.
+    // При попытке оформить заказ — перенаправляем на логин (через onSubmitTap).
 
     // Check if the current passenger has an active order (looking for drivers)
-    final myActiveOrder = provider.allPassengerOrders.firstWhere(
+    final myActiveOrder = currentUser == null ? <String, dynamic>{} : provider.allPassengerOrders.firstWhere(
       (o) => o['passengerId'] == currentUser.uid && o['status'] == 'active',
       orElse: () => <String, dynamic>{},
     );
 
     // Check if the current passenger has an accepted/in progress order
-    final myAssignedOrder = provider.allPassengerOrders.firstWhere(
+    final myAssignedOrder = currentUser == null ? <String, dynamic>{} : provider.allPassengerOrders.firstWhere(
       (o) => o['passengerId'] == currentUser.uid && o['status'] == 'accepted',
       orElse: () => <String, dynamic>{},
     );
@@ -141,6 +142,53 @@ class TaxiPassengerView extends StatelessWidget {
 
     return Column(
       children: [
+        // Баннер для гостей
+        if (currentUser == null)
+          GestureDetector(
+            onTap: onNavigateToLogin,
+            child: Container(
+              margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF4A80F0), Color(0xFF6366F1)],
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                ),
+                borderRadius: BorderRadius.circular(18),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF4A80F0).withValues(alpha: 0.3),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.login_rounded, color: Colors.white, size: 22),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Войдите чтобы создать заказ',
+                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 14),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'Вы можете смотреть водителей без входа',
+                          style: TextStyle(color: Colors.white70, fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white70, size: 14),
+                ],
+              ),
+            ),
+          ),
         complexFormWidget,
         const SizedBox(height: 24),
         // Section header with count badge

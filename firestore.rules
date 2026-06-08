@@ -33,7 +33,7 @@ service cloud.firestore {
     }
 
     match /ads/{adId} {
-      allow read: if true;
+      allow read: if isSignedIn();
       allow create: if isSignedIn();
       allow update, delete: if isSignedIn() && (isOwner(resource.data.userId) || isAdmin());
     }
@@ -55,7 +55,7 @@ service cloud.firestore {
     }
 
     match /reviews/{reviewId} {
-      allow read: if true;
+      allow read: if isSignedIn();
       allow create: if isSignedIn();
       allow update, delete: if isSignedIn() && isOwner(resource.data.fromUserId);
     }
@@ -67,9 +67,10 @@ service cloud.firestore {
 
     // Правила для Telegram Auth Сессий (X10 Security)
     match /tg_auth_sessions/{sessionId} {
-      allow create: if true; // Клиент создает токен сессии
-      allow read: if true;   // Клиент слушает ответ от бота
-      allow update, delete: if false; // Только Cloud Functions могут обновлять токен (OTP/CustomToken)
+      allow create: if true; 
+      allow get: if true; 
+      allow list: if false; 
+      allow update, delete: if false; 
     }
 
     // Для Driver Verification (хоть такси и отложили, правила должны быть)
@@ -91,7 +92,7 @@ service cloud.firestore {
     // пассажир принимает ставку водителя и наоборот — оба пишут в оба документа.
     // delete оставлен только владельцу документа (создателю) и админу.
     match /taxi_rides/{rideId} {
-      allow read: if true;
+      allow read: if isSignedIn();
       allow create: if isSignedIn();
       allow update: if isSignedIn() && (
         request.auth.uid == resource.data.driverId ||
@@ -105,7 +106,7 @@ service cloud.firestore {
     }
 
     match /taxi_orders/{orderId} {
-      allow read: if true;
+      allow read: if isSignedIn();
       allow create: if isSignedIn();
       allow update: if isSignedIn() && (
         request.auth.uid == resource.data.passengerId ||
@@ -125,7 +126,7 @@ service cloud.firestore {
     }
 
     match /taxi_reviews/{reviewId} {
-      allow read: if true;
+      allow read: if isSignedIn();
       allow create: if isSignedIn();
       allow update, delete: if isSignedIn() && (request.auth.uid == resource.data.authorId || isAdmin());
     }

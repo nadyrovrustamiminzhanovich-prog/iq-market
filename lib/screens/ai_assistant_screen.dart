@@ -247,6 +247,8 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     _controller.dispose();
     _scrollController.dispose();
     _azureTts.stop();
+    flutterTts.stop();
+    _speech.cancel();
     super.dispose();
   }
 
@@ -544,7 +546,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
               border: Border.all(color: const Color(0xFF4A80F0).withValues(alpha: 0.15), width: 1.5),
                   boxShadow: [
                     BoxShadow(
-                        color: Colors.black.withOpacity(0.04),
+                        color: Colors.black.withValues(alpha: 0.04),
                         blurRadius: 20,
                         offset: const Offset(0, 10))
                   ],
@@ -629,9 +631,9 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                   margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF4A80F0).withOpacity(0.08),
+                    color: const Color(0xFF4A80F0).withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFF4A80F0).withOpacity(0.15), width: 1),
+                    border: Border.all(color: const Color(0xFF4A80F0).withValues(alpha: 0.15), width: 1),
                   ),
                   child: Row(
                     children: [

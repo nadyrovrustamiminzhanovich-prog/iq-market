@@ -12,7 +12,10 @@ class AuthService {
 
   static Future<void> init() async {
     try {
-      // ✅ БЕЗОПАСНОСТЬ: serverClientId НЕ передаём явно в Dart-коде.
+      // Явно прописываем serverClientId для фикса DEVELOPER_ERROR на Xiaomi
+      await _googleSignIn.initialize(
+        serverClientId: '984873146578-ers7tbn7972bk4g0qoufq28kq3ttsgbn.apps.googleusercontent.com',
+      );
       // Он уже содержится в google-services.json (поле client_id → oauth_client type=3),
       // который автоматически читается google-services плагином при сборке.
       // Хранить Client ID в Dart-коде небезопасно: он видим при декомпиляции APK.

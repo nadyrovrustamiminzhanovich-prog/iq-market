@@ -66,7 +66,7 @@ class ImagePickerSection extends StatelessWidget {
                           child: Container(
                             padding: const EdgeInsets.symmetric(vertical: 4),
                             decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.6),
+                              color: Colors.black.withValues(alpha: 0.6),
                               borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
                             ),
                             child: const Text(
@@ -107,7 +107,7 @@ class ImagePickerSection extends StatelessWidget {
         const SizedBox(height: 12),
         Container(
           padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(color: const Color(0xFF4A80F0).withOpacity(0.05), borderRadius: BorderRadius.circular(12)),
+          decoration: BoxDecoration(color: const Color(0xFF4A80F0).withValues(alpha: 0.05), borderRadius: BorderRadius.circular(12)),
           child: Row(
             children: [
               const Icon(Icons.info_outline_rounded, size: 16, color: Color(0xFF4A80F0)),
@@ -130,9 +130,9 @@ class ImagePickerSection extends StatelessWidget {
       width: 100,
       margin: const EdgeInsets.only(right: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF6366F1).withOpacity(0.1),
+        color: const Color(0xFF6366F1).withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF6366F1).withOpacity(0.3)),
+        border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.3)),
       ),
       child: Stack(
         children: [
@@ -159,9 +159,9 @@ class ImagePickerSection extends StatelessWidget {
       child: Container(
         height: 80,
         decoration: BoxDecoration(
-          color: (color ?? const Color(0xFF64748B)).withOpacity(0.05),
+          color: (color ?? const Color(0xFF64748B)).withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: (color ?? const Color(0xFF64748B)).withOpacity(0.2), width: 2),
+          border: Border.all(color: (color ?? const Color(0xFF64748B)).withValues(alpha: 0.2), width: 2),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,

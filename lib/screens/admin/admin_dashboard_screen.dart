@@ -69,13 +69,13 @@ class AdminDashboardScreen extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(28),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 15, offset: const Offset(0, 5))],
-          border: Border.all(color: Colors.grey.withOpacity(0.05)),
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 15, offset: const Offset(0, 5))],
+          border: Border.all(color: Colors.grey.withValues(alpha: 0.05)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle), child: Icon(icon, color: color, size: 20)),
+            Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: color.withValues(alpha: 0.1), shape: BoxShape.circle), child: Icon(icon, color: color, size: 20)),
             const SizedBox(height: 16),
             Text(value, style: GoogleFonts.outfit(fontSize: 24, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A))),
             Text(label, style: GoogleFonts.outfit(fontSize: 9, fontWeight: FontWeight.w700, color: Colors.grey[400], letterSpacing: 0.5)),
@@ -90,7 +90,7 @@ class AdminDashboardScreen extends StatelessWidget {
       height: 280,
       width: double.infinity,
       padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(28), border: Border.all(color: Colors.grey.withOpacity(0.05))),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(28), border: Border.all(color: Colors.grey.withValues(alpha: 0.05))),
       child: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance.collection('ads').limit(100).snapshots(),
         builder: (context, snapshot) {
@@ -131,7 +131,7 @@ class AdminDashboardScreen extends StatelessWidget {
       height: 240,
       width: double.infinity,
       padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(28), border: Border.all(color: Colors.grey.withOpacity(0.05))),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(28), border: Border.all(color: Colors.grey.withValues(alpha: 0.05))),
       child: LineChart(
         LineChartData(
           gridData: const FlGridData(show: false),
@@ -145,7 +145,7 @@ class AdminDashboardScreen extends StatelessWidget {
               barWidth: 4,
               isStrokeCapRound: true,
               dotData: const FlDotData(show: false),
-              belowBarData: BarAreaData(show: true, gradient: LinearGradient(colors: [const Color(0xFF6366F1).withOpacity(0.1), const Color(0xFF6366F1).withOpacity(0)])),
+              belowBarData: BarAreaData(show: true, gradient: LinearGradient(colors: [const Color(0xFF6366F1).withValues(alpha: 0.1), const Color(0xFF6366F1).withValues(alpha: 0)])),
             ),
           ],
         ),

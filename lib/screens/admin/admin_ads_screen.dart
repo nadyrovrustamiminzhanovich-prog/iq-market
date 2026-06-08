@@ -112,7 +112,7 @@ class _AdminAdsScreenState extends State<AdminAdsScreen> with SingleTickerProvid
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 20, offset: const Offset(0, -5))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 20, offset: const Offset(0, -5))],
       ),
       child: Row(
         children: [
@@ -181,8 +181,8 @@ class _AdminAdsScreenState extends State<AdminAdsScreen> with SingleTickerProvid
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(28),
-          border: Border.all(color: isSelected ? const Color(0xFF6366F1) : Colors.grey.withOpacity(0.1), width: isSelected ? 2 : 1),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 5))],
+          border: Border.all(color: isSelected ? const Color(0xFF6366F1) : Colors.grey.withValues(alpha: 0.1), width: isSelected ? 2 : 1),
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10, offset: const Offset(0, 5))],
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(28),
@@ -203,7 +203,7 @@ class _AdminAdsScreenState extends State<AdminAdsScreen> with SingleTickerProvid
                         errorWidget: (context, url, error) => Container(color: Colors.grey[100], child: const Icon(Icons.image_not_supported_rounded, color: Colors.grey)),
                       ),
                     ),
-                    if (isSelected) Container(color: const Color(0xFF6366F1).withOpacity(0.2)),
+                    if (isSelected) Container(color: const Color(0xFF6366F1).withValues(alpha: 0.2)),
                     if (isSelected) Positioned(top: 12, right: 12, child: Container(padding: const EdgeInsets.all(4), decoration: const BoxDecoration(color: Color(0xFF6366F1), shape: BoxShape.circle), child: const Icon(Icons.check, color: Colors.white, size: 14))),
                   ],
                 ),
@@ -228,7 +228,7 @@ class _AdminAdsScreenState extends State<AdminAdsScreen> with SingleTickerProvid
                         Expanded(
                           child: OutlinedButton(
                             onPressed: () => _handleDelete(ad),
-                            style: OutlinedButton.styleFrom(side: BorderSide(color: Colors.redAccent.withOpacity(0.5)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 12)),
+                            style: OutlinedButton.styleFrom(side: BorderSide(color: Colors.redAccent.withValues(alpha: 0.5)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 12)),
                             child: Text('ОТКЛОНИТЬ', style: GoogleFonts.outfit(fontWeight: FontWeight.w800, color: Colors.redAccent, fontSize: 12)),
                           ),
                         ),

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -70,11 +71,12 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   late String _currentTheme;
 
   bool get _isDark => _currentTheme == 'Dark' || Theme.of(context).brightness == Brightness.dark;
-  Color get _bgColor => Theme.of(context).colorScheme.surface;
-  Color get _surfaceColor => Theme.of(context).colorScheme.surface;
-  Color get _txtColor => Theme.of(context).colorScheme.onSurface;
-  Color get _subtxtColor => Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6);
-  Color get _primaryColor => Theme.of(context).colorScheme.primary;
+  Color get _bgColor => widget.themes[_currentTheme]?['background'] ?? (_isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC));
+  Color get _surfaceColor => widget.themes[_currentTheme]?['surface'] ?? (_isDark ? const Color(0xFF1E293B) : Colors.white);
+  Color get _txtColor => widget.themes[_currentTheme]?['text'] ?? (_isDark ? Colors.white : const Color(0xFF1A1D1E));
+  Color get _subtxtColor => widget.themes[_currentTheme]?['subtext'] ?? (_isDark ? Colors.white60 : const Color(0xFF64748B));
+  Color get _primaryColor => widget.themes[_currentTheme]?['primary'] ?? const Color(0xFF4A80F0);
+  Color get _secondaryColor => _isDark ? const Color(0xFF6366F1) : const Color(0xFF4F46E5);
 
   @override
   void initState() {
@@ -155,6 +157,166 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     super.dispose();
   }
 
+  Future<void> _saveProfile() async {
+    if (_isSaving) return;
+    setState(() => _isSaving = true);
+    try {
+      String? finalPhotoUrl = widget.profileImagePath?.startsWith('http') == true ? widget.profileImagePath : null;
+
+      if (_newImage != null) {
+        final File? compressed = await FileService.compressImage(_newImage!);
+        final String? uploadedUrl = await FileService.uploadFile(compressed ?? _newImage!, 'avatars');
+        if (uploadedUrl != null) {
+          finalPhotoUrl = uploadedUrl;
+          if (widget.profileImagePath != null && widget.profileImagePath!.startsWith('http')) {
+            await FileService.deleteFile(widget.profileImagePath!);
+          }
+        }
+      }
+
+      final String? imagePathToSave = _newImage?.path ?? widget.profileImagePath;
+      await StorageService.saveProfile(_nameController.text, imagePathToSave, _isFaceIdEnabled, _accountType);
+      
+      if (mounted) {
+        final config = Provider.of<AppConfigProvider>(context, listen: false);
+        config.setLanguage(_selectedLanguage);
+        config.setCity(_cityController.text);
+      }
+
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        final Map<String, dynamic> updateData = {
+          'name': _nameController.text,
+          'phone': _phoneController.text,
+          'location': _cityController.text,
+          'accountType': _accountType,
+        };
+        if (finalPhotoUrl != null) {
+          updateData['photoUrl'] = finalPhotoUrl;
+        }
+        await UserService.updateUserProfile(updateData);
+      }
+
+      if (mounted) {
+        widget.onSave(_nameController.text, _newImage, _isFaceIdEnabled, _accountType, _selectedLanguage);
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      debugPrint('Error saving profile updates: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${_t('error_saving_msg')}: $e'), backgroundColor: Colors.red)
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  Widget _buildProfileCompleteness() {
+    int percent = 0;
+    final user = FirebaseAuth.instance.currentUser;
+    final providers = user?.providerData.map((p) => p.providerId).toList() ?? [];
+    
+    if (_newImage != null || (widget.profileImagePath != null && widget.profileImagePath!.isNotEmpty)) {
+      percent += 20;
+    }
+    if (_nameController.text.trim().isNotEmpty) {
+      percent += 20;
+    }
+    if (_phoneController.text.trim().isNotEmpty) {
+      percent += 20;
+    }
+    if (_cityController.text.trim().isNotEmpty && _cityController.text != 'Все') {
+      percent += 20;
+    }
+    if (_userEmail.isNotEmpty || providers.isNotEmpty) {
+      percent += 20;
+    }
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 10),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: _surfaceColor.withValues(alpha: 0.8),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: _isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.04),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: _primaryColor.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.bolt_rounded, color: _primaryColor, size: 18),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _t('profile_completeness_title'),
+                      style: GoogleFonts.plusJakartaSans(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13,
+                        color: _txtColor,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      percent == 100 
+                          ? _t('profile_complete_good') 
+                          : _t('profile_complete_prompt'),
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 10.5,
+                        color: _subtxtColor,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                '$percent%',
+                style: GoogleFonts.plusJakartaSans(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 16,
+                  color: _primaryColor,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: LinearProgressIndicator(
+              value: percent / 100.0,
+              minHeight: 8,
+              backgroundColor: _isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.04),
+              valueColor: AlwaysStoppedAnimation<Color>(_primaryColor),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -163,196 +325,233 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
         backgroundColor: _surfaceColor,
         elevation: 0,
         centerTitle: true,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios_new_rounded, color: _txtColor, size: 20),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text(_t('title'), style: GoogleFonts.inter(color: _txtColor, fontWeight: FontWeight.w900, fontSize: 18)),
-        actions: [
-          Container(
-            child: TextButton(
-              onPressed: _isSaving ? null : () async {
-                setState(() => _isSaving = true);
-                try {
-                  String? finalPhotoUrl = widget.profileImagePath?.startsWith('http') == true ? widget.profileImagePath : null;
-
-                  if (_newImage != null) {
-                    // Compress image before uploading to optimize bandwidth
-                    final File? compressed = await FileService.compressImage(_newImage!);
-                    final String? uploadedUrl = await FileService.uploadFile(compressed ?? _newImage!, 'avatars');
-                    if (uploadedUrl != null) {
-                      finalPhotoUrl = uploadedUrl;
-                      
-                      // Delete old storage image to prevent orphaned storage objects
-                      if (widget.profileImagePath != null && widget.profileImagePath!.startsWith('http')) {
-                        await FileService.deleteFile(widget.profileImagePath!);
-                      }
-                    }
-                  }
-
-                  final String? imagePathToSave = _newImage?.path ?? widget.profileImagePath;
-                  await StorageService.saveProfile(_nameController.text, imagePathToSave, _isFaceIdEnabled, _accountType);
-                  
-                  if (mounted) {
-                    final config = Provider.of<AppConfigProvider>(context, listen: false);
-                    config.setLanguage(_selectedLanguage);
-                    config.setCity(_cityController.text);
-                  }
-
-                  // 🔒 Senior-Level Sync: Update user data in Firebase Firestore
-                  final user = FirebaseAuth.instance.currentUser;
-                  if (user != null) {
-                    final Map<String, dynamic> updateData = {
-                      'name': _nameController.text,
-                      'phone': _phoneController.text,
-                      'location': _cityController.text,
-                      'accountType': _accountType,
-                    };
-                    if (finalPhotoUrl != null) {
-                      updateData['photoUrl'] = finalPhotoUrl;
-                    }
-                    await UserService.updateUserProfile(updateData);
-                  }
-
-                  if (mounted) {
-                    widget.onSave(_nameController.text, _newImage, _isFaceIdEnabled, _accountType, _selectedLanguage);
-                    Navigator.pop(context);
-                  }
-                } catch (e) {
-                  debugPrint('Error saving profile updates: $e');
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Ошибка при сохранении: $e'), backgroundColor: Colors.red)
-                    );
-                  }
-                } finally {
-                  if (mounted) setState(() => _isSaving = false);
-                }
-              },
-              style: TextButton.styleFrom(
-                backgroundColor: _primaryColor.withValues(alpha: 0.1),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-              ),
-              child: _isSaving 
-                ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: _primaryColor))
-                : Text(_t('save'), style: GoogleFonts.inter(color: _primaryColor, fontWeight: FontWeight.w900, fontSize: 14)),
+        leading: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Container(
+            decoration: BoxDecoration(
+              color: _isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.03),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: IconButton(
+              icon: Icon(Icons.arrow_back_ios_new_rounded, color: _txtColor, size: 14),
+              padding: EdgeInsets.zero,
+              onPressed: () => Navigator.pop(context),
             ),
           ),
-          const SizedBox(width: 8),
-        ],
-      ),
-      body: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: Column(
-          children: [
-            const SizedBox(height: 30),
-            _buildAvatarSection(),
-            const SizedBox(height: 40),
-            _buildSectionTitle(_t('personal')),
-            _buildSettingsCard([
-              _buildTextField(_t('name_label'), _nameController, Icons.person_rounded),
-              _buildDivider(),
-              _buildTextField('Номер телефона', _phoneController, Icons.phone_android_rounded, formatters: [_phoneMask]),
-              if (_userEmail.isNotEmpty) ...[
-                _buildDivider(),
-                _buildDisplayField(
-                  'Email', 
-                  _userEmail, 
-                  Icons.alternate_email_rounded,
-                  onTap: () {
-                    Clipboard.setData(ClipboardData(text: _userEmail));
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Email скопирован в буфер обмена! 📋'),
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                  },
-                ),
-              ],
-              _buildDivider(),
-              _buildLocationPicker(_t('city_label'), _cityController, Icons.location_on_rounded),
-              _buildDivider(),
-              _buildDisplayField(
-                _selectedLanguage == 'Русский' ? 'Дата регистрации' : (_selectedLanguage == 'Қазақша' ? 'Тіркелген күні' : 'Тизимләнгән күни'), 
-                "${_registrationDate.day.toString().padLeft(2, '0')}.${_registrationDate.month.toString().padLeft(2, '0')}.${_registrationDate.year}", 
-                Icons.calendar_today_rounded,
-                onTap: () {
-                  final dateStr = "${_registrationDate.day.toString().padLeft(2, '0')}.${_registrationDate.month.toString().padLeft(2, '0')}.${_registrationDate.year}";
-                  Clipboard.setData(ClipboardData(text: dateStr));
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Дата регистрации скопирована! 📋'),
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                },
-              ),
-            ]),
-            const SizedBox(height: 30),
-            _buildSectionTitle(_t('account_title')),
-            _buildSettingsCard([
-              _buildDisplayField(
-                _t('acc_type_label'), 
-                _getAccountTypeLabel(_accountType), 
-                Icons.badge_rounded, 
-                onTap: () => _showAccountTypePicker(),
-                trailingIcon: Icons.arrow_forward_ios_rounded,
-              ),
-              _buildDivider(),
-              _buildDropdownItem(_t('lang_label'), _selectedLanguage, ['Русский', 'Қазақша', 'Уйғурчә'], (v) => setState(() => _selectedLanguage = v!), Icons.translate_rounded),
-              if (_accountType == 'driver') ...[
-                _buildDivider(),
-                _buildClickableItem(
-                  _selectedLanguage == 'Русский' 
-                      ? 'Подтвердить водительский номер' 
-                      : (_selectedLanguage == 'Қазақша' ? 'Жүргізуші нөмірін растау' : 'Шопур номурини тәстиқләш'),
-                  () => _showChangePhoneDialog(),
-                  Icons.verified_user_rounded,
-                ),
-              ],
-            ]),
-            const SizedBox(height: 30),
-            _buildSectionTitle('Связанные аккаунты'),
-            _buildLinkedAccountsSection(),
-            const SizedBox(height: 30),
-            _buildSectionTitle(_t('security')),
-            _buildSettingsCard([
-              _buildSwitchItem(
-                _t('push_label'), 
-                _isNotificationsEnabled, 
-                (v) async {
-                  setState(() => _isNotificationsEnabled = v);
-                  await StorageService.setBool('push_notifications_enabled', v);
-                  final uid = UserService.currentUid;
-                  if (uid != null) {
-                    try {
-                      await FirebaseFirestore.instance.collection('users').doc(uid).set({
-                        'pushEnabled': v,
-                      }, SetOptions(merge: true));
-                    } catch (e) {
-                      debugPrint('Error syncing push setting: $e');
-                    }
-                  }
-                }, 
-                Icons.notifications_active_rounded
-              ),
-
-            ]),
-            const SizedBox(height: 30),
-            _buildSectionTitle(_t('about_app')),
-            _buildSettingsCard([
-              _buildClickableItem(_t('legal_label'), () {
-                Navigator.push(context, MaterialPageRoute(builder: (context) => LegalInfoScreen(lang: _selectedLanguage)));
-              }, Icons.gavel_rounded),
-            ]),
-            const SizedBox(height: 40),
-            _buildDeleteAccountButton(),
-            const SizedBox(height: 60),
-          ],
         ),
+        title: Text(_t('title'), style: GoogleFonts.inter(color: _txtColor, fontWeight: FontWeight.w900, fontSize: 18)),
+        actions: const [],
+      ),
+      bottomNavigationBar: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        decoration: BoxDecoration(
+          color: _surfaceColor,
+          border: Border(
+            top: BorderSide(
+              color: _isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.04),
+              width: 1.2,
+            ),
+          ),
+        ),
+        child: SafeArea(
+          child: Container(
+            width: double.infinity,
+            height: 56,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [_primaryColor, _secondaryColor],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: _primaryColor.withValues(alpha: 0.3),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                )
+              ],
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(20),
+                onTap: _isSaving ? null : _saveProfile,
+                child: Center(
+                  child: _isSaving
+                      ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              _t('save').toUpperCase(),
+                              style: GoogleFonts.plusJakartaSans(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w900,
+                                fontSize: 15,
+                                letterSpacing: 0.8,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+                          ],
+                        ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+      body: Stack(
+        children: [
+          // Ambient Glows
+          Positioned(
+            top: -120,
+            left: -120,
+            child: Container(
+              width: 320,
+              height: 320,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: _primaryColor.withValues(alpha: 0.12),
+              ),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 100, sigmaY: 100),
+                child: Container(color: Colors.transparent),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: 100,
+            right: -100,
+            child: Container(
+              width: 300,
+              height: 300,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: _secondaryColor.withValues(alpha: 0.1),
+              ),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 90, sigmaY: 90),
+                child: Container(color: Colors.transparent),
+              ),
+            ),
+          ),
+          // Scrollable Content
+          SafeArea(
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                children: [
+                  const SizedBox(height: 24),
+                  _buildAvatarSection(),
+                  const SizedBox(height: 20),
+                  _buildProfileCompleteness(),
+                  const SizedBox(height: 24),
+                  _buildSectionTitle(_t('personal')),
+                  _buildTextField(_t('name_label'), _nameController, Icons.person_rounded),
+                  _buildTextField(_t('phone_label'), _phoneController, Icons.phone_android_rounded, formatters: [_phoneMask]),
+                  if (_userEmail.isNotEmpty)
+                    _buildDisplayField(
+                      'Email', 
+                      _userEmail, 
+                      Icons.alternate_email_rounded,
+                      onTap: () {
+                        Clipboard.setData(ClipboardData(text: _userEmail));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(_t('email_copied')),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      },
+                    ),
+                  _buildLocationPicker(_t('city_label'), _cityController, Icons.location_on_rounded),
+                  _buildDisplayField(
+                    _t('reg_date_label'), 
+                    "${_registrationDate.day.toString().padLeft(2, '0')}.${_registrationDate.month.toString().padLeft(2, '0')}.${_registrationDate.year}", 
+                    Icons.calendar_today_rounded,
+                    onTap: () {
+                      final dateStr = "${_registrationDate.day.toString().padLeft(2, '0')}.${_registrationDate.month.toString().padLeft(2, '0')}.${_registrationDate.year}";
+                      Clipboard.setData(ClipboardData(text: dateStr));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(_t('reg_date_copied')),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 24),
+                  _buildSectionTitle(_t('account_title')),
+                  _buildSettingsCard([
+                    _buildDisplayField(
+                      _t('acc_type_label'), 
+                      _getAccountTypeLabel(_accountType), 
+                      Icons.badge_rounded, 
+                      onTap: () => _showAccountTypePicker(),
+                      trailingIcon: Icons.arrow_forward_ios_rounded,
+                    ),
+                    _buildDivider(),
+                    _buildDropdownItem(_t('lang_label'), _selectedLanguage, ['Русский', 'Қазақша', 'Уйғурчә'], (v) => setState(() => _selectedLanguage = v!), Icons.translate_rounded),
+                    if (_accountType == 'driver') ...[
+                      _buildDivider(),
+                      _buildClickableItem(
+                        _t('confirm_driver_phone'),
+                        () => _showChangePhoneDialog(),
+                        Icons.verified_user_rounded,
+                      ),
+                    ],
+                  ]),
+                  const SizedBox(height: 24),
+                  _buildSectionTitle(_t('linked_accounts')),
+                  _buildLinkedAccountsSection(),
+                  const SizedBox(height: 24),
+                  _buildSectionTitle(_t('security')),
+                  _buildSettingsCard([
+                    _buildSwitchItem(
+                      _t('push_label'), 
+                      _isNotificationsEnabled, 
+                      (v) async {
+                        setState(() => _isNotificationsEnabled = v);
+                        await StorageService.setBool('push_notifications_enabled', v);
+                        final uid = UserService.currentUid;
+                        if (uid != null) {
+                          try {
+                            await FirebaseFirestore.instance.collection('users').doc(uid).set({
+                              'pushEnabled': v,
+                            }, SetOptions(merge: true));
+                          } catch (e) {
+                            debugPrint('Error syncing push setting: $e');
+                          }
+                        }
+                      }, 
+                      Icons.notifications_active_rounded
+                    ),
+                  ]),
+                  const SizedBox(height: 24),
+                  _buildSectionTitle(_t('about_app')),
+                  _buildSettingsCard([
+                    _buildClickableItem(_t('legal_label'), () {
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => LegalInfoScreen(lang: _selectedLanguage)));
+                    }, Icons.gavel_rounded),
+                  ]),
+                  const SizedBox(height: 40),
+                  _buildDeleteAccountButton(),
+                  const SizedBox(height: 60),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -367,36 +566,69 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: LinearGradient(colors: [_primaryColor, _primaryColor.withValues(alpha: 0.7)]),
-              boxShadow: [BoxShadow(color: _primaryColor.withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 10))],
+              gradient: SweepGradient(
+                colors: [
+                  _primaryColor,
+                  _secondaryColor,
+                  _primaryColor.withValues(alpha: 0.2),
+                  _primaryColor,
+                ],
+                stops: const [0.0, 0.5, 0.75, 1.0],
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: _primaryColor.withValues(alpha: 0.25),
+                  blurRadius: 24,
+                  offset: const Offset(0, 8),
+                )
+              ],
             ),
-            child: CircleAvatar(
-              radius: 55,
-              backgroundColor: Colors.white,
-              backgroundImage: _newImage != null 
-                ? FileImage(_newImage!) 
-                : (widget.profileImagePath != null && widget.profileImagePath!.isNotEmpty
-                    ? (widget.profileImagePath!.startsWith('http') 
-                        ? NetworkImage(widget.profileImagePath!) as ImageProvider 
-                        : FileImage(File(widget.profileImagePath!)))
-                    : null),
-              child: (_newImage == null && (widget.profileImagePath == null || widget.profileImagePath!.isEmpty)) 
-                ? Icon(Icons.person_rounded, size: 55, color: _primaryColor) 
-                : null,
+            child: Container(
+              padding: const EdgeInsets.all(3),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: _bgColor,
+              ),
+              child: CircleAvatar(
+                radius: 56,
+                backgroundColor: _isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                backgroundImage: _newImage != null 
+                  ? FileImage(_newImage!) 
+                  : (widget.profileImagePath != null && widget.profileImagePath!.isNotEmpty
+                      ? (widget.profileImagePath!.startsWith('http') 
+                          ? NetworkImage(widget.profileImagePath!) as ImageProvider 
+                          : FileImage(File(widget.profileImagePath!)))
+                      : null),
+                child: (_newImage == null && (widget.profileImagePath == null || widget.profileImagePath!.isEmpty)) 
+                  ? Icon(Icons.person_rounded, size: 55, color: _primaryColor) 
+                  : null,
+              ),
             ),
           ),
         ),
         GestureDetector(
           onTap: () => _showImagePickerOptions(),
-          child: Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: _primaryColor,
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 3),
-              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 10)],
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(30),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: _primaryColor.withValues(alpha: 0.85),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.15),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    )
+                  ],
+                ),
+                child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 16),
+              ),
             ),
-            child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 18),
           ),
         ),
       ],
@@ -456,7 +688,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
             ),
             const SizedBox(height: 25),
             Text(
-              'Обновление профиля', 
+              _t('profile_update_title'), 
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 20, 
                 fontWeight: FontWeight.w900, 
@@ -465,7 +697,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Выберите источник для нового фото', 
+              _t('choose_photo_source'), 
               textAlign: TextAlign.center, 
               style: GoogleFonts.plusJakartaSans(
                 color: _subtxtColor, 
@@ -478,8 +710,8 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
             
             _imageOptionTile(
               icon: Icons.camera_alt_rounded,
-              title: 'Сделать фото сейчас',
-              sub: 'Используйте камеру для селфи',
+              title: _t('take_photo_now'),
+              sub: _t('use_selfie_camera'),
               onTap: () async {
                 Navigator.pop(context);
                 try {
@@ -489,7 +721,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                   debugPrint('Camera Picker Error: $e');
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                      content: Text('Не удалось открыть камеру: $e 📸'),
+                      content: Text("${_t('error_camera')}$e 📸"),
                       backgroundColor: const Color(0xFFEF4444),
                       behavior: SnackBarBehavior.floating,
                     ));
@@ -500,8 +732,8 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
             const SizedBox(height: 15),
             _imageOptionTile(
               icon: Icons.photo_library_rounded,
-              title: 'Выбрать из галереи',
-              sub: 'Загрузите готовое фото',
+              title: _t('choose_from_gallery'),
+              sub: _t('upload_ready_photo'),
               onTap: () async {
                 Navigator.pop(context);
                 try {
@@ -511,7 +743,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                   debugPrint('Gallery Picker Error: $e');
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                      content: Text('Не удалось открыть галерею: $e 🖼️'),
+                      content: Text("${_t('error_gallery')}$e 🖼️"),
                       backgroundColor: const Color(0xFFEF4444),
                       behavior: SnackBarBehavior.floating,
                     ));
@@ -591,12 +823,27 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   );
 
   Widget _buildSectionTitle(String title) => Padding(
-    padding: const EdgeInsets.only(left: 4, bottom: 12),
+    padding: const EdgeInsets.only(left: 4, bottom: 12, top: 8),
     child: Row(
       children: [
-        Container(width: 4, height: 14, decoration: BoxDecoration(color: _primaryColor, borderRadius: BorderRadius.circular(4))),
-        const SizedBox(width: 10),
-        Text(title.toUpperCase(), style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w900, color: _subtxtColor, letterSpacing: 1.0)),
+        Container(
+          width: 4,
+          height: 16,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(colors: [_primaryColor, _secondaryColor]),
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Text(
+          title.toUpperCase(),
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 11.0,
+            fontWeight: FontWeight.w800,
+            color: _txtColor.withValues(alpha: 0.75),
+            letterSpacing: 1.2,
+          ),
+        ),
       ],
     ),
   );
@@ -604,87 +851,63 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   Widget _buildSettingsCard(List<Widget> children) => Container(
     margin: const EdgeInsets.only(bottom: 20),
     decoration: BoxDecoration(
-      color: _surfaceColor,
-      borderRadius: BorderRadius.circular(28),
-      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 20, offset: const Offset(0, 10))],
-      border: Border.all(color: _isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.05), width: 1.2),
+      color: _surfaceColor.withValues(alpha: 0.95),
+      borderRadius: BorderRadius.circular(24),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.02),
+          blurRadius: 16,
+          offset: const Offset(0, 8),
+        )
+      ],
+      border: Border.all(
+        color: _isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.04),
+        width: 1.2,
+      ),
     ),
     child: ClipRRect(
-      borderRadius: BorderRadius.circular(28),
+      borderRadius: BorderRadius.circular(24),
       child: Column(children: children),
     ),
   );
 
   Widget _buildDivider() => Divider(height: 1, color: _subtxtColor.withValues(alpha: 0.1), indent: 70, endIndent: 20);
 
-  Widget _buildTextField(String label, TextEditingController controller, IconData icon, {List<TextInputFormatter>? formatters}) => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-    child: Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                _primaryColor.withValues(alpha: 0.15),
-                _primaryColor.withValues(alpha: 0.05),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(18),
-            boxShadow: [
-              BoxShadow(
-                color: _primaryColor.withValues(alpha: 0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              )
-            ],
-          ),
-          child: Icon(icon, color: _primaryColor, size: 22),
-        ),
-        const SizedBox(width: 18),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label.toUpperCase(), 
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 9.5, 
-                  color: _primaryColor.withValues(alpha: 0.8), 
-                  fontWeight: FontWeight.w800, 
-                  letterSpacing: 0.8
-                ),
-              ),
-              const SizedBox(height: 5),
-              TextField(
-                controller: controller,
-                inputFormatters: formatters,
-                style: GoogleFonts.plusJakartaSans(
-                  color: _txtColor, 
-                  fontWeight: FontWeight.w800, 
-                  fontSize: 15.5
-                ),
-                decoration: const InputDecoration(
-                  border: InputBorder.none, 
-                  isDense: true, 
-                  contentPadding: EdgeInsets.zero
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    ),
+  Widget _buildTextField(String label, TextEditingController controller, IconData icon, {List<TextInputFormatter>? formatters}) => _PremiumTextField(
+    label: label,
+    controller: controller,
+    icon: icon,
+    formatters: formatters,
+    primaryColor: _primaryColor,
+    secondaryColor: _secondaryColor,
+    surfaceColor: _surfaceColor,
+    txtColor: _txtColor,
+    subtxtColor: _subtxtColor,
+    isDark: _isDark,
   );
 
   Widget _buildDisplayField(String label, String value, IconData icon, {VoidCallback? onTap, IconData? trailingIcon}) {
     final isCopyable = onTap != null && trailingIcon == null;
-    return InkWell(
+    return GestureDetector(
       onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+        decoration: BoxDecoration(
+          color: _surfaceColor,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(
+            color: _isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.04),
+            width: 1.2,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.01),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            )
+          ],
+        ),
         child: Row(
           children: [
             Container(
@@ -698,31 +921,32 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(16),
               ),
-              child: Icon(icon, color: _primaryColor, size: 22),
+              child: Icon(icon, color: _primaryColor, size: 20),
             ),
-            const SizedBox(width: 18),
+            const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    label.toUpperCase(), 
+                    label.toUpperCase(),
                     style: GoogleFonts.plusJakartaSans(
-                      fontSize: 9.5, 
-                      color: _primaryColor.withValues(alpha: 0.7), 
-                      fontWeight: FontWeight.w800, 
-                      letterSpacing: 0.8
+                      fontSize: 9.5,
+                      color: _primaryColor.withValues(alpha: 0.8),
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.8,
                     ),
                   ),
-                  const SizedBox(height: 5),
+                  const SizedBox(height: 4),
                   Text(
-                    value, 
+                    value,
                     style: GoogleFonts.plusJakartaSans(
-                      color: _txtColor, 
-                      fontWeight: FontWeight.w800, 
-                      fontSize: 15.5
+                      color: _txtColor,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 15.0,
                     ),
                   ),
                 ],
@@ -755,55 +979,65 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     );
   }
 
-  Widget _buildLocationPicker(String label, TextEditingController controller, IconData icon) => InkWell(
+  Widget _buildLocationPicker(String label, TextEditingController controller, IconData icon) => GestureDetector(
     onTap: () => _showLocationDialog(),
-    child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+    child: Container(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+      decoration: BoxDecoration(
+        color: _surfaceColor,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: _isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.04),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.01),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          )
+        ],
+      ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
+              gradient: LinearGradient(
                 colors: [
-                  Color(0xFF6366F1),
-                  Color(0xFF4F46E5),
+                  _secondaryColor.withValues(alpha: 0.15),
+                  _secondaryColor.withValues(alpha: 0.05),
                 ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(18),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF6366F1).withValues(alpha: 0.15),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                )
-              ],
+              borderRadius: BorderRadius.circular(16),
             ),
-            child: const Icon(Icons.location_on_rounded, color: Colors.white, size: 22),
+            child: Icon(icon, color: _secondaryColor, size: 20),
           ),
-          const SizedBox(width: 18),
+          const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  label.toUpperCase(), 
+                  label.toUpperCase(),
                   style: GoogleFonts.plusJakartaSans(
-                    fontSize: 9.5, 
-                    color: const Color(0xFF6366F1), 
-                    fontWeight: FontWeight.w800, 
-                    letterSpacing: 0.8
+                    fontSize: 9.5,
+                    color: _secondaryColor,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.8,
                   ),
                 ),
-                const SizedBox(height: 5),
+                const SizedBox(height: 4),
                 Text(
-                  controller.text == 'Все' ? 'Все города' : controller.text, 
+                  controller.text == 'Все' ? _t('all_cities') : controller.text,
                   style: GoogleFonts.plusJakartaSans(
-                    fontWeight: FontWeight.w800, 
-                    fontSize: 15.5, 
-                    color: _txtColor
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15.0,
+                    color: _txtColor,
                   ),
                 ),
               ],
@@ -914,7 +1148,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                 }
               } catch (e) {
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ошибка при удалении: $e')));
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${_t('error_deleting_msg')}: $e')));
                   Navigator.pop(context);
                 }
               }
@@ -936,7 +1170,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     return _buildSettingsCard([
       _buildLinkedItem(
         'Google', 
-        isGoogleLinked ? 'Подключено' : 'Нажмите, чтобы связать',
+        isGoogleLinked ? _t('linked_status') : _t('click_to_link'),
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
@@ -957,16 +1191,16 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
           try {
             await AuthService.linkWithGoogle();
             setState(() {});
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Аккаунты успешно связаны!')));
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_t('copied_clipboard'))));
           } catch (e) {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ошибка: $e')));
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
           }
         }
       ),
       _buildDivider(),
       _buildLinkedItem(
         'Mail.ru', 
-        isEmailLinked ? user?.email ?? 'Подключено' : 'Привязать почту',
+        isEmailLinked ? user?.email ?? _t('linked_status') : _t('link_email_hint'),
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
@@ -1006,16 +1240,16 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
       builder: (context) => AlertDialog(
         backgroundColor: _surfaceColor,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-        title: Text('Привязать Email', style: GoogleFonts.inter(fontWeight: FontWeight.w900)),
+        title: Text(_t('link_email_title'), style: GoogleFonts.inter(fontWeight: FontWeight.w900)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(controller: emailC, decoration: const InputDecoration(hintText: 'Email')),
-            TextField(controller: passC, obscureText: true, decoration: const InputDecoration(hintText: 'Пароль')),
+            TextField(controller: passC, obscureText: true, decoration: const InputDecoration(hintText: 'Password')),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Отмена')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(_t('cancel'))),
           ElevatedButton(
             onPressed: () async {
               try {
@@ -1028,12 +1262,12 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                 }
                 Navigator.pop(context);
                 setState(() {});
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Email успешно привязан! 📧')));
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_t('link_email_success'))));
               } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ошибка: $e')));
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
               }
             },
-            child: const Text('Связать'),
+            child: Text(_t('link_action')),
           ),
         ],
       ),
@@ -1085,11 +1319,11 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   String _getAccountTypeLabel(String type) {
     switch (type.toLowerCase()) {
       case 'user':
-        return _selectedLanguage == 'Русский' ? 'Личный' : (_selectedLanguage == 'Қазақша' ? 'Жеке' : 'Шахсий');
+        return _t('acc_personal');
       case 'business':
-        return _selectedLanguage == 'Русский' ? 'Бизнес' : (_selectedLanguage == 'Қазақша' ? 'Бизнес' : 'Бизнес');
+        return _t('acc_business');
       case 'admin':
-        return _selectedLanguage == 'Русский' ? 'Администратор' : (_selectedLanguage == 'Қазақша' ? 'Әкімші' : 'Башқурчи');
+        return _t('acc_admin');
       default:
         return type;
     }
@@ -1109,9 +1343,9 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
             const SizedBox(height: 24),
             Text(_t('acc_type_label'), style: GoogleFonts.inter(color: _txtColor, fontWeight: FontWeight.w900, fontSize: 20)),
             const SizedBox(height: 24),
-            _typeCard('user', _selectedLanguage == 'Русский' ? 'Личный' : (_selectedLanguage == 'Қазақша' ? 'Жеке' : 'Шахсий'), 'Для продажи личных вещей. Бесплатно. Простой профиль.', Icons.person_rounded),
+            _typeCard('user', _t('acc_personal'), _t('acc_type_user_desc'), Icons.person_rounded),
             const SizedBox(height: 16),
-            _typeCard('business', 'Бизнес', 'Для магазинов и услуг. Бейдж "Магазин". Безлимит. Доверие клиентов.', Icons.store_rounded),
+            _typeCard('business', _t('acc_business'), _t('acc_type_business_desc'), Icons.store_rounded),
             const SizedBox(height: 24),
           ],
         ),
@@ -1198,25 +1432,19 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
           Icon(Icons.phone_android_rounded, color: _primaryColor, size: 40),
           const SizedBox(height: 16),
           Text(
-            _selectedLanguage == 'Русский' 
-                ? 'Подтверждение водителя' 
-                : (_selectedLanguage == 'Қазақша' ? 'Жүргізушіні растау' : 'Шопур тәстиқләш'), 
+            _t('driver_verification_title'), 
             style: GoogleFonts.inter(color: _txtColor, fontWeight: FontWeight.w900, fontSize: 19)
           ),
           const SizedBox(height: 8),
           Text(
-            _selectedLanguage == 'Русский'
-                ? 'Для работы в такси необходимо верифицировать ваш телефон через Telegram-бота.'
-                : (_selectedLanguage == 'Қазақша' 
-                    ? 'Таксиде жұиск істеу үшін телефоныңызды Telegram-бот арқылы растау қажет.' 
-                    : 'Таксида ишләш үчүн телефонуңизни Telegram-бот арқилиқ тәстиқлишиңиз керәк.'),
+            _t('driver_verification_desc'),
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(color: _subtxtColor, fontSize: 13, height: 1.5)
           ),
           const SizedBox(height: 24),
 
           if (!codeSent) ...[
-            _buildDialogField('Новый номер телефона', phoneC, Icons.phone, formatters: [dialogPhoneMask]),
+            _buildDialogField(_t('new_phone_label'), phoneC, Icons.phone, formatters: [dialogPhoneMask]),
             const SizedBox(height: 20),
             SizedBox(
               width: double.infinity, height: 52,
@@ -1225,8 +1453,8 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                   final unformattedPhone = phoneC.text.replaceAll(RegExp(r'\D'), '');
                   if (unformattedPhone.length < 11) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Пожалуйста, введите полный номер телефона! 📱'),
+                      SnackBar(
+                        content: Text(_t('enter_full_phone')),
                         backgroundColor: Colors.redAccent,
                         behavior: SnackBarBehavior.floating,
                       )
@@ -1235,22 +1463,22 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                   }
                   tgCode = (DateTime.now().millisecondsSinceEpoch % 90000 + 10000).toString(); // 5 digits
                   setS(() => codeSent = true);
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Код отправлен в Telegram: $tgCode (демо)'), backgroundColor: const Color(0xFF0088CC)));
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("${_t('code_sent_demo')}$tgCode (${_t('demo_label')})"), backgroundColor: const Color(0xFF0088CC)));
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _primaryColor,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
                 ),
-                child: Text('Отправить код', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 15)),
+                child: Text(_t('send_code_btn'), style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 15)),
               ),
             ),
           ],
           if (codeSent) ...[
-            Text('Код отправлен на номер\n${phoneC.text}',
+            Text("${_t('code_sent_to')}\n${phoneC.text}",
                 textAlign: TextAlign.center,
                 style: GoogleFonts.inter(color: _primaryColor, fontWeight: FontWeight.bold, fontSize: 13)),
             const SizedBox(height: 16),
-            _buildDialogField('Код из Telegram', codeC, Icons.pin_rounded),
+            _buildDialogField(_t('code_from_tg'), codeC, Icons.pin_rounded),
             const SizedBox(height: 20),
             SizedBox(
               width: double.infinity, height: 52,
@@ -1275,16 +1503,16 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                     }
 
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Номер успешно изменен и синхронизирован! 📱'), 
+                      SnackBar(
+                        content: Text(_t('phone_change_success')), 
                         backgroundColor: Colors.green,
                         behavior: SnackBarBehavior.floating,
                       )
                     );
                   } else {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Неверный код! ❌'), 
+                      SnackBar(
+                        content: Text(_t('invalid_code')), 
                         backgroundColor: Colors.red,
                         behavior: SnackBarBehavior.floating,
                       )
@@ -1295,7 +1523,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                   backgroundColor: Colors.green,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
                 ),
-                child: Text('Подтвердить', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 15)),
+                child: Text(_t('confirm_action'), style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 15)),
               ),
             ),
           ],
@@ -1376,7 +1604,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                         ),
                       if (selectedParent != null && searchCity.isEmpty) const SizedBox(width: 15),
                       Text(
-                        searchCity.isNotEmpty ? 'Результаты поиска' : (selectedParent ?? 'Выберите локацию'), 
+                        searchCity.isNotEmpty ? _t('search_results') : (selectedParent ?? _t('select_location_title')), 
                         style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w900, color: _txtColor)
                       ),
                     ],
@@ -1389,7 +1617,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                     onChanged: (v) => setModalState(() => searchCity = v),
                     style: GoogleFonts.inter(color: _txtColor, fontWeight: FontWeight.w800),
                     decoration: InputDecoration(
-                      hintText: 'Введите название города...',
+                      hintText: _t('search_city_hint'),
                       hintStyle: GoogleFonts.inter(color: _subtxtColor.withValues(alpha: 0.6), fontWeight: FontWeight.w600),
                       prefixIcon: Icon(Icons.search_rounded, color: _primaryColor),
                       filled: true,
@@ -1404,7 +1632,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                   ListTile(
                     contentPadding: const EdgeInsets.symmetric(horizontal: 24),
                     leading: Icon(Icons.my_location_rounded, color: _primaryColor), 
-                    title: Text('Определить автоматически', style: GoogleFonts.inter(fontWeight: FontWeight.w800, color: _primaryColor, fontSize: 15)), 
+                    title: Text(_t('auto_locate'), style: GoogleFonts.inter(fontWeight: FontWeight.w800, color: _primaryColor, fontSize: 15)), 
                     onTap: () async {
                       final city = await LocationService.getCurrentCity();
                       if (city != null) {
@@ -1427,7 +1655,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
 
                       return ListTile(
                         leading: Icon(isParent ? Icons.location_city_rounded : Icons.location_on_rounded, color: _subtxtColor.withValues(alpha: 0.6)),
-                        title: Text(item == 'Все' ? 'Все города' : item, style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 15, color: _txtColor)),
+                        title: Text(item == 'Все' ? _t('all_cities') : item, style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 15, color: _txtColor)),
                         trailing: Icon(isParent ? Icons.arrow_forward_ios_rounded : Icons.check_circle_outline_rounded, size: 14, color: isParent ? _subtxtColor.withValues(alpha: 0.4) : const Color(0xFF10B981)),
                         onTap: () { 
                           if (isParent) {
@@ -1447,6 +1675,155 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _PremiumTextField extends StatefulWidget {
+  final String label;
+  final TextEditingController controller;
+  final IconData icon;
+  final List<TextInputFormatter>? formatters;
+  final Color primaryColor;
+  final Color secondaryColor;
+  final Color surfaceColor;
+  final Color txtColor;
+  final Color subtxtColor;
+  final bool isDark;
+
+  const _PremiumTextField({
+    required this.label,
+    required this.controller,
+    required this.icon,
+    this.formatters,
+    required this.primaryColor,
+    required this.secondaryColor,
+    required this.surfaceColor,
+    required this.txtColor,
+    required this.subtxtColor,
+    required this.isDark,
+  });
+
+  @override
+  State<_PremiumTextField> createState() => _PremiumTextFieldState();
+}
+
+class _PremiumTextFieldState extends State<_PremiumTextField> {
+  final FocusNode _focusNode = FocusNode();
+  bool _isFocused = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode.addListener(() {
+      if (mounted) {
+        setState(() {
+          _isFocused = _focusNode.hasFocus;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+      decoration: BoxDecoration(
+        color: widget.surfaceColor,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: _isFocused
+              ? widget.primaryColor
+              : (widget.isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.04)),
+          width: _isFocused ? 2.0 : 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: _isFocused
+                ? widget.primaryColor.withValues(alpha: 0.15)
+                : Colors.black.withValues(alpha: 0.01),
+            blurRadius: _isFocused ? 14 : 8,
+            offset: const Offset(0, 4),
+          )
+        ],
+      ),
+      child: Row(
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: _isFocused
+                    ? [widget.primaryColor, widget.secondaryColor]
+                    : [
+                        widget.primaryColor.withValues(alpha: 0.12),
+                        widget.primaryColor.withValues(alpha: 0.04),
+                      ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: _isFocused
+                  ? [
+                      BoxShadow(
+                        color: widget.primaryColor.withValues(alpha: 0.25),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3),
+                      )
+                    ]
+                  : [],
+            ),
+            child: Icon(
+              widget.icon,
+              color: _isFocused ? Colors.white : widget.primaryColor,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  widget.label.toUpperCase(),
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 9.5,
+                    color: _isFocused ? widget.primaryColor : widget.subtxtColor.withValues(alpha: 0.7),
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                TextField(
+                  controller: widget.controller,
+                  focusNode: _focusNode,
+                  inputFormatters: widget.formatters,
+                  style: GoogleFonts.plusJakartaSans(
+                    color: widget.txtColor,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15.0,
+                  ),
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

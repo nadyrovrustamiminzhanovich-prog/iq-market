@@ -1,5 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Белый фон + логотип по центру -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Deep navy background — matches splash screen, eliminates white flash -->
+    <!-- Чистый белый фон -->
     <item android:drawable="@color/splash_bg" />
+    <!-- Логотип по центру -->
+    <item>
+        <bitmap
+            android:gravity="center"
+            android:src="@drawable/launch_image" />
+    </item>
 </layer-list>

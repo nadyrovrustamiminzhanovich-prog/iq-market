@@ -44,6 +44,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
         'today': 'СЕГОДНЯ',
         'yesterday': 'ВЧЕРА',
         'earlier': 'РАНЕЕ',
+        'no_notifications': 'Уведомлений пока нет',
+        'no_chats': 'Чатов пока нет',
       },
       'Қазақша': {
         'center': 'Хабарландыру орталығы',
@@ -54,17 +56,21 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
         'today': 'БҮГІН',
         'yesterday': 'КЕШЕ',
         'earlier': 'ЕРТЕРЕК',
+        'no_notifications': 'Хабарламалар әлі жоқ',
+        'no_chats': 'Чаттар әлі жоқ',
       },
-      // ✅ Уйгурский язык — полный набор переводов
+      // ✅ Уйгурский язык — полный набор переводов (кириллица)
       'Уйғурчә': {
-        'center': 'ئۇقتۇرۇش مەركىزى',
-        'title': 'مېنىڭ خەۋەرلىرىم',
-        'notifications': 'ئۇقتۇرۇشلار',
-        'chats': 'چاتلار',
-        'mark_all': 'ھەممىسىنى ئوقۇ',
-        'today': 'بۈگۈن',
-        'yesterday': 'تۈنۈگۈن',
-        'earlier': 'ئىلگىرى',
+        'center': 'Уқтуруш мәркизи',
+        'title': 'Мениң учурлирим',
+        'notifications': 'Уқтурушлар',
+        'chats': 'Чатлар',
+        'mark_all': 'Һәммисини оқуш',
+        'today': 'БҮГҮН',
+        'yesterday': 'ТҮНҮГҮН',
+        'earlier': 'ИЛГИРИ',
+        'no_notifications': 'Уқтурушлар техи йоқ',
+        'no_chats': 'Чатлар техи йоқ',
       },
     };
     return (localizedValues[widget.lang]?[key] ?? localizedValues['Русский']?[key] ?? key).toString();
@@ -121,7 +127,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
         final notifications = snapshot.data ?? [];
-        if (notifications.isEmpty) return _buildEmptyState(Icons.notifications_none_rounded, 'Уведомлений пока нет');
+        if (notifications.isEmpty) return _buildEmptyState(Icons.notifications_none_rounded, _t('no_notifications'));
 
         return ListView.builder(
           physics: const BouncingScrollPhysics(),
@@ -252,7 +258,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
         final chats = snapshot.data ?? [];
-        if (chats.isEmpty) return _buildEmptyState(Icons.chat_bubble_outline_rounded, 'Чатов пока нет');
+        if (chats.isEmpty) return _buildEmptyState(Icons.chat_bubble_outline_rounded, _t('no_chats'));
 
         return ListView.builder(
           padding: const EdgeInsets.symmetric(vertical: 10),

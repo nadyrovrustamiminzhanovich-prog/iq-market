@@ -53,6 +53,9 @@ class TaxiBidModel {
   final String senderName;
   final String senderImg;
   final String senderPhone;
+  final String senderCar;
+  final String senderPlate;
+  final bool senderVerified;
 
   // Получатель ставки
   final String receiverId;
@@ -73,6 +76,9 @@ class TaxiBidModel {
     required this.senderName,
     required this.senderImg,
     required this.senderPhone,
+    this.senderCar = '',
+    this.senderPlate = '',
+    this.senderVerified = false,
     required this.receiverId,
     required this.offeredPrice,
     required this.status,
@@ -96,6 +102,9 @@ class TaxiBidModel {
       senderName: map['senderName']?.toString() ?? 'Пользователь',
       senderImg: map['senderImg']?.toString() ?? '',
       senderPhone: map['senderPhone']?.toString() ?? '',
+      senderCar: map['senderCar']?.toString() ?? '',
+      senderPlate: map['senderPlate']?.toString() ?? '',
+      senderVerified: map['senderVerified'] == true || map['senderVerified'] == 'true',
       receiverId: map['receiverId']?.toString() ?? '',
       offeredPrice: (map['offeredPrice'] as num?)?.toInt() ?? 0,
       status: TaxiBidStatusExt.fromString(map['status']?.toString()),
@@ -112,6 +121,9 @@ class TaxiBidModel {
       'senderName': senderName,
       'senderImg': senderImg,
       'senderPhone': senderPhone,
+      'senderCar': senderCar,
+      'senderPlate': senderPlate,
+      'senderVerified': senderVerified,
       'receiverId': receiverId,
       'offeredPrice': offeredPrice,
       'status': status.value,
@@ -129,6 +141,9 @@ class TaxiBidModel {
     String? senderName,
     String? senderImg,
     String? senderPhone,
+    String? senderCar,
+    String? senderPlate,
+    bool? senderVerified,
     String? receiverId,
     int? offeredPrice,
     TaxiBidStatus? status,
@@ -142,6 +157,9 @@ class TaxiBidModel {
       senderName: senderName ?? this.senderName,
       senderImg: senderImg ?? this.senderImg,
       senderPhone: senderPhone ?? this.senderPhone,
+      senderCar: senderCar ?? this.senderCar,
+      senderPlate: senderPlate ?? this.senderPlate,
+      senderVerified: senderVerified ?? this.senderVerified,
       receiverId: receiverId ?? this.receiverId,
       offeredPrice: offeredPrice ?? this.offeredPrice,
       status: status ?? this.status,

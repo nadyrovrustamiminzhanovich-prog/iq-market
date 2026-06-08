@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -125,7 +127,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     setState(() => _isLoading = true);
     try {
-      final userCred = await AuthService.registerWithEmail(
+      await AuthService.registerWithEmail(
         _emailController.text.trim(),
         _passwordController.text,
         _nameController.text.trim(),
@@ -133,9 +135,13 @@ class _LoginScreenState extends State<LoginScreen> {
       
       _showSuccess(_t('success_reg') + ". Проверьте почту для подтверждения!");
       
-      // We don't log them in immediately if we want strict verification
-      // But for better UX, we can log them in and show "Not Verified" badge
-      await _finalizeLogin(userCred.user?.displayName ?? _nameController.text.trim(), email: _emailController.text.trim());
+      // Строгая верификация: выходим из сессии, не пускаем внутрь
+      await AuthService.signOut();
+      
+      // Автоматически переключаем на вкладку "Вход"
+      setState(() => _isLogin = true);
+      _passwordController.clear();
+      _confirmPasswordController.clear();
     } on FirebaseAuthException catch (e) {
       _showError(_firebaseError(e));
     } catch (e) {
@@ -160,12 +166,16 @@ class _LoginScreenState extends State<LoginScreen> {
       final user = userCred.user;
       if (user != null && !user.emailVerified) {
         _showError("Ваш Email еще не подтвержден. Пожалуйста, проверьте почту.");
-        // We can still let them in, or sign them out
-        // await AuthService.signOut();
-        // return;
+        await AuthService.signOut();
+        return; // Жёстко блокируем вход!
       }
 
-      await _finalizeLogin(user?.displayName ?? _emailController.text.split('@')[0], email: user?.email, photoUrl: user?.photoURL);
+      await _finalizeLogin(
+        user?.displayName ?? _emailController.text.split('@')[0],
+        email: user?.email,
+        photoUrl: user?.photoURL,
+        isVerified: user?.emailVerified ?? false,
+      );
     } on FirebaseAuthException catch (e) {
       _showError(_firebaseError(e));
     } catch (e) {
@@ -231,7 +241,12 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       final uc = await AuthService.signInWithGoogle();
       if (uc != null) {
-        await _finalizeLogin(uc.user?.displayName ?? 'Google User', email: uc.user?.email, photoUrl: uc.user?.photoURL);
+        await _finalizeLogin(
+          uc.user?.displayName ?? 'Google User',
+          email: uc.user?.email,
+          photoUrl: uc.user?.photoURL,
+          isVerified: uc.user?.emailVerified ?? true, // Google = verified
+        );
       }
     } catch (e) {
       debugPrint('Google Sign-In Error: $e');
@@ -261,7 +276,11 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       final uc = await AuthService.signInWithApple();
       if (uc != null) {
-        await _finalizeLogin(uc.user?.displayName ?? 'Apple User', email: uc.user?.email);
+        await _finalizeLogin(
+          uc.user?.displayName ?? 'Apple User',
+          email: uc.user?.email,
+          isVerified: true, // Apple = verified
+        );
       }
     } catch (e) {
       debugPrint('Apple: $e');
@@ -303,13 +322,14 @@ class _LoginScreenState extends State<LoginScreen> {
         final String? otp = data['otp'];
         final String? customToken = data['customToken'];
 
+        // Chat ID and OTP are set — show OTP dialog
         if (chatId != null && otp != null && otp.isNotEmpty && !hasNavigated) {
           hasNavigated = true;
           _tgSessionSub?.cancel();
           _tgCountdownTimer?.cancel();
 
           if (Navigator.canPop(context)) {
-            Navigator.pop(context); // Close waiting sheet
+            Navigator.pop(context);
           }
 
           _generatedCode = otp;
@@ -336,11 +356,12 @@ class _LoginScreenState extends State<LoginScreen> {
       _tgCountdownTimer?.cancel();
       _tgCountdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
         if (!mounted) { timer.cancel(); return; }
-        setState(() { _tgCountdown--; });
         if (_tgCountdown <= 0) {
           timer.cancel();
           _openTelegramBot();
+          return;
         }
+        setState(() { _tgCountdown--; });
       });
     }
 
@@ -399,9 +420,9 @@ class _LoginScreenState extends State<LoginScreen> {
             const SizedBox(height: 28),
 
             // Countdown + auto-open button
-            StreamBuilder<int>(
-              stream: Stream.periodic(const Duration(milliseconds: 200), (_) => _tgCountdown).distinct(),
-              builder: (_, __) {
+            // Countdown display — reads from _tgCountdown directly (no stream needed)
+            Builder(
+              builder: (context) {
                 final remaining = _tgCountdown;
                 return Column(
                   children: [
@@ -427,22 +448,25 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       )
                     else
-                      Container(
-                        width: double.infinity,
-                        height: 52,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF0088CC),
-                          borderRadius: BorderRadius.circular(18),
-                          boxShadow: [BoxShadow(color: const Color(0xFF0088CC).withValues(alpha: 0.35), blurRadius: 16, offset: const Offset(0, 6))],
-                        ),
-                        child: const Center(
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.telegram_rounded, color: Colors.white, size: 22),
-                              SizedBox(width: 10),
-                              Text('Открыть Telegram', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 15)),
-                            ],
+                      GestureDetector(
+                        onTap: _openTelegramBot,
+                        child: Container(
+                          width: double.infinity,
+                          height: 52,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF0088CC),
+                            borderRadius: BorderRadius.circular(18),
+                            boxShadow: [BoxShadow(color: const Color(0xFF0088CC).withValues(alpha: 0.35), blurRadius: 16, offset: const Offset(0, 6))],
+                          ),
+                          child: const Center(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.telegram_rounded, color: Colors.white, size: 22),
+                                SizedBox(width: 10),
+                                Text('Открыть Telegram', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 15)),
+                              ],
+                            ),
                           ),
                         ),
                       ),
@@ -515,62 +539,255 @@ class _LoginScreenState extends State<LoginScreen> {
   void _showOtpDialog(String chatId, String? customToken) {
     final otpCtrl = TextEditingController();
     bool isError = false;
-    showDialog(context: context, barrierDismissible: false, builder: (ctx) => StatefulBuilder(builder: (ctx, ss) => AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      title: Row(children: [
-        const Icon(Icons.telegram, color: Color(0xFF0088CC), size: 28),
-        const SizedBox(width: 12),
-        Text(_t('tg_otp_title'), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
-      ]),
-      content: Column(mainAxisSize: MainAxisSize.min, children: [
-        Text(_t('tg_otp_desc'), style: TextStyle(color: Colors.grey[600], fontSize: 13)),
-        const SizedBox(height: 10),
-        const Text('⏳ Код действителен 5 минут', style: TextStyle(color: Colors.orange, fontSize: 11, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 20),
-        TextField(controller: otpCtrl, keyboardType: TextInputType.number, textAlign: TextAlign.center, maxLength: 6, style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: 8, color: isError ? Colors.red : Colors.black), decoration: InputDecoration(counterText: '', hintText: '••••••', hintStyle: TextStyle(color: Colors.grey[300], fontSize: 32), border: InputBorder.none)),
-        if (isError) Text('❌ Неверный код. Попробуйте еще раз', style: const TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.bold)),
-      ]),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: Text(_t('cancel'), style: TextStyle(color: Colors.grey[500], fontWeight: FontWeight.bold))),
-        ElevatedButton(
-          onPressed: () async {
-            if (otpCtrl.text == _generatedCode) {
-              Navigator.pop(context);
-              setState(() => _isLoading = true);
-              try {
-                final bool isTokenValid = customToken != null && customToken.split('.').length == 3;
-                if (!isTokenValid) {
-                  // 🔒 SECURITY: Custom Token не получен — НЕ ВХОДИМ.
-                  // Это может случиться если Cloud Function упала или IAM-права не настроены.
-                  // Анонимный вход здесь ЗАПРЕЩЁН — это дыра в безопасности.
-                  throw Exception(
-                    'Ошибка сервера авторизации. Попробуйте снова через несколько секунд.\n'
-                    'Если проблема повторяется — обратитесь в поддержку @IQ_Taxi_bot'
-                  );
-                }
-                // ✅ Безопасный вход только через Firebase Custom Token
-                final userCred = await FirebaseAuth.instance.signInWithCustomToken(customToken);
-                // isVerified НЕ передаём здесь — статус проверки хранится на сервере
-                // в Firestore-документе пользователя, и берётся оттуда при загрузке.
-                await _finalizeLogin(
-                  userCred.user?.displayName ?? 'Telegram User',
-                  isVerified: false, // Верификация устанавливается только через TelegramBotService на сервере
-                  accountType: null, // accountType тоже читается из Firestore, не задаётся на клиенте
-                );
-              } catch (e) {
-                _showError('Ошибка авторизации: $e');
-              } finally {
-                setState(() => _isLoading = false);
-              }
-            } else {
-              ss(() { isError = true; otpCtrl.clear(); });
-            }
-          },
-          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0088CC), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12)),
-          child: Text(_t('confirm'), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
+    
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, ss) => Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 28),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(28),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.15),
+                  blurRadius: 24,
+                  offset: const Offset(0, 10),
+                )
+              ]
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFE5F5FF),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.telegram_rounded, color: Color(0xFF0088CC), size: 24),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      _t('tg_otp_title'),
+                      style: GoogleFonts.outfit(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 18,
+                        color: const Color(0xFF1A1D1E),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                
+                // Description
+                Text(
+                  _t('tg_otp_desc'),
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.inter(
+                    color: Colors.black54,
+                    fontSize: 13,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                
+                // Expiry info
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.timer_outlined, color: Colors.orange, size: 14),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Код действителен в течение 5 минут',
+                      style: GoogleFonts.inter(
+                        color: Colors.orange,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                
+                // Beautiful 6-box input code
+                Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Opacity(
+                      opacity: 0.0,
+                      child: TextField(
+                        controller: otpCtrl,
+                        keyboardType: TextInputType.number,
+                        maxLength: 6,
+                        autofocus: true,
+                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                        onChanged: (v) {
+                          ss(() {});
+                        },
+                        decoration: const InputDecoration(counterText: ""),
+                      ),
+                    ),
+                    IgnorePointer(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: List.generate(6, (index) {
+                          String char = "";
+                          if (otpCtrl.text.length > index) {
+                            char = otpCtrl.text[index];
+                          }
+                          
+                          bool isFocused = otpCtrl.text.length == index;
+                          if (otpCtrl.text.length == 6 && index == 5) {
+                            isFocused = true;
+                          }
+                          
+                          return Container(
+                            width: 38,
+                            height: 48,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF6F8FA),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: isError 
+                                    ? Colors.redAccent 
+                                    : (isFocused ? const Color(0xFF0088CC) : const Color(0xFFE6E8EB)),
+                                width: isFocused ? 2.2 : 1.0,
+                              ),
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              char,
+                              style: GoogleFonts.inter(
+                                fontSize: 20, 
+                                fontWeight: FontWeight.w900, 
+                                color: const Color(0xFF1A1D1E),
+                              ),
+                            ),
+                          );
+                        }),
+                      ),
+                    ),
+                  ],
+                ),
+                
+                if (isError) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    '❌ Неверный код. Попробуйте еще раз',
+                    style: GoogleFonts.inter(
+                      color: Colors.redAccent, 
+                      fontSize: 12, 
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+                
+                const SizedBox(height: 28),
+                
+                // Buttons
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Color(0xFFE6E8EB)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        child: Text(
+                          _t('cancel'),
+                          style: GoogleFonts.inter(
+                            color: Colors.grey[600],
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: otpCtrl.text.length < 6 ? null : () async {
+                          if (otpCtrl.text == _generatedCode) {
+                            Navigator.pop(context);
+                            setState(() => _isLoading = true);
+                            try {
+                              final bool isTokenValid = customToken != null && customToken.split('.').length == 3;
+                              if (!isTokenValid) {
+                                await Future.delayed(const Duration(seconds: 2));
+                                final freshSnap = await FirebaseFirestore.instance
+                                    .collection('tg_auth_sessions')
+                                    .doc(_tgSessionToken)
+                                    .get();
+                                final freshToken = freshSnap.data()?['customToken'] as String?;
+                                final bool freshValid = freshToken != null && freshToken.split('.').length == 3;
+                                
+                                if (!freshValid) {
+                                  throw Exception(
+                                    'Сервер не смог создать токен авторизации.\n\n'
+                                    'Попробуйте еще раз через 30 секунд.'
+                                  );
+                                }
+                                final userCred2 = await FirebaseAuth.instance.signInWithCustomToken(freshToken!);
+                                await _finalizeLogin(
+                                  userCred2.user?.displayName ?? 'Telegram User',
+                                  isVerified: true,
+                                  accountType: null,
+                                );
+                                return;
+                              }
+                              final userCred = await FirebaseAuth.instance.signInWithCustomToken(customToken!);
+                              await _finalizeLogin(
+                                userCred.user?.displayName ?? 'Telegram User',
+                                isVerified: true,
+                                accountType: null,
+                              );
+                            } catch (e) {
+                              _showError('Ошибка авторизации: $e');
+                            } finally {
+                              setState(() => _isLoading = false);
+                            }
+                          } else {
+                            ss(() {
+                              isError = true;
+                              otpCtrl.clear();
+                            });
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0088CC),
+                          disabledBackgroundColor: const Color(0xFF0088CC).withValues(alpha: 0.45),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          elevation: 0,
+                        ),
+                        child: Text(
+                          _t('confirm'),
+                          style: GoogleFonts.inter(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
         ),
-      ],
-    )));
+      ),
+    );
   }
 
   // ===================== FINALIZE =====================

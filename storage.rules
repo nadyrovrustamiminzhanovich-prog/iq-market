@@ -11,29 +11,34 @@ service firebase.storage {
     match /ads/{allPaths=**} {
       allow read: if true; // Читать могут все
       allow write: if isSignedIn() 
-                   && request.resource.size < 50 * 1024 * 1024; // Лимит 50 МБ
+                   && request.resource.size < 50 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*|video/.*'); // Только медиа
     }
 
     // Медиафайлы чатов (chats/...)
     match /chats/{allPaths=**} {
-      allow read, write: if isSignedIn() 
-                         && request.resource.size < 20 * 1024 * 1024; // Лимит 20 МБ
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() 
+                   && request.resource.size < 20 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*|video/.*|audio/.*');
     }
 
     // Аватарки и личные файлы (папки с UID пользователя)
     match /users/{userId}/{allPaths=**} {
       allow read: if true;
-      allow write: if isSignedIn() && request.auth.uid == userId;
+      allow write: if isSignedIn() && request.auth.uid == userId
+                   && request.resource.contentType.matches('image/.*');
     }
     match /avatars/{userId}/{allPaths=**} {
       allow read: if true;
-      allow write: if isSignedIn() && request.auth.uid == userId;
+      allow write: if isSignedIn() && request.auth.uid == userId
+                   && request.resource.contentType.matches('image/.*');
     }
 
-    // Резервное правило для остальных загрузок (только авторизованные, лимит 50мб)
+    // Резервное правило для остальных загрузок
     match /{allPaths=**} {
       allow read: if true;
-      allow write: if isSignedIn() && request.resource.size < 50 * 1024 * 1024;
+      allow write: if false; // 🔒 Запрет на запись вне определенных папок
     }
   }
 }

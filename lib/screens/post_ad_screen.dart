@@ -365,7 +365,11 @@ class _PostAdScreenState extends State<PostAdScreen> {
         }
       }
     } else {
-      final List<XFile> picked = await _picker.pickMultiImage();
+      final List<XFile> picked = await _picker.pickMultiImage(
+        imageQuality: 75,
+        maxWidth: 1280,
+        maxHeight: 1280,
+      );
       if (picked.isNotEmpty) {
         setState(() {
           _imageFiles.addAll(picked.map((f) => File(f.path)));

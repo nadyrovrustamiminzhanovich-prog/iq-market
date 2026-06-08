@@ -4,7 +4,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:iqmarket/models/ad_model.dart';
 import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -55,7 +54,8 @@ class _ProductCardState extends State<ProductCard> with SingleTickerProviderStat
     final hasMultiple = images.length > 1;
     final isFree = ad.price == 0.0 || ad.category == 'Отдам даром';
 
-    return Container(
+    return RepaintBoundary(
+      child: Container(
       width: widget.width,
       margin: const EdgeInsets.only(bottom: 4),
       decoration: BoxDecoration(
@@ -64,9 +64,9 @@ class _ProductCardState extends State<ProductCard> with SingleTickerProviderStat
         border: Border.all(color: Colors.grey.withValues(alpha: 0.15), width: 1),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 15,
-            offset: const Offset(0, 8),
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -373,7 +373,7 @@ class _ProductCardState extends State<ProductCard> with SingleTickerProviderStat
           ),
         ],
       ),
-    ).animate().fadeIn(duration: 400.ms, curve: Curves.easeOut).slideY(begin: 0.05, end: 0, duration: 400.ms, curve: Curves.easeOut);
+    ));
   }
 
   Widget _metaInfo(String text, IconData icon, {Color? color}) => Container(

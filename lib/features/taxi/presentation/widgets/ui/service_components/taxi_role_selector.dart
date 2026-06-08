@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:iqmarket/theme/taxi_theme.dart';
 import 'package:iqmarket/providers/taxi_provider.dart';
 import 'package:iqmarket/widgets/taxi/taxi_ui_components.dart';
+import 'package:iqmarket/widgets/auth/telegram_verification_dialog.dart';
 
 class TaxiRoleSelector extends StatelessWidget {
   final TaxiProvider provider;
@@ -43,10 +44,24 @@ class TaxiRoleSelector extends StatelessWidget {
             icon: Icons.directions_car_rounded,
             isSelected: provider.tab == 1,
             t: t,
-            onTap: () {
+            onTap: () async {
               HapticFeedback.selectionClick();
-              onRoleChanged();
-              provider.setTab(1);
+              
+              // Verify Telegram authentication state
+              final isVerified = await provider.checkUserTelegramVerification();
+              
+              if (!isVerified) {
+                if (context.mounted) {
+                  final success = await TelegramVerificationDialog.show(context, provider: provider);
+                  if (success) {
+                    onRoleChanged();
+                    provider.setTab(1);
+                  }
+                }
+              } else {
+                onRoleChanged();
+                provider.setTab(1);
+              }
             },
           ),
         ],
@@ -54,3 +69,4 @@ class TaxiRoleSelector extends StatelessWidget {
     );
   }
 }
+

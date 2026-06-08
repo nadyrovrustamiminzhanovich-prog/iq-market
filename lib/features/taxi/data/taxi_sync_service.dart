@@ -2,6 +2,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:iqmarket/features/taxi/data/models/taxi_ride_model.dart';
+import 'package:iqmarket/features/taxi/data/models/taxi_order_model.dart';
+import 'package:iqmarket/features/taxi/data/models/taxi_bid_model.dart';
 
 class TaxiSyncService {
   final VoidCallback onDataChanged;
@@ -75,9 +78,10 @@ class TaxiSyncService {
       for (var doc in snapshot.docs) {
         final data = doc.data();
         data['id'] = doc.id;
-        drives.add(data);
-        if (data['driverId'] != null) {
-          userIdsToFetch.add(data['driverId']);
+        final model = TaxiRideModel.fromMap(data);
+        drives.add(model.toMap());
+        if (model.driverId.isNotEmpty) {
+          userIdsToFetch.add(model.driverId);
         }
       }
       if (userIdsToFetch.isNotEmpty) fetchUserRatingsBatch(userIdsToFetch);
@@ -95,9 +99,10 @@ class TaxiSyncService {
       for (var doc in snapshot.docs) {
         final data = doc.data();
         data['id'] = doc.id;
-        passengerOrders.add(data);
-        if (data['passengerId'] != null) {
-          userIdsToFetch.add(data['passengerId']);
+        final model = TaxiOrderModel.fromMap(data);
+        passengerOrders.add(model.toMap());
+        if (model.passengerId.isNotEmpty) {
+          userIdsToFetch.add(model.passengerId);
         }
       }
       if (userIdsToFetch.isNotEmpty) fetchUserRatingsBatch(userIdsToFetch);
@@ -132,7 +137,7 @@ class TaxiSyncService {
         sentBids = snapshot.docs.map((doc) {
           final data = doc.data();
           data['id'] = doc.id;
-          return data;
+          return TaxiBidModel.fromMap(data).toMap();
         }).toList();
         updateBids();
       }, onError: (e) => debugPrint("Error syncing sent taxi_bids: $e"));
@@ -147,7 +152,7 @@ class TaxiSyncService {
         recvBids = snapshot.docs.map((doc) {
           final data = doc.data();
           data['id'] = doc.id;
-          return data;
+          return TaxiBidModel.fromMap(data).toMap();
         }).toList();
         updateBids();
       }, onError: (e) => debugPrint("Error syncing received taxi_bids: $e"));
@@ -164,9 +169,10 @@ class TaxiSyncService {
         for (var doc in snapshot.docs) {
           final data = doc.data();
           data['id'] = doc.id;
-          myAcceptedOrders.add(data);
-          if (data['driverId'] != null) {
-            userIdsToFetch.add(data['driverId']);
+          final model = TaxiOrderModel.fromMap(data);
+          myAcceptedOrders.add(model.toMap());
+          if (model.driverId != null && model.driverId!.isNotEmpty) {
+            userIdsToFetch.add(model.driverId!);
           }
         }
         if (userIdsToFetch.isNotEmpty) fetchUserRatingsBatch(userIdsToFetch);
@@ -185,9 +191,10 @@ class TaxiSyncService {
         for (var doc in snapshot.docs) {
           final data = doc.data();
           data['id'] = doc.id;
-          myAcceptedOrders.add(data);
-          if (data['passengerId'] != null) {
-            userIdsToFetch.add(data['passengerId']);
+          final model = TaxiOrderModel.fromMap(data);
+          myAcceptedOrders.add(model.toMap());
+          if (model.passengerId.isNotEmpty) {
+            userIdsToFetch.add(model.passengerId);
           }
         }
         if (userIdsToFetch.isNotEmpty) fetchUserRatingsBatch(userIdsToFetch);
@@ -206,9 +213,10 @@ class TaxiSyncService {
         for (var doc in snapshot.docs) {
           final data = doc.data();
           data['id'] = doc.id;
-          myAcceptedRides.add(data);
-          if (data['passengerId'] != null) {
-            userIdsToFetch.add(data['passengerId']);
+          final model = TaxiRideModel.fromMap(data);
+          myAcceptedRides.add(model.toMap());
+          if (model.passengerId != null && model.passengerId!.isNotEmpty) {
+            userIdsToFetch.add(model.passengerId!);
           }
         }
         if (userIdsToFetch.isNotEmpty) fetchUserRatingsBatch(userIdsToFetch);
@@ -227,9 +235,10 @@ class TaxiSyncService {
         for (var doc in snapshot.docs) {
           final data = doc.data();
           data['id'] = doc.id;
-          myAcceptedRides.add(data);
-          if (data['driverId'] != null) {
-            userIdsToFetch.add(data['driverId']);
+          final model = TaxiRideModel.fromMap(data);
+          myAcceptedRides.add(model.toMap());
+          if (model.driverId.isNotEmpty) {
+            userIdsToFetch.add(model.driverId);
           }
         }
         if (userIdsToFetch.isNotEmpty) fetchUserRatingsBatch(userIdsToFetch);

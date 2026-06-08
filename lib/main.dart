@@ -27,6 +27,7 @@ Future<void> main() async {
   bool isFirebaseReady = false;
   try {
     await Firebase.initializeApp();
+    isFirebaseReady = true; // FIX 3: Set true immediately so Crashlytics can catch subsequent errors
     await AnalyticsService.init(); 
     await AuthService.init();
     
@@ -36,8 +37,8 @@ Future<void> main() async {
     );
 
     await FirebaseAppCheck.instance.activate(
-      androidProvider: kDebugMode ? AndroidProvider.debug : AndroidProvider.playIntegrity,
-      appleProvider: kDebugMode ? AppleProvider.debug : AppleProvider.deviceCheck,
+      providerAndroid: kDebugMode ? const AndroidDebugProvider() : const AndroidPlayIntegrityProvider(),
+      providerApple: kDebugMode ? const AppleDebugProvider() : const AppleDeviceCheckProvider(),
     );
 
     // Pass all uncaught "fatal" errors from the framework to Crashlytics
@@ -51,17 +52,19 @@ Future<void> main() async {
       return true;
     };
 
-    isFirebaseReady = true;
   } catch (e, stack) {
-    debugPrint('Critical Firebase Init Error: $e');
+    debugPrint('Critical Init Error: $e');
     if (isFirebaseReady) {
       FirebaseCrashlytics.instance.recordError(e, stack, fatal: true);
     }
   }
 
   await StorageService.init();
-  NotificationService.init();
-  AnalyticsService.logAppOpen();
+  await NotificationService.init(); // FIX 1: Add await
+
+  if (isFirebaseReady) {
+    AnalyticsService.logAppOpen(); // FIX 2: Only log if Firebase is ready
+  }
   
   // Load saved language
   final savedLang = StorageService.getString('app_lang') ?? 'Русский';
@@ -139,7 +142,7 @@ class MainApp extends StatelessWidget {
         };
         return OfflineWrapper(child: child!);
       },
-      home: SplashScreen(nextScreen: const IQMarketHome()),
+      home: const IQMarketHome(),
       debugShowCheckedModeBanner: false,
       navigatorObservers: [AnalyticsService.observer],
       theme: AppTheme.lightTheme,

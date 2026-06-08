@@ -141,39 +141,42 @@ class _IQMarketHomeState extends State<IQMarketHome> {
     );
   }
 
-  Widget _buildHomePage() => Consumer<AppConfigProvider>(
-    builder: (context, config, _) => RefreshIndicator(
-    onRefresh: () async {
-      _pagingController.refresh();
-      setState(() { 
-        _selectedCategory = 'Все'; 
-        _searchQuery = ''; 
-        _searchController.clear(); 
-      });
-      Provider.of<AppConfigProvider>(context, listen: false).setCity('Все');
-    },
+  Widget _buildHomePage() {
+    final config = Provider.of<AppConfigProvider>(context, listen: false);
+    return RefreshIndicator(
+      onRefresh: () async {
+        _pagingController.refresh();
+        setState(() {
+          _selectedCategory = 'Все';
+          _searchQuery = '';
+          _searchController.clear();
+        });
+        config.setCity('Все');
+      },
       child: CustomScrollView(
         controller: _scrollController,
+        // Повышает плавность прокрутки на мобильных устройствах
+        physics: const BouncingScrollPhysics(
+          parent: AlwaysScrollableScrollPhysics(),
+        ),
         slivers: [
           _buildAppBar(config),
           SliverToBoxAdapter(child: TaxiCardHome(onTap: () => _navToTaxi(config))),
           SliverToBoxAdapter(child: CategoriesHome(
-            selectedCategoryId: _selectedCategory, 
+            selectedCategoryId: _selectedCategory,
             onCategorySelected: (cat) => setState(() {
               _selectedCategory = cat;
               _pagingController.refresh();
-            }), 
-            onTaxiTap: () => _navToTaxi(config)
+            }),
+            onTaxiTap: () => _navToTaxi(config),
           )),
-          // SliverToBoxAdapter(child: _sectionHeader('Рекомендуем')),
-          // SliverToBoxAdapter(child: _buildRecs(config)),
           SliverToBoxAdapter(child: _sectionHeader('Новые объявления')),
           _buildAdsGrid(config),
           const SliverPadding(padding: EdgeInsets.only(bottom: 100)),
         ],
       ),
-    ),
-  );
+    );
+  }
 
   Widget _buildAppBar(AppConfigProvider config) => SliverAppBar(
     floating: true, pinned: false, automaticallyImplyLeading: false, backgroundColor: Theme.of(context).colorScheme.surface,
@@ -205,104 +208,102 @@ class _IQMarketHomeState extends State<IQMarketHome> {
     ),
   );
 
-  Widget _buildAdsGrid(AppConfigProvider config) => SliverLayoutBuilder(
-    builder: (context, constraints) {
-      int crossAxisCount = 2;
-      if (constraints.crossAxisExtent >= 1200) {
-        crossAxisCount = 6;
-      } else if (constraints.crossAxisExtent >= 900) {
-        crossAxisCount = 4;
-      } else if (constraints.crossAxisExtent >= 600) {
-        crossAxisCount = 3;
-      }
+  Widget _buildAdsGrid(AppConfigProvider config) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    int crossAxisCount = 2;
+    if (screenWidth >= 1200) {
+      crossAxisCount = 6;
+    } else if (screenWidth >= 900) {
+      crossAxisCount = 4;
+    } else if (screenWidth >= 600) {
+      crossAxisCount = 3;
+    }
 
-      return SliverPadding(
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        sliver: PagedSliverGrid<DocumentSnapshot?, AdModel>(
-          pagingController: _pagingController,
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: crossAxisCount, 
-            mainAxisSpacing: 10, 
-            crossAxisSpacing: 10, 
-            childAspectRatio: 0.68
-          ),
-      builderDelegate: PagedChildBuilderDelegate<AdModel>(
-        itemBuilder: (context, item, index) => ProductCard(
-          ad: item, 
-          heroPrefix: 'home_', 
-          onTap: () => _showDetails(item),
-          isFavorite: config.isFavorite(item.id),
-          onToggleFavorite: () => config.toggleFavorite(item.id),
+    return SliverPadding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      sliver: PagedSliverGrid<DocumentSnapshot?, AdModel>(
+        pagingController: _pagingController,
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: crossAxisCount,
+          mainAxisSpacing: 10,
+          crossAxisSpacing: 10,
+          childAspectRatio: 0.68,
         ),
-        // В версии 5.1.1 параметры переименованы
-        firstPageProgressIndicatorBuilder: (_) => Column(
-          children: List.generate(3, (index) => const Padding(
-            padding: EdgeInsets.only(bottom: 10),
-            child: Row(
-              children: [
-                Expanded(child: ProductCardSkeleton()),
-                SizedBox(width: 10),
-                Expanded(child: ProductCardSkeleton()),
-              ],
+        builderDelegate: PagedChildBuilderDelegate<AdModel>(
+          itemBuilder: (context, item, index) => ProductCard(
+            ad: item,
+            heroPrefix: 'home_',
+            onTap: () => _showDetails(item),
+            isFavorite: config.isFavorite(item.id),
+            onToggleFavorite: () => config.toggleFavorite(item.id),
+          ),
+          firstPageProgressIndicatorBuilder: (_) => Column(
+            children: List.generate(3, (index) => const Padding(
+              padding: EdgeInsets.only(bottom: 10),
+              child: Row(
+                children: [
+                  Expanded(child: ProductCardSkeleton()),
+                  SizedBox(width: 10),
+                  Expanded(child: ProductCardSkeleton()),
+                ],
+              ),
+            )),
+          ),
+          newPageProgressIndicatorBuilder: (_) => const Center(
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: 32),
+              child: CircularProgressIndicator(),
             ),
-          )),
-        ),
-        newPageProgressIndicatorBuilder: (_) => const Center(
-          child: Padding(
-            padding: EdgeInsets.symmetric(vertical: 32),
-            child: CircularProgressIndicator(),
           ),
-        ),
-        noItemsFoundIndicatorBuilder: (_) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(40),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.search_off_rounded, size: 80, color: Colors.grey[300]),
-                const SizedBox(height: 16),
-                Text(
-                  'Ничего не найдено',
-                  style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.grey[600]),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Попробуйте изменить запрос или фильтры',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.inter(color: Colors.grey[400]),
-                ),
-                const SizedBox(height: 24),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    setState(() {
-                      _selectedCategory = 'Все';
-                      _searchQuery = '';
-                      _searchController.clear();
-                    });
-                    Provider.of<AppConfigProvider>(context, listen: false).setCity('Все');
-                    _pagingController.refresh();
-                  },
-                  icon: const Icon(Icons.refresh_rounded, size: 18),
-                  label: const Text('СБРОСИТЬ И ОБНОВИТЬ', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF4A80F0),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                    elevation: 0,
+          noItemsFoundIndicatorBuilder: (_) => Center(
+            child: Padding(
+              padding: const EdgeInsets.all(40),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.search_off_rounded, size: 80, color: Colors.grey[300]),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Ничего не найдено',
+                    style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.grey[600]),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 8),
+                  Text(
+                    'Попробуйте изменить запрос или фильтры',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.inter(color: Colors.grey[400]),
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      setState(() {
+                        _selectedCategory = 'Все';
+                        _searchQuery = '';
+                        _searchController.clear();
+                      });
+                      Provider.of<AppConfigProvider>(context, listen: false).setCity('Все');
+                      _pagingController.refresh();
+                    },
+                    icon: const Icon(Icons.refresh_rounded, size: 18),
+                    label: const Text('СБРОСИТЬ И ОБНОВИТЬ', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF4A80F0),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      elevation: 0,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
+          firstPageErrorIndicatorBuilder: (context) => _errorWidget(),
+          newPageErrorIndicatorBuilder: (context) => _errorWidget(),
         ),
-        // Переименованные билдеры ошибок в v5.x
-        firstPageErrorIndicatorBuilder: (context) => _errorWidget(),
-        newPageErrorIndicatorBuilder: (context) => _errorWidget(),
       ),
-    ),
-  );
-  });
+    );
+  }
 
   Widget _errorWidget() => Center(
     child: Padding(

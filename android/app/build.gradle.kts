@@ -26,8 +26,8 @@ android {
 
     defaultConfig {
         applicationId = "com.iqmarket.app" 
-        minSdk = 24
-        targetSdk = 34
+        minSdk = flutter.minSdkVersion
+        targetSdk = 35
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }

@@ -21,6 +21,7 @@ import 'package:iqmarket/screens/taxi/taxi_history_screen.dart';
 import 'package:iqmarket/screens/taxi/taxi_support_screen.dart';
 import 'package:iqmarket/screens/taxi/taxi_user_profile_view.dart';
 import 'package:iqmarket/screens/login_screen.dart';
+import 'package:iqmarket/widgets/auth/telegram_verification_dialog.dart';
 
 // ── Legacy shared UI components (TaxiRoleCard etc.) ──────────────────────────
 
@@ -110,6 +111,17 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _taxiProvider = Provider.of<TaxiProvider>(context, listen: false);
       _taxiProvider.resumeFirebaseSync();
+      
+      // Defensive check for Telegram verification if in Driver mode (tab 1)
+      if (_taxiProvider.tab == 1) {
+        _taxiProvider.checkUserTelegramVerification().then((verified) {
+          if (!verified && mounted) {
+            _taxiProvider.setTab(0);
+            TelegramVerificationDialog.show(context, provider: _taxiProvider);
+          }
+        });
+      }
+
       if (_taxiProvider.curLang != widget.lang) {
         _taxiProvider.setLanguage(widget.lang);
       }

@@ -5,6 +5,8 @@ import 'package:iqmarket/translations/taxi_strings.dart';
 import 'package:iqmarket/features/taxi/data/taxi_prefs_service.dart';
 import 'package:iqmarket/features/taxi/data/taxi_repository.dart';
 import 'package:iqmarket/features/taxi/data/taxi_sync_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class TaxiProvider extends ChangeNotifier {
   late final TaxiPrefsService _prefs;
@@ -214,6 +216,31 @@ class TaxiProvider extends ChangeNotifier {
     _prefs.save('taxi_tg_chat_id', chatId);
     _prefs.save('taxi_logged_in', true);
     notifyListeners();
+  }
+
+  Future<bool> checkUserTelegramVerification() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return false;
+    if (user.uid.startsWith('telegram_')) {
+      _isTelegramVerified = true;
+      notifyListeners();
+      return true;
+    }
+    try {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      if (doc.exists) {
+        final data = doc.data();
+        final verified = data?['isVerified'] == true;
+        if (verified != _isTelegramVerified) {
+          _isTelegramVerified = verified;
+          notifyListeners();
+        }
+        return verified;
+      }
+    } catch (e) {
+      debugPrint('Error checking user telegram verification: $e');
+    }
+    return _isTelegramVerified;
   }
 
   void updateCarInfo(String car, String plate) {

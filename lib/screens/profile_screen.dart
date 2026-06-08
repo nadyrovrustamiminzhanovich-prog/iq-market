@@ -102,6 +102,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   );
   final TextEditingController _phoneCtrl = TextEditingController();
   final TextEditingController _codeCtrl = TextEditingController();
+  Timer? _modalTimer;
 
   // ✅ Кэш стрима: создается один раз в initState, а не новый watcher при каждом setState()
   late final Stream<UserModel?> _userStream;
@@ -125,6 +126,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void dispose() {
     _timer?.cancel();
+    _modalTimer?.cancel();
     _tgSessionSub?.cancel();
     _phoneCtrl.dispose();
     _codeCtrl.dispose();
@@ -361,46 +363,72 @@ class _ProfileScreenState extends State<ProfileScreen> {
             border: Border.all(color: _isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.04)),
           ),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              Column(
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 24),
-                      const SizedBox(width: 8),
-                      Text(
-                        isNewcomer ? newcomerText : rating, 
-                        style: GoogleFonts.inter(
-                          fontSize: isNewcomer ? 16 : 24, 
-                          fontWeight: FontWeight.w900, 
-                          color: _txtColor
-                        )
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 24),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            isNewcomer ? newcomerText : rating, 
+                            style: GoogleFonts.inter(
+                              fontSize: isNewcomer ? 16 : 24, 
+                              fontWeight: FontWeight.w900, 
+                              color: _txtColor
+                            ),
+                            textAlign: TextAlign.center,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      ratingDesc, 
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.inter(
+                        fontSize: isNewcomer ? 8.5 : 10, 
+                        fontWeight: FontWeight.w700, 
+                        color: _subtxtColor, 
+                        letterSpacing: isNewcomer ? 0.0 : 1.0
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    ratingDesc, 
-                    style: GoogleFonts.inter(
-                      fontSize: isNewcomer ? 8.5 : 10, 
-                      fontWeight: FontWeight.w700, 
-                      color: _subtxtColor, 
-                      letterSpacing: isNewcomer ? 0.0 : 1.0
-                    )
-                  ),
-                ],
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(width: 32),
-              Container(width: 1, height: 40, color: _subtxtColor.withValues(alpha: 0.1)),
-              const SizedBox(width: 32),
-              Column(
-                children: [
-                  Text(reviews, style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w900, color: _txtColor)),
-                  const SizedBox(height: 4),
-                  Text(_t('reviews_stat').toUpperCase(), 
-                    style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: _subtxtColor, letterSpacing: 1.0)),
-                ],
+              Container(
+                width: 1, 
+                height: 40, 
+                color: _subtxtColor.withValues(alpha: 0.1),
+                margin: const EdgeInsets.symmetric(horizontal: 12),
+              ),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      reviews, 
+                      style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w900, color: _txtColor),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _t('reviews_stat').toUpperCase(), 
+                      style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: _subtxtColor, letterSpacing: 1.0),
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -429,7 +457,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Row(
                 children: [
-                  Text('Мои отзывы', style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w900, color: _txtColor)),
+                  Text(_t('my_reviews'), style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w900, color: _txtColor)),
                   const Spacer(),
                   IconButton(
                     icon: Icon(Icons.close_rounded, color: _txtColor),
@@ -454,7 +482,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         children: [
                           Icon(Icons.rate_review_outlined, size: 70, color: _subtxtColor.withValues(alpha: 0.3)),
                           const SizedBox(height: 16),
-                          Text('У вас пока нет отзывов', style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold, color: _subtxtColor)),
+                          Text(_t('no_reviews_yet'), style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold, color: _subtxtColor)),
                         ],
                       ),
                     );
@@ -501,7 +529,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   const SizedBox(width: 6),
                                   Expanded(
                                     child: Text(
-                                      'К объявлению: ${r.adTitle}',
+                                      '${_t('for_ad')}: ${r.adTitle}',
                                       style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: _primaryColor),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
@@ -719,7 +747,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               const Icon(Icons.telegram, color: Colors.white, size: 22),
                               const SizedBox(width: 10),
                               Text(
-                                'Код отправлен в Telegram',
+                                _t('code_sent_tg'),
                                 style: GoogleFonts.plusJakartaSans(
                                   fontSize: 14, 
                                   color: Colors.white.withValues(alpha: 0.9), 
@@ -747,7 +775,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Код пришел в чат с ботом @IQ_Taxi_bot',
+                            _t('code_received_bot'),
                             style: GoogleFonts.plusJakartaSans(
                               fontSize: 11, 
                               color: Colors.white.withValues(alpha: 0.8),
@@ -776,12 +804,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           const SizedBox(height: 16),
                           Text(
-                            'Ожидаем запуск бота... 🤖',
+                            _t('waiting_bot_start'),
                             style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 15, color: _txtColor),
                           ),
                           const SizedBox(height: 10),
                           Text(
-                            'Мы открыли Telegram. Пожалуйста, нажмите кнопку «СТАРТ» (запустить) в чате бота, чтобы получить код.',
+                            _t('tg_start_instruction'),
                             textAlign: TextAlign.center,
                             style: GoogleFonts.plusJakartaSans(fontSize: 12, color: _subtxtColor, height: 1.4),
                           ),
@@ -794,7 +822,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               }
                             },
                             icon: const Icon(Icons.telegram, color: Colors.white, size: 18),
-                            label: const Text('ОТКРЫТЬ TELEGRAM ПОВТОРНО'),
+                            label: Text(_t('reopen_telegram')),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF0088CC),
                               foregroundColor: Colors.white,
@@ -858,10 +886,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     String? validationError;
                                     if (cleanPhone.length != 11) {
                                       isPhoneValid = false;
-                                      validationError = 'Номер должен состоять из 11 цифр! Пример: +7 (707) 123-45-67 📱';
+                                      validationError = _t('phone_length_error');
                                     } else if (!cleanPhone.startsWith('7')) {
                                       isPhoneValid = false;
-                                      validationError = 'Номер должен начинаться с +7 или 8! 🇰🇿';
+                                      validationError = _t('phone_start_error');
                                     } else {
                                       final operatorCode = cleanPhone.substring(1, 4);
                                       final validPrefixes = [
@@ -871,7 +899,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       ];
                                       if (!validPrefixes.contains(operatorCode)) {
                                         isPhoneValid = false;
-                                        validationError = 'Неверный код оператора Казахстана: $operatorCode! ❌';
+                                        validationError = '${_t('operator_code_error')}: $operatorCode! ❌';
                                       }
                                     }
 
@@ -913,7 +941,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                           _startTimer();
                                           
                                           // Update modal periodic ticks
-                                          Timer.periodic(const Duration(seconds: 1), (t) {
+                                          _modalTimer?.cancel();
+                                          _modalTimer = Timer.periodic(const Duration(seconds: 1), (t) {
                                             if (mounted && _isTimerRunning) {
                                               setModalState(() {});
                                             } else {
@@ -925,7 +954,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     } catch (e) {
                                       setModalState(() {
                                         _isWaitingForBot = false;
-                                        _sheetError = 'Ошибка запуска сессии: $e';
+                                        _sheetError = '${_t('session_start_error')}: $e';
                                       });
                                     }
                                   },
@@ -939,7 +968,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   if (_isTimerRunning) ...[
                     const SizedBox(height: 20),
                     Text(
-                      'ВВЕДИТЕ 6-ЗНАЧНЫЙ КОД ИЗ TELEGRAM:',
+                      _t('enter_6_digit_code'),
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
@@ -1053,21 +1082,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               if (context.mounted) {
                                 Navigator.pop(context);
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Аккаунт успешно верифицирован! 💙'), 
-                                    backgroundColor: Color(0xFF229ED9),
+                                  SnackBar(
+                                    content: Text(_t('account_verified_success')), 
+                                    backgroundColor: const Color(0xFF229ED9),
                                     behavior: SnackBarBehavior.floating,
                                   ),
                                 );
                               }
                             } catch (e) {
                               setModalState(() {
-                                _sheetError = 'Ошибка: $e';
+                                _sheetError = '${_t('error')}: $e';
                               });
                             }
                           } else {
                             setModalState(() {
-                              _sheetError = 'Неверный код! Проверьте правильность ввода. ❌';
+                              _sheetError = _t('invalid_code_error');
                             });
                           }
                         },
@@ -1077,7 +1106,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                           elevation: 0,
                         ),
-                        child: const Text('ПОДТВЕРДИТЬ КОД 💙', style: TextStyle(fontWeight: FontWeight.w900)),
+                        child: Text(_t('confirm_code'), style: const TextStyle(fontWeight: FontWeight.w900)),
                       ),
                     ),
                   ] else ...[
@@ -1100,6 +1129,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     ).then((_) {
       // Clean up session subscription when bottom sheet is closed
       _tgSessionSub?.cancel();
+      _modalTimer?.cancel();
+      _isTimerRunning = false;
     });
   }
 
@@ -1122,9 +1153,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             const SizedBox(height: 24),
             Text(_t('why_verify'), style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w900, color: _txtColor)),
             const SizedBox(height: 24),
-            _buildBenefitItemLarge(_t('verify_benefit_1'), 'Покупатели чаще выбирают проверенных продавцов.'),
-            _buildBenefitItemLarge(_t('verify_benefit_2'), 'Ваши объявления будут выше в списке выдачи.'),
-            _buildBenefitItemLarge(_t('verify_benefit_3'), 'Подтвержденный профиль защищает от мошенников.'),
+            _buildBenefitItemLarge(_t('verify_benefit_1'), _t('verify_benefit_desc_1')),
+            _buildBenefitItemLarge(_t('verify_benefit_2'), _t('verify_benefit_desc_2')),
+            _buildBenefitItemLarge(_t('verify_benefit_3'), _t('verify_benefit_desc_3')),
             const SizedBox(height: 30),
             SizedBox(
               width: double.infinity,
@@ -1198,9 +1229,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _buildMenuCard([
               _buildListItem(Icons.person_outline_rounded, _t('personal_data'), () => _openSettings(_firestorePhotoUrl)),
               _buildListItemDivider(),
-              _buildListItem(Icons.grid_view_rounded, 'Мои объявления', () => _openMyAds()),
+              _buildListItem(Icons.grid_view_rounded, _t('my_ads'), () => _openMyAds()),
               _buildListItemDivider(),
-              _buildListItem(Icons.chat_bubble_outline_rounded, 'Мои сообщения', () {
+              _buildListItem(Icons.chat_bubble_outline_rounded, _t('chats'), () {
                 Navigator.push(context, MaterialPageRoute(builder: (context) => NotificationsScreen(lang: _localLang)));
               }),
               _buildListItemDivider(),
@@ -1218,14 +1249,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
           // GROUP 2: Система
           if (isEmailUser || _localAccType == 'admin') ...[
-            _buildMenuSectionTitle('Система'),
+            _buildMenuSectionTitle(_t('system')),
             _buildMenuCard([
               if (isEmailUser)
-                _buildListItem(Icons.security_rounded, 'Безопасность', _showSecurityDialog),
+                _buildListItem(Icons.security_rounded, _t('security'), _showSecurityDialog),
               if (isEmailUser && _localAccType == 'admin')
                 _buildListItemDivider(),
               if (_localAccType == 'admin')
-                _buildListItem(Icons.admin_panel_settings_outlined, 'Панель администратора', () {
+                _buildListItem(Icons.admin_panel_settings_outlined, _t('admin_panel'), () {
                   Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminPanelScreen()));
                 }),
             ]),
@@ -1233,7 +1264,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ],
 
           // GROUP 3: Информация
-          _buildMenuSectionTitle('Информация'),
+          _buildMenuSectionTitle(_t('info_title')),
           _buildMenuCard([
             _buildListItem(Icons.help_outline_rounded, _t('help'), () {
               Navigator.push(context, MaterialPageRoute(builder: (context) => HelpCenterScreen(lang: _localLang)));
@@ -1243,9 +1274,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Navigator.push(context, MaterialPageRoute(builder: (context) => LegalInfoScreen(lang: _localLang)));
             }),
             _buildListItemDivider(),
-            _buildListItem(Icons.star_rate_rounded, 'Оценить приложение', _openStore),
+            _buildListItem(Icons.star_rate_rounded, _t('rate_app'), _openStore),
             _buildListItemDivider(),
-            _buildListItem(Icons.info_outline_rounded, 'О приложении', _showAboutDialog),
+            _buildListItem(Icons.info_outline_rounded, _t('about'), _showAboutDialog),
           ]),
         ],
       ),
@@ -1537,13 +1568,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 const SizedBox(height: 25),
                 const Icon(Icons.shield_outlined, color: Color(0xFF4A80F0), size: 54),
                 const SizedBox(height: 20),
-                Text('Смена пароля', style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w900, color: _txtColor)),
+                Text(_t('change_password'), style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w900, color: _txtColor)),
                 const SizedBox(height: 10),
-                Text('Введите новый пароль для вашей учетной записи', textAlign: TextAlign.center, style: TextStyle(color: _subtxtColor, fontSize: 13)),
+                Text(_t('enter_new_password_desc'), textAlign: TextAlign.center, style: TextStyle(color: _subtxtColor, fontSize: 13)),
                 const SizedBox(height: 25),
-                _buildSecurityField('Новый пароль', passwordController, true),
+                _buildSecurityField(_t('new_password'), passwordController, true),
                 const SizedBox(height: 15),
-                _buildSecurityField('Подтвердите пароль', confirmController, true),
+                _buildSecurityField(_t('confirm_password'), confirmController, true),
                 const SizedBox(height: 30),
                 SizedBox(
                   width: double.infinity,
@@ -1551,11 +1582,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   child: ElevatedButton(
                     onPressed: isLoading ? null : () async {
                       if (passwordController.text.length < 6) {
-                        _showLocalError('Минимум 6 символов');
+                        _showLocalError(_t('min_6_chars'));
                         return;
                       }
                       if (passwordController.text != confirmController.text) {
-                        _showLocalError('Пароли не совпадают');
+                        _showLocalError(_t('passwords_dont_match'));
                         return;
                       }
 
@@ -1564,10 +1595,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         await AuthService.updatePassword(passwordController.text);
                         if (mounted) {
                           Navigator.pop(ctx);
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Пароль успешно изменен! ✅'), backgroundColor: Colors.green));
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_t('password_changed_success')), backgroundColor: Colors.green));
                         }
                       } catch (e) {
-                        _showLocalError('Ошибка: $e');
+                        _showLocalError('${_t('error')}: $e');
                       } finally {
                         setModalState(() => isLoading = false);
                       }
@@ -1594,11 +1625,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Выйти из аккаунта?'),
-        content: const Text('Вы уверены, что хотите выйти?'),
+        title: Text(_t('logout_title')),
+        content: Text(_t('logout_content')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('ОТМЕНА')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('ВЫЙТИ', style: TextStyle(color: Colors.red))),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(_t('cancel'))),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: Text(_t('confirm_logout'), style: const TextStyle(color: Colors.red))),
         ],
       ),
     );
@@ -1685,7 +1716,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         child: OutlinedButton.icon(
           onPressed: () => _handleLogout(),
           icon: const Icon(Icons.logout_rounded, color: Colors.redAccent),
-          label: const Text('ВЫЙТИ ИЗ АККАУНТА', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w900)),
+          label: Text(_t('logout').toUpperCase(), style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w900)),
           style: OutlinedButton.styleFrom(
             padding: const EdgeInsets.symmetric(vertical: 18),
             side: const BorderSide(color: Colors.redAccent),
@@ -1715,7 +1746,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (await canLaunchUrl(url)) {
       await launchUrl(url, mode: LaunchMode.externalApplication);
     } else {
-      _showLocalError('Не удалось открыть магазин приложений');
+      _showLocalError(_t('failed_open_store'));
     }
   }
 
@@ -1738,7 +1769,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             const Icon(Icons.copyright_rounded, size: 64, color: Color(0xFF4A80F0)),
             const SizedBox(height: 24),
             Text(
-              'Авторское право',
+              _t('copyright_title'),
               style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w900, color: _txtColor),
               textAlign: TextAlign.center,
             ),
@@ -1753,13 +1784,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Column(
                 children: [
                   Text(
-                    'Основатель и Главный разработчик:\n${AppConstants.copyrightOwner}',
+                    '${_t('founder_and_dev')}:\n${AppConstants.copyrightOwner}',
                     style: GoogleFonts.inter(fontSize: 16, height: 1.4, color: _txtColor, fontWeight: FontWeight.w900),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Программный комплекс ${AppConstants.appName}, включая уникальные алгоритмы, архитектуру и дизайн, является объектом интеллектуальной собственности. Любое незаконное копирование, декомпиляция или использование преследуется по закону.',
+                    _t('copyright_legal_text'),
                     style: GoogleFonts.inter(fontSize: 13, height: 1.5, color: _subtxtColor, fontWeight: FontWeight.w500),
                     textAlign: TextAlign.center,
                   ),
@@ -1767,7 +1798,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const Divider(),
                   const SizedBox(height: 12),
                   Text(
-                    '© ${AppConstants.copyrightYear} ${AppConstants.appName}. All Rights Reserved.\nВсе права защищены.\n\nВерсия ${AppConstants.fullVersionString}',
+                    '© ${AppConstants.copyrightYear} ${AppConstants.appName}. All Rights Reserved.\n${_t('all_rights_reserved')}\n\n${_t('app_version')} ${AppConstants.fullVersionString}',
                     style: GoogleFonts.inter(fontSize: 11, color: _subtxtColor.withValues(alpha: 0.6), fontWeight: FontWeight.w700, letterSpacing: 0.5),
                     textAlign: TextAlign.center,
                   ),
@@ -1786,7 +1817,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   elevation: 0,
                 ),
-                child: const Text('ПОНЯТНО', style: TextStyle(fontWeight: FontWeight.w900)),
+                child: Text(_t('got_it'), style: const TextStyle(fontWeight: FontWeight.w900)),
               ),
             ),
             const SizedBox(height: 10),

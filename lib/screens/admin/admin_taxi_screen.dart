@@ -186,8 +186,8 @@ class _AdminTaxiScreenState extends State<AdminTaxiScreen> with SingleTickerProv
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.grey.withOpacity(0.1)),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 5))],
+        border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10, offset: const Offset(0, 5))],
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -220,7 +220,7 @@ class _AdminTaxiScreenState extends State<AdminTaxiScreen> with SingleTickerProv
                         children: [
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(color: statusColor.withOpacity(0.12), borderRadius: BorderRadius.circular(8)),
+                            decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(8)),
                             child: Text(statusText.toUpperCase(), style: GoogleFonts.inter(color: statusColor, fontWeight: FontWeight.w900, fontSize: 9, letterSpacing: 0.5)),
                           ),
                           const SizedBox(width: 8),
@@ -294,7 +294,7 @@ class _AdminTaxiScreenState extends State<AdminTaxiScreen> with SingleTickerProv
                     onPressed: () => _handleDelete(id, isOrder, name),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.redAccent,
-                      side: BorderSide(color: Colors.redAccent.withOpacity(0.4)),
+                      side: BorderSide(color: Colors.redAccent.withValues(alpha: 0.4)),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),

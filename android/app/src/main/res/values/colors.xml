@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="splash_bg">#050D2D</color>
-	<color name="ic_launcher_background">#0A1854</color>
+    <color name="splash_bg">#FFFFFF</color>
+    <!-- Белый фон — как Instagram, TikTok -->
+	<color name="ic_launcher_background">#1DA1F2</color>
 </resources>
