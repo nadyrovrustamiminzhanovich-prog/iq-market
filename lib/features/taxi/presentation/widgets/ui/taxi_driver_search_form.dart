@@ -8,6 +8,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:iqmarket/theme/taxi_theme.dart';
+import 'package:provider/provider.dart';
+import 'package:iqmarket/providers/taxi_provider.dart';
 import 'package:iqmarket/features/taxi/presentation/widgets/ui/taxi_section_header_widget.dart';
 
 /// Форма поиска пассажиров для водителя.
@@ -36,6 +38,7 @@ class TaxiDriverSearchForm extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final provider = Provider.of<TaxiProvider>(context);
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(20),
@@ -110,7 +113,7 @@ class TaxiDriverSearchForm extends StatelessWidget {
           const SizedBox(height: 24),
           TaxiActBtn(
             t: t,
-            label: 'ПОИСК 🔍',
+            label: provider.translate('search_btn_hint'),
             color: const Color(0xFF4A80F0),
             onTap: onSearchTap,
           ),

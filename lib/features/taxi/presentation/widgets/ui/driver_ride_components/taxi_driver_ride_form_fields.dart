@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:iqmarket/theme/taxi_theme.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
+import 'package:provider/provider.dart';
+import 'package:iqmarket/providers/taxi_provider.dart';
 
 class TaxiDriverRideFormFields extends StatelessWidget {
   final TaxiTheme t;
@@ -33,6 +35,7 @@ class TaxiDriverRideFormFields extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final provider = Provider.of<TaxiProvider>(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -63,7 +66,7 @@ class TaxiDriverRideFormFields extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      'ВАШ ТЕЛЕФОН',
+                      provider.translate('your_phone'),
                       style: GoogleFonts.inter(
                         fontSize: 8.5,
                         color: sPhoneError ? const Color(0xFFE11D48) : const Color(0xFF64748B),
@@ -105,7 +108,7 @@ class TaxiDriverRideFormFields extends StatelessWidget {
 
         // Цена
         Text(
-          'ЦЕНА ЗА 1 МЕСТО',
+          provider.translate('price_per_seat'),
           style: GoogleFonts.inter(
             color: t.sub,
             fontSize: 10,
@@ -183,7 +186,7 @@ class TaxiDriverRideFormFields extends StatelessWidget {
 
         // Комментарий
         Text(
-          'КОММЕНТАРИЙ К ПОЕЗДКЕ',
+          provider.translate('ride_comment_label'),
           style: GoogleFonts.inter(
             color: t.sub,
             fontSize: 10,
@@ -211,7 +214,7 @@ class TaxiDriverRideFormFields extends StatelessWidget {
               borderRadius: BorderRadius.circular(18),
               borderSide: const BorderSide(color: Color(0xFF4A80F0), width: 1.5),
             ),
-            hintText: 'Например: пустой багажник, выезд с автовокзала...',
+            hintText: provider.translate('comment_placeholder_driver'),
             hintStyle: GoogleFonts.inter(
               color: t.sub.withValues(alpha: 0.4),
               fontSize: 12,

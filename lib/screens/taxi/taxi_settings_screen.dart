@@ -18,7 +18,7 @@ class TaxiSettingsScreen extends StatelessWidget {
     final uid = FirebaseAuth.instance.currentUser?.uid ?? "";
     final reviewCount = taxiProvider.getUserReviewCount(uid);
     final rating = taxiProvider.getUserRating(uid);
-    final String ratingStr = reviewCount < 5 ? 'Новичок' : '${rating.toStringAsFixed(1)} ★';
+    final String ratingStr = reviewCount < 5 ? taxiProvider.translate('rating_novice') : '${rating.toStringAsFixed(1)} ★';
 
     return Scaffold(
       backgroundColor: t.bg,
@@ -37,7 +37,7 @@ class TaxiSettingsScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          _sectionHeader(t, 'Мой профиль'),
+          _sectionHeader(t, taxiProvider.translate('my_profile_header')),
           Container(
             margin: const EdgeInsets.only(bottom: 16),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
@@ -61,15 +61,17 @@ class TaxiSettingsScreen extends StatelessWidget {
                       const SizedBox(height: 2),
                       if (reviewCount < 5)
                         Tooltip(
-                          message: 'Рейтинг формируется после 5 оценок от других пользователей',
+                          message: taxiProvider.translate('rating_tooltip'),
                           child: Text(
-                            'Рейтинг после 5 оценок',
+                            taxiProvider.translate('rating_after_5'),
                             style: GoogleFonts.inter(color: Colors.grey, fontSize: 9, fontWeight: FontWeight.w500),
                             textAlign: TextAlign.center,
                           ),
                         ),
                       Text(
-                        reviewCount < 5 ? 'Оценок: $reviewCount/5' : '$reviewCount отзывов',
+                        reviewCount < 5 
+                            ? '${taxiProvider.translate('rating_count_prefix')} $reviewCount/5' 
+                            : '$reviewCount ${taxiProvider.translate('reviews_label')}',
                         style: GoogleFonts.inter(color: t.sub, fontSize: 10, fontWeight: FontWeight.w600),
                         textAlign: TextAlign.center,
                       ),
@@ -88,9 +90,9 @@ class TaxiSettingsScreen extends StatelessWidget {
                       children: [
                         Icon(LineIcons.history, color: t.accent, size: 28),
                         const SizedBox(height: 6),
-                        Text('ИСТОРИЯ', style: GoogleFonts.inter(color: t.accent, fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 0.5)),
+                        Text(taxiProvider.translate('history').toUpperCase(), style: GoogleFonts.inter(color: t.accent, fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 0.5)),
                         const SizedBox(height: 2),
-                        Text('Все поездки', style: GoogleFonts.inter(color: t.sub, fontSize: 10, fontWeight: FontWeight.w600)),
+                        Text(taxiProvider.translate('all_trips'), style: GoogleFonts.inter(color: t.sub, fontSize: 10, fontWeight: FontWeight.w600)),
                       ],
                     ),
                   ),
@@ -102,7 +104,7 @@ class TaxiSettingsScreen extends StatelessWidget {
           const Divider(height: 8),
 
           // App settings section
-          _sectionHeader(t, 'Приложение'),
+          _sectionHeader(t, taxiProvider.translate('app_settings_header')),
           _tile(t, Icons.notifications_none, taxiProvider.translate('notif'), _notif(taxiProvider)),
           const Divider(height: 32),
           _sectionHeader(t, 'Язык / Тіл'),

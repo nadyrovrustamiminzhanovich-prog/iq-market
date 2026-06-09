@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import 'package:iqmarket/providers/taxi_provider.dart';
 import 'package:iqmarket/theme/taxi_theme.dart';
 import 'package:iqmarket/screens/taxi/driver_verification_screen.dart';
 
@@ -17,6 +19,7 @@ void showTaxiVerificationInfoDialog(
   BuildContext context,
   TaxiTheme t,
 ) {
+  final provider = Provider.of<TaxiProvider>(context, listen: false);
   showModalBottomSheet(
     context: context,
     backgroundColor: Colors.transparent,
@@ -68,7 +71,7 @@ void showTaxiVerificationInfoDialog(
 
           // Заголовок
           Text(
-            'Получите статус проверенного ✅',
+            provider.translate('verif_status_title'),
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(
               fontSize: 18,
@@ -80,9 +83,7 @@ void showTaxiVerificationInfoDialog(
 
           // Описание
           Text(
-            'Повысьте доверие к вашему аккаунту! Проверенные пользователи '
-            'вызывают больше доверия у попутчиков и водителей, получая до '
-            '80% больше откликов на свои заказы и поездки.',
+            provider.translate('verif_status_desc'),
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(
               fontSize: 13,
@@ -109,7 +110,7 @@ void showTaxiVerificationInfoDialog(
                     ),
                   ),
                   child: Text(
-                    'Закрыть',
+                    provider.translate('close'),
                     style: GoogleFonts.inter(
                       color: t.sub,
                       fontWeight: FontWeight.bold,
@@ -152,7 +153,7 @@ void showTaxiVerificationInfoDialog(
                       ),
                     ),
                     child: Text(
-                      'Пройти верификацию',
+                      provider.translate('pass_verification'),
                       style: GoogleFonts.inter(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,

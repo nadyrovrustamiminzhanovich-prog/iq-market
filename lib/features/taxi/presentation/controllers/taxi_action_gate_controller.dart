@@ -259,9 +259,10 @@ class TaxiActionGateController {
                           onNavigateToLogin();
                           return;
                         }
-                        final hasPhone = provider.phone.isNotEmpty &&
+                        final isTelegramUser = provider.isTelegramVerified || FirebaseAuth.instance.currentUser?.uid.startsWith('telegram_') == true;
+                        final hasPhone = isTelegramUser || (provider.phone.isNotEmpty &&
                             provider.phone != '+7 701 000 11 22' &&
-                            provider.phone != '87010001122';
+                            provider.phone != '87010001122');
                         if (!hasPhone) {
                           onShowPhoneBinding(context, provider, t, () {
                             if (!provider.isVehicleVerified) {

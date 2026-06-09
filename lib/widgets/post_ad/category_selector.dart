@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import 'package:iqmarket/data/category_data.dart';
+import 'package:iqmarket/providers/app_config_provider.dart';
+import 'package:iqmarket/services/translation_service.dart';
 
 class CategorySelector extends StatelessWidget {
   final List<CategoryModel> categories;
@@ -18,8 +21,23 @@ class CategorySelector extends StatelessWidget {
     required this.onSubCategorySelected,
   });
 
+  String _getCatName(CategoryModel cat, String lang) {
+    if (lang == 'Уйғурчә') return cat.ug.isNotEmpty ? cat.ug : cat.ru;
+    if (lang == 'Қазақша') return cat.kz.isNotEmpty ? cat.kz : cat.ru;
+    return cat.ru;
+  }
+
+  String _getSubCatName(SubCategoryModel sub, String lang) {
+    if (lang == 'Уйғурчә') return sub.ug.isNotEmpty ? sub.ug : sub.ru;
+    if (lang == 'Қазақша') return sub.kz.isNotEmpty ? sub.kz : sub.ru;
+    return sub.ru;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final config = Provider.of<AppConfigProvider>(context);
+    final lang = config.language;
+
     final selectedCat = categories.firstWhere(
       (c) => c.id == selectedCategoryId,
       orElse: () => CategoryModel(
@@ -41,7 +59,7 @@ class CategorySelector extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Категория', style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 15)),
+        Text(TranslationService.t('category_label', lang), style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 15)),
         const SizedBox(height: 16),
         SizedBox(
           height: 45,
@@ -62,7 +80,7 @@ class CategorySelector extends StatelessWidget {
                   ),
                   child: Center(
                     child: Text(
-                      cat.ru,
+                      _getCatName(cat, lang),
                       style: GoogleFonts.inter(
                         color: isSelected ? Colors.white : const Color(0xFF64748B),
                         fontWeight: FontWeight.w800,
@@ -84,7 +102,7 @@ class CategorySelector extends StatelessWidget {
                   children: [
                     const SizedBox(height: 16),
                     Text(
-                      'Подкатегория',
+                      TranslationService.t('subcategory_label', lang),
                       style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.grey[700]),
                     ),
                     const SizedBox(height: 10),
@@ -110,7 +128,7 @@ class CategorySelector extends StatelessWidget {
                               border: Border.all(color: isSelected ? const Color(0xFF4A80F0) : Colors.grey[300]!),
                             ),
                             child: Text(
-                              sub.ru,
+                              _getSubCatName(sub, lang),
                               style: GoogleFonts.inter(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w700,

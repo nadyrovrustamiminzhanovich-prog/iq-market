@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import 'package:iqmarket/providers/taxi_provider.dart';
 
 class TaxiPriceInputWidget extends StatelessWidget {
   final TextEditingController priceController;
@@ -20,6 +22,7 @@ class TaxiPriceInputWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final provider = Provider.of<TaxiProvider>(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       height: 64, // slightly taller
@@ -54,7 +57,7 @@ class TaxiPriceInputWidget extends StatelessWidget {
               onChanged: onPriceChanged,
               decoration: InputDecoration(
                 border: InputBorder.none,
-                hintText: 'Сумма',
+                hintText: provider.translate('sum'),
                 hintStyle: GoogleFonts.inter(color: hasPriceError ? const Color(0xFFFDA4AF) : const Color(0xFF94A3B8), fontSize: 14, fontWeight: FontWeight.w600),
               ),
             ),

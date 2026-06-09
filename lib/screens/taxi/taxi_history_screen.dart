@@ -46,7 +46,7 @@ class TaxiHistoryScreen extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(
-              'История ваших поездок пуста',
+              provider.translate('no_history_sub'),
               style: GoogleFonts.inter(color: t.sub.withValues(alpha: 0.6), fontSize: 13),
               textAlign: TextAlign.center,
             ),
@@ -61,10 +61,12 @@ class TaxiHistoryScreen extends StatelessWidget {
         final String from = trip['from'] ?? '';
         final String to = trip['to'] ?? '';
         final String priceStr = '${trip['price'] ?? 0} ₸';
-        final String date = trip['date'] == 'today' 
-            ? 'Сегодня' 
-            : (trip['date'] == 'tomorrow' ? 'Завтра' : (trip['date'] ?? ''));
-        final String role = trip['role'] == 'driver' ? 'Водитель' : 'Пассажир';
+        final String date = (trip['date'] == 'today' || trip['date'] == 'tomorrow' || trip['date'] == 'yesterday')
+            ? provider.translate(trip['date'] ?? '')
+            : (trip['date'] ?? '');
+        final String role = trip['role'] == 'driver' 
+            ? provider.translate('driver_role') 
+            : provider.translate('passenger_role');
         final String phone = (trip['role'] == 'driver' ? (trip['passengerPhone'] ?? trip['phone'] ?? '') : (trip['driverPhone'] ?? trip['phone'] ?? '')).toString();
         final String comment = (trip['comment'] ?? '').toString();
 

@@ -236,16 +236,36 @@ class _ProductCardState extends State<ProductCard> with SingleTickerProviderStat
                 // Индикаторы страниц (точки)
                 if (hasMultiple)
                   Positioned(
-                    bottom: 10, right: 10,
+                    bottom: 10,
+                    left: 0,
+                    right: 0,
                     child: Row(
-                      children: List.generate(images.length, (index) => Container(
-                        width: 5, height: 5,
-                        margin: const EdgeInsets.symmetric(horizontal: 2),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: _currentPage == index ? Colors.white : Colors.white.withValues(alpha: 0.4),
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.35),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: List.generate(images.length, (index) {
+                              final isSelected = _currentPage == index;
+                              return AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                width: isSelected ? 12 : 5,
+                                height: 5,
+                                margin: const EdgeInsets.symmetric(horizontal: 2.5),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(3),
+                                  color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.45),
+                                ),
+                              );
+                            }),
+                          ),
                         ),
-                      )),
+                      ],
                     ),
                   ),
 

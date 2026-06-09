@@ -4,6 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import 'package:iqmarket/services/notification_service.dart';
 import 'package:iqmarket/theme/taxi_theme.dart';
+import 'package:provider/provider.dart';
+import 'package:iqmarket/providers/taxi_provider.dart';
 
 class TaxiPhoneInputStep extends StatelessWidget {
   final TaxiTheme t;
@@ -23,12 +25,13 @@ class TaxiPhoneInputStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final provider = Provider.of<TaxiProvider>(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          'НОМЕР ТЕЛЕФОНА КАЗАХСТАНА',
+          provider.translate('kz_phone_label'),
           style: GoogleFonts.inter(
             color: t.sub,
             fontSize: 11,
@@ -91,8 +94,8 @@ class TaxiPhoneInputStep extends StatelessWidget {
             if (cleanNum.length != 10) {
               NotificationService.notify(
                 context,
-                'Ошибка ввода',
-                'Введите полный номер телефона',
+                provider.translate('err_input_title'),
+                provider.translate('enter_full_phone'),
                 isSuccess: false,
               );
               return;
@@ -123,7 +126,7 @@ class TaxiPhoneInputStep extends StatelessWidget {
               child: isVerifying
                   ? const CircularProgressIndicator(color: Colors.white)
                   : Text(
-                      'ОТПРАВИТЬ SMS КОД',
+                      provider.translate('send_otp_btn'),
                       style: GoogleFonts.inter(
                         fontSize: 14,
                         fontWeight: FontWeight.w900,

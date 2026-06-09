@@ -8,6 +8,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import '../../../../../providers/taxi_provider.dart';
 
 /// Виджет для выбора начальной ("Откуда") или конечной ("Куда") точки маршрута.
 /// Содержит анимацию индикатора и состояние ошибки.
@@ -27,6 +29,7 @@ class TaxiRouteRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final provider = Provider.of<TaxiProvider>(context);
     return GestureDetector(
       onTap: () {
         HapticFeedback.selectionClick();
@@ -95,7 +98,7 @@ class TaxiRouteRow extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          isFrom ? 'Откуда' : 'Куда',
+                          isFrom ? provider.translate('from_hint') : provider.translate('to_hint'),
                           style: GoogleFonts.inter(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -112,7 +115,7 @@ class TaxiRouteRow extends StatelessWidget {
                               border: Border.all(color: const Color(0xFFFDA4AF), width: 0.8),
                             ),
                             child: Text(
-                              'укажите',
+                              provider.translate('specify'),
                               style: GoogleFonts.inter(
                                 color: const Color(0xFFE11D48),
                                 fontSize: 9.5,
@@ -127,7 +130,7 @@ class TaxiRouteRow extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isFrom ? 'ОТКУДА' : 'КУДА',
+                          isFrom ? provider.translate('from') : provider.translate('to'),
                           style: GoogleFonts.inter(
                             fontSize: 10,
                             fontWeight: FontWeight.w900,

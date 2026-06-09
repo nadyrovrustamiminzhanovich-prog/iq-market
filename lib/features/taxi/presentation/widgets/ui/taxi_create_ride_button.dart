@@ -7,6 +7,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import 'package:iqmarket/providers/taxi_provider.dart';
 
 /// Главная кнопка "Создать поездку 🚗" для водителей.
 /// Делегирует логику обработки нажатия (проверки, верификацию, диалоги) 
@@ -21,6 +23,7 @@ class TaxiCreateRideButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final provider = Provider.of<TaxiProvider>(context);
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -57,7 +60,7 @@ class TaxiCreateRideButton extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Создать поездку 🚗',
+                    provider.translate('create_ride_btn'),
                     style: GoogleFonts.inter(
                       color: Colors.white,
                       fontWeight: FontWeight.w900,
@@ -66,7 +69,7 @@ class TaxiCreateRideButton extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Добавьте свой рейс для поиска пассажиров',
+                    provider.translate('create_ride_desc'),
                     style: GoogleFonts.inter(
                       color: Colors.white.withValues(alpha: 0.85),
                       fontSize: 11,

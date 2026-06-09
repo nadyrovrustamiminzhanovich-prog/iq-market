@@ -124,7 +124,7 @@ class _TaxiProfileScreenState extends State<TaxiProfileScreen> {
           GestureDetector(
             onTap: () {
               provider.updateProfile(_fnC.text, _lnC.text, _phC.text);
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Saved Successfully! ✅')));
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr('saved_success'))));
               Navigator.pop(context);
             },
             child: Container(
@@ -194,7 +194,7 @@ class _TaxiProfileScreenState extends State<TaxiProfileScreen> {
             ),
             const SizedBox(height: 10),
             Text(
-              'Выберите способ загрузки фото', 
+              provider.translate('choose_upload_method'), 
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(color: widget.t.sub, fontSize: 13, fontWeight: FontWeight.w500)
             ),
@@ -203,7 +203,7 @@ class _TaxiProfileScreenState extends State<TaxiProfileScreen> {
             _photoOption(
               icon: Icons.camera_alt_rounded,
               title: provider.translate('camera'),
-              sub: 'Сделать снимок сейчас',
+              sub: provider.translate('take_photo_now'),
               color: widget.t.accent,
               onTap: () {
                 Navigator.pop(context);
@@ -214,7 +214,7 @@ class _TaxiProfileScreenState extends State<TaxiProfileScreen> {
             _photoOption(
               icon: Icons.photo_library_rounded,
               title: provider.translate('gallery'),
-              sub: 'Выбрать из медиатеки',
+              sub: provider.translate('select_from_gallery'),
               color: widget.t.accent,
               onTap: () {
                 Navigator.pop(context);

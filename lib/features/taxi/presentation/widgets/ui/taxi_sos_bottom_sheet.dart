@@ -3,14 +3,15 @@
 // STEP: #17 | СЛОЙ: widgets/ui
 // ОТВЕЧАЕТ ЗА: SOS bottom sheet с экстренными номерами Казахстана
 // ЗАВИСИМОСТИ: TaxiTheme, url_launcher, flutter/services
-//              НЕТ зависимости от Provider, Firestore, state родителя
 // ─────────────────────────────────────────────────────────────────────────────
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:iqmarket/theme/taxi_theme.dart';
+import 'package:iqmarket/providers/taxi_provider.dart';
 
 /// SOS-панель экстренных служб Казахстана.
 ///
@@ -18,16 +19,15 @@ import 'package:iqmarket/theme/taxi_theme.dart';
 /// ```dart
 /// TaxiSosBottomSheet.show(context, t);
 /// ```
-/// Монолит не хранит никакой логики этого диалога.
 class TaxiSosBottomSheet {
   TaxiSosBottomSheet._(); // не инстанцируется
 
   // ── Данные экстренных служб ───────────────────────────────────────────────
   static const List<_EmergencyService> _services = [
-    _EmergencyService(number: '102', label: 'Полиция',        desc: 'Криминальные ситуации',       icon: Icons.local_police_rounded,        color: Color(0xFF3B82F6), bg: Color(0xFFEFF6FF)),
-    _EmergencyService(number: '103', label: 'Скорая помощь',  desc: 'Медицинские экстренные случаи', icon: Icons.medical_services_rounded,   color: Color(0xFFF43F5E), bg: Color(0xFFFFF1F2)),
-    _EmergencyService(number: '101', label: 'Пожарная служба',desc: 'Возгорания и пожары',           icon: Icons.local_fire_department_rounded, color: Color(0xFFF97316), bg: Color(0xFFFFF7ED)),
-    _EmergencyService(number: '104', label: 'Служба газа',    desc: 'Утечка газа',                   icon: Icons.oil_barrel_rounded,         color: Color(0xFFEAB308), bg: Color(0xFFFEFCE8)),
+    _EmergencyService(number: '102', labelKey: 'police',        descKey: 'police_desc',       icon: Icons.local_police_rounded,        color: Color(0xFF3B82F6), bg: Color(0xFFEFF6FF)),
+    _EmergencyService(number: '103', labelKey: 'ambulance',     descKey: 'ambulance_desc',    icon: Icons.medical_services_rounded,   color: Color(0xFFF43F5E), bg: Color(0xFFFFF1F2)),
+    _EmergencyService(number: '101', labelKey: 'fire',          descKey: 'fire_desc',         icon: Icons.local_fire_department_rounded, color: Color(0xFFF97316), bg: Color(0xFFFFF7ED)),
+    _EmergencyService(number: '104', labelKey: 'gas',           descKey: 'gas_desc',          icon: Icons.oil_barrel_rounded,         color: Color(0xFFEAB308), bg: Color(0xFFFEFCE8)),
   ];
 
   /// Показывает SOS bottom sheet. Принимает [context] и текущую [t]ему.
@@ -50,6 +50,7 @@ class _SosSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final provider = Provider.of<TaxiProvider>(context);
     return Container(
       decoration: BoxDecoration(
         color: t.bg,
@@ -78,18 +79,18 @@ class _SosSheet extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 24),
-            _buildHeader(),
+            _buildHeader(provider),
             const SizedBox(height: 20),
-            _build112Button(),
+            _build112Button(provider),
             const SizedBox(height: 24),
             Text(
-              'ДРУГИЕ ЭКСТРЕННЫЕ СЛУЖБЫ:',
+              provider.translate('other_emergency_services'),
               style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w900, color: t.sub, letterSpacing: 1.0),
             ),
             const SizedBox(height: 12),
-            ...TaxiSosBottomSheet._services.map(_buildServiceTile),
+            ...TaxiSosBottomSheet._services.map((svc) => _buildServiceTile(svc, provider)),
             const SizedBox(height: 24),
-            _buildCloseButton(),
+            _buildCloseButton(provider),
             const SizedBox(height: 15),
           ],
         ),
@@ -98,7 +99,7 @@ class _SosSheet extends StatelessWidget {
   }
 
   // ── Шапка SOS ────────────────────────────────────────────────────────────
-  Widget _buildHeader() => Container(
+  Widget _buildHeader(TaxiProvider provider) => Container(
     padding: const EdgeInsets.all(20),
     decoration: BoxDecoration(
       gradient: const LinearGradient(colors: [Color(0xFFFFE4E6), Color(0xFFFFE4E6)], begin: Alignment.topLeft, end: Alignment.bottomRight),
@@ -116,9 +117,9 @@ class _SosSheet extends StatelessWidget {
         const SizedBox(width: 16),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('СЛУЖБА СПАСЕНИЯ SOS', style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w900, color: const Color(0xFF9F1239), letterSpacing: 0.5)),
+            Text(provider.translate('sos_service'), style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w900, color: const Color(0xFF9F1239), letterSpacing: 0.5)),
             const SizedBox(height: 3),
-            Text('Экстренный вызов спецслужб Казахстана', style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFFBE123C), fontWeight: FontWeight.w600)),
+            Text(provider.translate('sos_subtitle'), style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFFBE123C), fontWeight: FontWeight.w600)),
           ]),
         ),
       ],
@@ -126,7 +127,7 @@ class _SosSheet extends StatelessWidget {
   );
 
   // ── Кнопка 112 ───────────────────────────────────────────────────────────
-  Widget _build112Button() => GestureDetector(
+  Widget _build112Button(TaxiProvider provider) => GestureDetector(
     onTap: () async {
       HapticFeedback.heavyImpact();
       final uri = Uri.parse('tel:112');
@@ -143,13 +144,13 @@ class _SosSheet extends StatelessWidget {
       child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
         const Icon(Icons.phone_in_talk_rounded, color: Colors.white, size: 26),
         const SizedBox(width: 12),
-        Flexible(child: Text('ВЫЗВАТЬ 112 (ЕДИНАЯ СЛУЖБА)', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 0.5), maxLines: 1, overflow: TextOverflow.ellipsis)),
+        Flexible(child: Text(provider.translate('call_112'), style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 0.5), maxLines: 1, overflow: TextOverflow.ellipsis)),
       ]),
     ),
   );
 
   // ── Карточка службы ──────────────────────────────────────────────────────
-  Widget _buildServiceTile(_EmergencyService svc) => GestureDetector(
+  Widget _buildServiceTile(_EmergencyService svc, TaxiProvider provider) => GestureDetector(
     onTap: () async {
       HapticFeedback.heavyImpact();
       final uri = Uri.parse('tel:${svc.number}');
@@ -172,9 +173,9 @@ class _SosSheet extends StatelessWidget {
         ),
         const SizedBox(width: 16),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(svc.label, style: GoogleFonts.inter(color: const Color(0xFF1E293B), fontWeight: FontWeight.w800, fontSize: 15)),
+          Text(provider.translate(svc.labelKey), style: GoogleFonts.inter(color: const Color(0xFF1E293B), fontWeight: FontWeight.w800, fontSize: 15)),
           const SizedBox(height: 2),
-          Text(svc.desc, style: GoogleFonts.inter(color: const Color(0xFF64748B), fontWeight: FontWeight.w600, fontSize: 11)),
+          Text(provider.translate(svc.descKey), style: GoogleFonts.inter(color: const Color(0xFF64748B), fontWeight: FontWeight.w600, fontSize: 11)),
         ])),
         const SizedBox(width: 8),
         Container(
@@ -187,7 +188,7 @@ class _SosSheet extends StatelessWidget {
   );
 
   // ── Кнопка закрыть ───────────────────────────────────────────────────────
-  Widget _buildCloseButton() => SizedBox(
+  Widget _buildCloseButton(TaxiProvider provider) => SizedBox(
     width: double.infinity,
     child: TextButton(
       onPressed: () => Navigator.pop(ctx),
@@ -195,7 +196,7 @@ class _SosSheet extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 16),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: t.border)),
       ),
-      child: Text('ЗАКРЫТЬ', style: GoogleFonts.inter(color: t.sub, fontWeight: FontWeight.w700, fontSize: 14, letterSpacing: 0.5)),
+      child: Text(provider.translate('close'), style: GoogleFonts.inter(color: t.sub, fontWeight: FontWeight.w700, fontSize: 14, letterSpacing: 0.5)),
     ),
   );
 }
@@ -203,10 +204,10 @@ class _SosSheet extends StatelessWidget {
 // ── Иммутабельная модель службы ───────────────────────────────────────────────
 class _EmergencyService {
   final String number;
-  final String label;
-  final String desc;
+  final String labelKey;
+  final String descKey;
   final IconData icon;
   final Color color;
   final Color bg;
-  const _EmergencyService({required this.number, required this.label, required this.desc, required this.icon, required this.color, required this.bg});
+  const _EmergencyService({required this.number, required this.labelKey, required this.descKey, required this.icon, required this.color, required this.bg});
 }

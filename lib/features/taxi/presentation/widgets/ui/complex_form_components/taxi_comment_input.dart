@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import 'package:iqmarket/providers/taxi_provider.dart';
 
 class TaxiCommentInputWidget extends StatelessWidget {
   final TextEditingController commentController;
@@ -18,6 +20,7 @@ class TaxiCommentInputWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final provider = Provider.of<TaxiProvider>(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       height: 64,
@@ -43,7 +46,7 @@ class TaxiCommentInputWidget extends StatelessWidget {
               onChanged: onCommentChanged,
               decoration: InputDecoration(
                 border: InputBorder.none,
-                hintText: 'Комментарий к заказу (пожелания)',
+                hintText: provider.translate('comment_hint'),
                 hintStyle: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 13, fontWeight: FontWeight.w500),
                 counterText: '',
               ),

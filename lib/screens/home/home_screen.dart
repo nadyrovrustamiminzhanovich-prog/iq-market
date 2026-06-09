@@ -27,6 +27,7 @@ import 'package:iqmarket/theme/app_theme.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:iqmarket/services/translation_service.dart';
 
 class IQMarketHome extends StatefulWidget {
   const IQMarketHome({super.key});
@@ -170,7 +171,7 @@ class _IQMarketHomeState extends State<IQMarketHome> {
             }),
             onTaxiTap: () => _navToTaxi(config),
           )),
-          SliverToBoxAdapter(child: _sectionHeader('Новые объявления')),
+          SliverToBoxAdapter(child: _sectionHeader(TranslationService.t('new_ads', config.language))),
           _buildAdsGrid(config),
           const SliverPadding(padding: EdgeInsets.only(bottom: 100)),
         ],
@@ -264,12 +265,12 @@ class _IQMarketHomeState extends State<IQMarketHome> {
                   Icon(Icons.search_off_rounded, size: 80, color: Colors.grey[300]),
                   const SizedBox(height: 16),
                   Text(
-                    'Ничего не найдено',
+                    TranslationService.t('nothing_found', config.language),
                     style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.grey[600]),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Попробуйте изменить запрос или фильтры',
+                    TranslationService.t('try_changing_filters', config.language),
                     textAlign: TextAlign.center,
                     style: GoogleFonts.inter(color: Colors.grey[400]),
                   ),
@@ -285,7 +286,7 @@ class _IQMarketHomeState extends State<IQMarketHome> {
                       _pagingController.refresh();
                     },
                     icon: const Icon(Icons.refresh_rounded, size: 18),
-                    label: const Text('СБРОСИТЬ И ОБНОВИТЬ', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13)),
+                    label: Text(TranslationService.t('reset_and_refresh', config.language), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13)),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF4A80F0),
                       foregroundColor: Colors.white,
@@ -298,24 +299,24 @@ class _IQMarketHomeState extends State<IQMarketHome> {
               ),
             ),
           ),
-          firstPageErrorIndicatorBuilder: (context) => _errorWidget(),
-          newPageErrorIndicatorBuilder: (context) => _errorWidget(),
+          firstPageErrorIndicatorBuilder: (context) => _errorWidget(config),
+          newPageErrorIndicatorBuilder: (context) => _errorWidget(config),
         ),
       ),
     );
   }
 
-  Widget _errorWidget() => Center(
+  Widget _errorWidget(AppConfigProvider config) => Center(
     child: Padding(
       padding: const EdgeInsets.all(40),
       child: Column(
         children: [
           const Icon(Icons.error_outline, color: Colors.red),
           const SizedBox(height: 8),
-          const Text('Ошибка загрузки объявлений'),
+          Text(TranslationService.t('error_loading_ads', config.language)),
           TextButton(
             onPressed: () => _pagingController.refresh(),
-            child: const Text('Попробовать снова'),
+            child: Text(TranslationService.t('try_again', config.language)),
           ),
         ],
       ),
@@ -346,7 +347,7 @@ class _IQMarketHomeState extends State<IQMarketHome> {
     child: Row(children: [
       const Icon(Icons.location_on_rounded, color: Color(0xFF4A80F0), size: 18),
       const SizedBox(width: 4),
-      Text(config.city == 'Все' ? 'Все города' : config.city, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w800)),
+      Text(config.city == 'Все' ? TranslationService.t('all_cities', config.language) : config.city, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w800)),
       const Icon(Icons.keyboard_arrow_down_rounded, size: 20),
     ]),
   );
@@ -568,6 +569,7 @@ class _IQMarketHomeState extends State<IQMarketHome> {
   }
 
   void _listen() async {
+    final lang = Provider.of<AppConfigProvider>(context, listen: false).language;
     if (!_isListening) {
       bool available = await _speech.initialize(
         onStatus: (val) {
@@ -577,7 +579,7 @@ class _IQMarketHomeState extends State<IQMarketHome> {
       );
       if (available) {
         setState(() => _isListening = true);
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Слушаю вас... 🎙️'), duration: Duration(seconds: 2)));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(TranslationService.t('listening', lang)), duration: const Duration(seconds: 2)));
         _speech.listen(
           onResult: (val) {
             setState(() {
@@ -587,12 +589,12 @@ class _IQMarketHomeState extends State<IQMarketHome> {
             if (val.finalResult) {
                _searchDebounce?.cancel();
                _pagingController.refresh();
-            }
+             }
           },
-          localeId: Provider.of<AppConfigProvider>(context, listen: false).language == 'Қазақша' ? 'kk_KZ' : 'ru_RU',
+          localeId: lang == 'Қазақша' ? 'kk_KZ' : 'ru_RU',
         );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Микрофон недоступен')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(TranslationService.t('mic_unavailable', lang))));
       }
     } else {
       setState(() => _isListening = false);
@@ -620,6 +622,8 @@ class _IQMarketHomeState extends State<IQMarketHome> {
     // ✅ Используем кэш вместо StreamBuilder — нет постоянного Firestore listener-а в BottomNav
     final isAdmin = _isAdmin;
     final navTheme = Theme.of(context);
+    final config = Provider.of<AppConfigProvider>(context);
+    final lang = config.language;
     return Container(
       decoration: BoxDecoration(
         color: navTheme.colorScheme.surface,
@@ -664,12 +668,12 @@ class _IQMarketHomeState extends State<IQMarketHome> {
         elevation: 0,
         backgroundColor: navTheme.colorScheme.surface,
         items: [
-          const BottomNavigationBarItem(icon: Icon(Icons.home_rounded), label: 'Главная'),
-          const BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_outline), label: 'Чаты'),
+          BottomNavigationBarItem(icon: const Icon(Icons.home_rounded), label: TranslationService.t('home', lang)),
+          BottomNavigationBarItem(icon: const Icon(Icons.chat_bubble_outline), label: TranslationService.t('chats', lang)),
           BottomNavigationBarItem(icon: Icon(Icons.add_circle, size: 40, color: navTheme.colorScheme.primary), label: ''),
-          const BottomNavigationBarItem(icon: Icon(Icons.favorite_outline), label: 'Избранное'),
-          const BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Профиль'),
-          if (isAdmin) const BottomNavigationBarItem(icon: Icon(Icons.admin_panel_settings_outlined), label: 'Админ'),
+          BottomNavigationBarItem(icon: const Icon(Icons.favorite_outline), label: TranslationService.t('favorites', lang)),
+          BottomNavigationBarItem(icon: const Icon(Icons.person_outline), label: TranslationService.t('profile', lang)),
+          if (isAdmin) BottomNavigationBarItem(icon: const Icon(Icons.admin_panel_settings_outlined), label: TranslationService.t('acc_admin', lang)),
         ],
       ),
     );

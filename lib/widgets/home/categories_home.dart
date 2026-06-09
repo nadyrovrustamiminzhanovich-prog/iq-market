@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import 'package:iqmarket/data/category_data.dart';
+import 'package:iqmarket/providers/app_config_provider.dart';
+import 'package:iqmarket/services/translation_service.dart';
 
 class CategoriesHome extends StatelessWidget {
   final Function(String) onCategorySelected;
@@ -14,8 +17,17 @@ class CategoriesHome extends StatelessWidget {
     this.selectedCategoryId = 'Все',
   });
 
+  String _getCatName(CategoryModel cat, String lang) {
+    if (lang == 'Уйғурчә') return cat.ug.isNotEmpty ? cat.ug : cat.ru;
+    if (lang == 'Қазақша') return cat.kz.isNotEmpty ? cat.kz : cat.ru;
+    return cat.ru;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final config = Provider.of<AppConfigProvider>(context);
+    final lang = config.language;
+
     return Container(
       height: 120, // Увеличил высоту для больших иконок
       margin: const EdgeInsets.symmetric(vertical: 12),
@@ -29,7 +41,7 @@ class CategoriesHome extends StatelessWidget {
             padding: const EdgeInsets.only(right: 16),
             child: _catItem(
               context,
-              'Все', 
+              TranslationService.t('all', lang), 
               Icons.grid_view_rounded, 
               const Color(0xFF4A80F0),
               () => onCategorySelected('Все'),
@@ -41,7 +53,7 @@ class CategoriesHome extends StatelessWidget {
             padding: const EdgeInsets.only(right: 16),
             child: _catItem(
               context,
-              cat.ru, 
+              _getCatName(cat, lang), 
               cat.icon, 
               cat.color,
               () => onCategorySelected(cat.id),
@@ -56,10 +68,10 @@ class CategoriesHome extends StatelessWidget {
                     !CategoryData.categories.take(7).any((cat) => cat.id == selectedCategoryId);
                 return _catItem(
                   context,
-                  'Еще',
+                  TranslationService.t('more_btn', lang),
                   Icons.more_horiz_rounded,
                   const Color(0xFF64748B),
-                  () => _showAllCategoriesSheet(context),
+                  () => _showAllCategoriesSheet(context, lang),
                   isSelected: isMoreSelected
                 );
               },
@@ -78,10 +90,10 @@ class CategoriesHome extends StatelessWidget {
           padding: const EdgeInsets.all(16), // Увеличил отступ (было 10)
           decoration: BoxDecoration(
             color: isSelected ? const Color(0xFF4A80F0) : const Color(0xFFF1F5F9), 
-            borderRadius: BorderRadius.circular(20), // Более круглые углы
+            borderRadius: BorderRadius.circular(20), // More rounded corners
             border: Border.all(
               color: isSelected ? const Color(0xFF4A80F0) : const Color(0xFFE2E8F0),
-              width: 2, // Жирнее рамка
+              width: 2, // Thicker border
             ),
             boxShadow: isSelected ? [
               BoxShadow(
@@ -94,19 +106,19 @@ class CategoriesHome extends StatelessWidget {
           child: Icon(
             icon, 
             color: isSelected ? Colors.white : const Color(0xFF4A80F0), 
-            size: 26 // Увеличил иконку (было 20)
+            size: 26 // Large icon
           ), 
         ),
         const SizedBox(height: 10),
         SizedBox(
-          width: 75, // Чуть шире для текста
+          width: 75, // Slightly wider for text
           child: Text(
             name,
             textAlign: TextAlign.center,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.inter(
-              fontSize: 12, // Увеличил шрифт (было 10)
+              fontSize: 12, 
               fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600, 
               color: isSelected ? const Color(0xFF4A80F0) : const Color(0xFF1E293B)
             ),
@@ -116,7 +128,7 @@ class CategoriesHome extends StatelessWidget {
     ),
   );
 
-  void _showAllCategoriesSheet(BuildContext context) {
+  void _showAllCategoriesSheet(BuildContext context, String lang) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -131,7 +143,7 @@ class CategoriesHome extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Все категории', style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A))),
+                Text(TranslationService.t('all_categories_title', lang), style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A))),
                 IconButton(
                   onPressed: () => Navigator.pop(context), 
                   icon: const Icon(Icons.close_rounded, color: Color(0xFF64748B))
@@ -152,7 +164,7 @@ class CategoriesHome extends StatelessWidget {
                   if (index == 0) {
                     return _catItem(
                       context, 
-                      'Все', 
+                      TranslationService.t('all', lang), 
                       Icons.grid_view_rounded, 
                       const Color(0xFF4A80F0), 
                       () {
@@ -165,7 +177,7 @@ class CategoriesHome extends StatelessWidget {
                   final cat = CategoryData.categories[index - 1];
                   return _catItem(
                     context, 
-                    cat.ru, 
+                    _getCatName(cat, lang), 
                     cat.icon, 
                     cat.color, 
                     () {

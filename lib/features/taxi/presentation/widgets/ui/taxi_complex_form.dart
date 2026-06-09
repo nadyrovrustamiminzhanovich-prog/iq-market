@@ -6,6 +6,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:iqmarket/theme/taxi_theme.dart';
 import 'package:iqmarket/features/taxi/presentation/widgets/ui/taxi_section_header_widget.dart';
 import 'package:iqmarket/features/taxi/presentation/widgets/ui/complex_form_components/taxi_route_input.dart';
@@ -13,6 +14,8 @@ import 'package:iqmarket/features/taxi/presentation/widgets/ui/complex_form_comp
 import 'package:iqmarket/features/taxi/presentation/widgets/ui/complex_form_components/taxi_price_input.dart';
 import 'package:iqmarket/features/taxi/presentation/widgets/ui/complex_form_components/taxi_comment_input.dart';
 import 'package:iqmarket/features/taxi/presentation/widgets/ui/complex_form_components/taxi_form_phone_input.dart';
+import 'package:provider/provider.dart';
+import 'package:iqmarket/providers/taxi_provider.dart';
 
 class TaxiComplexForm extends StatelessWidget {
   final TaxiTheme t;
@@ -86,6 +89,8 @@ class TaxiComplexForm extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final provider = Provider.of<TaxiProvider>(context);
+    final isTelegramUser = provider.isTelegramVerified || FirebaseAuth.instance.currentUser?.uid.startsWith('telegram_') == true;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(20),
@@ -132,19 +137,20 @@ class TaxiComplexForm extends StatelessWidget {
             onCommentClear: onCommentClear,
             showCommentClear: showCommentClear,
           ),
-          const SizedBox(height: 16),
-          
-          TaxiFormPhoneInputWidget(
-            phoneController: phoneController,
-            phoneFormatters: phoneFormatters,
-            hasPhoneError: hasPhoneError,
-            onPhoneChanged: onPhoneChanged,
-          ),
+          if (!isTelegramUser) ...[
+            const SizedBox(height: 16),
+            TaxiFormPhoneInputWidget(
+              phoneController: phoneController,
+              phoneFormatters: phoneFormatters,
+              hasPhoneError: hasPhoneError,
+              onPhoneChanged: onPhoneChanged,
+            ),
+          ],
           const SizedBox(height: 24),
 
           TaxiActBtn(
             t: t,
-            label: 'ПОЕХАЛИ!',
+            label: provider.translate('lets_go'),
             color: const Color(0xFF4A80F0),
             onTap: onSubmitTap,
           ),

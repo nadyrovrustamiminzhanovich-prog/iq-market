@@ -2,6 +2,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:provider/provider.dart';
+import 'package:iqmarket/providers/app_config_provider.dart';
+import 'package:iqmarket/services/translation_service.dart';
 import 'package:iqmarket/widgets/post_ad/post_ad_image_item.dart';
 
 class ImagePickerSection extends StatelessWidget {
@@ -28,6 +31,8 @@ class ImagePickerSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final config = Provider.of<AppConfigProvider>(context);
+    final lang = config.language;
     final bool hasMedia = imageFiles.isNotEmpty || existingImageUrls.isNotEmpty || videoFile != null;
 
     return Column(
@@ -35,9 +40,9 @@ class ImagePickerSection extends StatelessWidget {
       children: [
         Row(
           children: [
-            Expanded(child: _mediaBtn(Icons.add_photo_alternate_rounded, 'ФОТО', onPickImages, color: const Color(0xFF4A80F0))),
+            Expanded(child: _mediaBtn(Icons.add_photo_alternate_rounded, TranslationService.t('photo_btn', lang), onPickImages, color: const Color(0xFF4A80F0))),
             const SizedBox(width: 12),
-            Expanded(child: _mediaBtn(Icons.videocam_rounded, 'ВИДЕО', onPickVideo, color: const Color(0xFF6366F1))),
+            Expanded(child: _mediaBtn(Icons.videocam_rounded, TranslationService.t('video_btn', lang), onPickVideo, color: const Color(0xFF6366F1))),
           ],
         ),
         if (hasMedia) ...[
@@ -69,10 +74,10 @@ class ImagePickerSection extends StatelessWidget {
                               color: Colors.black.withValues(alpha: 0.6),
                               borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
                             ),
-                            child: const Text(
-                              'ОБЛОЖКА',
+                            child: Text(
+                              TranslationService.t('cover_label', lang),
                               textAlign: TextAlign.center,
-                              style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
+                              style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
                             ),
                           ),
                         ),
@@ -114,7 +119,7 @@ class ImagePickerSection extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Видео: до 20 секунд. Первое фото будет на обложке.',
+                  TranslationService.t('media_hint', lang),
                   style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF4A80F0), fontWeight: FontWeight.w600),
                 ),
               ),

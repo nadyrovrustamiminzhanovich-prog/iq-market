@@ -143,7 +143,7 @@ class _TaxiDriverRideConfirmationSheetContentState
         children: [
           const SizedBox(height: 20),
           Text(
-            'Выберите количество мест',
+            widget.provider.translate('sel_seats'),
             style: GoogleFonts.inter(
               color: widget.t.text,
               fontWeight: FontWeight.bold,
@@ -231,8 +231,18 @@ class _TaxiDriverRideConfirmationSheetContentState
         dateStr = 'tomorrow';
       } else {
         final months = [
-          'янв', 'фев', 'мар', 'апр', 'май', 'июн',
-          'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'
+          widget.provider.translate('jan'),
+          widget.provider.translate('feb'),
+          widget.provider.translate('mar'),
+          widget.provider.translate('apr'),
+          widget.provider.translate('may'),
+          widget.provider.translate('jun'),
+          widget.provider.translate('jul'),
+          widget.provider.translate('aug'),
+          widget.provider.translate('sep'),
+          widget.provider.translate('oct'),
+          widget.provider.translate('nov'),
+          widget.provider.translate('dec'),
         ];
         dateStr = '${d.day} ${months[d.month - 1]}';
       }
@@ -291,8 +301,8 @@ class _TaxiDriverRideConfirmationSheetContentState
         sPriceError) {
       NotificationService.notify(
         context,
-        'Заполните детали 📋',
-        'Пожалуйста, укажите пункты поездки, дату, время, сумму и телефон!',
+        widget.provider.translate('fill_details_title'),
+        widget.provider.translate('fill_details_desc'),
         isSuccess: false,
       );
       return;
@@ -321,8 +331,8 @@ class _TaxiDriverRideConfirmationSheetContentState
       if (mounted) {
         NotificationService.notify(
           context,
-          'Поездка создана 🎉',
-          'Ваш рейс успешно добавлен и виден пассажирам!',
+          widget.provider.translate('ride_created_success'),
+          widget.provider.translate('ride_created_desc'),
           isSuccess: true,
         );
         Navigator.pop(context);
@@ -331,8 +341,8 @@ class _TaxiDriverRideConfirmationSheetContentState
       if (mounted) {
         NotificationService.notify(
           context,
-          'Ошибка',
-          'Не удалось создать поездку. Попробуйте еще раз.',
+          widget.provider.translate('error_label'),
+          widget.provider.translate('ride_create_err'),
           isSuccess: false,
         );
       }
@@ -369,7 +379,7 @@ class _TaxiDriverRideConfirmationSheetContentState
             ),
             const SizedBox(height: 24),
             Text(
-              'Создать поездку 🚗',
+              widget.provider.translate('create_ride_btn'),
               style: GoogleFonts.inter(
                 fontWeight: FontWeight.w900,
                 color: widget.t.text,
@@ -378,7 +388,7 @@ class _TaxiDriverRideConfirmationSheetContentState
             ),
             const SizedBox(height: 6),
             Text(
-              'Пассажиры увидят ваш рейс в общем списке',
+              widget.provider.translate('create_ride_desc_driver'),
               style: GoogleFonts.inter(
                 fontWeight: FontWeight.w500,
                 color: widget.t.sub,
@@ -520,7 +530,7 @@ class _TaxiDriverRideConfirmationSheetContentState
                       ),
                       child: Center(
                         child: Text(
-                          'ОПУБЛИКОВАТЬ РЕЙС 🚀',
+                          widget.provider.translate('publish_ride_btn'),
                           style: GoogleFonts.inter(
                             color: Colors.white,
                             fontWeight: FontWeight.w900,

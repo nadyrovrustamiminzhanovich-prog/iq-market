@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import 'package:iqmarket/providers/taxi_provider.dart';
 import 'package:iqmarket/theme/taxi_theme.dart';
 
 class TaxiDriverRideRouteSelector extends StatelessWidget {
@@ -25,6 +27,7 @@ class TaxiDriverRideRouteSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final provider = Provider.of<TaxiProvider>(context);
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFFF8FAFC),
@@ -87,7 +90,7 @@ class TaxiDriverRideRouteSelector extends StatelessWidget {
                       Expanded(
                         child: localFrom.isEmpty
                             ? Text(
-                                'Откуда',
+                                provider.translate('from_hint'),
                                 style: GoogleFonts.inter(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w600,
@@ -101,7 +104,7 @@ class TaxiDriverRideRouteSelector extends StatelessWidget {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'ОТКУДА',
+                                    provider.translate('from'),
                                     style: GoogleFonts.inter(
                                       fontSize: 10,
                                       color: sFromError
@@ -161,7 +164,7 @@ class TaxiDriverRideRouteSelector extends StatelessWidget {
                       Expanded(
                         child: localTo.isEmpty
                             ? Text(
-                                'Куда',
+                                provider.translate('to_hint'),
                                 style: GoogleFonts.inter(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w600,
@@ -175,7 +178,7 @@ class TaxiDriverRideRouteSelector extends StatelessWidget {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'КУДА',
+                                    provider.translate('to'),
                                     style: GoogleFonts.inter(
                                       fontSize: 10,
                                       color: sToError

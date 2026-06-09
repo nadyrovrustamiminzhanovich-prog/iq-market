@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import 'package:iqmarket/providers/taxi_provider.dart';
 
 class TaxiDateTimeSeatsInputWidget extends StatelessWidget {
   final bool hasDateError;
@@ -24,6 +26,7 @@ class TaxiDateTimeSeatsInputWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final provider = Provider.of<TaxiProvider>(context);
     return Row(
       children: [
         Expanded(
@@ -60,7 +63,7 @@ class TaxiDateTimeSeatsInputWidget extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          'ДАТА И ВРЕМЯ',
+                          provider.translate('date_time_label'),
                           style: GoogleFonts.inter(
                             fontSize: 9,
                             color: (hasDateError || hasTimeError) ? const Color(0xFFE11D48) : const Color(0xFF64748B),
@@ -73,8 +76,8 @@ class TaxiDateTimeSeatsInputWidget extends StatelessWidget {
                           fit: BoxFit.scaleDown,
                           child: Text(
                             (dateText.isEmpty || dateText == 'date')
-                                ? 'Выбрать...'
-                                : '${dateText == 'today' ? 'Сегодня' : dateText == 'tomorrow' ? 'Завтра' : dateText}${timeText == 'time' ? '' : ', ' + timeText}',
+                                ? provider.translate('select_dot')
+                                : '${dateText == 'today' ? provider.translate('today') : dateText == 'tomorrow' ? provider.translate('tomorrow') : dateText}${timeText == 'time' ? '' : ', ' + timeText}',
                             style: GoogleFonts.inter(
                               fontSize: 13,
                               color: (dateText.isEmpty || dateText == 'date')
@@ -125,7 +128,7 @@ class TaxiDateTimeSeatsInputWidget extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          'МЕСТА',
+                          provider.translate('seats_label'),
                           style: GoogleFonts.inter(
                             fontSize: 9,
                             color: const Color(0xFF64748B),

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:iqmarket/theme/taxi_theme.dart';
+import 'package:provider/provider.dart';
+import 'package:iqmarket/providers/taxi_provider.dart';
 
 class TaxiOtpInputStep extends StatelessWidget {
   final TaxiTheme t;
@@ -22,12 +24,13 @@ class TaxiOtpInputStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final provider = Provider.of<TaxiProvider>(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          'КОД ПОДТВЕРЖДЕНИЯ',
+          provider.translate('otp_confirm_label'),
           style: GoogleFonts.inter(
             color: t.sub,
             fontSize: 11,
@@ -62,7 +65,7 @@ class TaxiOtpInputStep extends StatelessWidget {
         if (isOtpError)
           Center(
             child: Text(
-              'Неверный код. Попробуйте ещё раз!',
+              provider.translate('invalid_otp_err'),
               style: GoogleFonts.inter(
                 color: Colors.redAccent,
                 fontSize: 12,
@@ -77,7 +80,7 @@ class TaxiOtpInputStep extends StatelessWidget {
             builder: (context, seconds, child) {
               if (seconds > 0) {
                 return Text(
-                  'Повторный код через $seconds сек',
+                  provider.translate('resend_code_in').replaceAll('{sec}', '$seconds'),
                   style: GoogleFonts.inter(
                     color: t.sub,
                     fontSize: 13,
@@ -88,7 +91,7 @@ class TaxiOtpInputStep extends StatelessWidget {
                 return TextButton(
                   onPressed: onResend,
                   child: Text(
-                    'Отправить код заново',
+                    provider.translate('resend_code_btn'),
                     style: GoogleFonts.inter(
                       color: t.accent,
                       fontWeight: FontWeight.bold,

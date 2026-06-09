@@ -9,6 +9,8 @@ import 'package:iqmarket/screens/chat_screen.dart';
 import 'package:iqmarket/models/ad_model.dart';
 import 'package:iqmarket/models/review_model.dart';
 import 'package:iqmarket/screens/taxi/driver_verification_screen.dart';
+import 'package:provider/provider.dart';
+import 'package:iqmarket/providers/taxi_provider.dart';
 
 
 class TaxiProfileViewScreen extends StatefulWidget {
@@ -160,7 +162,11 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
     }
   }
 
-  String _pluralReviews(int count) {
+  String _pluralReviews(int count, TaxiProvider provider) {
+    final lang = provider.curLang;
+    if (lang == 'kz' || lang == 'uyg') {
+      return '$count ${provider.translate('reviews_label')}';
+    }
     if (count % 100 >= 11 && count % 100 <= 19) return '$count отзывов';
     switch (count % 10) {
       case 1: return '$count отзыв';
@@ -181,6 +187,7 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final provider = Provider.of<TaxiProvider>(context);
     final t = widget.theme;
     final u = widget.user;
 
@@ -242,7 +249,7 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
                       icon: Icon(Icons.arrow_back_ios_new_rounded, color: t.text),
                       onPressed: () => Navigator.pop(context),
                     ),
-                    title: Text('ПРОФИЛЬ', style: GoogleFonts.inter(color: t.text, fontWeight: FontWeight.w700, fontSize: 16, letterSpacing: 2)),
+                    title: Text(provider.translate('my_profile_header').toUpperCase(), style: GoogleFonts.inter(color: t.text, fontWeight: FontWeight.w700, fontSize: 16, letterSpacing: 2)),
                     centerTitle: true,
                   ),
                 SliverToBoxAdapter(
@@ -303,7 +310,7 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
                                         const Icon(Icons.verified_rounded, color: Color(0xFF4A80F0), size: 18),
                                         const SizedBox(width: 6),
                                         Text(
-                                          'ВЕРИФИЦИРОВАН',
+                                          provider.translate('verif_ok'),
                                           style: GoogleFonts.inter(
                                             color: const Color(0xFF4A80F0),
                                             fontWeight: FontWeight.w700,
@@ -320,7 +327,7 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
                                         Icon(Icons.shield_outlined, color: t.sub, size: 18),
                                         const SizedBox(width: 6),
                                         Text(
-                                          'НЕ ВЕРИФИЦИРОВАН',
+                                          provider.translate('verif_req'),
                                           style: GoogleFonts.inter(
                                             color: t.sub,
                                             fontWeight: FontWeight.w700,
@@ -339,14 +346,14 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.end,
                                   children: [
-                                _ratingBox(t, _taxiReviewsCount < 5 ? 'Новичок' : _taxiAvgRating.toStringAsFixed(1)),
+                                    _ratingBox(t, _taxiReviewsCount < 5 ? provider.translate('rating_novice') : _taxiAvgRating.toStringAsFixed(1)),
                                     if (_taxiReviewsCount < 5)
                                       Padding(
                                         padding: const EdgeInsets.only(top: 2),
                                         child: Tooltip(
-                                          message: 'Рейтинг формируется после 5 оценок от других пользователей',
+                                          message: provider.translate('rating_tooltip'),
                                           child: Text(
-                                            'Рейтинг после 5 оценок',
+                                            provider.translate('rating_after_5'),
                                             style: GoogleFonts.inter(fontSize: 9, color: Colors.grey, fontWeight: FontWeight.w500),
                                           ),
                                         ),
@@ -382,7 +389,7 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
                                               const Text('⭐', style: TextStyle(fontSize: 16)),
                                               const SizedBox(width: 4),
                                               Text(
-                                                _taxiReviewsCount < 5 ? 'Новичок' : _taxiAvgRating.toStringAsFixed(1),
+                                                _taxiReviewsCount < 5 ? provider.translate('rating_novice') : _taxiAvgRating.toStringAsFixed(1),
                                                 style: GoogleFonts.inter(
                                                   color: t.text,
                                                   fontWeight: FontWeight.w900,
@@ -393,7 +400,7 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
                                           ),
                                           const SizedBox(height: 2),
                                           Text(
-                                            _taxiReviewsCount < 5 ? 'Рейтинг после 5 оценок' : 'РЕЙТИНГ',
+                                            _taxiReviewsCount < 5 ? provider.translate('rating_after_5') : provider.translate('rate').toUpperCase(),
                                             style: GoogleFonts.inter(color: t.sub, fontSize: 9, fontWeight: FontWeight.w600, letterSpacing: 0.3),
                                             textAlign: TextAlign.center,
                                           ),
@@ -424,7 +431,7 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
                                           ),
                                           const SizedBox(height: 2),
                                           Text(
-                                            'ОТЗЫВОВ',
+                                            provider.translate('reviews_label').toUpperCase(),
                                             style: GoogleFonts.inter(color: t.sub, fontSize: 9, fontWeight: FontWeight.w600, letterSpacing: 0.3),
                                           ),
                                         ],
@@ -454,7 +461,7 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
                                           ),
                                           const SizedBox(height: 2),
                                           Text(
-                                            'ПОЕЗДОК',
+                                            provider.translate('trips').toUpperCase(),
                                             style: GoogleFonts.inter(color: t.sub, fontSize: 9, fontWeight: FontWeight.w600, letterSpacing: 0.3),
                                           ),
                                         ],
@@ -468,7 +475,7 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
                         ],
                         const SizedBox(height: 20),
                         if (widget.isDriver) ...[
-                          _sectionTitle(t, 'АВТОМОБИЛЬ'),
+                          _sectionTitle(t, provider.translate('car_short').toUpperCase()),
                           const SizedBox(height: 12),
                           _infoCard(t, LineIcons.car, u['car'] ?? 'Toyota Camry', u['plate'] ?? '01 KZ 777'),
                           const SizedBox(height: 24),
@@ -499,7 +506,7 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
                                       mainAxisAlignment: MainAxisAlignment.center,
                                       children: [
                                         Text(
-                                          'Такси 🚕',
+                                          provider.translate('taxi_tab_label'),
                                           style: GoogleFonts.inter(
                                             color: _activeReviewTab == 0 ? Colors.white : t.sub,
                                             fontWeight: FontWeight.w800,
@@ -543,7 +550,7 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
                                       mainAxisAlignment: MainAxisAlignment.center,
                                       children: [
                                         Text(
-                                          'Маркет 🛍️',
+                                          provider.translate('market_tab_label'),
                                           style: GoogleFonts.inter(
                                             color: _activeReviewTab == 1 ? Colors.white : t.sub,
                                             fontWeight: FontWeight.w800,
@@ -593,16 +600,16 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
                                   const SizedBox(width: 8),
                                   Text(
                                     _activeReviewTab == 0
-                                        ? (_taxiReviewsCount < 5 ? 'Новичок' : _taxiAvgRating.toStringAsFixed(1))
-                                        : (_marketReviewsCount < 5 ? 'Новичок' : _marketAvgRating.toStringAsFixed(1)),
+                                        ? (_taxiReviewsCount < 5 ? provider.translate('rating_novice') : _taxiAvgRating.toStringAsFixed(1))
+                                        : (_marketReviewsCount < 5 ? provider.translate('rating_novice') : _marketAvgRating.toStringAsFixed(1)),
                                     style: GoogleFonts.inter(color: t.text, fontWeight: FontWeight.w900, fontSize: 16),
                                   ),
                                 ],
                               ),
                               Text(
                                 _activeReviewTab == 0
-                                    ? _pluralReviews(_taxiReviewsCount)
-                                    : _pluralReviews(_marketReviewsCount),
+                                    ? _pluralReviews(_taxiReviewsCount, provider)
+                                    : _pluralReviews(_marketReviewsCount, provider),
                                 style: GoogleFonts.inter(color: t.sub, fontSize: 12, fontWeight: FontWeight.w600),
                               ),
                             ],
@@ -614,7 +621,7 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
                               padding: const EdgeInsets.symmetric(vertical: 24),
                               child: Center(
                                 child: Text(
-                                  'Нет отзывов по поездкам 🚕',
+                                  provider.translate('no_taxi_reviews'),
                                   style: GoogleFonts.inter(color: t.sub, fontSize: 13, fontWeight: FontWeight.w600),
                                 ),
                               ),
@@ -632,7 +639,7 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
                               padding: const EdgeInsets.symmetric(vertical: 24),
                               child: Center(
                                 child: Text(
-                                  'Нет отзывов по объявлениям 🛍️',
+                                  provider.translate('no_market_reviews'),
                                   style: GoogleFonts.inter(color: t.sub, fontSize: 13, fontWeight: FontWeight.w600),
                                 ),
                               ),
@@ -652,7 +659,7 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
                 ),
               ],
             ),
-      bottomSheet: _bottomActions(context, t, u),
+      bottomSheet: _bottomActions(context, t, u, provider),
     );
   }
 
@@ -795,21 +802,21 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
     ),
   );
 
-  void _showGatedDialog(BuildContext context, TaxiTheme t) {
+  void _showGatedDialog(BuildContext context, TaxiTheme t, TaxiProvider provider) {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: t.bg,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
-        title: Text('ДЕЙСТВИЕ ЗАБЛОКИРОВАНО', style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: t.text)),
+        title: Text(provider.translate('action_blocked_title'), style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: t.text)),
         content: Text(
-          'Связь с пассажирами доступна только для верифицированных водителей. Пройдите верификацию в профиле.', 
+          provider.translate('action_blocked_desc'), 
           style: GoogleFonts.inter(color: t.sub)
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('ЗАКРЫТЬ', style: GoogleFonts.inter(color: t.sub, fontWeight: FontWeight.bold)),
+            child: Text(provider.translate('close'), style: GoogleFonts.inter(color: t.sub, fontWeight: FontWeight.bold)),
           ),
           TextButton(
             onPressed: () {
@@ -817,14 +824,14 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
               Navigator.pop(context);
               Navigator.push(context, MaterialPageRoute(builder: (_) => const DriverVerificationScreen()));
             },
-            child: Text('ПРОЙТИ ВЕРИФИКАЦИЮ', style: GoogleFonts.inter(color: t.accent, fontWeight: FontWeight.bold)),
+            child: Text(provider.translate('pass_verification'), style: GoogleFonts.inter(color: t.accent, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
     );
   }
 
-  Widget _bottomActions(BuildContext context, TaxiTheme t, Map<String, dynamic> u) => Container(
+  Widget _bottomActions(BuildContext context, TaxiTheme t, Map<String, dynamic> u, TaxiProvider provider) => Container(
     padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
     decoration: BoxDecoration(
       color: t.bg,
@@ -835,13 +842,13 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
         Expanded(
           child: _actionBtn(
             t, 
-            'ЧАТ', 
+            provider.translate('chat'), 
             LineIcons.comment, 
             t.card, 
             t.accent,
             () {
               if (!widget.isDriver && !widget.isCurrentUserVerified) {
-                _showGatedDialog(context, t);
+                _showGatedDialog(context, t, provider);
                 return;
               }
               final String targetId = u['id'] ?? 'taxi_user';
@@ -865,20 +872,20 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
         Expanded(
           child: _actionBtn(
             t, 
-            'ПОЗВОНИТЬ', 
+            provider.translate('call'), 
             LineIcons.phone, 
             t.accent, 
             Colors.white,
             () async {
               if (!widget.isDriver && !widget.isCurrentUserVerified) {
-                _showGatedDialog(context, t);
+                _showGatedDialog(context, t, provider);
                 return;
               }
               final phoneToCall = _userPhone.isNotEmpty ? _userPhone : (u['phone'] ?? '');
               if (phoneToCall.isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('Пользователь не указал номер телефона в профиле.', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+                    content: Text(provider.translate('no_phone_error'), style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
                     backgroundColor: Colors.redAccent,
                     behavior: SnackBarBehavior.floating,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),

@@ -25,6 +25,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:iqmarket/screens/post_ad_screen.dart';
 import 'package:iqmarket/services/chat_service.dart';
 import 'package:iqmarket/widgets/auth_gate_bottom_sheet.dart';
+import 'package:iqmarket/services/translation_service.dart';
 
 
 
@@ -148,18 +149,18 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                 children: [
                   Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(10)))),
                   const SizedBox(height: 24),
-                  Text('Пожаловаться', style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w900)),
+                  Text(TranslationService.t('report_ad', widget.lang), style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w900)),
                   const SizedBox(height: 8),
-                  Text('Выберите причину и опишите проблему', style: GoogleFonts.inter(color: Colors.grey[600], fontSize: 14)),
+                  Text(TranslationService.t('report_ad_select_reason', widget.lang), style: GoogleFonts.inter(color: Colors.grey[600], fontSize: 14)),
                   const SizedBox(height: 20),
                   Wrap(
                     spacing: 8, runSpacing: 8,
                     children: [
-                      _reportChip('Мошенничество', 'fraud', selectedType, (v) => setModalState(() => selectedType = v)),
-                      _reportChip('Неверная цена', 'wrong_price', selectedType, (v) => setModalState(() => selectedType = v)),
-                      _reportChip('Товар продан', 'sold', selectedType, (v) => setModalState(() => selectedType = v)),
-                      _reportChip('Запрещенный товар', 'prohibited', selectedType, (v) => setModalState(() => selectedType = v)),
-                      _reportChip('Другое', 'other', selectedType, (v) => setModalState(() => selectedType = v)),
+                      _reportChip(TranslationService.t('report_reason_fraud', widget.lang), 'fraud', selectedType, (v) => setModalState(() => selectedType = v)),
+                      _reportChip(TranslationService.t('report_reason_price', widget.lang), 'wrong_price', selectedType, (v) => setModalState(() => selectedType = v)),
+                      _reportChip(TranslationService.t('report_reason_sold', widget.lang), 'sold', selectedType, (v) => setModalState(() => selectedType = v)),
+                      _reportChip(TranslationService.t('report_reason_prohibited', widget.lang), 'prohibited', selectedType, (v) => setModalState(() => selectedType = v)),
+                      _reportChip(TranslationService.t('report_reason_other', widget.lang), 'other', selectedType, (v) => setModalState(() => selectedType = v)),
                     ],
                   ),
                   const SizedBox(height: 20),
@@ -167,7 +168,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                     controller: commentCtrl,
                     maxLines: 3,
                     decoration: InputDecoration(
-                      hintText: 'Опишите подробнее (необязательно)...',
+                      hintText: TranslationService.t('report_comment_hint', widget.lang),
                       filled: true, fillColor: const Color(0xFFF1F5F9),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
                     ),
@@ -189,11 +190,11 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                         });
                         if (mounted) {
                           Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Жалоба отправлена. Спасибо за помощь!')));
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(TranslationService.t('report_sent_success', widget.lang))));
                         }
                       },
                       style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4A80F0), foregroundColor: Colors.white, disabledBackgroundColor: Colors.grey[300], padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), elevation: 0),
-                      child: Text('Отправить жалобу', style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 16)),
+                      child: Text(TranslationService.t('report_submit_btn', widget.lang), style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 16)),
                     ),
                   ),
                 ],
@@ -305,10 +306,11 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   }
 
   void _shareAd() {
-    final String text = 'IQ-Market: ${widget.ad.title}\n'
-        'Цена: ${_formatPrice(widget.ad.price)}\n'
-        'Город: ${widget.ad.location}\n\n'
-        'Посмотри это объявление в приложении IQ-Market! 🔥';
+    final String text = widget.lang == 'Уйғурчә' 
+      ? 'IQ-Market: ${widget.ad.title}\nБаһаси: ${_formatPrice(widget.ad.price)}\nШәһәр: ${widget.ad.location}\n\nБу еланни IQ-Market программисида көрүң! 🔥'
+      : (widget.lang == 'Қазақша' 
+        ? 'IQ-Market: ${widget.ad.title}\nБағасы: ${_formatPrice(widget.ad.price)}\nҚала: ${widget.ad.location}\n\nБұл хабарландыруды IQ-Market қосымшасында көріңіз! 🔥'
+        : 'IQ-Market: ${widget.ad.title}\nЦена: ${_formatPrice(widget.ad.price)}\nГород: ${widget.ad.location}\n\nПосмотри это объявление в приложении IQ-Market! 🔥');
     Share.share(text);
   }
 
@@ -524,7 +526,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                   const SizedBox(width: 8),
                   Flexible(
                     child: Text(
-                      'Предложить цену',
+                      TranslationService.t('bargain_propose', widget.lang),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.plusJakartaSans(
@@ -546,27 +548,22 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                 builder: (context) => AlertDialog(
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
                   title: Row(
-                    children: const [
-                      Icon(Icons.sell_rounded, color: Color(0xFF4A80F0)),
-                      SizedBox(width: 10),
+                    children: [
+                      const Icon(Icons.sell_rounded, color: Color(0xFF4A80F0)),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          'Как предложить свою цену?',
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                          TranslationService.t('bargain_dialog_title', widget.lang),
+                          style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                       ),
                     ],
                   ),
-                  content: const Text(
-                    '«Предложить цену» — это возможность предложить продавцу свою цену и договориться о скидке (не более 30% от начальной стоимости)!\n\n'
-                    '1. Нажмите кнопку «Предложить цену».\n'
-                    '2. Напишите цену, за которую хотите купить товар.\n'
-                    '3. Продавцу сразу придет сообщение в чат с вашим предложением.\n'
-                    '4. Продавец может нажать «Принять» или «Отклонить».\n'
-                    '5. Если продавец согласится, вы сможете купить товар по вашей выгодной цене!',
-                    style: TextStyle(height: 1.5, fontSize: 14),
+                  content: Text(
+                    TranslationService.t('bargain_dialog_desc', widget.lang),
+                    style: const TextStyle(height: 1.5, fontSize: 14),
                   ),
-                  actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Понятно'))],
+                  actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text(TranslationService.t('understood', widget.lang)))],
                 ),
               );
             },
@@ -589,7 +586,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   Widget _buildMainInfo(bool isFree) => Container(
     width: double.infinity, color: Colors.white, padding: const EdgeInsets.all(20),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(isFree ? 'Бесплатно' : _formatPrice(widget.ad.price), style: GoogleFonts.inter(fontSize: 32, fontWeight: FontWeight.w900, color: isFree ? const Color(0xFF10B981) : const Color(0xFF4A80F0))),
+      Text(isFree ? TranslationService.t('free', widget.lang) : _formatPrice(widget.ad.price), style: GoogleFonts.inter(fontSize: 32, fontWeight: FontWeight.w900, color: isFree ? const Color(0xFF10B981) : const Color(0xFF4A80F0))),
       const SizedBox(height: 8),
       Text(widget.ad.title, style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A), height: 1.2)),
       const SizedBox(height: 16),
@@ -607,17 +604,22 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     width: double.infinity, color: Colors.white, padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
     child: Wrap(spacing: 8, runSpacing: 8, children: [
       _tagChip(label: widget.ad.category),
-      if (widget.ad.condition != null && widget.ad.condition!.isNotEmpty) _tagChip(label: widget.ad.condition!),
-      if (widget.ad.isBargainAllowed) _tagChip(label: 'Торг'),
+      if (widget.ad.condition != null && widget.ad.condition!.isNotEmpty) 
+        _tagChip(label: widget.ad.condition == 'Новый' 
+          ? TranslationService.t('cond_new', widget.lang) 
+          : (widget.ad.condition == 'Б/у' 
+            ? TranslationService.t('cond_used', widget.lang) 
+            : widget.ad.condition!)),
+      if (widget.ad.isBargainAllowed) _tagChip(label: TranslationService.t('bargain_title', widget.lang)),
     ]),
   );
 
   Widget _buildDescription() => Container(
     width: double.infinity, color: Colors.white, padding: const EdgeInsets.all(20),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text('Описание', style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w800)),
+      Text(TranslationService.t('description_label', widget.lang), style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w800)),
       const SizedBox(height: 12),
-      Text(widget.ad.description.isEmpty ? 'Нет описания' : widget.ad.description, style: GoogleFonts.inter(fontSize: 15, color: const Color(0xFF334155), height: 1.6)),
+      Text(widget.ad.description.isEmpty ? TranslationService.t('no_description', widget.lang) : widget.ad.description, style: GoogleFonts.inter(fontSize: 15, color: const Color(0xFF334155), height: 1.6)),
     ]),
   );
 
@@ -626,7 +628,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       width: double.infinity, color: Colors.white, padding: const EdgeInsets.all(20),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text('Отзывы', style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w800)),
+          Text(TranslationService.t('reviews', widget.lang), style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w800)),
           if (_seller != null && _seller!.rating > 0) Row(children: [const Icon(Icons.star_rounded, color: Colors.orange, size: 20), const SizedBox(width: 4), Text(_seller!.rating.toStringAsFixed(1), style: GoogleFonts.inter(fontWeight: FontWeight.w900))]),
         ]),
         const SizedBox(height: 16),
@@ -639,15 +641,14 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
             final bool isMyAd = _currentUser?.uid == widget.ad.userId;
             final bool hasReviewedThisAd = _currentUser != null && reviews.any((r) => r.fromUserId == _currentUser!.uid && r.adId == widget.ad.id);
             
-            if (reviews.isEmpty) return Column(children: [const Center(child: Text('Отзывов пока нет. Будьте первым!')), const SizedBox(height: 20), if (!isMyAd && !hasReviewedThisAd) _buildLeaveReviewButton()]);
+            if (reviews.isEmpty) return Column(children: [Center(child: Text(TranslationService.t('reviews_empty', widget.lang))), const SizedBox(height: 20), if (!isMyAd && !hasReviewedThisAd) _buildLeaveReviewButton()]);
             return Column(children: [
               ...reviews.take(3).map((r) => _buildReviewItem(r)),
               if (reviews.length > 3)
-                // ✅ Работающая кнопка — открывает шторку со всеми отзывами
                 TextButton(
                   onPressed: () => _showAllReviewsSheet(reviews),
                   child: Text(
-                    'Смотреть все ${reviews.length} отзывов',
+                    TranslationService.t('see_all_reviews', widget.lang).replaceAll('{count}', reviews.length.toString()),
                     style: const TextStyle(color: Color(0xFF4A80F0), fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -771,7 +772,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Row(
                 children: [
-                  Text('Все отзывы (${reviews.length})', style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w900)),
+                  Text(TranslationService.t('all_reviews_title', widget.lang).replaceAll('{count}', reviews.length.toString()), style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w900)),
                   const Spacer(),
                   IconButton(icon: const Icon(Icons.close_rounded), onPressed: () => Navigator.pop(context)),
                 ],
@@ -791,7 +792,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     );
   }
 
-  Widget _buildLeaveReviewButton() => SizedBox(width: double.infinity, height: 54, child: OutlinedButton.icon(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => LeaveReviewScreen(ad: widget.ad))), icon: const Icon(Icons.rate_review_rounded), label: const Text('Оставить отзыв'), style: OutlinedButton.styleFrom(foregroundColor: const Color(0xFF4A80F0), side: const BorderSide(color: Color(0xFF4A80F0)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)))));
+  Widget _buildLeaveReviewButton() => SizedBox(width: double.infinity, height: 54, child: OutlinedButton.icon(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => LeaveReviewScreen(ad: widget.ad))), icon: const Icon(Icons.rate_review_rounded), label: Text(TranslationService.t('leave_review', widget.lang)), style: OutlinedButton.styleFrom(foregroundColor: const Color(0xFF4A80F0), side: const BorderSide(color: Color(0xFF4A80F0)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)))));
 
 
   Widget _buildSellerCard() => InkWell(
@@ -813,11 +814,10 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
         const SizedBox(width: 16),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(_seller?.name ?? widget.ad.userName, style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w800)),
-          // ✅ Динамическая дата регистрации из Firestore
           Text(
             _seller != null
-              ? 'На рынке с ${_seller!.registrationDate.year}'
-              : 'Продавец IQ Market',
+              ? TranslationService.t('on_market_since', widget.lang).replaceAll('{year}', _seller!.registrationDate.year.toString())
+              : TranslationService.t('iq_seller', widget.lang),
             style: GoogleFonts.inter(fontSize: 13, color: Colors.grey),
           ),
         ])),
@@ -826,7 +826,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     ),
   );
 
-  Widget _buildReportButton() => Container(width: double.infinity, color: Colors.white, child: TextButton.icon(onPressed: _handleReport, icon: const Icon(Icons.report_gmailerrorred_rounded, color: Colors.red), label: Text('Пожаловаться на объявление', style: GoogleFonts.inter(color: Colors.red, fontWeight: FontWeight.w700)), style: TextButton.styleFrom(padding: const EdgeInsets.all(20))));
+  Widget _buildReportButton() => Container(width: double.infinity, color: Colors.white, child: TextButton.icon(onPressed: _handleReport, icon: const Icon(Icons.report_gmailerrorred_rounded, color: Colors.red), label: Text(TranslationService.t('report_ad', widget.lang), style: GoogleFonts.inter(color: Colors.red, fontWeight: FontWeight.w700)), style: TextButton.styleFrom(padding: const EdgeInsets.all(20))));
 
 
 
@@ -846,22 +846,20 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     return Container(
       width: double.infinity, color: Colors.white, padding: const EdgeInsets.all(20),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('Характеристики', style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w800)),
+        Text(TranslationService.t('specs_label', widget.lang), style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w800)),
         const SizedBox(height: 12),
         ...displayFields.map((e) {
           String key = e.key;
-          // Если ключ технический (например carBrand), можно его поправить, 
-          // но лучше чтобы они уже были на русском из PostAdScreen
-          if (key == 'carBrand') key = 'Марка';
-          else if (key == 'carModel') key = 'Модель';
-          else if (key == 'carYear') key = 'Год';
-          else if (key == 'reRooms') key = 'Комнаты';
-          else if (key == 'reArea') key = 'Площадь';
-          else if (key == 'malAge') key = 'Возраст';
+          if (key == 'carBrand') key = TranslationService.t('car_brand', widget.lang);
+          else if (key == 'carModel') key = TranslationService.t('car_model', widget.lang);
+          else if (key == 'carYear') key = TranslationService.t('car_year', widget.lang);
+          else if (key == 'reRooms') key = TranslationService.t('re_rooms', widget.lang);
+          else if (key == 'reArea') key = TranslationService.t('re_area', widget.lang);
+          else if (key == 'malAge') key = TranslationService.t('livestock_age', widget.lang);
 
           return Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Row(children: [Text(key, style: TextStyle(color: Colors.grey[600], fontSize: 14)), const Spacer(), Text(e.value.toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14))]),
+            child: Row(children: [Text(key, style: TextStyle(color: Colors.grey[600], fontSize: 14)), const Spacer(), Text(TranslationService.translateSpecValue(e.value.toString(), widget.lang), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14))]),
           );
         }),
       ]),
@@ -875,9 +873,9 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       padding: EdgeInsets.fromLTRB(20, 12, 20, MediaQuery.of(context).padding.bottom + 12),
       decoration: const BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 20, offset: Offset(0, -5))]),
       child: Row(children: [
-        Expanded(child: InkWell(onTap: () async { final uri = Uri.parse('tel:${widget.ad.userPhone}'); if (await canLaunchUrl(uri)) await launchUrl(uri); }, child: Container(height: 56, decoration: BoxDecoration(color: const Color(0xFF10B981), borderRadius: BorderRadius.circular(16)), child: Center(child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.phone_rounded, color: Colors.white), const SizedBox(width: 10), Text('Позвонить', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16))]))))),
+        Expanded(child: InkWell(onTap: () async { final uri = Uri.parse('tel:${widget.ad.userPhone}'); if (await canLaunchUrl(uri)) await launchUrl(uri); }, child: Container(height: 56, decoration: BoxDecoration(color: const Color(0xFF10B981), borderRadius: BorderRadius.circular(16)), child: Center(child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.phone_rounded, color: Colors.white), const SizedBox(width: 10), Text(TranslationService.t('call_btn', widget.lang), style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16))]))))),
         const SizedBox(width: 12),
-        Expanded(child: ElevatedButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ChatScreen(ad: widget.ad))), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4A80F0), foregroundColor: Colors.white, minimumSize: const Size(0, 56), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), elevation: 0), child: Text('Написать', style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16)))),
+        Expanded(child: ElevatedButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ChatScreen(ad: widget.ad))), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4A80F0), foregroundColor: Colors.white, minimumSize: const Size(0, 56), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), elevation: 0), child: Text(TranslationService.t('write_btn', widget.lang), style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16)))),
       ]),
     );
   }
@@ -886,7 +884,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     if (FirebaseAuth.instance.currentUser == null) {
       await AuthGateBottomSheet.show(
         context,
-        message: 'Чтобы предложить свою цену продавцу, необходимо войти в свой профиль. Это займет всего пару секунд!',
+        message: TranslationService.t('auth_bargain_prompt', widget.lang),
       );
       return;
     }
@@ -909,9 +907,9 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Предложить свою цену', style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A))),
+            Text(TranslationService.t('bargain_propose', widget.lang), style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A))),
             const SizedBox(height: 12),
-            Text('Введите сумму, которую вы готовы заплатить. Продавец получит уведомление и сможет принять ваше предложение или продолжить диалог.', 
+            Text(TranslationService.t('bargain_enter_sum', widget.lang), 
               style: TextStyle(color: Colors.grey[600], fontSize: 14, height: 1.5)),
             const SizedBox(height: 24),
             TextField(
@@ -945,7 +943,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
               children: [
                 Icon(Icons.info_outline_rounded, size: 14, color: Colors.grey[400]),
                 const SizedBox(width: 6),
-                Text('Минимальная цена: ${_formatPrice(currentPrice * 0.7)}', 
+                Text('${TranslationService.t('min_price', widget.lang)} ${_formatPrice(currentPrice * 0.7)}', 
                   style: TextStyle(color: Colors.grey[400], fontSize: 12)),
               ],
             ),
@@ -957,19 +955,19 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                   final cleanStr = controller.text.replaceAll(RegExp(r'[^0-9]'), '');
                   final offeredPrice = double.tryParse(cleanStr) ?? 0;
                   if (offeredPrice < currentPrice * 0.7) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Цена слишком низкая. Скидка не может быть больше 30%.')));
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(TranslationService.t('price_too_low', widget.lang))));
                     return;
                   }
                   
                   Navigator.pop(context);
                   await ChatService.sendOffer(ad: widget.ad, price: offeredPrice);
                   if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Предложение отправлено! Проверьте чат.')));
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(TranslationService.t('offer_sent_check_chat', widget.lang))));
                     Navigator.push(context, MaterialPageRoute(builder: (context) => ChatScreen(ad: widget.ad)));
                   }
                 },
                 style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4A80F0), foregroundColor: Colors.white, minimumSize: const Size(0, 64), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), elevation: 0),
-                child: const Text('Отправить продавцу', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+                child: Text(TranslationService.t('send_to_seller', widget.lang), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
               ),
             ),
           ],
@@ -983,14 +981,14 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     if (FirebaseAuth.instance.currentUser == null) {
       await AuthGateBottomSheet.show(
         context,
-        message: 'Чтобы сохранить это объявление в избранное, необходимо войти в свой профиль. Это займет всего пару секунд!',
+        message: TranslationService.t('auth_favorites_prompt', widget.lang),
       );
     } else {
       config.toggleFavorite(widget.ad.id);
     }
   }, padding: EdgeInsets.zero)));
   String _formatPrice(double price) { 
-    return price > 0 ? '${NumberFormat.decimalPattern('ru').format(price.toInt())} ₸' : 'Договорная'; 
+    return price > 0 ? '${NumberFormat.decimalPattern('ru').format(price.toInt())} ₸' : TranslationService.t('by_agreement', widget.lang); 
   }
   String _formatFullDate(DateTime dt) {
     return '${dt.day.toString().padLeft(2, '0')}.${dt.month.toString().padLeft(2, '0')}.${dt.year} ${dt.hour}:${dt.minute.toString().padLeft(2, '0')}';
@@ -999,28 +997,34 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   String _formatRelativeDate(DateTime dt) {
     final now = DateTime.now();
     if (dt.day == now.day && dt.month == now.month && dt.year == now.year) {
-      return 'Сегодня ${dt.hour}:${dt.minute.toString().padLeft(2, '0')}';
+      return TranslationService.t('today_with_time', widget.lang).replaceAll('{time}', '${dt.hour}:${dt.minute.toString().padLeft(2, '0')}');
     }
     final yesterday = now.subtract(const Duration(days: 1));
     if (dt.day == yesterday.day && dt.month == yesterday.month && dt.year == yesterday.year) {
-      return 'Вчера ${dt.hour}:${dt.minute.toString().padLeft(2, '0')}';
+      return TranslationService.t('yesterday_with_time', widget.lang).replaceAll('{time}', '${dt.hour}:${dt.minute.toString().padLeft(2, '0')}');
     }
     
-    return '${dt.day} ${['','янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек'][dt.month]}';
+    final Map<String, List<String>> months = {
+      'Русский': ['','янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек'],
+      'Қазақша': ['','қаң','ақп','мау','сәу','мам','мау','шіл','там','қыр','қаз','қара','жел'],
+      'Уйғурчә': ['','янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'],
+    };
+    final monthList = months[widget.lang] ?? months['Русский']!;
+    return '${dt.day} ${monthList[dt.month]}';
   }
 
   void _confirmDeleteReview(ReviewModel review) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Удалить отзыв?'),
-        content: const Text('Это действие нельзя отменить.'),
+        title: Text(TranslationService.t('delete_review_title', widget.lang)),
+        content: Text(TranslationService.t('delete_review_desc', widget.lang)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('ОТМЕНА')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(TranslationService.t('cancel', widget.lang).toUpperCase())),
           TextButton(onPressed: () async {
             await ReviewService.deleteReview(review.id, widget.ad.userId);
             if (mounted) Navigator.pop(context);
-          }, child: const Text('УДАЛИТЬ', style: TextStyle(color: Colors.red))),
+          }, child: Text(TranslationService.t('delete_btn', widget.lang).toUpperCase(), style: const TextStyle(color: Colors.red))),
         ],
       ),
     );
@@ -1030,11 +1034,11 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Удалить объявление?'),
-        content: const Text('Оно будет удалено безвозвратно.'),
+        title: Text(TranslationService.t('delete_ad_title', widget.lang)),
+        content: Text(TranslationService.t('delete_ad_desc', widget.lang)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('ОТМЕНА')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('УДАЛИТЬ', style: TextStyle(color: Colors.red))),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(TranslationService.t('cancel', widget.lang).toUpperCase())),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: Text(TranslationService.t('delete_btn', widget.lang).toUpperCase(), style: const TextStyle(color: Colors.red))),
         ],
       ),
     );

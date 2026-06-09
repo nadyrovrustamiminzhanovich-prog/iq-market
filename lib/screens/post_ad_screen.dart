@@ -20,6 +20,7 @@ import 'package:iqmarket/widgets/post_ad/category_selector.dart';
 import 'package:iqmarket/widgets/post_ad/location_selector.dart';
 import 'package:iqmarket/widgets/post_ad/image_picker_section.dart';
 import 'package:lottie/lottie.dart';
+import 'package:iqmarket/services/translation_service.dart';
 
 import '../widgets/post_ad/post_ad_components.dart';
 import '../widgets/post_ad/category_specs_widgets.dart';
@@ -153,7 +154,7 @@ class _PostAdScreenState extends State<PostAdScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        title: Text(widget.initialAd != null ? 'РЕДАКТИРОВАНИЕ' : 'РАЗМЕЩЕНИЕ', 
+        title: Text(widget.initialAd != null ? TranslationService.t('edit_ad', widget.lang) : TranslationService.t('post_ad', widget.lang), 
             style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 16, color: const Color(0xFF0F172A), letterSpacing: 1)),
         leading: IconButton(icon: const Icon(Icons.close_rounded, color: Color(0xFF0F172A)), onPressed: () => Navigator.pop(context)),
       ),
@@ -208,15 +209,15 @@ class _PostAdScreenState extends State<PostAdScreen> {
   }
 
   Widget _buildFormFields() => Column(children: [
-    PostAdInput(label: 'Заголовок', controller: _titleController, hint: 'Название товара или услуги', isRequired: true, maxLength: 50, onChanged: (_) => _saveDraft()),
+    PostAdInput(label: TranslationService.t('title_label', widget.lang), controller: _titleController, hint: TranslationService.t('title_hint', widget.lang), isRequired: true, maxLength: 50, onChanged: (_) => _saveDraft()),
     const SizedBox(height: 20),
-    PostAdInput(label: 'Описание', controller: _descriptionController, hint: 'Расскажите подробнее...', maxLines: 5, maxLength: 1000, onChanged: (_) => _saveDraft()),
+    PostAdInput(label: TranslationService.t('description_label', widget.lang), controller: _descriptionController, hint: TranslationService.t('description_hint', widget.lang), maxLines: 5, maxLength: 1000, onChanged: (_) => _saveDraft()),
     const SizedBox(height: 20),
     if (_selectedCategory != 'Отдам даром') ...[
-      PostAdInput(label: 'Цена (₸)', controller: _priceController, hint: '0', keyboardType: TextInputType.number, isRequired: true, inputFormatters: [PriceInputFormatter()], onChanged: (_) => _saveDraft()),
+      PostAdInput(label: TranslationService.t('price_label', widget.lang), controller: _priceController, hint: '0', keyboardType: TextInputType.number, isRequired: true, inputFormatters: [PriceInputFormatter()], onChanged: (_) => _saveDraft()),
       const SizedBox(height: 20),
     ],
-    PostAdInput(label: 'Номер телефона для связи', controller: _phoneController, hint: '+7 (700) 000-00-00', keyboardType: TextInputType.phone, isRequired: true, inputFormatters: [_phoneMask], onChanged: (_) => _saveDraft()),
+    PostAdInput(label: TranslationService.t('phone_contact', widget.lang), controller: _phoneController, hint: '+7 (700) 000-00-00', keyboardType: TextInputType.phone, isRequired: true, inputFormatters: [_phoneMask], onChanged: (_) => _saveDraft()),
     const SizedBox(height: 20),
     LocationSelector(
       selectedLocation: _selectedLocation, 
@@ -294,7 +295,7 @@ class _PostAdScreenState extends State<PostAdScreen> {
   Widget _buildConditionSelector() => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Text('Состояние', style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16, color: const Color(0xFF1E293B))),
+      Text(TranslationService.t('condition', widget.lang), style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16, color: const Color(0xFF1E293B))),
       const SizedBox(height: 12),
       Row(children: [
         _conditionBtn('Новый'), const SizedBox(width: 12), _conditionBtn('Б/у'),
@@ -304,6 +305,9 @@ class _PostAdScreenState extends State<PostAdScreen> {
 
   Widget _conditionBtn(String label) {
     bool isSelected = _condition == label;
+    String displayLabel = label == 'Новый' 
+        ? TranslationService.t('cond_new', widget.lang) 
+        : TranslationService.t('cond_used', widget.lang);
     return Expanded(
       child: GestureDetector(
         onTap: () => setState(() { _condition = label; _saveDraft(); }),
@@ -315,25 +319,25 @@ class _PostAdScreenState extends State<PostAdScreen> {
             border: Border.all(color: isSelected ? const Color(0xFF4A80F0) : Colors.grey[200]!, width: 2),
             boxShadow: isSelected ? [BoxShadow(color: const Color(0xFF4A80F0).withValues(alpha: 0.2), blurRadius: 10, offset: const Offset(0, 4))] : [],
           ),
-          child: Center(child: Text(label, style: GoogleFonts.inter(color: isSelected ? Colors.white : const Color(0xFF64748B), fontWeight: FontWeight.w800, fontSize: 14))),
+          child: Center(child: Text(displayLabel, style: GoogleFonts.inter(color: isSelected ? Colors.white : const Color(0xFF64748B), fontWeight: FontWeight.w800, fontSize: 14))),
         ),
       ),
     );
   }
 
   Widget _buildOptions() => Column(children: [
-    PostAdOptionSwitch(label: 'Торг возможен', value: _bargainAvailable, onChanged: (v) => setState(() { _bargainAvailable = v; _saveDraft(); })),
-    PostAdOptionSwitch(label: 'Обмен', value: _canExchange, onChanged: (v) => setState(() { _canExchange = v; _saveDraft(); })),
-    PostAdOptionSwitch(label: 'Доставка', value: _hasDelivery, onChanged: (v) => setState(() { _hasDelivery = v; _saveDraft(); })),
+    PostAdOptionSwitch(label: TranslationService.t('bargain_switch', widget.lang), value: _bargainAvailable, onChanged: (v) => setState(() { _bargainAvailable = v; _saveDraft(); })),
+    PostAdOptionSwitch(label: TranslationService.t('exchange_switch', widget.lang), value: _canExchange, onChanged: (v) => setState(() { _canExchange = v; _saveDraft(); })),
+    PostAdOptionSwitch(label: TranslationService.t('delivery_switch', widget.lang), value: _hasDelivery, onChanged: (v) => setState(() { _hasDelivery = v; _saveDraft(); })),
   ]);
 
   Widget _buildActionButtons() => Column(children: [
-    SizedBox(width: double.infinity, height: 56, child: OutlinedButton.icon(onPressed: _showPreview, icon: const Icon(Icons.remove_red_eye_rounded), label: const Text('Предпросмотр'), style: OutlinedButton.styleFrom(foregroundColor: const Color(0xFF4A80F0), side: const BorderSide(color: Color(0xFF4A80F0), width: 2), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), textStyle: GoogleFonts.inter(fontWeight: FontWeight.w800)))),
+    SizedBox(width: double.infinity, height: 56, child: OutlinedButton.icon(onPressed: _showPreview, icon: const Icon(Icons.remove_red_eye_rounded), label: Text(TranslationService.t('preview', widget.lang)), style: OutlinedButton.styleFrom(foregroundColor: const Color(0xFF4A80F0), side: const BorderSide(color: Color(0xFF4A80F0), width: 2), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), textStyle: GoogleFonts.inter(fontWeight: FontWeight.w800)))),
     const SizedBox(height: 12),
     SizedBox(width: double.infinity, height: 60, child: ElevatedButton(
       onPressed: _isLoading ? null : _handlePublish, 
       style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4A80F0), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), elevation: 0), 
-      child: Text(widget.initialAd != null ? 'Обновить' : 'Опубликовать', style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w900))
+      child: Text(widget.initialAd != null ? TranslationService.t('update', widget.lang) : TranslationService.t('publish', widget.lang), style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w900))
     )),
   ]);
 
@@ -381,24 +385,24 @@ class _PostAdScreenState extends State<PostAdScreen> {
 
   Future<void> _handlePublish() async {
     if (_titleController.text.length < 5) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Заголовок должен быть не менее 5 символов')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(TranslationService.t('err_title_short', widget.lang))));
       return;
     }
 
     if (_descriptionController.text.length < 20) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Описание слишком короткое (мин. 20 симв.)')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(TranslationService.t('err_desc_short', widget.lang))));
       return;
     }
 
     if (_selectedCategory == 'all' || _selectedCategory.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Выберите категорию')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(TranslationService.t('err_select_cat', widget.lang))));
       return;
     }
 
     final priceClean = _priceController.text.replaceAll(RegExp(r'[^0-9]'), '');
     final priceVal = double.tryParse(priceClean) ?? 0;
     if (_selectedCategory != 'Отдам даром' && priceVal <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Укажите корректную цену')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(TranslationService.t('err_invalid_price', widget.lang))));
       return;
     }
 
@@ -406,8 +410,8 @@ class _PostAdScreenState extends State<PostAdScreen> {
     final unformattedPhone = _phoneController.text.replaceAll(RegExp(r'\D'), '');
     if (unformattedPhone.length != 11) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Пожалуйста, полностью заполните номер телефона! 📱'),
+        SnackBar(
+          content: Text(TranslationService.t('err_fill_phone', widget.lang)),
           backgroundColor: Colors.redAccent,
           behavior: SnackBarBehavior.floating,
         )
@@ -416,7 +420,7 @@ class _PostAdScreenState extends State<PostAdScreen> {
     }
 
     if (_selectedLocation.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Выберите город')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(TranslationService.t('err_select_city', widget.lang))));
       return;
     }
 
@@ -454,7 +458,7 @@ class _PostAdScreenState extends State<PostAdScreen> {
       _clearDraft();
       if (mounted) _showSuccessDialog(id.isNotEmpty);
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ошибка: $e')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${TranslationService.t('error_saving_msg', widget.lang)}: $e')));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -497,11 +501,11 @@ class _PostAdScreenState extends State<PostAdScreen> {
               },
             ),
             const SizedBox(height: 20),
-            Text('Успешно!', style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w900)),
+            Text(TranslationService.t('success_dialog_title', widget.lang), style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w900)),
             const SizedBox(height: 12),
-            Text(isApproved ? 'Опубликовано!' : 'На модерации...', textAlign: TextAlign.center),
+            Text(isApproved ? TranslationService.t('success_dialog_published', widget.lang) : TranslationService.t('success_dialog_moderation', widget.lang), textAlign: TextAlign.center),
             const SizedBox(height: 24),
-            SizedBox(width: double.infinity, child: ElevatedButton(onPressed: () { Navigator.pop(context); Navigator.pop(context); }, child: const Text('ОТЛИЧНО'))),
+            SizedBox(width: double.infinity, child: ElevatedButton(onPressed: () { Navigator.pop(context); Navigator.pop(context); }, child: Text(TranslationService.t('success_dialog_ok', widget.lang)))),
           ],
         ),
       ),

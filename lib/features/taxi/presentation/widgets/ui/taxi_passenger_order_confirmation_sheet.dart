@@ -64,7 +64,7 @@ void showTaxiPassengerOrderConfirmationSheet({
             ),
             const SizedBox(height: 24),
             Text(
-              'Проверка деталей заказа 📋',
+              provider.translate('confirm_order_details'),
               style: GoogleFonts.inter(
                 fontWeight: FontWeight.w900,
                 color: theme.text,
@@ -73,7 +73,7 @@ void showTaxiPassengerOrderConfirmationSheet({
             ),
             const SizedBox(height: 6),
             Text(
-              'Пожалуйста, убедитесь, что все указано верно',
+              provider.translate('make_sure_correct'),
               style: GoogleFonts.inter(
                 fontWeight: FontWeight.w500,
                 color: theme.sub,
@@ -131,22 +131,22 @@ void showTaxiPassengerOrderConfirmationSheet({
                       _summaryItem(
                         Icons.calendar_today_rounded,
                         provider.selDate == 'today'
-                            ? 'Сегодня'
+                            ? provider.translate('today')
                             : (provider.selDate == 'tomorrow'
-                                ? 'Завтра'
+                                ? provider.translate('tomorrow')
                                 : provider.selDate),
                         theme,
                       ),
                       _summaryItem(
                         Icons.access_time_rounded,
                         provider.selTime == 'time'
-                            ? 'Время не указано'
+                            ? provider.translate('time_not_specified')
                             : provider.selTime,
                         theme,
                       ),
                       _summaryItem(
                         Icons.group_rounded,
-                        '$seats мест',
+                        provider.translate('seats_count').replaceAll('{cnt}', '$seats'),
                         theme,
                       ),
                     ],
@@ -163,7 +163,7 @@ void showTaxiPassengerOrderConfirmationSheet({
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Цена поездки',
+                            provider.translate('price_label'),
                             style: GoogleFonts.inter(
                               color: theme.sub,
                               fontSize: 11,
@@ -186,7 +186,7 @@ void showTaxiPassengerOrderConfirmationSheet({
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Text(
-                            'Ваш телефон',
+                            provider.translate('your_phone'),
                             style: GoogleFonts.inter(
                               color: theme.sub,
                               fontSize: 11,
@@ -213,7 +213,7 @@ void showTaxiPassengerOrderConfirmationSheet({
                     const Divider(color: Color(0xFFF1F5F9), height: 1),
                     const SizedBox(height: 16),
                     Text(
-                      'Комментарий к заказу:',
+                      provider.translate('comment_label_receipt'),
                       style: GoogleFonts.inter(
                         color: theme.sub,
                         fontSize: 11,
@@ -256,7 +256,7 @@ void showTaxiPassengerOrderConfirmationSheet({
                   )
                 : _actBtn(
                     theme,
-                    'Опубликовать заказ 🚀',
+                    provider.translate('publish_order_btn'),
                     const Color(0xFF4A80F0),
                     () async {
                       HapticFeedback.heavyImpact();
@@ -265,7 +265,7 @@ void showTaxiPassengerOrderConfirmationSheet({
                         ScaffoldMessenger.of(ctx).showSnackBar(
                           SnackBar(
                             content: Text(
-                              'Укажите корректную стоимость поездки (минимум 100 ₸)! 💰',
+                              provider.translate('invalid_price_err'),
                               style: GoogleFonts.inter(
                                   fontWeight: FontWeight.bold),
                             ),
@@ -292,8 +292,8 @@ void showTaxiPassengerOrderConfirmationSheet({
                         if (c.mounted) {
                           NotificationService.notify(
                             c,
-                            'Заказ опубликован',
-                            'Ваш заказ успешно добавлен и виден водителям!',
+                            provider.translate('order_published_success'),
+                            provider.translate('order_published_desc'),
                             isSuccess: true,
                           );
                           Navigator.pop(ctx);
@@ -302,8 +302,8 @@ void showTaxiPassengerOrderConfirmationSheet({
                         if (c.mounted) {
                           NotificationService.notify(
                             c,
-                            'Ошибка',
-                            'Не удалось создать заказ. Попробуйте еще раз.',
+                            provider.translate('error_label'),
+                            provider.translate('order_create_err'),
                             isSuccess: false,
                           );
                         }

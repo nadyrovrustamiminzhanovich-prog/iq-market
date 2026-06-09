@@ -91,7 +91,7 @@ class TaxiRouteBuilder extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          isFrom ? 'Откуда' : 'Куда',
+                          isFrom ? provider.translate('from_hint') : provider.translate('to_hint'),
                           style: GoogleFonts.inter(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -112,7 +112,7 @@ class TaxiRouteBuilder extends StatelessWidget {
                                   color: const Color(0xFFFDA4AF), width: 0.8),
                             ),
                             child: Text(
-                              'укажите',
+                              provider.translate('specify'),
                               style: GoogleFonts.inter(
                                 color: const Color(0xFFE11D48),
                                 fontSize: 9.5,
@@ -126,7 +126,7 @@ class TaxiRouteBuilder extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isFrom ? 'ОТКУДА' : 'КУДА',
+                          isFrom ? provider.translate('from') : provider.translate('to'),
                           style: GoogleFonts.inter(
                             fontSize: 10,
                             fontWeight: FontWeight.w900,

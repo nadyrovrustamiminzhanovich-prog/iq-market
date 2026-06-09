@@ -13,6 +13,7 @@ import 'package:iqmarket/providers/taxi_provider.dart';
 import 'package:iqmarket/theme/taxi_theme.dart';
 import 'package:iqmarket/services/notification_service.dart';
 import 'package:iqmarket/models/ad_model.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 // ── Screens ──────────────────────────────────────────────────────────────────
 import 'package:iqmarket/screens/taxi/taxi_settings_screen.dart';
@@ -401,6 +402,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
             _navigateToLogin(provider);
             return;
           }
+          final isTelegramUser = provider.isTelegramVerified || FirebaseAuth.instance.currentUser?.uid.startsWith('telegram_') == true;
           final cleanPhone = _mainPhoneMask.getUnmaskedText();
           setState(() {
             _showFromError = provider.from.isEmpty;
@@ -409,20 +411,21 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                 provider.selDate == 'date' || provider.selDate.isEmpty;
             _showTimeError =
                 provider.selTime == 'time' || provider.selTime.isEmpty;
-            _showPhoneError = cleanPhone.length != 10;
+            _showPhoneError = !isTelegramUser && cleanPhone.length != 10;
             _showPriceError = provider.maxPrice < 100;
           });
           if (_showFromError ||
               _showToError ||
               _showDateError ||
               _showTimeError ||
-              _showPhoneError ||
+              (!isTelegramUser && _showPhoneError) ||
               _showPriceError) {
             NotificationService.notify(
               context,
               'Заполните поездку ⚠️',
-              'Пожалуйста, заполните все обязательные поля, '
-                  'включая сумму (минимум 100 ₸) и телефон!',
+              isTelegramUser
+                  ? 'Пожалуйста, заполните все обязательные поля, включая сумму (минимум 100 ₸)!'
+                  : 'Пожалуйста, заполните все обязательные поля, включая сумму (минимум 100 ₸) и телефон!',
               isSuccess: false,
             );
             return;
@@ -542,9 +545,10 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
           _navigateToLogin(provider);
           return;
         }
-        final hasPhone = provider.phone.isNotEmpty &&
+        final isTelegramUser = provider.isTelegramVerified || FirebaseAuth.instance.currentUser?.uid.startsWith('telegram_') == true;
+        final hasPhone = isTelegramUser || (provider.phone.isNotEmpty &&
             provider.phone != '+7 701 000 11 22' &&
-            provider.phone != '87010001122';
+            provider.phone != '87010001122');
         if (!hasPhone) {
           showTaxiPhoneBindingSheet(context, provider, t, () {
             if (!provider.isVehicleVerified) {
@@ -642,9 +646,10 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
     Map<String, dynamic> d, {
     required bool isCall,
   }) {
-    if (provider.phone.isEmpty ||
+    final isTelegramUser = provider.isTelegramVerified || FirebaseAuth.instance.currentUser?.uid.startsWith('telegram_') == true;
+    if (!isTelegramUser && (provider.phone.isEmpty ||
         provider.phone == '+7 701 000 11 22' ||
-        provider.phone == '87010001122') {
+        provider.phone == '87010001122')) {
       showTaxiPhoneBindingSheet(context, provider, t, () {
         _handlePassengerCallOrChat(provider, t, d, isCall: isCall);
       });
@@ -686,9 +691,10 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
     Map<String, dynamic> o, {
     required bool isCall,
   }) async {
-    if (provider.phone.isEmpty ||
+    final isTelegramUser = provider.isTelegramVerified || FirebaseAuth.instance.currentUser?.uid.startsWith('telegram_') == true;
+    if (!isTelegramUser && (provider.phone.isEmpty ||
         provider.phone == '+7 701 000 11 22' ||
-        provider.phone == '87010001122') {
+        provider.phone == '87010001122')) {
       showTaxiPhoneBindingSheet(context, provider, t, () {
         _handleDriverCallOrChat(provider, t, o, isCall: isCall);
       });

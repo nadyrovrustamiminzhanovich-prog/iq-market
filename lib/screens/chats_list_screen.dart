@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:iqmarket/screens/chat_screen.dart';
 import 'package:iqmarket/models/ad_model.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:iqmarket/services/user_service.dart';
 import 'package:iqmarket/services/chat_service.dart';
+import 'package:iqmarket/providers/app_config_provider.dart';
+import 'package:iqmarket/services/translation_service.dart';
 
 class ChatsListScreen extends StatelessWidget {
   const ChatsListScreen({super.key});
@@ -12,6 +15,7 @@ class ChatsListScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final uid = UserService.currentUid;
+    final lang = Provider.of<AppConfigProvider>(context).language;
     // Показываем кнопку «назад» только если есть куда возвращаться
     // (экран открыт через push), а не встроен как вкладка BottomNavBar.
     final canPop = Navigator.canPop(context);
@@ -34,7 +38,7 @@ class ChatsListScreen extends StatelessWidget {
               )
             : null,
         automaticallyImplyLeading: false,
-        title: Text('Мои сообщения', style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.w900, fontSize: 20)),
+        title: Text(TranslationService.t('my_messages', lang), style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.w900, fontSize: 20)),
         centerTitle: false,
         actions: [
           PopupMenuButton<String>(
@@ -45,7 +49,7 @@ class ChatsListScreen extends StatelessWidget {
               }
             },
             itemBuilder: (_) => [
-              const PopupMenuItem(value: 'read_all', child: Text('Пометить все как прочитанные')),
+              PopupMenuItem(value: 'read_all', child: Text(TranslationService.t('mark_all_read', lang))),
             ],
           ),
         ],
@@ -64,7 +68,7 @@ class ChatsListScreen extends StatelessWidget {
                 children: [
                   Icon(Icons.chat_bubble_outline_rounded, size: 64, color: Colors.grey[300]),
                   const SizedBox(height: 16),
-                  Text('У вас пока нет чатов', style: TextStyle(color: Colors.grey[500], fontSize: 16)),
+                  Text(TranslationService.t('no_chats_yet', lang), style: TextStyle(color: Colors.grey[500], fontSize: 16)),
                 ],
               ),
             );

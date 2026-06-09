@@ -1319,10 +1319,14 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   String _getAccountTypeLabel(String type) {
     switch (type.toLowerCase()) {
       case 'user':
+      case 'личный':
+      case 'personal':
         return _t('acc_personal');
       case 'business':
+      case 'бизнес':
         return _t('acc_business');
       case 'admin':
+      case 'администратор':
         return _t('acc_admin');
       default:
         return type;

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import 'package:iqmarket/providers/app_config_provider.dart';
+import 'package:iqmarket/services/translation_service.dart';
 import 'post_ad_components.dart';
 
 class CarSpecsWidget extends StatelessWidget {
@@ -68,10 +71,12 @@ class CarSpecsWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final config = Provider.of<AppConfigProvider>(context);
+    final lang = config.language;
     final List<String> availableModels = carBrand != null ? (brandModels[carBrand] ?? []) : [];
     
     return PostAdSpecsContainer(
-      title: 'Характеристики авто',
+      title: TranslationService.t('car_specs', lang),
       icon: Icons.directions_car_rounded,
       color: const Color(0xFF1E293B),
       child: Column(
@@ -110,9 +115,9 @@ class CarSpecsWidget extends StatelessWidget {
           const SizedBox(height: 16),
           Row(
             children: [
-              Expanded(child: PostAdInput(label: 'Объем (л)', controller: carEngineController, hint: '2.5', keyboardType: const TextInputType.numberWithOptions(decimal: true))),
+              Expanded(child: PostAdInput(label: TranslationService.t('car_engine', lang), controller: carEngineController, hint: '2.5', keyboardType: const TextInputType.numberWithOptions(decimal: true))),
               const SizedBox(width: 12),
-              Expanded(child: PostAdInput(label: 'Пробег (км)', controller: carMileageController, hint: '150 000', keyboardType: TextInputType.number)),
+              Expanded(child: PostAdInput(label: TranslationService.t('car_mileage', lang), controller: carMileageController, hint: '150 000', keyboardType: TextInputType.number)),
             ],
           ),
         ],
@@ -138,10 +143,13 @@ class RealEstateSpecsWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final config = Provider.of<AppConfigProvider>(context);
+    final lang = config.language;
+
     return PostAdSpecsContainer(
-      title: 'О недвижимости',
+      title: TranslationService.t('re_specs', lang),
       icon: Icons.home_work_rounded,
-      color: const Color(0xFF1E293B), // Обычный темный цвет
+      color: const Color(0xFF1E293B),
       child: Column(
         children: [
           Row(
@@ -152,7 +160,7 @@ class RealEstateSpecsWidget extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          PostAdInput(label: 'Площадь (м²)', controller: reAreaController, hint: '45.5', keyboardType: const TextInputType.numberWithOptions(decimal: true)),
+          PostAdInput(label: TranslationService.t('re_area', lang), controller: reAreaController, hint: '45.5', keyboardType: const TextInputType.numberWithOptions(decimal: true)),
         ],
       ),
     );
@@ -175,21 +183,24 @@ class LivestockSpecsWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final config = Provider.of<AppConfigProvider>(context);
+    final lang = config.language;
+
     return PostAdSpecsContainer(
-      title: 'Животные',
+      title: TranslationService.t('livestock_specs', lang),
       icon: Icons.pets_rounded,
-      color: const Color(0xFF1E293B), // Обычный темный цвет
+      color: const Color(0xFF1E293B),
       child: Column(
         children: [
           Row(
             children: [
               Expanded(child: _SelectorField('Возраст', malAge, ['Молодняк', '1 год', '2 года', '3+ года'], (val) => onSelect('malAge', val))),
               const SizedBox(width: 12),
-              Expanded(child: PostAdInput(label: 'Вес (кг)', controller: malWeightController, hint: '250', keyboardType: TextInputType.number)),
+              Expanded(child: PostAdInput(label: TranslationService.t('livestock_weight', lang), controller: malWeightController, hint: '250', keyboardType: TextInputType.number)),
             ],
           ),
           const SizedBox(height: 16),
-          PostAdInput(label: 'Порода / Описание', controller: malBreedController, hint: 'Напр: Казахская белоголовая'),
+          PostAdInput(label: TranslationService.t('livestock_breed', lang), controller: malBreedController, hint: '...'),
         ],
       ),
     );
@@ -206,13 +217,29 @@ class _SelectorField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final config = Provider.of<AppConfigProvider>(context);
+    final lang = config.language;
+
+    String displayLabel = label;
+    if (label == 'Марка') displayLabel = TranslationService.t('car_brand', lang);
+    else if (label == 'Модель') displayLabel = TranslationService.t('car_model', lang);
+    else if (label == 'Год') displayLabel = TranslationService.t('car_year', lang);
+    else if (label == 'Кузов') displayLabel = TranslationService.t('car_body', lang);
+    else if (label == 'КПП') displayLabel = TranslationService.t('car_transmission', lang);
+    else if (label == 'Привод') displayLabel = TranslationService.t('car_drive', lang);
+    else if (label == 'Топливо') displayLabel = TranslationService.t('car_fuel', lang);
+    else if (label == 'Цвет') displayLabel = TranslationService.t('car_color', lang);
+    else if (label == 'Комнат') displayLabel = TranslationService.t('re_rooms', lang);
+    else if (label == 'Этаж') displayLabel = TranslationService.t('re_floor', lang);
+    else if (label == 'Возраст') displayLabel = TranslationService.t('livestock_age', lang);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.grey[700])),
+        Text(displayLabel, style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.grey[700])),
         const SizedBox(height: 8),
         InkWell(
-          onTap: () => _showOptionsPicker(context, label, options, onSelected),
+          onTap: () => _showOptionsPicker(context, displayLabel, options, onSelected, lang),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: BoxDecoration(
@@ -225,7 +252,7 @@ class _SelectorField extends StatelessWidget {
               children: [
                 Flexible(
                   child: Text(
-                    selectedValue ?? 'Выбрать',
+                    selectedValue != null ? TranslationService.translateSpecValue(selectedValue!, lang) : TranslationService.t('select_value', lang),
                     style: GoogleFonts.inter(
                       fontSize: 14, 
                       fontWeight: selectedValue != null ? FontWeight.w600 : FontWeight.w400,
@@ -244,7 +271,7 @@ class _SelectorField extends StatelessWidget {
     );
   }
 
-  void _showOptionsPicker(BuildContext context, String title, List<String> options, Function(String) onSelected) {
+  void _showOptionsPicker(BuildContext context, String title, List<String> options, Function(String) onSelected, String lang) {
     String searchQuery = "";
     showModalBottomSheet(
       context: context,
@@ -253,7 +280,12 @@ class _SelectorField extends StatelessWidget {
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (context) => StatefulBuilder(
         builder: (context, setModalState) {
-          final filtered = options.where((o) => o.toLowerCase().contains(searchQuery.toLowerCase())).toList();
+          final filtered = options.where((o) {
+            if (o == 'Сначала выберите марку') return true;
+            final translated = TranslationService.translateSpecValue(o, lang);
+            return o.toLowerCase().contains(searchQuery.toLowerCase()) || 
+                   translated.toLowerCase().contains(searchQuery.toLowerCase());
+          }).toList();
           return Container(
             height: options.length > 10 ? MediaQuery.of(context).size.height * 0.8 : null,
             padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
@@ -269,7 +301,7 @@ class _SelectorField extends StatelessWidget {
                     onChanged: (v) => setModalState(() => searchQuery = v),
                     style: GoogleFonts.inter(fontWeight: FontWeight.w700),
                     decoration: InputDecoration(
-                      hintText: 'Поиск...',
+                      hintText: TranslationService.t('search_hint_dialog', lang),
                       prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF4A80F0)),
                       filled: true,
                       fillColor: const Color(0xFFF1F5F9),
@@ -283,13 +315,21 @@ class _SelectorField extends StatelessWidget {
                   child: ListView.builder(
                     shrinkWrap: true,
                     itemCount: filtered.length,
-                    itemBuilder: (context, index) => ListTile(
-                      title: Text(filtered[index], textAlign: TextAlign.center, style: GoogleFonts.inter(fontWeight: FontWeight.w500)),
-                      onTap: () {
-                        onSelected(filtered[index]);
-                        Navigator.pop(context);
-                      },
-                    ),
+                    itemBuilder: (context, index) {
+                      String itemText = filtered[index];
+                      if (itemText == 'Сначала выберите марку') {
+                        itemText = lang == 'Уйғурчә' ? 'Аввал маркини таллаң' : (lang == 'Қазақша' ? 'Алдымен марканы таңдаңыз' : itemText);
+                      } else {
+                        itemText = TranslationService.translateSpecValue(itemText, lang);
+                      }
+                      return ListTile(
+                        title: Text(itemText, textAlign: TextAlign.center, style: GoogleFonts.inter(fontWeight: FontWeight.w500)),
+                        onTap: () {
+                          onSelected(filtered[index]);
+                          Navigator.pop(context);
+                        },
+                      );
+                    },
                   ),
                 ),
               ],
@@ -299,5 +339,4 @@ class _SelectorField extends StatelessWidget {
       ),
     );
   }
-
 }

@@ -1,5 +1,8 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:iqmarket/providers/app_config_provider.dart';
+import 'package:iqmarket/services/translation_service.dart';
 
 class PostAdImageItem extends StatelessWidget {
   final File file;
@@ -15,6 +18,9 @@ class PostAdImageItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final config = Provider.of<AppConfigProvider>(context);
+    final lang = config.language;
+
     return Container(
       width: 100,
       margin: const EdgeInsets.only(right: 12),
@@ -33,10 +39,10 @@ class PostAdImageItem extends StatelessWidget {
                   color: Colors.black.withValues(alpha: 0.6),
                   borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
                 ),
-                child: const Text(
-                  'ОБЛОЖКА',
+                child: Text(
+                  TranslationService.t('cover_label', lang),
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
+                  style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
                 ),
               ),
             ),

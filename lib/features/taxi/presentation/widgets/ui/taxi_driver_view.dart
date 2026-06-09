@@ -147,7 +147,7 @@ class TaxiDriverView extends StatelessWidget {
                 const SizedBox(width: 14),
                 Expanded(
                   child: Text(
-                    'На этом маршруте пока нет заказов',
+                    provider.translate('no_orders_on_route'),
                     style: GoogleFonts.inter(
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
@@ -162,7 +162,7 @@ class TaxiDriverView extends StatelessWidget {
           ...orders.map((o) => TaxiOrderCard(
                 provider: provider,
                 t: t,
-                name: o['passengerName'] ?? o['name'] ?? 'Пассажир',
+                name: o['passengerName'] ?? o['name'] ?? provider.translate('passenger_role'),
                 from: o['from'] ?? '',
                 to: o['to'] ?? '',
                 price: o['price'] ?? 0,
@@ -175,7 +175,7 @@ class TaxiDriverView extends StatelessWidget {
                 passengerId: o['passengerId'] ?? o['userId'] ?? '',
                 onShowProfile: () => TaxiDialogsController.showUserProfile(
                   context, provider, t, 
-                  o['passengerName'] ?? o['name'] ?? 'Пассажир', 
+                  o['passengerName'] ?? o['name'] ?? provider.translate('passenger_role'), 
                   o['passengerImg'] ?? o['img'] ?? '', 
                   '', false, 
                   o['passengerId'] ?? o['userId'] ?? '', 
@@ -187,7 +187,7 @@ class TaxiDriverView extends StatelessWidget {
                     TaxiDialogsController.showNegotiateDialog(
                       context, provider, t, {
                         'price': o['price'] ?? 0,
-                        'name': o['passengerName'] ?? o['name'] ?? 'Пассажир',
+                        'name': o['passengerName'] ?? o['name'] ?? provider.translate('passenger_role'),
                         'targetId': o['id'] ?? '',
                         'targetType': 'order',
                         'receiverId': o['passengerId'] ?? o['userId'] ?? '',
@@ -217,7 +217,7 @@ class TaxiDriverView extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    'Другие активные заказы в сети:',
+                    provider.translate('other_active_orders'),
                     style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w900, color: const Color(0xFF64748B), letterSpacing: 0.5),
                   ),
                 ),
@@ -238,7 +238,7 @@ class TaxiDriverView extends StatelessWidget {
           ...otherOrders.take(10).map((o) => TaxiOrderCard(
                 provider: provider,
                 t: t,
-                name: o['passengerName'] ?? o['name'] ?? 'Пассажир',
+                name: o['passengerName'] ?? o['name'] ?? provider.translate('passenger_role'),
                 from: o['from'] ?? '',
                 to: o['to'] ?? '',
                 price: o['price'] ?? 0,
@@ -251,7 +251,7 @@ class TaxiDriverView extends StatelessWidget {
                 passengerId: o['passengerId'] ?? o['userId'] ?? '',
                 onShowProfile: () => TaxiDialogsController.showUserProfile(
                   context, provider, t, 
-                  o['passengerName'] ?? o['name'] ?? 'Пассажир', 
+                  o['passengerName'] ?? o['name'] ?? provider.translate('passenger_role'), 
                   o['passengerImg'] ?? o['img'] ?? '', 
                   '', false, 
                   o['passengerId'] ?? o['userId'] ?? '', 
@@ -263,7 +263,7 @@ class TaxiDriverView extends StatelessWidget {
                     TaxiDialogsController.showNegotiateDialog(
                       context, provider, t, {
                         'price': o['price'] ?? 0,
-                        'name': o['passengerName'] ?? o['name'] ?? 'Пассажир',
+                        'name': o['passengerName'] ?? o['name'] ?? provider.translate('passenger_role'),
                         'targetId': o['id'] ?? '',
                         'targetType': 'order',
                         'receiverId': o['passengerId'] ?? o['userId'] ?? '',

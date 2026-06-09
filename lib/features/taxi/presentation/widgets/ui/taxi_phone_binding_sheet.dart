@@ -116,7 +116,7 @@ class _TaxiPhoneBindingSheetContentState extends State<_TaxiPhoneBindingSheetCon
               const Icon(Icons.sms_rounded, color: Color(0xFF4A80F0), size: 28),
               const SizedBox(width: 12),
               Text(
-                'SMS-Шлюз IQ-Market',
+                widget.provider.translate('sms_gateway_title'),
                 style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 16),
               ),
             ],
@@ -126,7 +126,7 @@ class _TaxiPhoneBindingSheetContentState extends State<_TaxiPhoneBindingSheetCon
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'На номер $formattedNum отправлено SMS:',
+                widget.provider.translate('sms_sent_to').replaceAll('{phone}', formattedNum),
                 style: GoogleFonts.inter(color: Colors.grey[700], fontSize: 13, height: 1.4),
               ),
               const SizedBox(height: 16),
@@ -154,7 +154,7 @@ class _TaxiPhoneBindingSheetContentState extends State<_TaxiPhoneBindingSheetCon
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(cx),
-              child: Text('Понятно', style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+              child: Text(widget.provider.translate('got_it'), style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
             ),
           ],
         ),
@@ -182,8 +182,8 @@ class _TaxiPhoneBindingSheetContentState extends State<_TaxiPhoneBindingSheetCon
           HapticFeedback.heavyImpact();
           NotificationService.notify(
             context,
-            'Успешно',
-            'Телефон успешно подтвержден! ✅',
+            widget.provider.translate('success_title'),
+            widget.provider.translate('phone_confirmed_success'),
             isSuccess: true,
           );
           widget.onSuccess();
@@ -260,12 +260,12 @@ class _TaxiPhoneBindingSheetContentState extends State<_TaxiPhoneBindingSheetCon
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      !_codeSent ? 'Привязка номера' : 'Введите код подтверждения',
+                      !_codeSent ? widget.provider.translate('phone_binding_title') : widget.provider.translate('enter_otp_title'),
                       style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 18, color: t.text),
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      !_codeSent ? 'Для безопасности и звонков подтвердите телефон' : 'Отправили 6-значный OTP код на ваш номер',
+                      !_codeSent ? widget.provider.translate('phone_binding_desc') : widget.provider.translate('otp_sent_desc'),
                       style: GoogleFonts.inter(color: t.sub, fontSize: 12, fontWeight: FontWeight.w500),
                     ),
                   ],

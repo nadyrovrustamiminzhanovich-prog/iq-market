@@ -71,7 +71,7 @@ class TaxiPassengerView extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    'Доступные водители в сети',
+                    provider.translate('available_drivers_online'),
                     style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w800, color: const Color(0xFF1E293B)),
                   ),
                 ),
@@ -84,7 +84,7 @@ class TaxiPassengerView extends StatelessWidget {
               padding: const EdgeInsets.all(24.0),
               child: Center(
                 child: Text(
-                  'Нет доступных водителей в сети',
+                  provider.translate('no_drivers_online'),
                   style: GoogleFonts.inter(color: t.sub, fontSize: 13),
                 ),
               ),
@@ -99,7 +99,7 @@ class TaxiPassengerView extends StatelessWidget {
                   driver: d,
                   onShowProfile: () => TaxiDialogsController.showUserProfile(
                     context, provider, t, 
-                    d['name'] ?? 'Водитель', d['img'] ?? '', d['car'] ?? '', true, d['driverId'] ?? '', 
+                    d['name'] ?? provider.translate('driver_role'), d['img'] ?? '', d['car'] ?? '', true, d['driverId'] ?? '', 
                     isVerified: d['driverVerified'] == true || d['isVehicleVerified'] == true || d['driverVerified'] == 'true', 
                     phone: d['phone'] ?? '',
                     onNavigateToLogin: onNavigateToLogin,
@@ -114,7 +114,7 @@ class TaxiPassengerView extends StatelessWidget {
                     TaxiDialogsController.showNegotiateDialog(
                       context, provider, t, {
                         'price': d['price'] ?? 0,
-                        'name': d['name'] ?? 'Водитель',
+                        'name': d['name'] ?? provider.translate('driver_role'),
                         'targetId': d['id'] ?? '',
                         'targetType': 'ride',
                         'receiverId': d['driverId'] ?? '',
@@ -168,18 +168,18 @@ class TaxiPassengerView extends StatelessWidget {
                 children: [
                   const Icon(Icons.login_rounded, color: Colors.white, size: 22),
                   const SizedBox(width: 12),
-                  const Expanded(
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Войдите чтобы создать заказ',
-                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 14),
+                          provider.translate('login_to_create_order'),
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 14),
                         ),
-                        SizedBox(height: 2),
+                        const SizedBox(height: 2),
                         Text(
-                          'Вы можете смотреть водителей без входа',
-                          style: TextStyle(color: Colors.white70, fontSize: 11),
+                          provider.translate('view_drivers_without_login'),
+                          style: const TextStyle(color: Colors.white70, fontSize: 11),
                         ),
                       ],
                     ),
@@ -231,7 +231,7 @@ class TaxiPassengerView extends StatelessWidget {
                   const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 16),
                   const SizedBox(width: 6),
                   Text(
-                    'Найдено на вашем маршруте (${matchedDrives.length}):',
+                    '${provider.translate('found_on_route')} (${matchedDrives.length}):',
                     style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w900, color: const Color(0xFF10B981), letterSpacing: 0.3),
                   ),
                 ],
@@ -246,7 +246,7 @@ class TaxiPassengerView extends StatelessWidget {
                   driver: d,
                   onShowProfile: () => TaxiDialogsController.showUserProfile(
                     context, provider, t, 
-                    d['name'] ?? 'Водитель', d['img'] ?? '', d['car'] ?? '', true, d['driverId'] ?? '', 
+                    d['name'] ?? provider.translate('driver_role'), d['img'] ?? '', d['car'] ?? '', true, d['driverId'] ?? '', 
                     isVerified: d['driverVerified'] == true || d['isVehicleVerified'] == true || d['driverVerified'] == 'true', 
                     phone: d['phone'] ?? '',
                     onNavigateToLogin: onNavigateToLogin,
@@ -261,7 +261,7 @@ class TaxiPassengerView extends StatelessWidget {
                     TaxiDialogsController.showNegotiateDialog(
                       context, provider, t, {
                         'price': d['price'] ?? 0,
-                        'name': d['name'] ?? 'Водитель',
+                        'name': d['name'] ?? provider.translate('driver_role'),
                         'targetId': d['id'] ?? '',
                         'targetType': 'ride',
                         'receiverId': d['driverId'] ?? '',
@@ -302,12 +302,12 @@ class TaxiPassengerView extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'На этом маршруте пока нет водителей',
+                          provider.translate('no_drivers_on_route'),
                           style: GoogleFonts.inter(fontSize: 13.5, fontWeight: FontWeight.w700, color: t.text),
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Создайте заказ сейчас! Водители сразу увидят его на доске и свяжутся с вами по телефону или в чате.',
+                          provider.translate('create_order_now_desc'),
                           style: GoogleFonts.inter(fontSize: 11, color: t.sub, height: 1.35),
                         ),
                       ],
@@ -327,7 +327,7 @@ class TaxiPassengerView extends StatelessWidget {
                   const Icon(Icons.directions_car_rounded, color: Color(0xFF64748B), size: 16),
                   const SizedBox(width: 6),
                   Text(
-                    'Другие доступные водители в сети:',
+                    provider.translate('other_drivers_online'),
                     style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w900, color: const Color(0xFF64748B), letterSpacing: 0.3),
                   ),
                 ],
@@ -342,7 +342,7 @@ class TaxiPassengerView extends StatelessWidget {
                   driver: d,
                   onShowProfile: () => TaxiDialogsController.showUserProfile(
                     context, provider, t, 
-                    d['name'] ?? 'Водитель', d['img'] ?? '', d['car'] ?? '', true, d['driverId'] ?? '', 
+                    d['name'] ?? provider.translate('driver_role'), d['img'] ?? '', d['car'] ?? '', true, d['driverId'] ?? '', 
                     isVerified: d['driverVerified'] == true || d['isVehicleVerified'] == true || d['driverVerified'] == 'true', 
                     phone: d['phone'] ?? '',
                     onNavigateToLogin: onNavigateToLogin,
@@ -357,7 +357,7 @@ class TaxiPassengerView extends StatelessWidget {
                     TaxiDialogsController.showNegotiateDialog(
                       context, provider, t, {
                         'price': d['price'] ?? 0,
-                        'name': d['name'] ?? 'Водитель',
+                        'name': d['name'] ?? provider.translate('driver_role'),
                         'targetId': d['id'] ?? '',
                         'targetType': 'ride',
                         'receiverId': d['driverId'] ?? '',
@@ -381,7 +381,7 @@ class TaxiPassengerView extends StatelessWidget {
                   driver: d,
                   onShowProfile: () => TaxiDialogsController.showUserProfile(
                     context, provider, t, 
-                    d['name'] ?? 'Водитель', d['img'] ?? '', d['car'] ?? '', true, d['driverId'] ?? '', 
+                    d['name'] ?? provider.translate('driver_role'), d['img'] ?? '', d['car'] ?? '', true, d['driverId'] ?? '', 
                     isVerified: d['driverVerified'] == true || d['isVehicleVerified'] == true || d['driverVerified'] == 'true', 
                     phone: d['phone'] ?? '',
                     onNavigateToLogin: onNavigateToLogin,
@@ -396,7 +396,7 @@ class TaxiPassengerView extends StatelessWidget {
                     TaxiDialogsController.showNegotiateDialog(
                       context, provider, t, {
                         'price': d['price'] ?? 0,
-                        'name': d['name'] ?? 'Водитель',
+                        'name': d['name'] ?? provider.translate('driver_role'),
                         'targetId': d['id'] ?? '',
                         'targetType': 'ride',
                         'receiverId': d['driverId'] ?? '',

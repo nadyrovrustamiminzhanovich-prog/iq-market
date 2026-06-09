@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import 'package:iqmarket/providers/app_config_provider.dart';
+import 'package:iqmarket/services/translation_service.dart';
 
 class LocationSelector extends StatelessWidget {
   final String selectedLocation;
@@ -15,13 +18,16 @@ class LocationSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final config = Provider.of<AppConfigProvider>(context);
+    final lang = config.language;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Выбрать город', style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 15)),
+        Text(TranslationService.t('select_city', lang), style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 15)),
         const SizedBox(height: 12),
         InkWell(
-          onTap: () => _showOptions(context),
+          onTap: () => _showOptions(context, lang),
           child: Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(16)),
@@ -38,7 +44,7 @@ class LocationSelector extends StatelessWidget {
     );
   }
 
-  void _showOptions(BuildContext context) {
+  void _showOptions(BuildContext context, String lang) {
     String searchQuery = "";
     showModalBottomSheet(
       context: context,
@@ -54,13 +60,13 @@ class LocationSelector extends StatelessWidget {
               children: [
                 Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
                 const SizedBox(height: 16),
-                Text('Выбрать город', style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 18)),
+                Text(TranslationService.t('select_city', lang), style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 18)),
                 const SizedBox(height: 20),
                 TextField(
                   onChanged: (v) => setModalState(() => searchQuery = v),
                   style: GoogleFonts.inter(fontWeight: FontWeight.w700),
                   decoration: InputDecoration(
-                    hintText: 'Поиск города...',
+                    hintText: TranslationService.t('search_city', lang),
                     prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF4A80F0)),
                     filled: true,
                     fillColor: const Color(0xFFF1F5F9),
