@@ -123,7 +123,11 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
         });
       }
 
-      if (_taxiProvider.curLang != widget.lang) {
+      String mappedIso = 'ru';
+      if (widget.lang == 'Қазақша') mappedIso = 'kz';
+      else if (widget.lang == 'Уйғурчә') mappedIso = 'uyg';
+
+      if (_taxiProvider.curLang != mappedIso) {
         _taxiProvider.setLanguage(widget.lang);
       }
       // Предзаполняем контроллеры из сохранённого состояния провайдера

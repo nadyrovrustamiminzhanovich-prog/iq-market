@@ -143,7 +143,7 @@ class _IQMarketHomeState extends State<IQMarketHome> {
   }
 
   Widget _buildHomePage() {
-    final config = Provider.of<AppConfigProvider>(context, listen: false);
+    final config = Provider.of<AppConfigProvider>(context);
     return RefreshIndicator(
       onRefresh: () async {
         _pagingController.refresh();
@@ -680,7 +680,7 @@ class _IQMarketHomeState extends State<IQMarketHome> {
   }
 
   Widget _buildOtherPage() {
-    final config = Provider.of<AppConfigProvider>(context, listen: false);
+    final config = Provider.of<AppConfigProvider>(context);
     switch (_currentIndex) {
       case 1: return const ChatsListScreen(); // вкладка "Чаты"
       case 2: return const SizedBox.shrink(); // Moved to Navigator.push

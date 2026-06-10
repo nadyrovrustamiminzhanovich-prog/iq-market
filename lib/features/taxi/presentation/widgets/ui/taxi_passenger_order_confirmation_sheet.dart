@@ -259,6 +259,7 @@ void showTaxiPassengerOrderConfirmationSheet({
                     provider.translate('publish_order_btn'),
                     const Color(0xFF4A80F0),
                     () async {
+                      if (isPublishing) return;
                       HapticFeedback.heavyImpact();
                       ss(() => isPublishing = true);
                       if (price < 100) {

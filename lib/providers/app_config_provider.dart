@@ -4,11 +4,12 @@ import 'package:iqmarket/services/user_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class AppConfigProvider with ChangeNotifier {
-  String _language = StorageService.getString('language') ?? 'Русский';
+  String _language = StorageService.getString('app_lang') ?? 'Русский';
   String _city = StorageService.getString('user_location') ?? 'Все';
   Set<String> _favoriteIds = Set<String>.from(StorageService.getStringList('favorites') ?? []);
   Locale _locale = const Locale('ru', 'RU');
   final FirebaseFirestore _db = FirebaseFirestore.instance;
+  void Function(String)? onLanguageChanged;
 
   AppConfigProvider() {
     _loadFavoritesFromFirestore();
@@ -27,10 +28,20 @@ class AppConfigProvider with ChangeNotifier {
   bool get isDarkMode => StorageService.getString('theme') == 'Dark';
 
   void setLanguage(String lang) {
+    if (_language == lang) return;
     _language = lang;
-    StorageService.setString('language', lang);
+    StorageService.setString('app_lang', lang);
+    
+    final localeMap = {
+      'Русский': const Locale('ru', 'RU'),
+      'Қазақша': const Locale('kk', 'KZ'),
+      'Уйғурчә': const Locale('en', 'US'),
+    };
+    _locale = localeMap[lang] ?? const Locale('ru', 'RU');
+    
     notifyListeners();
     _syncToFirestore({'language': lang});
+    onLanguageChanged?.call(lang);
   }
 
   void setCity(String city) {
@@ -77,8 +88,17 @@ class AppConfigProvider with ChangeNotifier {
         // Sync language
         final String? firestoreLanguage = data['language'];
         if (firestoreLanguage != null && firestoreLanguage.isNotEmpty) {
-          _language = firestoreLanguage;
-          StorageService.setString('language', firestoreLanguage);
+          if (_language != firestoreLanguage) {
+            _language = firestoreLanguage;
+            StorageService.setString('app_lang', firestoreLanguage);
+            final localeMap = {
+              'Русский': const Locale('ru', 'RU'),
+              'Қазақша': const Locale('kk', 'KZ'),
+              'Уйғурчә': const Locale('en', 'US'),
+            };
+            _locale = localeMap[firestoreLanguage] ?? const Locale('ru', 'RU');
+            onLanguageChanged?.call(firestoreLanguage);
+          }
         }
 
         notifyListeners();

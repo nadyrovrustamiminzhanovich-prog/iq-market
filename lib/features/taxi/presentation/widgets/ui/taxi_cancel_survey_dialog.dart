@@ -19,6 +19,8 @@ void showTaxiCancelSurveyDialog(
     'Другая причина',
   ];
 
+  bool isCancelling = false;
+
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
@@ -71,6 +73,7 @@ void showTaxiCancelSurveyDialog(
               final isSelected = selectedReason == reason;
               return GestureDetector(
                 onTap: () {
+                  if (isCancelling) return;
                   HapticFeedback.lightImpact();
                   ss(() => selectedReason = reason);
                 },
@@ -129,51 +132,74 @@ void showTaxiCancelSurveyDialog(
               );
             }),
             const SizedBox(height: 24),
-            GestureDetector(
-              onTap: selectedReason == null
-                  ? null
-                  : () async {
-                      Navigator.pop(ctx);
-                      HapticFeedback.heavyImpact();
-                      await provider.cancelOrder(orderId,
-                          reason: selectedReason);
-                      if (context.mounted) {
-                        NotificationService.notify(
-                          context,
-                          'Заказ отменен',
-                          'Ваш заказ успешно удален',
-                          isSuccess: false,
-                        );
-                      }
-                    },
-              child: Container(
-                width: double.infinity,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: selectedReason == null ? t.border : Colors.red,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: selectedReason == null
-                      ? null
-                      : [
-                          BoxShadow(
-                            color: Colors.red.withValues(alpha: 0.25),
-                            blurRadius: 15,
-                            offset: const Offset(0, 8),
+            isCancelling
+                ? const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(8.0),
+                      child: CircularProgressIndicator(),
+                    ),
+                  )
+                : GestureDetector(
+                    onTap: (selectedReason == null || isCancelling)
+                        ? null
+                        : () async {
+                            HapticFeedback.heavyImpact();
+                            ss(() => isCancelling = true);
+                            try {
+                              await provider.cancelOrder(orderId,
+                                  reason: selectedReason);
+                              if (c.mounted) {
+                                NotificationService.notify(
+                                  c,
+                                  'Заказ отменен',
+                                  'Ваш заказ успешно удален',
+                                  isSuccess: false,
+                                );
+                                Navigator.pop(c);
+                              }
+                            } catch (e) {
+                              if (c.mounted) {
+                                NotificationService.notify(
+                                  c,
+                                  provider.translate('error_label'),
+                                  provider.translate('general_error_desc'),
+                                  isSuccess: false,
+                                );
+                              }
+                            } finally {
+                              if (c.mounted) {
+                                ss(() => isCancelling = false);
+                              }
+                            }
+                          },
+                    child: Container(
+                      width: double.infinity,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        color: selectedReason == null ? t.border : Colors.red,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: selectedReason == null
+                            ? null
+                            : [
+                                BoxShadow(
+                                  color: Colors.red.withValues(alpha: 0.25),
+                                  blurRadius: 15,
+                                  offset: const Offset(0, 8),
+                                ),
+                              ],
+                      ),
+                      child: Center(
+                        child: Text(
+                          'ПОДТВЕРДИТЬ ОТМЕНУ',
+                          style: GoogleFonts.inter(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w900,
+                            color: selectedReason == null ? t.sub : Colors.white,
                           ),
-                        ],
-                ),
-                child: Center(
-                  child: Text(
-                    'ПОДТВЕРДИТЬ ОТМЕНУ',
-                    style: GoogleFonts.inter(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w900,
-                      color: selectedReason == null ? t.sub : Colors.white,
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ),
-            ),
             const SizedBox(height: 30),
           ],
         ),

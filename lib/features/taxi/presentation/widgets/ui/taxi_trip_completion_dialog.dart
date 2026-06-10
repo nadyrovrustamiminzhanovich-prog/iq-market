@@ -16,42 +16,71 @@ void showTaxiTripCompletionDialog(
   String targetUserName,
   Function(TaxiProvider, TaxiTheme, String, String) showFeedbackDialog,
 ) {
+  bool isProcessing = false;
   showDialog(
     context: context,
-    builder: (_) => AlertDialog(
-      backgroundColor: t.bg,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
-      title: Text('ЗАВЕРШЕНИЕ ПОЕЗДКИ', style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: t.text)),
-      content: Text(
-        'Вы уже завершили эту поездку? Если поездка состоялась, вы можете закрыть её прямо сейчас.', 
-        style: GoogleFonts.inter(color: t.sub)
+    builder: (dialogCtx) => StatefulBuilder(
+      builder: (c, ss) => AlertDialog(
+        backgroundColor: t.bg,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+        title: Text('ЗАВЕРШЕНИЕ ПОЕЗДКИ', style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: t.text)),
+        content: isProcessing
+            ? const SizedBox(
+                height: 100,
+                child: Center(child: CircularProgressIndicator()),
+              )
+            : Text(
+                'Вы уже завершили эту поездку? Если поездка состоялась, вы можете закрыть её прямо сейчас.', 
+                style: GoogleFonts.inter(color: t.sub)
+              ),
+        actions: isProcessing
+            ? []
+            : [
+                TextButton(
+                  onPressed: () => Navigator.pop(c),
+                  child: Text('НЕТ, ЕЩЕ ЕДЕМ', style: GoogleFonts.inter(color: t.sub, fontWeight: FontWeight.bold)),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    HapticFeedback.heavyImpact();
+                    ss(() => isProcessing = true);
+                    try {
+                      if (isOrder) {
+                        await provider.completeOrder(docId);
+                        if (context.mounted) {
+                          NotificationService.notify(context, 'Успешно', 'Заказ успешно завершен!', isSuccess: true);
+                        }
+                      } else {
+                        await provider.completeRide(docId);
+                        if (context.mounted) {
+                          NotificationService.notify(context, 'Успешно', 'Рейс успешно завершен!', isSuccess: true);
+                        }
+                      }
+                      if (c.mounted) {
+                        Navigator.pop(c);
+                      }
+                      if (context.mounted) {
+                        showFeedbackDialog(provider, t, targetUserId, targetUserName);
+                      }
+                    } catch (e) {
+                      if (context.mounted) {
+                        NotificationService.notify(
+                          context,
+                          provider.translate('error_label'),
+                          provider.translate('general_error_desc'),
+                          isSuccess: false,
+                        );
+                      }
+                    } finally {
+                      if (c.mounted) {
+                        ss(() => isProcessing = false);
+                      }
+                    }
+                  },
+                  child: Text('ДА, ЗАВЕРШИТЬ', style: GoogleFonts.inter(color: t.accent, fontWeight: FontWeight.bold)),
+                ),
+              ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text('НЕТ, ЕЩЕ ЕДЕМ', style: GoogleFonts.inter(color: t.sub, fontWeight: FontWeight.bold)),
-        ),
-        TextButton(
-          onPressed: () async {
-            Navigator.pop(context);
-            HapticFeedback.heavyImpact();
-            if (isOrder) {
-              await provider.completeOrder(docId);
-              if (context.mounted) {
-                NotificationService.notify(context, 'Успешно', 'Заказ успешно завершен!', isSuccess: true);
-                showFeedbackDialog(provider, t, targetUserId, targetUserName);
-              }
-            } else {
-              await provider.completeRide(docId);
-              if (context.mounted) {
-                NotificationService.notify(context, 'Успешно', 'Рейс успешно завершен!', isSuccess: true);
-                showFeedbackDialog(provider, t, targetUserId, targetUserName);
-              }
-            }
-          },
-          child: Text('ДА, ЗАВЕРШИТЬ', style: GoogleFonts.inter(color: t.accent, fontWeight: FontWeight.bold)),
-        ),
-      ],
     ),
   );
 }

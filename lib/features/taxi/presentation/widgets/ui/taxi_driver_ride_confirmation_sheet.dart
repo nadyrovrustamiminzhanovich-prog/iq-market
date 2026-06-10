@@ -279,6 +279,7 @@ class _TaxiDriverRideConfirmationSheetContentState
   }
 
   Future<void> _publishRide() async {
+    if (isPublishing) return;
     HapticFeedback.heavyImpact();
 
     final cleanPhone = phoneC.text.replaceAll(RegExp(r'\D'), '');

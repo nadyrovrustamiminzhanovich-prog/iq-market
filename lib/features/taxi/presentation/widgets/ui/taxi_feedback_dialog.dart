@@ -24,6 +24,8 @@ void showTaxiFeedbackDialog(
   final selectedTags = <String>[];
   final commentController = TextEditingController();
 
+  bool isSubmitting = false;
+
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
@@ -77,6 +79,7 @@ void showTaxiFeedbackDialog(
                 final isSelected = starVal <= selectedRating;
                 return GestureDetector(
                   onTap: () {
+                    if (isSubmitting) return;
                     HapticFeedback.mediumImpact();
                     ss(() => selectedRating = starVal);
                   },
@@ -108,6 +111,7 @@ void showTaxiFeedbackDialog(
                 final isSelected = selectedTags.contains(tag);
                 return GestureDetector(
                   onTap: () {
+                    if (isSubmitting) return;
                     HapticFeedback.lightImpact();
                     ss(() {
                       if (isSelected) {
@@ -159,6 +163,7 @@ void showTaxiFeedbackDialog(
             const SizedBox(height: 24),
             TextField(
               controller: commentController,
+              enabled: !isSubmitting,
               maxLines: 3,
               style: GoogleFonts.inter(color: t.text),
               decoration: InputDecoration(
@@ -177,61 +182,85 @@ void showTaxiFeedbackDialog(
               ),
             ),
             const SizedBox(height: 30),
-            GestureDetector(
-              onTap: () async {
-                Navigator.pop(ctx);
-                HapticFeedback.heavyImpact();
-                final reviewComment = [
-                  if (selectedTags.isNotEmpty)
-                    '[${selectedTags.join(', ')}]',
-                  commentController.text.trim(),
-                ].join(' ').trim();
+            isSubmitting
+                ? const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(8.0),
+                      child: CircularProgressIndicator(),
+                    ),
+                  )
+                : GestureDetector(
+                    onTap: () async {
+                      if (isSubmitting) return;
+                      HapticFeedback.heavyImpact();
+                      ss(() => isSubmitting = true);
+                      try {
+                        final reviewComment = [
+                          if (selectedTags.isNotEmpty)
+                            '[${selectedTags.join(', ')}]',
+                          commentController.text.trim(),
+                        ].join(' ').trim();
 
-                await provider.submitReview(
-                  targetUserId: targetUserId,
-                  rating: selectedRating,
-                  comment: reviewComment.isEmpty
-                      ? 'Без комментариев'
-                      : reviewComment,
-                );
-                if (context.mounted) {
-                  NotificationService.notify(
-                    context,
-                    'Отзыв отправлен',
-                    'Спасибо за вашу оценку!',
-                    isSuccess: true,
-                  );
-                }
-              },
-              child: Container(
-                width: double.infinity,
-                height: 60,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF84CC16), Color(0xFF4D7C0F)],
-                  ),
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color:
-                          const Color(0xFF84CC16).withValues(alpha: 0.4),
-                      blurRadius: 15,
-                      offset: const Offset(0, 8),
+                        await provider.submitReview(
+                          targetUserId: targetUserId,
+                          rating: selectedRating,
+                          comment: reviewComment.isEmpty
+                              ? 'Без комментариев'
+                              : reviewComment,
+                        );
+                        if (c.mounted) {
+                          NotificationService.notify(
+                            c,
+                            'Отзыв отправлен',
+                            'Спасибо за вашу оценку!',
+                            isSuccess: true,
+                          );
+                          Navigator.pop(c);
+                        }
+                      } catch (e) {
+                        if (c.mounted) {
+                          NotificationService.notify(
+                            c,
+                            provider.translate('error_label'),
+                            provider.translate('general_error_desc'),
+                            isSuccess: false,
+                          );
+                        }
+                      } finally {
+                        if (c.mounted) {
+                          ss(() => isSubmitting = false);
+                        }
+                      }
+                    },
+                    child: Container(
+                      width: double.infinity,
+                      height: 60,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF84CC16), Color(0xFF4D7C0F)],
+                        ),
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color:
+                                const Color(0xFF84CC16).withValues(alpha: 0.4),
+                            blurRadius: 15,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: Center(
+                        child: Text(
+                          'ОТПРАВИТЬ ОТЗЫВ',
+                          style: GoogleFonts.inter(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
                     ),
-                  ],
-                ),
-                child: Center(
-                  child: Text(
-                    'ОТПРАВИТЬ ОТЗЫВ',
-                    style: GoogleFonts.inter(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w900,
-                      color: Colors.white,
-                    ),
                   ),
-                ),
-              ),
-            ),
             const SizedBox(height: 30),
           ],
         ),

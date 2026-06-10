@@ -13,10 +13,19 @@ class TaxiPrefsService {
     final imgPath = prefs.getString('user_image');
     final profileImage = (imgPath != null && imgPath.isNotEmpty) ? File(imgPath) : null;
 
+    final savedMainLang = prefs.getString('app_lang');
+    String mappedLang = 'ru';
+    if (savedMainLang != null) {
+      if (savedMainLang == 'Қазақша') mappedLang = 'kz';
+      else if (savedMainLang == 'Уйғурчә') mappedLang = 'uyg';
+    } else {
+      mappedLang = prefs.getString('taxi_lang') ?? 'ru';
+    }
+
     final telegramChatId = prefs.getString('taxi_tg_chat_id');
 
     return {
-      'curLang': prefs.getString('taxi_lang') ?? 'ru',
+      'curLang': mappedLang,
       'isDarkGlobal': false, // FORCE LIGHT MODE
       'isLoggedIn': prefs.getBool('taxi_logged_in') ?? true,
       'firstName': firstName,

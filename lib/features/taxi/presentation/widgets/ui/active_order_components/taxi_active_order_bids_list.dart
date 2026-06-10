@@ -8,7 +8,7 @@ import 'package:iqmarket/features/taxi/presentation/widgets/ui/taxi_rating_widge
 import 'package:iqmarket/features/taxi/presentation/widgets/ui/taxi_section_header_widget.dart';
 import 'package:iqmarket/features/taxi/presentation/controllers/taxi_dialogs_controller.dart';
 
-class TaxiActiveOrderBidsList extends StatelessWidget {
+class TaxiActiveOrderBidsList extends StatefulWidget {
   final List<Map<String, dynamic>> bids;
   final TaxiProvider provider;
   final TaxiTheme t;
@@ -33,7 +33,28 @@ class TaxiActiveOrderBidsList extends StatelessWidget {
   });
 
   @override
+  State<TaxiActiveOrderBidsList> createState() => _TaxiActiveOrderBidsListState();
+}
+
+class _TaxiActiveOrderBidsListState extends State<TaxiActiveOrderBidsList> {
+  final Set<String> _processingBidIds = {};
+
+  @override
   Widget build(BuildContext context) {
+    final List<Map<String, dynamic>> bids = widget.bids;
+    final TaxiProvider provider = widget.provider;
+    final TaxiTheme t = widget.t;
+    final void Function(
+      TaxiProvider provider,
+      TaxiTheme t,
+      String name,
+      String img,
+      String car,
+      bool isDriver,
+      String targetUserId, {
+      bool isVerified,
+      String phone,
+    }) onShowUserProfile = widget.onShowUserProfile;
     if (bids.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(12),
@@ -195,87 +216,108 @@ class TaxiActiveOrderBidsList extends StatelessWidget {
                   const SizedBox(height: 12),
                   const Divider(height: 1, color: Color(0xFFF1F5F9)),
                   const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () async {
-                            HapticFeedback.lightImpact();
-                            await provider.rejectBid(bidId);
-                            if (context.mounted) {
-                              NotificationService.notify(context, 'Отклонено',
-                                  'Вы отклонили предложение',
-                                  isSuccess: false);
-                            }
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                            decoration: BoxDecoration(
-                              color: Colors.red.withValues(alpha: 0.08),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                  color: Colors.red.withValues(alpha: 0.15)),
-                            ),
-                            child: Center(
-                              child: Text(
-                                'Отклонить',
-                                style: GoogleFonts.inter(
-                                    color: Colors.red,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12),
+                  _processingBidIds.contains(bidId)
+                      ? const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(8.0),
+                            child: CircularProgressIndicator(),
+                          ),
+                        )
+                      : Row(
+                          children: [
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () async {
+                                  if (_processingBidIds.contains(bidId)) return;
+                                  HapticFeedback.lightImpact();
+                                  setState(() => _processingBidIds.add(bidId));
+                                  try {
+                                    await provider.rejectBid(bidId);
+                                    if (context.mounted) {
+                                      NotificationService.notify(context, 'Отклонено',
+                                          'Вы отклонили предложение',
+                                          isSuccess: false);
+                                    }
+                                  } catch (e) {
+                                    if (context.mounted) {
+                                      NotificationService.notify(context, 'Ошибка',
+                                          'Не удалось отклонить предложение',
+                                          isSuccess: false);
+                                    }
+                                  } finally {
+                                    if (mounted) {
+                                      setState(() => _processingBidIds.remove(bidId));
+                                    }
+                                  }
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 10),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.withValues(alpha: 0.08),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                        color: Colors.red.withValues(alpha: 0.15)),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      'Отклонить',
+                                      style: GoogleFonts.inter(
+                                          color: Colors.red,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12),
+                                    ),
+                                  ),
+                                ),
                               ),
                             ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () async {
-                            HapticFeedback.mediumImpact();
-                            TaxiDialogsController.showMatchSuccessDialog(
-                              context: context,
-                              driverName: driverName,
-                              driverPhone: bid['senderPhone'] ?? '',
-                              driverImg: bid['senderImg'] ?? '',
-                              driverCar: bid['senderCar'] ?? 'Машина не указана',
-                              driverPlate: bid['senderPlate'] ?? 'Б/Н',
-                              price: bidPrice,
-                              bidId: bidId,
-                              provider: provider,
-                              t: t,
-                            );
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(colors: [
-                                Color(0xFF4A80F0),
-                                Color(0xFF4A80F0)
-                              ]),
-                              borderRadius: BorderRadius.circular(12),
-                              boxShadow: [
-                                BoxShadow(
-                                    color: const Color(0xFF4A80F0)
-                                        .withValues(alpha: 0.15),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 4))
-                              ],
-                            ),
-                            child: Center(
-                              child: Text(
-                                'Принять',
-                                style: GoogleFonts.inter(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () {
+                                  HapticFeedback.mediumImpact();
+                                  TaxiDialogsController.showMatchSuccessDialog(
+                                    context: context,
+                                    driverName: driverName,
+                                    driverPhone: bid['senderPhone'] ?? '',
+                                    driverImg: bid['senderImg'] ?? '',
+                                    driverCar: bid['senderCar'] ?? 'Машина не указана',
+                                    driverPlate: bid['senderPlate'] ?? 'Б/Н',
+                                    price: bidPrice,
+                                    bidId: bidId,
+                                    provider: provider,
+                                    t: t,
+                                  );
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 10),
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(colors: [
+                                      Color(0xFF4A80F0),
+                                      Color(0xFF4A80F0)
+                                    ]),
+                                    borderRadius: BorderRadius.circular(12),
+                                    boxShadow: [
+                                      BoxShadow(
+                                          color: const Color(0xFF4A80F0)
+                                              .withValues(alpha: 0.15),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 4))
+                                    ],
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      'Принять',
+                                      style: GoogleFonts.inter(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12),
+                                    ),
+                                  ),
+                                ),
                               ),
                             ),
-                          ),
+                          ],
                         ),
-                      ),
-                    ],
-                  ),
                 ],
               ),
             );

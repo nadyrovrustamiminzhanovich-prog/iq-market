@@ -80,11 +80,22 @@ Future<void> main() async {
     return;
   }
 
+  final taxiProvider = TaxiProvider();
+  final appConfigProvider = AppConfigProvider()..setLocale(initialLocale);
+
+  // Link language change events between both providers
+  appConfigProvider.onLanguageChanged = (lang) {
+    taxiProvider.setLanguage(lang);
+  };
+  taxiProvider.onLanguageChanged = (lang) {
+    appConfigProvider.setLanguage(lang);
+  };
+
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => TaxiProvider()),
-        ChangeNotifierProvider(create: (_) => AppConfigProvider()..setLocale(initialLocale)),
+        ChangeNotifierProvider.value(value: taxiProvider),
+        ChangeNotifierProvider.value(value: appConfigProvider),
       ],
       child: const MainApp(),
     ),

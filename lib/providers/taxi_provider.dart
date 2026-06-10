@@ -12,6 +12,7 @@ class TaxiProvider extends ChangeNotifier {
   late final TaxiPrefsService _prefs;
   late final TaxiRepository _repo;
   late final TaxiSyncService _sync;
+  void Function(String)? onLanguageChanged;
 
   TaxiProvider() {
     _prefs = TaxiPrefsService();
@@ -162,12 +163,22 @@ class TaxiProvider extends ChangeNotifier {
   void setComment(String v) { _comment = v; notifyListeners(); }
 
   void setLanguage(String lang) {
-    if (lang == 'Русский') _curLang = 'ru';
-    else if (lang == 'Қазақша') _curLang = 'kz';
-    else if (lang == 'Уйғурчә') _curLang = 'uyg';
-    else _curLang = lang;
+    String isoLang;
+    if (lang == 'Русский') isoLang = 'ru';
+    else if (lang == 'Қазақша') isoLang = 'kz';
+    else if (lang == 'Уйғурчә') isoLang = 'uyg';
+    else isoLang = lang;
+    
+    if (_curLang == isoLang) return;
+    _curLang = isoLang;
     _prefs.save('taxi_lang', _curLang);
     notifyListeners();
+
+    String mainLang = 'Русский';
+    if (isoLang == 'ru') mainLang = 'Русский';
+    else if (isoLang == 'kz') mainLang = 'Қазақша';
+    else if (isoLang == 'uyg') mainLang = 'Уйғурчә';
+    onLanguageChanged?.call(mainLang);
   }
 
   void toggleTheme() {

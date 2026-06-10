@@ -28,6 +28,8 @@ void showTaxiNegotiateDialog(
   int myPrice = (d['price'] as num?)?.toInt() ?? 0;
   final priceCtrl = TextEditingController(text: myPrice.toString());
 
+  bool isSending = false;
+
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
@@ -129,76 +131,102 @@ void showTaxiNegotiateDialog(
               ],
             ),
             const SizedBox(height: 40),
-            GestureDetector(
-              onTap: () async {
-                if (myPrice < 100) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'Укажите корректную стоимость (минимум 100 ₸)! 💰',
-                        style: GoogleFonts.inter(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 12,
-                          color: Colors.white,
+            isSending
+                ? const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(8.0),
+                      child: CircularProgressIndicator(),
+                    ),
+                  )
+                : GestureDetector(
+                    onTap: () async {
+                      if (isSending) return;
+                      if (myPrice < 100) {
+                        ScaffoldMessenger.of(c).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'Укажите корректную стоимость (минимум 100 ₸)! 💰',
+                              style: GoogleFonts.inter(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 12,
+                                color: Colors.white,
+                              ),
+                            ),
+                            backgroundColor: const Color(0xFFEF4444),
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                          ),
+                        );
+                        return;
+                      }
+                      final targetId = d['targetId']?.toString() ?? '';
+                      final targetType = d['targetType']?.toString() ?? '';
+                      final receiverId = d['receiverId']?.toString() ?? '';
+                      if (targetId.isNotEmpty && receiverId.isNotEmpty) {
+                        ss(() => isSending = true);
+                        try {
+                          await provider.sendBid(
+                            targetId: targetId,
+                            targetType: targetType,
+                            receiverId: receiverId,
+                            price: myPrice,
+                          );
+                          if (c.mounted) {
+                            NotificationService.notify(
+                              c,
+                              'Предложение отправлено',
+                              '${provider.translate('offer_sent')} ($myPrice ₸)',
+                              isSuccess: true,
+                            );
+                            Navigator.pop(c);
+                          }
+                        } catch (e) {
+                          if (c.mounted) {
+                            NotificationService.notify(
+                              c,
+                              provider.translate('error_label'),
+                              provider.translate('general_error_desc'),
+                              isSuccess: false,
+                            );
+                          }
+                        } finally {
+                          if (c.mounted) {
+                            ss(() => isSending = false);
+                          }
+                        }
+                      }
+                    },
+                    child: Container(
+                      width: double.infinity,
+                      height: 60,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF84CC16), Color(0xFF4D7C0F)],
+                        ),
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color:
+                                const Color(0xFF84CC16).withValues(alpha: 0.4),
+                            blurRadius: 15,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: Center(
+                        child: Text(
+                          provider.translate('send_offer').toUpperCase(),
+                          style: GoogleFonts.inter(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
-                      backgroundColor: const Color(0xFFEF4444),
-                      behavior: SnackBarBehavior.floating,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                    ),
-                  );
-                  return;
-                }
-                Navigator.pop(context);
-                final targetId = d['targetId']?.toString() ?? '';
-                final targetType = d['targetType']?.toString() ?? '';
-                final receiverId = d['receiverId']?.toString() ?? '';
-                if (targetId.isNotEmpty && receiverId.isNotEmpty) {
-                  NotificationService.notify(
-                    context,
-                    'Предложение отправлено',
-                    '${provider.translate('offer_sent')} ($myPrice ₸)',
-                    isSuccess: true,
-                  );
-                  await provider.sendBid(
-                    targetId: targetId,
-                    targetType: targetType,
-                    receiverId: receiverId,
-                    price: myPrice,
-                  );
-                }
-              },
-              child: Container(
-                width: double.infinity,
-                height: 60,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF84CC16), Color(0xFF4D7C0F)],
-                  ),
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color:
-                          const Color(0xFF84CC16).withValues(alpha: 0.4),
-                      blurRadius: 15,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: Center(
-                  child: Text(
-                    provider.translate('send_offer').toUpperCase(),
-                    style: GoogleFonts.inter(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w900,
-                      color: Colors.white,
                     ),
                   ),
-                ),
-              ),
-            ),
             const SizedBox(height: 30),
           ],
         ),

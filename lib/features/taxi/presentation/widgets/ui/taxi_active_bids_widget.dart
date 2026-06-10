@@ -82,7 +82,6 @@ class TaxiActiveBidsWidget extends StatelessWidget {
                 HapticFeedback.selectionClick();
                 onBidTap(activeBids[index]);
               },
-              context: ctx,
             ),
           ),
         ],
@@ -92,13 +91,12 @@ class TaxiActiveBidsWidget extends StatelessWidget {
 }
 
 // ── Внутренняя строка ставки ──────────────────────────────────────────────────
-class _BidRow extends StatelessWidget {
+class _BidRow extends StatefulWidget {
   final Map<String, dynamic> bid;
   final String currentUid;
   final TaxiTheme t;
   final TaxiProvider provider;
   final VoidCallback onTap;
-  final BuildContext context;
 
   const _BidRow({
     required this.bid,
@@ -106,52 +104,95 @@ class _BidRow extends StatelessWidget {
     required this.t,
     required this.provider,
     required this.onTap,
-    required this.context,
   });
 
   @override
-  Widget build(BuildContext _) {
-    final bool isSender = bid['senderId'] == currentUid;
-    final int price     = bid['offeredPrice'] ?? 0;
-    final String name   = bid['senderName']   ?? 'Пользователь';
-    final String bidId  = bid['id']           ?? '';
-    final String? img   = bid['senderImg']?.toString().isNotEmpty == true ? bid['senderImg'] : null;
+  State<_BidRow> createState() => _BidRowState();
+}
+
+class _BidRowState extends State<_BidRow> {
+  bool isProcessing = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isSender = widget.bid['senderId'] == widget.currentUid;
+    final int price     = widget.bid['offeredPrice'] ?? 0;
+    final String name   = widget.bid['senderName']   ?? 'Пользователь';
+    final String bidId  = widget.bid['id']           ?? '';
+    final String? img   = widget.bid['senderImg']?.toString().isNotEmpty == true ? widget.bid['senderImg'] : null;
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: onTap,
+      onTap: isProcessing ? null : widget.onTap,
       child: Row(children: [
         // Аватар
         CircleAvatar(
           radius: 20,
-          backgroundColor: t.bg,
+          backgroundColor: widget.t.bg,
           backgroundImage: img != null ? CachedNetworkImageProvider(img) : null,
-          child: img == null ? Icon(Icons.person, color: t.sub) : null,
+          child: img == null ? Icon(Icons.person, color: widget.t.sub) : null,
         ),
         const SizedBox(width: 12),
         // Имя + статус
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(isSender ? 'Ваше предложение' : name,
-              style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 13, color: t.text)),
+              style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 13, color: widget.t.text)),
           const SizedBox(height: 2),
           Text(isSender ? 'Ожидание решения • $price ₸' : 'Предлагает цену: $price ₸',
-              style: GoogleFonts.inter(fontSize: 11, color: t.sub)),
+              style: GoogleFonts.inter(fontSize: 11, color: widget.t.sub)),
         ])),
         // Действия
         if (isSender)
           _badge('В обработке', Colors.amber[800]!, Colors.amber.withValues(alpha: 0.15))
+        else if (isProcessing)
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16),
+            child: SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          )
         else
           Row(children: [
             _actionBtn('Принять', const Color(0xFF84CC16), Colors.white, () async {
+              if (isProcessing) return;
               HapticFeedback.mediumImpact();
-              await provider.acceptBid(bidId);
-              NotificationService.notify(context, 'Принято', 'Вы согласились на предложение за $price ₸', isSuccess: true);
+              setState(() => isProcessing = true);
+              try {
+                await widget.provider.acceptBid(bidId);
+                if (mounted) {
+                  NotificationService.notify(context, 'Принято', 'Вы согласились на предложение за $price ₸', isSuccess: true);
+                }
+              } catch (e) {
+                if (mounted) {
+                  NotificationService.notify(context, 'Ошибка', 'Не удалось принять предложение', isSuccess: false);
+                }
+              } finally {
+                if (mounted) {
+                  setState(() => isProcessing = false);
+                }
+              }
             }),
             const SizedBox(width: 8),
             _actionBtn('Отклонить', Colors.red.withValues(alpha: 0.1), Colors.red, () async {
+              if (isProcessing) return;
               HapticFeedback.lightImpact();
-              await provider.rejectBid(bidId);
-              NotificationService.notify(context, 'Отклонено', 'Вы отклонили предложение', isSuccess: false);
+              setState(() => isProcessing = true);
+              try {
+                await widget.provider.rejectBid(bidId);
+                if (mounted) {
+                  NotificationService.notify(context, 'Отклонено', 'Вы отклонили предложение', isSuccess: false);
+                }
+              } catch (e) {
+                if (mounted) {
+                  NotificationService.notify(context, 'Ошибка', 'Не удалось отклонить предложение', isSuccess: false);
+                }
+              } finally {
+                if (mounted) {
+                  setState(() => isProcessing = false);
+                }
+              }
             }),
           ]),
       ]),
