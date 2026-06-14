@@ -68,6 +68,11 @@ exports.onNewMessage = functions.firestore.document('chats/{chatId}/messages/{ms
       console.log(`[onNewMessage] FCM sent to ${receiverId}`);
     } catch (error) {
       console.error('[onNewMessage] FCM Error:', error);
+      if (error.code === 'messaging/registration-token-not-registered' ||
+          error.code === 'messaging/invalid-registration-token') {
+        await db.collection('users').doc(receiverId).update({ fcmToken: admin.firestore.FieldValue.delete() });
+        console.log(`[onNewMessage] Stale FCM token removed for ${receiverId}`);
+      }
     }
   }
 );
@@ -76,9 +81,11 @@ exports.onNewMessage = functions.firestore.document('chats/{chatId}/messages/{ms
 exports.checkExpiredAds = functions.pubsub.schedule('0 3 * * *').timeZone('Asia/Almaty').onRun(async () => {
     const now              = admin.firestore.Timestamp.now();
     const warningTimestamp = admin.firestore.Timestamp.fromMillis(Date.now() + 3 * 24 * 60 * 60 * 1000);
-    const batch = db.batch();
     let expiredCount = 0;
     let notifyCount  = 0;
+    let batchOps = [];
+    let currentBatch = db.batch();
+    let batchCount = 0;
 
     try {
       const expiredAdsSnap = await db.collection('ads')
@@ -86,7 +93,13 @@ exports.checkExpiredAds = functions.pubsub.schedule('0 3 * * *').timeZone('Asia/
         .where('status', '==', 'active')
         .get();
       expiredAdsSnap.forEach((doc) => {
-        batch.update(doc.ref, { status: 'archived', active: false });
+        currentBatch.update(doc.ref, { status: 'archived', active: false });
+        batchCount++;
+        if (batchCount >= 499) {
+          batchOps.push(currentBatch.commit());
+          currentBatch = db.batch();
+          batchCount = 0;
+        }
         expiredCount++;
       });
 
@@ -99,7 +112,13 @@ exports.checkExpiredAds = functions.pubsub.schedule('0 3 * * *').timeZone('Asia/
       for (const doc of expiringAdsSnap.docs) {
         const data = doc.data();
         if (data.notifiedExpiry === true) continue;
-        batch.update(doc.ref, { notifiedExpiry: true });
+        currentBatch.update(doc.ref, { notifiedExpiry: true });
+        batchCount++;
+        if (batchCount >= 499) {
+          batchOps.push(currentBatch.commit());
+          currentBatch = db.batch();
+          batchCount = 0;
+        }
 
         if (data.userId) {
           const userSnap = await db.collection('users').doc(data.userId).get();
@@ -119,8 +138,9 @@ exports.checkExpiredAds = functions.pubsub.schedule('0 3 * * *').timeZone('Asia/
         }
       }
 
-      if (expiredCount > 0 || notifyCount > 0) {
-        await batch.commit();
+      if (batchCount > 0) batchOps.push(currentBatch.commit());
+      if (batchOps.length > 0) {
+        await Promise.all(batchOps);
         console.log(`[checkExpiredAds] Archived ${expiredCount}, notified ${notifyCount}`);
       } else {
         console.log('[checkExpiredAds] No expired or expiring ads today.');
@@ -133,7 +153,7 @@ exports.checkExpiredAds = functions.pubsub.schedule('0 3 * * *').timeZone('Asia/
 
 // ─── SECURE GEMINI CALL PROXY ─────────────────────────────────────────────────
 exports.secureGeminiCall = functions.https.onRequest(async (req, res) => {
-  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Origin', 'https://iqmarket.kz');
   res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
   if (req.method === 'OPTIONS') return res.status(204).send('');
@@ -212,6 +232,11 @@ exports.onNewNotification = functions.firestore.document('users/{userId}/notific
       console.log(`[onNewNotification] FCM sent to ${userId}`);
     } catch (error) {
       console.error('[onNewNotification] FCM Error:', error);
+      if (error.code === 'messaging/registration-token-not-registered' ||
+          error.code === 'messaging/invalid-registration-token') {
+        await db.collection('users').doc(userId).update({ fcmToken: admin.firestore.FieldValue.delete() });
+        console.log(`[onNewNotification] Stale FCM token removed for ${userId}`);
+      }
     }
   }
 );

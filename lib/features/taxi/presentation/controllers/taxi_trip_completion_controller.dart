@@ -294,7 +294,7 @@ class TaxiTripCompletionController {
         created = DateTime.tryParse(createdAt.toString()) ?? DateTime.now();
       }
       return DateTime.now().difference(created).inMinutes;
-    } catch (_) {
+    } catch (e) { debugPrint('[TripCompletion] Age calculation error: $e');
       return 0;
     }
   }

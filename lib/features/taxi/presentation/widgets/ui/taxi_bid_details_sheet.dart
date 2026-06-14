@@ -62,7 +62,7 @@ void showTaxiBidDetailsSheet({
       );
     }
     if (target.isEmpty) target = null;
-  } catch (_) {}
+  } catch (e) { debugPrint('[TaxiBidDetails] Target lookup error: $e'); }
 
   final String from = target?['from']?.toString() ?? 'Неизвестно';
   final String to = target?['to']?.toString() ?? 'Неизвестно';

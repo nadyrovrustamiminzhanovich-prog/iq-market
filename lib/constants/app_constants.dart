@@ -6,7 +6,7 @@ class AppConstants {
   // Major: Кардинальные изменения
   // Minor: Новые функции
   // Patch: Исправление багов
-  static const String appVersion = '1.1.0';
+  static const String appVersion = '1.0.0';
   
   // Дополнительная информация о сборке
   static const String buildType = 'Gold';

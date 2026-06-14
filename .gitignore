@@ -64,6 +64,9 @@ app.*.map.json
 **/*.jks
 **/*.keystore
 .env
+.env.local
+functions/.env.local
+android/key.properties
 
 # Директории
 .gradle_home/

@@ -100,7 +100,7 @@ class TaxiActionGateController {
           if (createdDate != null) {
             isRecent = DateTime.now().difference(createdDate).inHours <= 24;
           }
-        } catch (_) {}
+        } catch (e) { debugPrint('[TaxiActionGate] Date parse error: $e'); }
       }
 
       return isMyDrive && isMatchingRoute && isActive && isRecent;

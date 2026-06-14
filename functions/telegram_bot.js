@@ -6,6 +6,8 @@
 const functions = require('firebase-functions/v1');
 const admin     = require('firebase-admin');
 const db        = admin.firestore();
+const crypto    = require('crypto');
+const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || '';
 
 const TOKEN      = process.env.TG_TOKEN || '';
 const ADMIN_CHAT = process.env.ADMIN_CHAT || '';
@@ -57,13 +59,32 @@ async function tgSend(chatId, text, extra = {}, parse_mode = 'HTML') {
 
 // ─── Register Webhook ─────────────────────────────────────────────────────────
 exports.registerWebhook = functions.https.onRequest(async (req, res) => {
+  // P2: Admin-only endpoint
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).send('Unauthorized: Missing token');
+  }
+  try {
+    const decoded = await admin.auth().verifyIdToken(authHeader.split('Bearer ')[1]);
+    const userDoc = await db.collection('users').doc(decoded.uid).get();
+    if (!userDoc.exists || userDoc.data().accountType !== 'admin') {
+      return res.status(403).send('Forbidden: Admin only');
+    }
+  } catch (e) {
+    return res.status(401).send('Unauthorized: Invalid token');
+  }
+
   if (!TOKEN) return res.status(500).send('TG_TOKEN not set');
   const webhookUrl = `https://us-central1-iq-market-3dc07.cloudfunctions.net/telegramWebhook`;
   try {
     const r = await fetch(`${API}/setWebhook`, {
       method : 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body   : JSON.stringify({ url: webhookUrl, allowed_updates: ['message', 'callback_query'] }),
+      body   : JSON.stringify({
+        url: webhookUrl,
+        allowed_updates: ['message', 'callback_query'],
+        secret_token: WEBHOOK_SECRET,
+      }),
     });
     const data = await r.json();
     console.log('[registerWebhook] Result:', JSON.stringify(data));
@@ -75,6 +96,15 @@ exports.registerWebhook = functions.https.onRequest(async (req, res) => {
 
 // ─── WEBHOOK ──────────────────────────────────────────────────────────────────
 exports.telegramWebhook = functions.https.onRequest(async (req, res) => {
+  // P1: Verify Telegram webhook secret token
+  if (WEBHOOK_SECRET) {
+    const receivedSecret = req.headers['x-telegram-bot-api-secret-token'];
+    if (receivedSecret !== WEBHOOK_SECRET) {
+      console.warn('[telegramWebhook] Invalid secret token — rejecting request');
+      return res.sendStatus(403);
+    }
+  }
+
   try {
     if (!TOKEN) {
       console.error('[telegramWebhook] TOKEN не задан — игнорируем запрос');
@@ -188,7 +218,7 @@ exports.telegramWebhook = functions.https.onRequest(async (req, res) => {
       }
 
       console.log(`[contact] Phone match OK for chatId=${chatId}. Generating OTP...`);
-      const otp = String(Math.floor(100000 + Math.random() * 900000));
+      const otp = crypto.randomInt(100000, 999999).toString();
 
       const uid = `telegram_${chatId}`;
       const customToken = await createCustomTokenWithRetry(uid);
@@ -255,7 +285,7 @@ exports.telegramWebhook = functions.https.onRequest(async (req, res) => {
             );
           } else {
             // Direct OTP login flow (standalone Telegram login)
-            const otp = String(Math.floor(100000 + Math.random() * 900000));
+            const otp = crypto.randomInt(100000, 999999).toString();
 
             const uid = `telegram_${chatId}`;
             const customToken = await createCustomTokenWithRetry(uid);
@@ -356,7 +386,7 @@ exports.onVerificationUpdate = functions.firestore.document('driver_verification
 
 // ─── SECURE SEND TELEGRAM MESSAGE ────────────────────────────────────────────
 exports.secureSendTelegramMessage = functions.https.onRequest(async (req, res) => {
-  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Origin', 'https://iqmarket.kz');
   res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
   if (req.method === 'OPTIONS') return res.status(204).send('');
@@ -391,7 +421,7 @@ exports.secureSendTelegramMessage = functions.https.onRequest(async (req, res) =
 
 // ─── SEND TELEGRAM OTP ────────────────────────────────────────────────────────
 exports.sendTelegramOtp = functions.https.onRequest(async (req, res) => {
-  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Origin', 'https://iqmarket.kz');
   res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
   if (req.method === 'OPTIONS') return res.status(204).send('');

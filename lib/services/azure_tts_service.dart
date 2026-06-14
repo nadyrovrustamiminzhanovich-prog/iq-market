@@ -51,4 +51,8 @@ class AzureTtsService {
   void stop() {
     _audioPlayer.stop();
   }
+
+  void dispose() {
+    _audioPlayer.dispose();
+  }
 }

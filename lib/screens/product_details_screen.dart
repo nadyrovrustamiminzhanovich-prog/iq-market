@@ -102,10 +102,10 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
         if (_videoController != null) {
           try {
             await _videoController!.pause();
-          } catch (_) {}
+          } catch (e) { debugPrint('[ProductDetails] Video pause error: $e'); }
           try {
             await _videoController!.dispose();
-          } catch (_) {}
+          } catch (e) { debugPrint('[ProductDetails] Video dispose error: $e'); }
           _videoController = null;
           _isVideoInitialized = false;
           _isVideoPlaying = false;

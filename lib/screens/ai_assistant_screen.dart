@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 import 'package:path/path.dart' as p;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'product_details_screen.dart';
 import '../services/azure_tts_service.dart';
@@ -62,6 +63,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     _geminiService.init(_currentLang);
     _initSpeech();
     _setupHighQualityVoice();
+    _loadQuestionCount();
     
     if (widget.bargainMode && widget.initialAd != null) {
       _startBargaining();
@@ -342,15 +344,94 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     }
   }
 
+  bool _isAppRelatedQuestion(String text) {
+    final cleanText = text.toLowerCase();
+    final keywords = [
+      'iq', 'market', 'taxi', 'такси', 'маркет',
+      'объявлен', 'елан', 'хабарландыру',
+      'купи', 'прода', 'сатып ал', 'сату', 'сетиш', 'сетип ал', 'buy', 'sell',
+      'цена', 'цене', 'цены', 'стоимост', 'баға', 'баһа', 'price',
+      'машин', 'авто', 'көлік', 'car',
+      'дорог', 'поездк', 'жол', 'сапар', 'йол', 'сәпәр', 'trip', 'road',
+      'водител', 'пассажир', 'жүргізуші', 'жолаушы', 'һайдиғучи', 'йолувчи', 'driver', 'passenger',
+      'заказ', 'тапсырыс', 'буйрутма', 'order',
+      'профил', 'регистр', 'вход', 'тіркелу', 'тизим', 'login', 'register',
+      'баланс', 'оплат', 'кошелек', 'төлем', 'әмиян', 'төләм', 'balance', 'payment',
+      'поддержк', 'қолдау', 'қолдаш', 'support',
+      'правил', 'ереже', 'қаидә', 'rules',
+      'верифик', 'тексеру', 'тәкшүрүш', 'verification', 'verify'
+    ];
+
+    for (final word in keywords) {
+      if (cleanText.contains(word)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  Future<void> _loadQuestionCount() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      final savedDate = prefs.getString('ai_limit_date') ?? '';
+      
+      if (savedDate == todayStr) {
+        setState(() {
+          _questionCount = prefs.getInt('ai_question_count') ?? 0;
+        });
+      } else {
+        await prefs.setString('ai_limit_date', todayStr);
+        await prefs.setInt('ai_question_count', 0);
+        setState(() {
+          _questionCount = 0;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading question count: $e');
+    }
+  }
+
+  Future<void> _incrementQuestionCount() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      final savedDate = prefs.getString('ai_limit_date') ?? '';
+      
+      if (savedDate != todayStr) {
+        await prefs.setString('ai_limit_date', todayStr);
+        _questionCount = 0;
+      }
+      
+      setState(() {
+        _questionCount++;
+      });
+      await prefs.setInt('ai_question_count', _questionCount);
+    } catch (e) {
+      debugPrint('Error incrementing question count: $e');
+    }
+  }
+
   void _sendMessage() async {
     String text = _controller.text.trim();
     if (text.isEmpty && _selectedFiles.isEmpty) return;
 
     if (widget.isHomeMode) {
-      _questionCount++;
-      if (_questionCount > 3) {
-        text +=
-            "\n[SYSTEM INSTRUCTION: Пользователь превысил лимит на 3 общих вопроса. Начиная с этого момента, ВЕЖЛИВО сообщите ему, что лимит общих вопросов исчерпан, и вы можете отвечать ТОЛЬКО на вопросы, связанные с приложением IQ-Market (покупки, продажи) и IQ-Taxi (межгородское такси). Отвечайте коротко и не давайте ответы на сторонние темы.]";
+      final isAppRelated = _isAppRelatedQuestion(text);
+      if (!isAppRelated) {
+        await _incrementQuestionCount();
+      }
+      
+      if (_questionCount > 5) {
+        String instruction = "";
+        if (_currentLang == 'KZ') {
+          instruction = "\n[SYSTEM INSTRUCTION: Пайдаланушы жалпы сұрақтар бойынша күндізгі лимитінен (күніне 5 сұрақ) асып кетті. Осы сәттен бастап, оған сыпайы және әдемі түрде жалпы тақырыптарға сұрақтар лимиті таусылғанын хабарлаңыз. Бірақ IQ-Market қосымшасы (сатып алу, сату, хабарландырулар) және IQ-Taxi (қалааралық такси) бойынша сұрақтарға шектеусіз жауап бере алатыныңызды түсіндіріңіз. Осыны өте жылы және сыпайы түрде қазақ тілінде жазыңыз.]";
+        } else if (_currentLang == 'UG') {
+          instruction = "\n[SYSTEM INSTRUCTION: Пайдаланғучи умумий соаллар бойичә күнлүк лимитидин (күнигә 5 соал) ешип кәтти. Осы сәттин башлап, униңға сипайи вә чирайлиқ йосұнда умумий тақилиқ соаллар лимити түгәп қалғинини йәткүзүң. Бирақ IQ-Market программиси (сетиш, сетип елиш, еланлар) вә IQ-Taxi (шәһәрләр ара такси) бойичә соалларға чәкләнмигән йосұнда җавап берәләйдиғанлиқиңизни чүшәндүрүң. Осыни уйғур тилида чирайлиқ йезиң.]";
+        } else {
+          instruction = "\n[SYSTEM INSTRUCTION: Пользователь превысил лимит на 5 общих вопросов в день. Начиная с этого момента, МЯГКО и КРАСИВО сообщите ему, что лимит общих вопросов (5 в день) исчерпан. Объясните, что на любые вопросы о приложении IQ-Market (покупки, продажи, публикации) и сервисе такси IQ-Taxi вы готовы отвечать абсолютно БЕЗЛИМИТНО и свободно! Напишите это очень дружелюбно и вежливо на русском языке.]";
+        }
+        text += instruction;
       }
     }
 
@@ -642,10 +723,10 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                       Expanded(
                         child: Text(
                           _currentLang == 'KZ'
-                              ? "Күнделікті жалпы сұрақтар лимиті: 3 сұрақ. Такси және хабарландыру сұрақтары — шектеусіз!"
+                              ? "Күнделікті жалпы сұрақтар лимиті: 5 сұрақ. Такси және хабарландыру сұрақтары — шектеусіз!"
                               : _currentLang == 'UG'
-                                  ? "Умумий соалларға күнлүк лимит: 3 соал. Такси вә елан соаллири — чәкләнмигән!"
-                                  : "Лимит на общие вопросы: 3 в день. Вопросы о такси и объявлениях — безлимитно!",
+                                  ? "Умумий соалларға күнлүк лимит: 5 соал. Такси вә елан соаллири — чәкләнмигән!"
+                                  : "Лимит на общие вопросы: 5 в день. Вопросы о такси и объявлениях — безлимитно!",
                           style: GoogleFonts.inter(
                             color: const Color(0xFF1E293B),
                             fontSize: 11,

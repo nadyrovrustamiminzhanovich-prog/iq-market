@@ -159,7 +159,8 @@ class TelegramBotService {
         }),
       );
       return r.statusCode == 200;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[TelegramBotService._send] Error: $e');
       return false;
     }
   }
@@ -186,6 +187,6 @@ class TelegramBotService {
           'reply_markup': {'inline_keyboard': keyboard},
         }),
       );
-    } catch (_) {}
+    } catch (e) { debugPrint('[TelegramBotService._sendWithKeyboard] Error: $e'); }
   }
 }

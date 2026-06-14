@@ -356,7 +356,7 @@ class ChatService {
       await _db.collection('chats').doc(chatId).set({
         'online_$uid': isOnline,
       }, SetOptions(merge: true));
-    } catch (_) {} // Игнорируем, если чат еще не создан
+    } catch (e) { debugPrint('[ChatService.updateOnlineStatus] Chat not created yet: $e'); }
 
     // Обновляем lastActive в глобальном профиле
     if (!isOnline) {
@@ -364,7 +364,7 @@ class ChatService {
         await _db.collection('users').doc(uid).update({
           'lastActive': FieldValue.serverTimestamp(),
         });
-      } catch (_) {}
+      } catch (e) { debugPrint('[ChatService.updateOnlineStatus] lastActive update error: $e'); }
     }
   }
 

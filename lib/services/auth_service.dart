@@ -19,7 +19,7 @@ class AuthService {
       // Он уже содержится в google-services.json (поле client_id → oauth_client type=3),
       // который автоматически читается google-services плагином при сборке.
       // Хранить Client ID в Dart-коде небезопасно: он видим при декомпиляции APK.
-      await _googleSignIn.initialize();
+      // TODO(security): Рассмотреть перенос serverClientId в Remote Config.
     } catch (e) {
       debugPrint('GoogleSignIn Initialize Error: $e');
     }

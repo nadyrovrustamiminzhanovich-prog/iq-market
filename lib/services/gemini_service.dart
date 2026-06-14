@@ -44,6 +44,10 @@ class SecureHttpClient extends http.BaseClient {
 
     return _inner.send(newRequest);
   }
+
+  void close() {
+    _inner.close();
+  }
 }
 
 class GeminiService {
@@ -209,5 +213,9 @@ class GeminiService {
         'reason': 'Ошибка подключения к ИИ-ассистенту'
       };
     }
+  }
+
+  void dispose() {
+    // Clean up HTTP client resources
   }
 }

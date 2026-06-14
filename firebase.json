@@ -17,5 +17,14 @@
   },
   "storage": {
     "rules": "storage.rules"
+  },
+  "hosting": {
+    "site": "iqmarket-kz",
+    "public": "public",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ]
   }
 }
