@@ -808,7 +808,10 @@ class _DriverVerificationScreenState extends State<DriverVerificationScreen>
     const SizedBox(height: 8),
     TextField(
       controller: c,
-      inputFormatters: mask != null ? [mask] : null,
+      inputFormatters: [
+        if (mask != null) mask,
+        if (textCaps) UpperCaseTextFormatter(),
+      ],
       textCapitalization: textCaps ? TextCapitalization.characters : TextCapitalization.words,
       onChanged: (_) => setState(() {}),
       style: GoogleFonts.inter(color: t.text, fontWeight: FontWeight.w700),
@@ -833,4 +836,14 @@ class _DriverVerificationScreenState extends State<DriverVerificationScreen>
       Expanded(child: Text(text, style: GoogleFonts.inter(color: t.sub, fontSize: 12, height: 1.4))),
     ]),
   );
+}
+
+class UpperCaseTextFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+    return TextEditingValue(
+      text: newValue.text.toUpperCase(),
+      selection: newValue.selection,
+    );
+  }
 }

@@ -112,7 +112,9 @@ class _IQMarketHomeState extends State<IQMarketHome> {
         final nextPageKey = result['lastDocument'] as DocumentSnapshot?;
         _pagingController.appendPage(newItems, nextPageKey);
       }
-    } catch (error) {
+    } catch (error, stack) {
+      debugPrint('Error fetching home page ads: $error');
+      debugPrint(stack.toString());
       // В новых версиях ошибку лучше прокидывать через контроллер напрямую
       _pagingController.error = error;
     }

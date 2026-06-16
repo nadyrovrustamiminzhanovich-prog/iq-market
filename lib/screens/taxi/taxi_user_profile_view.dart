@@ -35,6 +35,8 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
   bool _isLoadingStats = true;
   double _taxiAvgRating = 0.0;
   int _taxiReviewsCount = 0;
+  // ✅ BUG-01 FIX: Track actual trip count separately from review count
+  int _taxiTripsCount = 0;
   double _marketAvgRating = 0.0;
   int _marketReviewsCount = 0;
   List<ReviewModel> _taxiReviewsList = [];
@@ -69,80 +71,118 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
   Future<void> _loadUserProfileData() async {
     final String userId = widget.user['id'] ?? '';
     if (userId.isEmpty) {
-      setState(() {
-        _isLoadingStats = false;
-      });
+      setState(() => _isLoadingStats = false);
       return;
     }
 
     try {
+      // ✅ W-03 FIX: 10-second timeout on all Firestore calls to prevent infinite spinner
+      const timeout = Duration(seconds: 10);
+
       // 1. Fetch user doc
-      bool isTelegramVerified = false;
-      final userDoc = await FirebaseFirestore.instance.collection('users').doc(userId).get();
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users').doc(userId).get()
+          .timeout(timeout, onTimeout: () => throw Exception('Timeout'));
+
       if (userDoc.exists) {
         final userData = userDoc.data();
         if (userData != null) {
           _userPhone = userData['phone'] ?? '';
-          if (_userPhone.isEmpty) {
-            _userPhone = widget.user['phone'] ?? '';
-          }
-          isTelegramVerified = userData['isVerified'] == true;
+          if (_userPhone.isEmpty) _userPhone = widget.user['phone'] ?? '';
         }
       }
+
+      // ✅ BUG-02 FIX: Check driver_verifications, NOT users.isVerified.
+      // users.isVerified = Telegram OTP. driver_verifications = actual car check.
+      bool driverVerified = false;
+      try {
+        final verifSnap = await FirebaseFirestore.instance
+            .collection('driver_verifications')
+            .where('userId', isEqualTo: userId)
+            .limit(1)
+            .get()
+            .timeout(timeout);
+        if (verifSnap.docs.isNotEmpty) {
+          final status = verifSnap.docs.first.data()['status'] ?? 'none';
+          driverVerified = status == 'approved' || status == 'approved_by_ai';
+        }
+      } catch (_) {}
 
       // 2. Fetch Market reviews
       final reviewsSnap = await FirebaseFirestore.instance
           .collection('reviews')
           .where('toUserId', isEqualTo: userId)
-          .get();
+          .get()
+          .timeout(timeout);
 
       final marketList = reviewsSnap.docs
           .map((doc) => ReviewModel.fromMap(doc.data(), doc.id))
-          .toList();
-      
-      marketList.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+          .toList()
+        ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
       int marketCount = marketList.length;
       double marketAvg = 0.0;
-      if (marketCount > 0) {
-        double sum = marketList.fold(0.0, (prev, element) => prev + element.rating);
-        marketAvg = sum / marketCount;
+      // ✅ ISSUE-01 FIX: Apply same <5 threshold as TaxiSyncService for consistency
+      if (marketCount >= 5) {
+        double sum = marketList.fold(0.0, (prev, e) => prev + e.rating);
+        marketAvg = double.parse((sum / marketCount).toStringAsFixed(1));
       }
 
       // 3. Fetch Taxi reviews
       final taxiReviewsSnap = await FirebaseFirestore.instance
           .collection('taxi_reviews')
           .where('targetUserId', isEqualTo: userId)
-          .get();
+          .get()
+          .timeout(timeout);
 
       final taxiList = taxiReviewsSnap.docs.map((doc) {
         final data = doc.data();
         DateTime ts = DateTime.now();
-        if (data['createdAt'] is Timestamp) {
-          ts = (data['createdAt'] as Timestamp).toDate();
-        }
+        if (data['createdAt'] is Timestamp) ts = (data['createdAt'] as Timestamp).toDate();
         return ReviewModel(
-          id: doc.id,
-          adId: '',
-          adTitle: '',
+          id: doc.id, adId: '', adTitle: '',
           fromUserId: data['authorId'] ?? '',
           fromUserName: data['authorName'] ?? 'Пользователь',
           toUserId: data['targetUserId'] ?? '',
           rating: (data['rating'] ?? 0.0).toDouble(),
           comment: data['comment'] ?? '',
-          images: [],
-          timestamp: ts,
+          images: [], timestamp: ts,
         );
-      }).toList();
-      
-      taxiList.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+      }).toList()
+        ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
       int taxiCount = taxiList.length;
       double taxiAvg = 0.0;
-      if (taxiCount > 0) {
-        double sum = taxiList.fold(0.0, (prev, element) => prev + element.rating);
-        taxiAvg = sum / taxiCount;
+      // ✅ ISSUE-01 FIX: Apply same <5 threshold as TaxiSyncService for consistency
+      if (taxiCount >= 5) {
+        double sum = taxiList.fold(0.0, (prev, e) => prev + e.rating);
+        taxiAvg = double.parse((sum / taxiCount).toStringAsFixed(1));
       }
+
+      // ✅ BUG-01 FIX: Fetch actual completed trips count (not review count)
+      int tripsCount = 0;
+      try {
+        final results = await Future.wait([
+          FirebaseFirestore.instance.collection('taxi_orders')
+              .where('passengerId', isEqualTo: userId)
+              .where('status', isEqualTo: 'completed').get().timeout(timeout),
+          FirebaseFirestore.instance.collection('taxi_orders')
+              .where('driverId', isEqualTo: userId)
+              .where('status', isEqualTo: 'completed').get().timeout(timeout),
+          FirebaseFirestore.instance.collection('taxi_rides')
+              .where('passengerId', isEqualTo: userId)
+              .where('status', isEqualTo: 'completed').get().timeout(timeout),
+          FirebaseFirestore.instance.collection('taxi_rides')
+              .where('driverId', isEqualTo: userId)
+              .where('status', isEqualTo: 'completed').get().timeout(timeout),
+        ]);
+        // Deduplicate: use Map<docId> to avoid counting same trip twice
+        final Map<String, bool> uniqueIds = {};
+        for (var snap in results) {
+          for (var doc in snap.docs) uniqueIds[doc.id] = true;
+        }
+        tripsCount = uniqueIds.length;
+      } catch (_) {}
 
       setState(() {
         _taxiReviewsList = taxiList;
@@ -151,14 +191,13 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
         _taxiReviewsCount = taxiCount;
         _marketAvgRating = marketAvg;
         _marketReviewsCount = marketCount;
-        _isDriverVerified = isTelegramVerified;
+        _taxiTripsCount = tripsCount;  // ✅ BUG-01
+        _isDriverVerified = driverVerified; // ✅ BUG-02
         _isLoadingStats = false;
       });
     } catch (e) {
       debugPrint("Error loading profile details: $e");
-      setState(() {
-        _isLoadingStats = false;
-      });
+      setState(() => _isLoadingStats = false);
     }
   }
 
@@ -218,6 +257,11 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
                               child: Image.network(
                                 u['img'] ?? 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=800',
                                 fit: BoxFit.cover,
+                                // ✅ W-01 FIX: Handle broken/missing images gracefully
+                                errorBuilder: (_, __, ___) => Container(
+                                  color: Colors.grey.shade800,
+                                  child: const Icon(Icons.person_rounded, size: 80, color: Colors.white30),
+                                ),
                               ),
                             ),
                           ),
@@ -437,8 +481,8 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
                                         ],
                                       ),
                                     ),
+                                    // ✅ BUG-01 FIX: Show actual trips count, not reviewsCount
                                     VerticalDivider(width: 1, thickness: 1, color: t.border),
-                                    // Trips stat
                                     Expanded(
                                       child: Column(
                                         mainAxisSize: MainAxisSize.min,
@@ -450,7 +494,7 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
                                               const Text('🚗', style: TextStyle(fontSize: 14)),
                                               const SizedBox(width: 4),
                                               Text(
-                                                '${_taxiReviewsCount > 0 ? _taxiReviewsCount : 0}',
+                                                '$_taxiTripsCount',
                                                 style: GoogleFonts.inter(
                                                   color: t.text,
                                                   fontWeight: FontWeight.w900,
@@ -477,7 +521,10 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
                         if (widget.isDriver) ...[
                           _sectionTitle(t, provider.translate('car_short').toUpperCase()),
                           const SizedBox(height: 12),
-                          _infoCard(t, LineIcons.car, u['car'] ?? 'Toyota Camry', u['plate'] ?? '01 KZ 777'),
+                          // ✅ BUG-06 FIX: Read plate from both 'plate' and 'driverPlate' keys.
+                          // Previously u['plate'] was always null because the map used 'driverPlate'.
+                          _infoCard(t, LineIcons.car, u['car'] ?? u['driverCar'] ?? 'Toyota Camry',
+                              u['plate'] ?? u['driverPlate'] ?? ''),
                           const SizedBox(height: 24),
                         ],
                         // Custom premium reviews segment tab control

@@ -73,6 +73,14 @@ class TaxiProvider extends ChangeNotifier {
   int get maxPrice => _maxPrice;
   String? get telegramChatId => _telegramChatId;
   bool get isTelegramVerified => _isTelegramVerified;
+
+  /// ✅ ISSUE-07 FIX: Single source of truth for full Telegram verification.
+  /// Previously this check was duplicated 4+ times in taxi_service_screen.dart.
+  /// Use this getter everywhere instead of the inline check.
+  bool get isFullyTelegramVerified =>
+      _isTelegramVerified ||
+      (FirebaseAuth.instance.currentUser?.uid.startsWith('telegram_') == true);
+
   String get comment => _comment;
   String get driverCar => _driverCar;
   String get driverPlate => _driverPlate;
@@ -335,6 +343,8 @@ class TaxiProvider extends ChangeNotifier {
       targetUserId: targetUserId, rating: rating, comment: comment,
       firstName: _firstName, lastName: _lastName,
     );
+    // ✅ Force-evict cache so the new score is fetched immediately, not after TTL
+    _sync.forceInvalidateRatingCache(targetUserId);
     await _sync.fetchUserRatingsBatch([targetUserId]);
   }
 

@@ -204,13 +204,9 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
     final provider = Provider.of<TaxiProvider>(context);
     final t = provider.theme;
 
-    return PopScope(
-      canPop: true,
-      onPopInvokedWithResult: (didPop, _) {
-        if (didPop) return;
-        Navigator.of(context).pop();
-      },
-      child: AnnotatedRegion<SystemUiOverlayStyle>(
+    // ✅ W-04 FIX: Removed dead PopScope handler.
+    // canPop:true + if(didPop) return = handler never ran. Pure overhead removed.
+    return AnnotatedRegion<SystemUiOverlayStyle>(
         value: provider.isDarkGlobal
             ? SystemUiOverlayStyle.light
             : SystemUiOverlayStyle.dark,
@@ -406,7 +402,8 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
             _navigateToLogin(provider);
             return;
           }
-          final isTelegramUser = provider.isTelegramVerified || FirebaseAuth.instance.currentUser?.uid.startsWith('telegram_') == true;
+          // ✅ ISSUE-07 FIX: Use the single authoritative getter instead of inline check
+          final isTelegramUser = provider.isFullyTelegramVerified;
           final cleanPhone = _mainPhoneMask.getUnmaskedText();
           setState(() {
             _showFromError = provider.from.isEmpty;
@@ -549,7 +546,8 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
           _navigateToLogin(provider);
           return;
         }
-        final isTelegramUser = provider.isTelegramVerified || FirebaseAuth.instance.currentUser?.uid.startsWith('telegram_') == true;
+        // ✅ ISSUE-07 FIX: Use the single authoritative getter
+        final isTelegramUser = provider.isFullyTelegramVerified;
         final hasPhone = isTelegramUser || (provider.phone.isNotEmpty &&
             provider.phone != '+7 701 000 11 22' &&
             provider.phone != '87010001122');
@@ -629,7 +627,9 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                 ? img
                 : 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=800',
             'car': car,
-            'phone': phone.isNotEmpty ? phone : '87001234567',
+            // ✅ ISSUE-04 FIX: Pass empty string instead of fake phone number.
+            // The profile screen handles empty phone gracefully with a SnackBar.
+            'phone': phone,
             'verified': isVerified,
           },
           isDriver: isDriver,
@@ -650,7 +650,8 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
     Map<String, dynamic> d, {
     required bool isCall,
   }) {
-    final isTelegramUser = provider.isTelegramVerified || FirebaseAuth.instance.currentUser?.uid.startsWith('telegram_') == true;
+    // ✅ ISSUE-07 FIX: Use the single authoritative getter
+    final isTelegramUser = provider.isFullyTelegramVerified;
     if (!isTelegramUser && (provider.phone.isEmpty ||
         provider.phone == '+7 701 000 11 22' ||
         provider.phone == '87010001122')) {
@@ -695,7 +696,8 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
     Map<String, dynamic> o, {
     required bool isCall,
   }) async {
-    final isTelegramUser = provider.isTelegramVerified || FirebaseAuth.instance.currentUser?.uid.startsWith('telegram_') == true;
+    // ✅ ISSUE-07 FIX: Use the single authoritative getter
+    final isTelegramUser = provider.isFullyTelegramVerified;
     if (!isTelegramUser && (provider.phone.isEmpty ||
         provider.phone == '+7 701 000 11 22' ||
         provider.phone == '87010001122')) {

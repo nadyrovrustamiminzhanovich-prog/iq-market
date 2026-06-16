@@ -40,6 +40,13 @@ class TaxiSyncService {
   double getUserRating(String userId) => userRatings[userId] ?? 0.0;
   int getUserReviewCount(String userId) => userReviewCounts[userId] ?? 0;
 
+  /// Force-evicts [userId] from the TTL rating cache so that the next call to
+  /// [fetchUserRatingsBatch] unconditionally re-fetches from Firestore.
+  /// Call this immediately after a review is submitted for [userId].
+  void forceInvalidateRatingCache(String userId) {
+    _ratingCacheTimestamps.remove(userId);
+  }
+
   void dispose() {
     pauseSync();
   }
@@ -53,8 +60,15 @@ class TaxiSyncService {
     _myAcceptedOrdersDriverSub?.cancel();
     _myAcceptedRidesSub?.cancel();
     _myAcceptedRidesPassengerSub?.cancel();
+    // ✅ BUG-05 FIX: Null ALL 8 subscriptions to prevent stale references
     _ridesSub = null;
     _ordersSub = null;
+    _bidsSentSub = null;
+    _bidsRecvSub = null;
+    _myAcceptedOrdersSub = null;
+    _myAcceptedOrdersDriverSub = null;
+    _myAcceptedRidesSub = null;
+    _myAcceptedRidesPassengerSub = null;
     _isSyncing = false;
   }
 
@@ -71,6 +85,8 @@ class TaxiSyncService {
     _ridesSub = FirebaseFirestore.instance
         .collection('taxi_rides')
         .where('status', isEqualTo: 'active')
+        // ✅ W-07 FIX: Safety limit — prevents massive downloads at scale
+        .limit(100)
         .snapshots()
         .listen((snapshot) {
       final List<String> userIdsToFetch = [];
@@ -92,6 +108,8 @@ class TaxiSyncService {
     _ordersSub = FirebaseFirestore.instance
         .collection('taxi_orders')
         .where('status', isEqualTo: 'active')
+        // ✅ W-07 FIX: Safety limit — prevents massive downloads at scale
+        .limit(100)
         .snapshots()
         .listen((snapshot) {
       final List<String> userIdsToFetch = [];
@@ -157,6 +175,25 @@ class TaxiSyncService {
         updateBids();
       }, onError: (e) => debugPrint("Error syncing received taxi_bids: $e"));
 
+      // ✅ BUG-07 FIX: Use Map-based deduplication to prevent race conditions
+      // when both passenger and driver subscriptions fire simultaneously.
+      final Map<String, Map<String, dynamic>> _acceptedOrdersMap = {};
+      final Map<String, Map<String, dynamic>> _acceptedRidesMap = {};
+
+      void _rebuildAcceptedOrders() {
+        myAcceptedOrders
+          ..clear()
+          ..addAll(_acceptedOrdersMap.values);
+        onDataChanged();
+      }
+
+      void _rebuildAcceptedRides() {
+        myAcceptedRides
+          ..clear()
+          ..addAll(_acceptedRidesMap.values);
+        onDataChanged();
+      }
+
       _myAcceptedOrdersSub?.cancel();
       _myAcceptedOrdersSub = FirebaseFirestore.instance
           .collection('taxi_orders')
@@ -165,18 +202,20 @@ class TaxiSyncService {
           .snapshots()
           .listen((snapshot) {
         final List<String> userIdsToFetch = [];
-        myAcceptedOrders.removeWhere((o) => o['passengerId'] == user.uid);
+        // Remove all entries previously sourced from passenger subscription
+        _acceptedOrdersMap.removeWhere((k, v) => v['_src'] == 'passenger');
         for (var doc in snapshot.docs) {
           final data = doc.data();
           data['id'] = doc.id;
+          data['_src'] = 'passenger';
           final model = TaxiOrderModel.fromMap(data);
-          myAcceptedOrders.add(model.toMap());
+          _acceptedOrdersMap[doc.id] = model.toMap()..['_src'] = 'passenger';
           if (model.driverId != null && model.driverId!.isNotEmpty) {
             userIdsToFetch.add(model.driverId!);
           }
         }
         if (userIdsToFetch.isNotEmpty) fetchUserRatingsBatch(userIdsToFetch);
-        onDataChanged();
+        _rebuildAcceptedOrders();
       }, onError: (e) => debugPrint("Error syncing my accepted passenger orders: $e"));
 
       _myAcceptedOrdersDriverSub?.cancel();
@@ -187,18 +226,19 @@ class TaxiSyncService {
           .snapshots()
           .listen((snapshot) {
         final List<String> userIdsToFetch = [];
-        myAcceptedOrders.removeWhere((o) => o['driverId'] == user.uid);
+        _acceptedOrdersMap.removeWhere((k, v) => v['_src'] == 'driver_order');
         for (var doc in snapshot.docs) {
           final data = doc.data();
           data['id'] = doc.id;
+          data['_src'] = 'driver_order';
           final model = TaxiOrderModel.fromMap(data);
-          myAcceptedOrders.add(model.toMap());
+          _acceptedOrdersMap[doc.id] = model.toMap()..['_src'] = 'driver_order';
           if (model.passengerId.isNotEmpty) {
             userIdsToFetch.add(model.passengerId);
           }
         }
         if (userIdsToFetch.isNotEmpty) fetchUserRatingsBatch(userIdsToFetch);
-        onDataChanged();
+        _rebuildAcceptedOrders();
       }, onError: (e) => debugPrint("Error syncing my accepted driver orders: $e"));
 
       _myAcceptedRidesSub?.cancel();
@@ -209,18 +249,19 @@ class TaxiSyncService {
           .snapshots()
           .listen((snapshot) {
         final List<String> userIdsToFetch = [];
-        myAcceptedRides.removeWhere((r) => r['driverId'] == user.uid);
+        _acceptedRidesMap.removeWhere((k, v) => v['_src'] == 'driver_ride');
         for (var doc in snapshot.docs) {
           final data = doc.data();
           data['id'] = doc.id;
+          data['_src'] = 'driver_ride';
           final model = TaxiRideModel.fromMap(data);
-          myAcceptedRides.add(model.toMap());
+          _acceptedRidesMap[doc.id] = model.toMap()..['_src'] = 'driver_ride';
           if (model.passengerId != null && model.passengerId!.isNotEmpty) {
             userIdsToFetch.add(model.passengerId!);
           }
         }
         if (userIdsToFetch.isNotEmpty) fetchUserRatingsBatch(userIdsToFetch);
-        onDataChanged();
+        _rebuildAcceptedRides();
       }, onError: (e) => debugPrint("Error syncing my accepted rides: $e"));
 
       _myAcceptedRidesPassengerSub?.cancel();
@@ -231,18 +272,19 @@ class TaxiSyncService {
           .snapshots()
           .listen((snapshot) {
         final List<String> userIdsToFetch = [];
-        myAcceptedRides.removeWhere((r) => r['passengerId'] == user.uid);
+        _acceptedRidesMap.removeWhere((k, v) => v['_src'] == 'passenger_ride');
         for (var doc in snapshot.docs) {
           final data = doc.data();
           data['id'] = doc.id;
+          data['_src'] = 'passenger_ride';
           final model = TaxiRideModel.fromMap(data);
-          myAcceptedRides.add(model.toMap());
+          _acceptedRidesMap[doc.id] = model.toMap()..['_src'] = 'passenger_ride';
           if (model.driverId.isNotEmpty) {
             userIdsToFetch.add(model.driverId);
           }
         }
         if (userIdsToFetch.isNotEmpty) fetchUserRatingsBatch(userIdsToFetch);
-        onDataChanged();
+        _rebuildAcceptedRides();
       }, onError: (e) => debugPrint("Error syncing my accepted passenger rides: $e"));
     } else {
       _myAcceptedOrdersSub?.cancel();
@@ -254,23 +296,37 @@ class TaxiSyncService {
     }
   }
 
+  // ✅ ISSUE-02 FIX: TTL-based cache invalidation (10 minutes)
+  // Ratings are now refreshed every 10 minutes so users see up-to-date scores
+  // during the same session.
+  final Map<String, DateTime> _ratingCacheTimestamps = {};
+  static const Duration _ratingCacheTtl = Duration(minutes: 10);
+
   Future<void> fetchUserRatingsBatch(List<String> userIds) async {
-    final missingIds = userIds.where((id) => !userRatings.containsKey(id)).toSet().toList();
-    if (missingIds.isEmpty) return;
-    
-    for (var id in missingIds) {
-      userRatings[id] = 0.0;
-      userReviewCounts[id] = 0;
+    final now = DateTime.now();
+    // IDs that are missing OR whose cache has expired
+    final staleIds = userIds.where((id) {
+      if (!userRatings.containsKey(id)) return true;
+      final cached = _ratingCacheTimestamps[id];
+      return cached == null || now.difference(cached) > _ratingCacheTtl;
+    }).toSet().toList();
+
+    if (staleIds.isEmpty) return;
+
+    // Optimistic placeholder so UI doesn't flicker
+    for (var id in staleIds) {
+      userRatings.putIfAbsent(id, () => 0.0);
+      userReviewCounts.putIfAbsent(id, () => 0);
     }
 
     try {
-      for (int i = 0; i < missingIds.length; i += 10) {
-        final chunk = missingIds.sublist(i, (i + 10 < missingIds.length) ? i + 10 : missingIds.length);
+      for (int i = 0; i < staleIds.length; i += 10) {
+        final chunk = staleIds.sublist(i, (i + 10 < staleIds.length) ? i + 10 : staleIds.length);
         final snap = await FirebaseFirestore.instance
             .collection('taxi_reviews')
             .where('targetUserId', whereIn: chunk)
             .get();
-            
+
         final Map<String, List<double>> userReviews = {};
         for (var doc in snap.docs) {
           final data = doc.data();
@@ -283,12 +339,14 @@ class TaxiSyncService {
           final reviews = userReviews[id] ?? [];
           final count = reviews.length;
           userReviewCounts[id] = count;
+          // ✅ ISSUE-01 aligned: same <5 threshold as profile view (see below)
           if (count < 5) {
             userRatings[id] = 0.0;
           } else {
             final sum = reviews.reduce((a, b) => a + b);
             userRatings[id] = double.parse((sum / count).toStringAsFixed(1));
           }
+          _ratingCacheTimestamps[id] = now;
         }
       }
       onDataChanged();
@@ -347,58 +405,58 @@ class TaxiSyncService {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
     try {
-      final List<Map<String, dynamic>> list = [];
-      
-      final ordersPassenger = await FirebaseFirestore.instance
-          .collection('taxi_orders')
-          .where('passengerId', isEqualTo: user.uid)
-          .where('status', isEqualTo: 'completed')
-          .get();
-          
-      final ordersDriver = await FirebaseFirestore.instance
-          .collection('taxi_orders')
-          .where('driverId', isEqualTo: user.uid)
-          .where('status', isEqualTo: 'completed')
-          .get();
+      // ✅ ISSUE-08 FIX: Use Map<docId, data> for automatic deduplication.
+      // 4 parallel queries may return same doc if user was both driver & passenger
+      // (edge case). Map ensures each trip appears exactly once.
+      final Map<String, Map<String, dynamic>> uniqueTrips = {};
 
-      final ridesPassenger = await FirebaseFirestore.instance
-          .collection('taxi_rides')
-          .where('passengerId', isEqualTo: user.uid)
-          .where('status', isEqualTo: 'completed')
-          .get();
-          
-      final ridesDriver = await FirebaseFirestore.instance
-          .collection('taxi_rides')
-          .where('driverId', isEqualTo: user.uid)
-          .where('status', isEqualTo: 'completed')
-          .get();
+      final results = await Future.wait([
+        FirebaseFirestore.instance
+            .collection('taxi_orders')
+            .where('passengerId', isEqualTo: user.uid)
+            .where('status', isEqualTo: 'completed')
+            .get(),
+        FirebaseFirestore.instance
+            .collection('taxi_orders')
+            .where('driverId', isEqualTo: user.uid)
+            .where('status', isEqualTo: 'completed')
+            .get(),
+        FirebaseFirestore.instance
+            .collection('taxi_rides')
+            .where('passengerId', isEqualTo: user.uid)
+            .where('status', isEqualTo: 'completed')
+            .get(),
+        FirebaseFirestore.instance
+            .collection('taxi_rides')
+            .where('driverId', isEqualTo: user.uid)
+            .where('status', isEqualTo: 'completed')
+            .get(),
+      ]);
 
-      for (var doc in ordersPassenger.docs) {
-        final d = doc.data();
-        d['role'] = 'passenger';
-        d['id'] = doc.id;
-        list.add(d);
-      }
-      for (var doc in ordersDriver.docs) {
-        final d = doc.data();
-        d['role'] = 'driver';
-        d['id'] = doc.id;
-        list.add(d);
-      }
-      for (var doc in ridesPassenger.docs) {
-        final d = doc.data();
-        d['role'] = 'passenger';
-        d['id'] = doc.id;
-        list.add(d);
-      }
-      for (var doc in ridesDriver.docs) {
-        final d = doc.data();
-        d['role'] = 'driver';
-        d['id'] = doc.id;
-        list.add(d);
+      final roles = ['passenger', 'driver', 'passenger', 'driver'];
+      for (int i = 0; i < results.length; i++) {
+        for (var doc in results[i].docs) {
+          final d = doc.data();
+          d['id'] = doc.id;
+          // Driver role takes priority if user appears in both roles for same doc
+          if (!uniqueTrips.containsKey(doc.id) || roles[i] == 'driver') {
+            d['role'] = roles[i];
+            uniqueTrips[doc.id] = d;
+          }
+        }
       }
 
-      historyTrips = list;
+      // Sort by createdAt descending — most recent first
+      historyTrips = uniqueTrips.values.toList()
+        ..sort((a, b) {
+          final aTs = a['createdAt'];
+          final bTs = b['createdAt'];
+          if (aTs == null || bTs == null) return 0;
+          DateTime aDate = aTs is Timestamp ? aTs.toDate() : DateTime.tryParse(aTs.toString()) ?? DateTime.now();
+          DateTime bDate = bTs is Timestamp ? bTs.toDate() : DateTime.tryParse(bTs.toString()) ?? DateTime.now();
+          return bDate.compareTo(aDate);
+        });
+
       onDataChanged();
     } catch (e) {
       debugPrint("Error fetching history: $e");

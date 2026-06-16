@@ -107,7 +107,7 @@ class TaxiDialogsController {
                 ? img
                 : 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=800',
             'car': car,
-            'phone': phone.isNotEmpty ? phone : '87001234567',
+            'phone': phone,
             'verified': isVerified,
           },
           isDriver: isDriver,

@@ -11,7 +11,7 @@ class TaxiRepository {
     if (clean.length == 10) return '+7$clean';
     if (clean.length == 11 && clean.startsWith('8')) return '+7${clean.substring(1)}';
     if (clean.length == 11 && clean.startsWith('7')) return '+$clean';
-    return phone.isNotEmpty ? phone : '+70000000000'; // Fallback
+    return phone.isNotEmpty ? phone : '';
   }
 
   Future<void> createPassengerOrder({
@@ -158,11 +158,14 @@ class TaxiRepository {
     final db = FirebaseFirestore.instance;
     final bidRef = db.collection('taxi_bids').doc(bidId);
 
+    // Capture bid data from within the transaction — no second .get() needed
+    Map<String, dynamic>? capturedBidData;
+
     try {
       await db.runTransaction((transaction) async {
         final bidSnap = await transaction.get(bidRef);
         if (!bidSnap.exists) throw Exception('Bid not found');
-        
+
         final bidData = bidSnap.data()!;
         if (bidData['status'] != 'pending') {
           throw Exception('Это предложение уже было обработано.');
@@ -175,7 +178,7 @@ class TaxiRepository {
 
         final targetSnap = await transaction.get(targetRef);
         if (!targetSnap.exists) throw Exception('Target not found');
-        
+
         final targetData = targetSnap.data()!;
         if (targetData['status'] != 'active') {
           throw Exception('Извините, этот заказ уже принят другим пользователем.');
@@ -205,13 +208,33 @@ class TaxiRepository {
             'price': bidData['offeredPrice'],
           });
         }
+
+        // ✅ BUG-01 FIX: Capture bid data inside transaction — no second .get() race
+        capturedBidData = Map<String, dynamic>.from(bidData);
       });
 
-      final bidSnap = await bidRef.get();
-      final bidData = bidSnap.data()!;
+      final bidData = capturedBidData!;
       final targetId = bidData['targetId'];
-      final targetType = bidData['targetType'];
 
+      // ✅ ISSUE-03 FIX: Batch-reject ALL other pending bids FIRST, then notify.
+      // Previously: notify winner → then reject others.
+      // If batch failed, others stayed pending. Now order is correct.
+      final otherBids = await db
+          .collection('taxi_bids')
+          .where('targetId', isEqualTo: targetId)
+          .where('status', isEqualTo: 'pending')
+          .get();
+
+      final batch = db.batch();
+      for (var doc in otherBids.docs) {
+        if (doc.id != bidId) {
+          batch.update(doc.reference, {'status': 'rejected'});
+        }
+      }
+      await batch.commit();
+
+      // Notify winner AFTER batch is committed
+      final targetType = bidData['targetType'];
       if (targetType == 'order') {
         await NotificationService.saveNotificationToFirestore(
           title: 'Предложение принято! 🎉',
@@ -227,20 +250,6 @@ class TaxiRepository {
           uid: bidData['senderId'],
         );
       }
-
-      final otherBids = await db
-          .collection('taxi_bids')
-          .where('targetId', isEqualTo: targetId)
-          .where('status', isEqualTo: 'pending')
-          .get();
-          
-      final batch = db.batch();
-      for (var doc in otherBids.docs) {
-        if (doc.id != bidId) {
-          batch.update(doc.reference, {'status': 'rejected'});
-        }
-      }
-      await batch.commit();
 
     } catch (e) {
       debugPrint('Transaction failed: $e');
@@ -320,7 +329,12 @@ class TaxiRepository {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    final docId = 'review_${user.uid}_${DateTime.now().millisecondsSinceEpoch}';
+    // ✅ BUG-03 FIX: Composite docId ensures ONE review per author→target pair.
+    // Using millisecondsSinceEpoch as suffix meant unlimited duplicates.
+    // Now re-submitting simply overwrites the existing review (last write wins),
+    // which is the intended "edit your review" UX.
+    final docId = 'review_${user.uid}_to_$targetUserId';
+
     final newReview = {
       'id': docId,
       'targetUserId': targetUserId,
@@ -332,16 +346,31 @@ class TaxiRepository {
       'createdAt': FieldValue.serverTimestamp(),
     };
 
-    await FirebaseFirestore.instance.collection('taxi_reviews').doc(docId).set(newReview);
+    await FirebaseFirestore.instance
+        .collection('taxi_reviews')
+        .doc(docId)
+        .set(newReview);
   }
 
   Future<void> completeRide(String rideId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
     final db = FirebaseFirestore.instance;
     final docRef = db.collection('taxi_rides').doc(rideId);
 
     await db.runTransaction((transaction) async {
       final snap = await transaction.get(docRef);
-      if (!snap.exists || snap.data()!['status'] != 'accepted') return;
+      if (!snap.exists) return;
+      final data = snap.data()!;
+      if (data['status'] != 'accepted') return;
+
+      final passengerId = data['passengerId'];
+      final driverId = data['driverId'];
+      if (user.uid != passengerId && user.uid != driverId) {
+        throw Exception('Вы не являетесь участником этой поездки');
+      }
+
       transaction.update(docRef, {'status': 'completed'});
     });
   }
@@ -356,15 +385,43 @@ class TaxiRepository {
       if (snap.data()!['status'] == 'completed') throw Exception('Уже завершено');
       transaction.update(docRef, {'status': 'cancelled'});
     });
+
+    // ✅ BUG-04 FIX: Reject all pending bids when a ride is cancelled.
+    // cancelOrder already did this correctly. Now cancelRide matches.
+    final bids = await db
+        .collection('taxi_bids')
+        .where('targetId', isEqualTo: rideId)
+        .where('status', isEqualTo: 'pending')
+        .get();
+
+    if (bids.docs.isNotEmpty) {
+      final batch = db.batch();
+      for (var doc in bids.docs) {
+        batch.update(doc.reference, {'status': 'rejected'});
+      }
+      await batch.commit();
+    }
   }
 
   Future<void> completeOrder(String orderId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
     final db = FirebaseFirestore.instance;
     final docRef = db.collection('taxi_orders').doc(orderId);
 
     await db.runTransaction((transaction) async {
       final snap = await transaction.get(docRef);
-      if (!snap.exists || snap.data()!['status'] != 'accepted') return;
+      if (!snap.exists) return;
+      final data = snap.data()!;
+      if (data['status'] != 'accepted') return;
+
+      final passengerId = data['passengerId'];
+      final driverId = data['driverId'];
+      if (user.uid != passengerId && user.uid != driverId) {
+        throw Exception('Вы не являетесь участником этого заказа');
+      }
+
       transaction.update(docRef, {'status': 'completed'});
     });
   }
