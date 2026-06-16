@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:iqmarket/models/ad_model.dart';
 import 'package:iqmarket/models/review_model.dart';
 import 'package:iqmarket/services/review_service.dart';
+import 'package:iqmarket/services/ad_service.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -42,32 +43,68 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
     return translations[key]?[widget.lang] ?? translations[key]?['Русский'] ?? key;
   }
 
+  String _getMemberSinceText(DateTime date) {
+    final year = date.year.toString();
+    if (widget.lang == 'Қазақша') {
+      return '$year жылдан бастап IQ-Market-те';
+    } else if (widget.lang == 'Уйғурчә') {
+      return '$year-жилдин башлап IQ-Market-тә';
+    } else {
+      return 'На IQ-Market с $year';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF1F5F9),
-      body: CustomScrollView(
-        physics: const BouncingScrollPhysics(),
-        slivers: [
-          _buildSliverAppBar(),
-          SliverToBoxAdapter(
-            child: Column(
-              children: [
-                _buildStatsSection(),
-                _buildAdsSection(),
-                _buildReviewsHeader(),
-                _buildReviewsList(),
-                const SizedBox(height: 120),
-              ],
-            ),
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance.collection('users').doc(widget.seller.userId).snapshots(),
+      builder: (context, snapshot) {
+        String photoUrl = '';
+        DateTime regDate = DateTime(2023); // fallback
+        String name = widget.seller.userName;
+        bool isVerified = false;
+
+        if (snapshot.hasData && snapshot.data!.exists) {
+          final data = snapshot.data!.data() as Map<String, dynamic>?;
+          if (data != null) {
+            photoUrl = data['photoUrl'] ?? '';
+            if (data['registrationDate'] != null) {
+              final ts = data['registrationDate'];
+              if (ts is Timestamp) {
+                regDate = ts.toDate();
+              }
+            }
+            name = data['name'] ?? widget.seller.userName;
+            isVerified = data['isVerified'] ?? false;
+          }
+        }
+
+        return Scaffold(
+          backgroundColor: const Color(0xFFF1F5F9),
+          body: CustomScrollView(
+            physics: const BouncingScrollPhysics(),
+            slivers: [
+              _buildSliverAppBar(photoUrl, regDate, name, isVerified),
+              SliverToBoxAdapter(
+                child: Column(
+                  children: [
+                    _buildStatsSection(snapshot),
+                    _buildAdsSection(),
+                    _buildReviewsHeader(),
+                    _buildReviewsList(),
+                    const SizedBox(height: 120),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
-      bottomNavigationBar: _buildBottomActions(),
+          bottomNavigationBar: _buildBottomActions(),
+        );
+      }
     );
   }
 
-  Widget _buildSliverAppBar() => SliverAppBar(
+  Widget _buildSliverAppBar(String photoUrl, DateTime regDate, String name, bool isVerified) => SliverAppBar(
     expandedHeight: 240,
     pinned: true,
     backgroundColor: const Color(0xFF4A80F0),
@@ -88,22 +125,24 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const SizedBox(height: 40),
-            _buildAvatar(),
+            _buildAvatar(photoUrl),
             const SizedBox(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  widget.seller.userName,
+                  name,
                   style: GoogleFonts.inter(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900),
                 ),
-                const SizedBox(width: 8),
-                const Icon(Icons.verified_rounded, color: Color(0xFF229ED9), size: 20),
+                if (isVerified) ...[
+                  const SizedBox(width: 8),
+                  const Icon(Icons.verified_rounded, color: Color(0xFF229ED9), size: 20),
+                ],
               ],
             ),
             const SizedBox(height: 4),
             Text(
-              _t('member_since'),
+              _getMemberSinceText(regDate),
               style: GoogleFonts.inter(color: Colors.white.withValues(alpha: 0.7), fontSize: 13, fontWeight: FontWeight.w500),
             ),
           ],
@@ -112,58 +151,53 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
     ),
   );
 
-  Widget _buildAvatar() => Hero(
+  Widget _buildAvatar(String photoUrl) => Hero(
     tag: 'seller_avatar',
     child: Container(
       width: 90, height: 90,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 4),
-        image: widget.seller.images.isNotEmpty
-            ? (widget.seller.images.isNotEmpty 
-                ? DecorationImage(image: CachedNetworkImageProvider(widget.seller.images.first), fit: BoxFit.cover)
-                : null)
+        image: photoUrl.isNotEmpty
+            ? DecorationImage(image: CachedNetworkImageProvider(photoUrl), fit: BoxFit.cover)
             : null,
       ),
-      child: widget.seller.images.isEmpty
+      child: photoUrl.isEmpty
           ? const Icon(Icons.person, color: Colors.white, size: 40)
           : null,
     ),
   );
 
-  Widget _buildStatsSection() => StreamBuilder<DocumentSnapshot>(
-    stream: FirebaseFirestore.instance.collection('users').doc(widget.seller.userId).snapshots(),
-    builder: (context, snapshot) {
-      double ratingValue = 0.0;
-      int reviewsCount = 0;
-      
-      if (snapshot.hasData && snapshot.data!.exists) {
-        final data = snapshot.data!.data() as Map<String, dynamic>?;
-        if (data != null) {
-          ratingValue = (data['rating'] as num?)?.toDouble() ?? 0.0;
-          reviewsCount = data['reviewsCount'] ?? 0;
-        }
+  Widget _buildStatsSection(AsyncSnapshot<DocumentSnapshot> snapshot) {
+    double ratingValue = 0.0;
+    int reviewsCount = 0;
+    
+    if (snapshot.hasData && snapshot.data!.exists) {
+      final data = snapshot.data!.data() as Map<String, dynamic>?;
+      if (data != null) {
+        ratingValue = (data['rating'] as num?)?.toDouble() ?? 0.0;
+        reviewsCount = data['reviewsCount'] ?? 0;
       }
-      
-      return Container(
-        margin: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))],
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _statItem(ratingValue.toStringAsFixed(1), _t('rating'), Icons.star_rounded, Colors.amber),
-            Container(width: 1, height: 30, color: const Color(0xFFF1F5F9)),
-            _statItem(reviewsCount.toString(), _t('reviews'), Icons.reviews_rounded, const Color(0xFF4A80F0)),
-          ],
-        ),
-      );
     }
-  );
+    
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _statItem(ratingValue.toStringAsFixed(1), _t('rating'), Icons.star_rounded, Colors.amber),
+          Container(width: 1, height: 30, color: const Color(0xFFF1F5F9)),
+          _statItem(reviewsCount.toString(), _t('reviews'), Icons.reviews_rounded, const Color(0xFF4A80F0)),
+        ],
+      ),
+    );
+  }
 
   Widget _statItem(String value, String label, IconData icon, Color color) => Column(
     children: [
@@ -188,15 +222,35 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
       ),
       SizedBox(
         height: 220,
-        child: widget.sellerAds.isEmpty 
-          ? Center(child: Text('Нет активных объявлений', style: GoogleFonts.inter(color: Colors.grey)))
-          : ListView.builder(
+        child: StreamBuilder<List<AdModel>>(
+          stream: AdService.getAdsByUserStream(widget.seller.userId),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            final ads = snapshot.data ?? [];
+            final activeAds = ads.where((ad) => ad.active && ad.status == 'active').toList();
+            if (activeAds.isEmpty) {
+              return Center(
+                child: Text(
+                  widget.lang == 'Қазақша'
+                      ? 'Белсенді хабарландырулар жоқ'
+                      : widget.lang == 'Уйғурчә'
+                          ? 'Актив еланлар йоқ'
+                          : 'Нет активных объявлений',
+                  style: GoogleFonts.inter(color: Colors.grey),
+                ),
+              );
+            }
+            return ListView.builder(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 16),
               physics: const BouncingScrollPhysics(),
-              itemCount: widget.sellerAds.length,
-              itemBuilder: (context, index) => _adCard(widget.sellerAds[index]),
-            ),
+              itemCount: activeAds.length,
+              itemBuilder: (context, index) => _adCard(activeAds[index]),
+            );
+          }
+        ),
       ),
     ],
   );
