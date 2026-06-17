@@ -380,11 +380,12 @@ class _ProductCardState extends State<ProductCard> with SingleTickerProviderStat
                     style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFF1E293B), height: 1.2),
                   ),
                   const SizedBox(height: 8),
-                  Row(
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(child: _metaInfo(ad.location.isEmpty || ad.location == 'Шонжы' ? 'Чунджа' : ad.location, Icons.location_on_rounded, color: const Color(0xFF4A80F0))),
-                      const SizedBox(width: 4),
-                      Expanded(child: _metaInfo(_formatRelativeDate(ad.timestamp), Icons.access_time_filled_rounded)),
+                      _metaInfo(ad.location.isEmpty || ad.location == 'Шонжы' ? 'Чунджа' : ad.location, Icons.location_on_rounded, color: const Color(0xFF4A80F0)),
+                      const SizedBox(height: 4),
+                      _metaInfo(_formatRelativeDate(ad.timestamp), Icons.access_time_filled_rounded),
                     ],
                   ),
                 ],

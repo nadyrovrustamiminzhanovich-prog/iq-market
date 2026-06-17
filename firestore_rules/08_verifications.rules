@@ -1,0 +1,5 @@
+    // Для Driver Verification
+    match /driver_verifications/{docId} {
+      allow read, create: if isSignedIn();
+      allow update, delete: if false; 
+    }

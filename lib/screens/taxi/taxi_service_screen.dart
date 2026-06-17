@@ -13,7 +13,9 @@ import 'package:iqmarket/providers/taxi_provider.dart';
 import 'package:iqmarket/theme/taxi_theme.dart';
 import 'package:iqmarket/services/notification_service.dart';
 import 'package:iqmarket/models/ad_model.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+
+import 'package:iqmarket/widgets/auth_gate_bottom_sheet.dart';
+import 'package:iqmarket/services/translation_service.dart';
 
 // ── Screens ──────────────────────────────────────────────────────────────────
 import 'package:iqmarket/screens/taxi/taxi_settings_screen.dart';
@@ -21,7 +23,7 @@ import 'package:iqmarket/screens/taxi/taxi_profile_screen.dart';
 import 'package:iqmarket/screens/taxi/taxi_history_screen.dart';
 import 'package:iqmarket/screens/taxi/taxi_support_screen.dart';
 import 'package:iqmarket/screens/taxi/taxi_user_profile_view.dart';
-import 'package:iqmarket/screens/login_screen.dart';
+
 import 'package:iqmarket/widgets/auth/telegram_verification_dialog.dart';
 
 // ── Legacy shared UI components (TaxiRoleCard etc.) ──────────────────────────
@@ -296,8 +298,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
             ],
           ),
         ),
-      ),
-    );
+      );
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -328,7 +329,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
       t: t,
       onHandlePassengerCallOrChat: (data, {required isCall}) =>
           _handlePassengerCallOrChat(provider, t, data, isCall: isCall),
-      onNavigateToLogin: () => _navigateToLogin(provider),
+      onNavigateToLogin: () => _navigateToLogin(provider, 'auth_taxi_order_prompt'),
       onShowPhoneBinding: (callback) =>
           showTaxiPhoneBindingSheet(context, provider, t, callback),
       complexFormWidget: TaxiComplexForm(
@@ -399,7 +400,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
         onSubmitTap: () {
           HapticFeedback.heavyImpact();
           if (!provider.isLoggedIn) {
-            _navigateToLogin(provider);
+            _navigateToLogin(provider, 'auth_taxi_order_prompt');
             return;
           }
           // ✅ ISSUE-07 FIX: Use the single authoritative getter instead of inline check
@@ -465,7 +466,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
             t,
             data,
             action,
-            onNavigateToLogin: () => _navigateToLogin(provider),
+            onNavigateToLogin: () => _navigateToLogin(provider, 'auth_taxi_create_prompt'),
             onShowPhoneBinding: (ctx, p, theme, cb) =>
                 showTaxiPhoneBindingSheet(ctx, p, theme, cb),
             onShowVerificationGate: (p, theme, {customText}) =>
@@ -543,7 +544,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
       ),
       onCreateRideTap: () {
         if (!provider.isLoggedIn) {
-          _navigateToLogin(provider);
+          _navigateToLogin(provider, 'auth_taxi_create_prompt');
           return;
         }
         // ✅ ISSUE-07 FIX: Use the single authoritative getter
@@ -571,7 +572,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
           _openDriverRideSheet(provider, t);
         }
       },
-      onNavigateToLogin: () => _navigateToLogin(provider),
+      onNavigateToLogin: () => _navigateToLogin(provider, 'auth_taxi_order_prompt'),
       onShowPhoneBinding: (callback) =>
           showTaxiPhoneBindingSheet(context, provider, t, callback),
     );
@@ -596,9 +597,19 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
   // Navigation helpers
   // ─────────────────────────────────────────────────────────────────────────
 
-  void _navigateToLogin(TaxiProvider provider) {
-    Navigator.push(
-        context, MaterialPageRoute(builder: (_) => const LoginScreen()));
+  String _getCurrentLang(TaxiProvider provider) {
+    if (provider.curLang == 'ru') return 'Русский';
+    if (provider.curLang == 'kz') return 'Қазақша';
+    if (provider.curLang == 'uyg') return 'Уйғурчә';
+    return 'Русский';
+  }
+
+  void _navigateToLogin(TaxiProvider provider, String messageKey) async {
+    final curLang = _getCurrentLang(provider);
+    await AuthGateBottomSheet.show(
+      context,
+      message: TranslationService.t(messageKey, curLang),
+    );
   }
 
   void _showUserProfile(
@@ -613,7 +624,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
     String phone = '',
   }) {
     if (!provider.isLoggedIn) {
-      _navigateToLogin(provider);
+      _navigateToLogin(provider, 'auth_taxi_profile_prompt');
       return;
     }
     Navigator.push(
@@ -650,6 +661,10 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
     Map<String, dynamic> d, {
     required bool isCall,
   }) {
+    if (!provider.isLoggedIn) {
+      _navigateToLogin(provider, isCall ? 'auth_call_prompt' : 'auth_chat_prompt');
+      return;
+    }
     // ✅ ISSUE-07 FIX: Use the single authoritative getter
     final isTelegramUser = provider.isFullyTelegramVerified;
     if (!isTelegramUser && (provider.phone.isEmpty ||
@@ -696,6 +711,10 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
     Map<String, dynamic> o, {
     required bool isCall,
   }) async {
+    if (!provider.isLoggedIn) {
+      _navigateToLogin(provider, isCall ? 'auth_call_prompt' : 'auth_chat_prompt');
+      return;
+    }
     // ✅ ISSUE-07 FIX: Use the single authoritative getter
     final isTelegramUser = provider.isFullyTelegramVerified;
     if (!isTelegramUser && (provider.phone.isEmpty ||

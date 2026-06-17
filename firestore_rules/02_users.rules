@@ -1,0 +1,15 @@
+    match /users/{userId} {
+      allow read: if true; 
+      allow create: if isSignedIn() && (!request.resource.data.keys().hasAny(['accountType']) || request.resource.data.accountType in ['user', 'driver']);
+      allow delete: if isOwner(userId);
+      // Пользователь может обновить свой профиль, но не может изменить роль/рейтинг
+      allow update: if isAdmin() || (isOwner(userId) && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['accountType', 'rating', 'reviewsCount', 'status'])));
+
+      // Уведомления: любой авторизованный может создать (отправить уведомление другому),
+      // но читать и удалять — только сам владелец.
+      match /notifications/{notifId} {
+        allow create: if isSignedIn() && request.resource.data.keys().hasAll(['title', 'body', 'type', 'timestamp']);
+        allow read, delete: if isOwner(userId);
+        allow update: if false;
+      }
+    }

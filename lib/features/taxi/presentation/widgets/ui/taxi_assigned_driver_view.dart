@@ -304,7 +304,7 @@ class _TaxiAssignedDriverViewState extends State<TaxiAssignedDriverView> {
               await provider.completeOrder(orderId);
               if (mounted) {
                 NotificationService.notify(context, 'Поездка завершена', 'Благодарим вас за выбор нашего сервиса!', isSuccess: true);
-                TaxiDialogsController.showFeedbackDialog(context, provider, t, driverId, driverName);
+                TaxiDialogsController.showFeedbackDialog(context, provider, t, driverId, driverName, 'driver');
               }
             },
             child: Container(

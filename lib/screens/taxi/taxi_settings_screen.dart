@@ -16,9 +16,17 @@ class TaxiSettingsScreen extends StatelessWidget {
     final t = taxiProvider.theme;
 
     final uid = FirebaseAuth.instance.currentUser?.uid ?? "";
-    final reviewCount = taxiProvider.getUserReviewCount(uid);
-    final rating = taxiProvider.getUserRating(uid);
-    final String ratingStr = reviewCount < 5 ? taxiProvider.translate('rating_novice') : '${rating.toStringAsFixed(1)} ★';
+    final driverReviewCount = taxiProvider.getUserReviewCountAsDriver(uid);
+    final driverRating = taxiProvider.getUserRatingAsDriver(uid);
+    final String driverRatingStr = driverReviewCount < 5
+        ? taxiProvider.translate('rating_novice')
+        : '${driverRating.toStringAsFixed(1)} ★';
+
+    final passengerReviewCount = taxiProvider.getUserReviewCountAsPassenger(uid);
+    final passengerRating = taxiProvider.getUserRatingAsPassenger(uid);
+    final String passengerRatingStr = passengerReviewCount < 5
+        ? taxiProvider.translate('rating_novice')
+        : '${passengerRating.toStringAsFixed(1)} ★';
 
     return Scaffold(
       backgroundColor: t.bg,
@@ -40,7 +48,7 @@ class TaxiSettingsScreen extends StatelessWidget {
           _sectionHeader(t, taxiProvider.translate('my_profile_header')),
           Container(
             margin: const EdgeInsets.only(bottom: 16),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
             decoration: BoxDecoration(
               color: t.card,
               borderRadius: BorderRadius.circular(20),
@@ -51,34 +59,54 @@ class TaxiSettingsScreen extends StatelessWidget {
             ),
             child: Row(
               children: [
-                // Taxi Rating
+                // Driver Rating
                 Expanded(
                   child: Column(
                     children: [
-                      const Icon(Icons.star_rounded, color: Colors.amber, size: 28),
+                      const Icon(Icons.local_taxi_rounded, color: Colors.amber, size: 24),
                       const SizedBox(height: 6),
-                      Text(ratingStr, style: GoogleFonts.inter(color: t.text, fontWeight: FontWeight.w900, fontSize: 14)),
-                      const SizedBox(height: 2),
-                      if (reviewCount < 5)
-                        Tooltip(
-                          message: taxiProvider.translate('rating_tooltip'),
-                          child: Text(
-                            taxiProvider.translate('rating_after_5'),
-                            style: GoogleFonts.inter(color: Colors.grey, fontSize: 9, fontWeight: FontWeight.w500),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
                       Text(
-                        reviewCount < 5 
-                            ? '${taxiProvider.translate('rating_count_prefix')} $reviewCount/5' 
-                            : '$reviewCount ${taxiProvider.translate('reviews_label')}',
-                        style: GoogleFonts.inter(color: t.sub, fontSize: 10, fontWeight: FontWeight.w600),
+                        taxiProvider.translate('driver_role').toUpperCase(),
+                        style: GoogleFonts.inter(color: t.sub, fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: 0.3),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(driverRatingStr, style: GoogleFonts.inter(color: t.text, fontWeight: FontWeight.w900, fontSize: 13)),
+                      const SizedBox(height: 2),
+                      Text(
+                        driverReviewCount < 5
+                            ? '${taxiProvider.translate('rating_count_prefix')} $driverReviewCount/5'
+                            : '$driverReviewCount ${taxiProvider.translate('reviews_label')}',
+                        style: GoogleFonts.inter(color: t.sub, fontSize: 9, fontWeight: FontWeight.w500),
                         textAlign: TextAlign.center,
                       ),
                     ],
                   ),
                 ),
-                Container(height: 50, width: 1, color: t.border.withValues(alpha: 0.4)),
+                Container(height: 40, width: 1, color: t.border.withValues(alpha: 0.4)),
+                // Passenger Rating
+                Expanded(
+                  child: Column(
+                    children: [
+                      const Icon(Icons.directions_walk_rounded, color: Color(0xFF4A80F0), size: 24),
+                      const SizedBox(height: 6),
+                      Text(
+                        taxiProvider.translate('passenger_role').toUpperCase(),
+                        style: GoogleFonts.inter(color: t.sub, fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: 0.3),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(passengerRatingStr, style: GoogleFonts.inter(color: t.text, fontWeight: FontWeight.w900, fontSize: 13)),
+                      const SizedBox(height: 2),
+                      Text(
+                        passengerReviewCount < 5
+                            ? '${taxiProvider.translate('rating_count_prefix')} $passengerReviewCount/5'
+                            : '$passengerReviewCount ${taxiProvider.translate('reviews_label')}',
+                        style: GoogleFonts.inter(color: t.sub, fontSize: 9, fontWeight: FontWeight.w500),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+                Container(height: 40, width: 1, color: t.border.withValues(alpha: 0.4)),
                 // History shortcut
                 Expanded(
                   child: GestureDetector(
@@ -88,11 +116,17 @@ class TaxiSettingsScreen extends StatelessWidget {
                     },
                     child: Column(
                       children: [
-                        Icon(LineIcons.history, color: t.accent, size: 28),
+                        Icon(LineIcons.history, color: t.accent, size: 24),
                         const SizedBox(height: 6),
-                        Text(taxiProvider.translate('history').toUpperCase(), style: GoogleFonts.inter(color: t.accent, fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 0.5)),
-                        const SizedBox(height: 2),
-                        Text(taxiProvider.translate('all_trips'), style: GoogleFonts.inter(color: t.sub, fontSize: 10, fontWeight: FontWeight.w600)),
+                        Text(
+                          taxiProvider.translate('history').toUpperCase(),
+                          style: GoogleFonts.inter(color: t.accent, fontWeight: FontWeight.w800, fontSize: 9, letterSpacing: 0.5),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          taxiProvider.translate('all_trips'),
+                          style: GoogleFonts.inter(color: t.sub, fontSize: 9, fontWeight: FontWeight.w500),
+                        ),
                       ],
                     ),
                   ),

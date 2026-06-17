@@ -47,8 +47,8 @@ class TaxiOrderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final double realRating = provider.getUserRating(passengerId);
-    final int realReviewCount = provider.getUserReviewCount(passengerId);
+    final double realRating = provider.getUserRatingAsPassenger(passengerId);
+    final int realReviewCount = provider.getUserReviewCountAsPassenger(passengerId);
 
     return RepaintBoundary(
       child: Container(

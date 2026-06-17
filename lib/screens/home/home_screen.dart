@@ -7,6 +7,8 @@ import 'package:iqmarket/models/ad_model.dart';
 import 'package:iqmarket/models/user_model.dart';
 import 'package:iqmarket/providers/app_config_provider.dart';
 import 'package:iqmarket/services/ad_service.dart';
+import 'package:iqmarket/services/notification_service.dart';
+import 'package:iqmarket/services/chat_service.dart';
 import 'package:iqmarket/services/user_service.dart';
 import 'package:iqmarket/data/kazakhstan_locations.dart';
 import 'package:iqmarket/services/location_service.dart';
@@ -561,7 +563,27 @@ class _IQMarketHomeState extends State<IQMarketHome> {
     ),
   );
 
-  Widget _notifBell(AppConfigProvider config) => IconButton(icon: const Icon(Icons.notifications_none_rounded), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => NotificationsScreen(lang: config.language))));
+  Widget _notifBell(AppConfigProvider config) {
+    return StreamBuilder<int>(
+      stream: NotificationService.getUnreadNotificationsCountStream(),
+      builder: (context, snapshot) {
+        final count = snapshot.data ?? 0;
+        return IconButton(
+          icon: Badge(
+            label: Text('$count'),
+            isLabelVisible: count > 0,
+            backgroundColor: Colors.red,
+            textColor: Colors.white,
+            child: const Icon(Icons.notifications_none_rounded),
+          ),
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => NotificationsScreen(lang: config.language)),
+          ),
+        );
+      },
+    );
+  }
   Widget _sectionHeader(String title) => Padding(padding: const EdgeInsets.fromLTRB(16, 24, 16, 16), child: Text(title, style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w900)));
   
   void _navToTaxi(AppConfigProvider config) => Navigator.push(context, MaterialPageRoute(builder: (_) => TaxiServiceScreen(lang: config.language)));
@@ -671,7 +693,22 @@ class _IQMarketHomeState extends State<IQMarketHome> {
         backgroundColor: navTheme.colorScheme.surface,
         items: [
           BottomNavigationBarItem(icon: const Icon(Icons.home_rounded), label: TranslationService.t('home', lang)),
-          BottomNavigationBarItem(icon: const Icon(Icons.chat_bubble_outline), label: TranslationService.t('chats', lang)),
+          BottomNavigationBarItem(
+            icon: StreamBuilder<int>(
+              stream: ChatService.getUnreadMessagesCountStream(),
+              builder: (context, snapshot) {
+                final count = snapshot.data ?? 0;
+                return Badge(
+                  label: Text('$count'),
+                  isLabelVisible: count > 0,
+                  backgroundColor: Colors.red,
+                  textColor: Colors.white,
+                  child: const Icon(Icons.chat_bubble_outline),
+                );
+              },
+            ),
+            label: TranslationService.t('chats', lang),
+          ),
           BottomNavigationBarItem(icon: Icon(Icons.add_circle, size: 40, color: navTheme.colorScheme.primary), label: ''),
           BottomNavigationBarItem(icon: const Icon(Icons.favorite_outline), label: TranslationService.t('favorites', lang)),
           BottomNavigationBarItem(icon: const Icon(Icons.person_outline), label: TranslationService.t('profile', lang)),

@@ -203,6 +203,13 @@ exports.onNewNotification = functions.firestore.document('users/{userId}/notific
     const notification = snapshot.data();
     const userId       = context.params.userId;
 
+    // Исключаем Push-уведомления для чатов из этого триггера,
+    // так как они отправляются более подробно через триггер onNewMessage.
+    if (notification.type === 'chat') {
+        console.log(`[onNewNotification] Skipping FCM push because type is 'chat' (handled by onNewMessage)`);
+        return;
+    }
+
     const userSnap = await db.collection('users').doc(userId).get();
     if (!userSnap.exists) return;
 

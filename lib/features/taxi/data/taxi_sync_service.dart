@@ -32,6 +32,10 @@ class TaxiSyncService {
 
   final Map<String, double> userRatings = {};
   final Map<String, int> userReviewCounts = {};
+  final Map<String, double> userRatingsAsDriver = {};
+  final Map<String, int> userReviewCountsAsDriver = {};
+  final Map<String, double> userRatingsAsPassenger = {};
+  final Map<String, int> userReviewCountsAsPassenger = {};
   
   int driverTripsCount = 0;
   int passengerTripsCount = 0;
@@ -39,6 +43,11 @@ class TaxiSyncService {
 
   double getUserRating(String userId) => userRatings[userId] ?? 0.0;
   int getUserReviewCount(String userId) => userReviewCounts[userId] ?? 0;
+
+  double getUserRatingAsDriver(String userId) => userRatingsAsDriver[userId] ?? 0.0;
+  int getUserReviewCountAsDriver(String userId) => userReviewCountsAsDriver[userId] ?? 0;
+  double getUserRatingAsPassenger(String userId) => userRatingsAsPassenger[userId] ?? 0.0;
+  int getUserReviewCountAsPassenger(String userId) => userReviewCountsAsPassenger[userId] ?? 0;
 
   /// Force-evicts [userId] from the TTL rating cache so that the next call to
   /// [fetchUserRatingsBatch] unconditionally re-fetches from Firestore.
@@ -313,10 +322,14 @@ class TaxiSyncService {
 
     if (staleIds.isEmpty) return;
 
-    // Optimistic placeholder so UI doesn't flicker
+    // Optimistic placeholders so UI doesn't flicker
     for (var id in staleIds) {
       userRatings.putIfAbsent(id, () => 0.0);
       userReviewCounts.putIfAbsent(id, () => 0);
+      userRatingsAsDriver.putIfAbsent(id, () => 0.0);
+      userReviewCountsAsDriver.putIfAbsent(id, () => 0);
+      userRatingsAsPassenger.putIfAbsent(id, () => 0.0);
+      userReviewCountsAsPassenger.putIfAbsent(id, () => 0);
     }
 
     try {
@@ -328,24 +341,59 @@ class TaxiSyncService {
             .get();
 
         final Map<String, List<double>> userReviews = {};
+        final Map<String, List<double>> driverReviews = {};
+        final Map<String, List<double>> passengerReviews = {};
+
         for (var doc in snap.docs) {
           final data = doc.data();
-          final String targetId = data['targetUserId'];
-          final double rating = (data['rating'] as num).toDouble();
+          final String targetId = data['targetUserId'] ?? '';
+          if (targetId.isEmpty) continue;
+          
+          final double rating = (data['rating'] as num?)?.toDouble() ?? 0.0;
+          final String targetRole = data['targetRole'] ?? 'driver';
+
           userReviews.putIfAbsent(targetId, () => []).add(rating);
+          if (targetRole == 'passenger') {
+            passengerReviews.putIfAbsent(targetId, () => []).add(rating);
+          } else {
+            driverReviews.putIfAbsent(targetId, () => []).add(rating);
+          }
         }
 
         for (var id in chunk) {
+          // General rating (all reviews)
           final reviews = userReviews[id] ?? [];
           final count = reviews.length;
           userReviewCounts[id] = count;
-          // ✅ ISSUE-01 aligned: same <5 threshold as profile view (see below)
           if (count < 5) {
             userRatings[id] = 0.0;
           } else {
             final sum = reviews.reduce((a, b) => a + b);
             userRatings[id] = double.parse((sum / count).toStringAsFixed(1));
           }
+
+          // Driver rating (reviews as driver or where targetRole is null/driver)
+          final dReviews = driverReviews[id] ?? [];
+          final dCount = dReviews.length;
+          userReviewCountsAsDriver[id] = dCount;
+          if (dCount < 5) {
+            userRatingsAsDriver[id] = 0.0;
+          } else {
+            final sum = dReviews.reduce((a, b) => a + b);
+            userRatingsAsDriver[id] = double.parse((sum / dCount).toStringAsFixed(1));
+          }
+
+          // Passenger rating (reviews as passenger)
+          final pReviews = passengerReviews[id] ?? [];
+          final pCount = pReviews.length;
+          userReviewCountsAsPassenger[id] = pCount;
+          if (pCount < 5) {
+            userRatingsAsPassenger[id] = 0.0;
+          } else {
+            final sum = pReviews.reduce((a, b) => a + b);
+            userRatingsAsPassenger[id] = double.parse((sum / pCount).toStringAsFixed(1));
+          }
+
           _ratingCacheTimestamps[id] = now;
         }
       }

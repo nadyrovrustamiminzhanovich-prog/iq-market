@@ -104,6 +104,11 @@ class TaxiProvider extends ChangeNotifier {
   double getUserRating(String userId) => _sync.getUserRating(userId);
   int getUserReviewCount(String userId) => _sync.getUserReviewCount(userId);
 
+  double getUserRatingAsDriver(String userId) => _sync.getUserRatingAsDriver(userId);
+  int getUserReviewCountAsDriver(String userId) => _sync.getUserReviewCountAsDriver(userId);
+  double getUserRatingAsPassenger(String userId) => _sync.getUserRatingAsPassenger(userId);
+  int getUserReviewCountAsPassenger(String userId) => _sync.getUserReviewCountAsPassenger(userId);
+
   List<Map<String, dynamic>> get filteredDrives {
     return _sync.drives.where((d) {
       final bool matchF = _from.isEmpty || d['from'].toString().toLowerCase().contains(_from.toLowerCase());
@@ -338,10 +343,19 @@ class TaxiProvider extends ChangeNotifier {
   Future<void> cancelOrder(String orderId, {String? reason}) => _repo.cancelOrder(orderId, reason: reason);
   Future<void> updateOrderPrice(String orderId, int newPrice) => _repo.updateOrderPrice(orderId, newPrice);
   
-  Future<void> submitReview({required String targetUserId, required double rating, required String comment}) async {
+  Future<void> submitReview({
+    required String targetUserId,
+    required double rating,
+    required String comment,
+    required String targetRole,
+  }) async {
     await _repo.submitReview(
-      targetUserId: targetUserId, rating: rating, comment: comment,
-      firstName: _firstName, lastName: _lastName,
+      targetUserId: targetUserId,
+      rating: rating,
+      comment: comment,
+      firstName: _firstName,
+      lastName: _lastName,
+      targetRole: targetRole,
     );
     // ✅ Force-evict cache so the new score is fetched immediately, not after TTL
     _sync.forceInvalidateRatingCache(targetUserId);

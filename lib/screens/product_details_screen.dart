@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -129,7 +130,14 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     }
   }
 
-  void _handleReport() {
+  void _handleReport() async {
+    if (FirebaseAuth.instance.currentUser == null) {
+      await AuthGateBottomSheet.show(
+        context,
+        message: TranslationService.t('auth_report_prompt', widget.lang),
+      );
+      return;
+    }
     String? selectedType;
     final TextEditingController commentCtrl = TextEditingController();
 
@@ -262,11 +270,9 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   void _openFullscreenVideo() {
     if (_videoController == null || !_isVideoInitialized) return;
     
-    final wasPlaying = _videoController!.value.isPlaying;
-    if (wasPlaying) {
-      _videoController!.pause();
-      setState(() { _isVideoPlaying = false; });
-    }
+    // Воспроизводим видео при переходе на полный экран
+    _videoController!.play();
+    setState(() { _isVideoPlaying = true; });
 
     Navigator.push(
       context,
@@ -400,7 +406,17 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                                       fit: StackFit.expand,
                                       children: [
                                         if (_isVideoInitialized)
-                                          VideoPlayer(_videoController!)
+                                          SizedBox.expand(
+                                            child: FittedBox(
+                                              fit: BoxFit.cover,
+                                              clipBehavior: Clip.hardEdge,
+                                              child: SizedBox(
+                                                width: _videoController!.value.size.width,
+                                                height: _videoController!.value.size.height,
+                                                child: VideoPlayer(_videoController!),
+                                              ),
+                                            ),
+                                          )
                                         else
                                           Container(color: Colors.black, child: const Center(child: CircularProgressIndicator(color: Color(0xFF4A80F0)))),
                                         // Play icon overlay (hide when playing)
@@ -873,9 +889,52 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       padding: EdgeInsets.fromLTRB(20, 12, 20, MediaQuery.of(context).padding.bottom + 12),
       decoration: const BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 20, offset: Offset(0, -5))]),
       child: Row(children: [
-        Expanded(child: InkWell(onTap: () async { final uri = Uri.parse('tel:${widget.ad.userPhone}'); if (await canLaunchUrl(uri)) await launchUrl(uri); }, child: Container(height: 56, decoration: BoxDecoration(color: const Color(0xFF10B981), borderRadius: BorderRadius.circular(16)), child: Center(child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.phone_rounded, color: Colors.white), const SizedBox(width: 10), Text(TranslationService.t('call_btn', widget.lang), style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16))]))))),
+        Expanded(
+          child: InkWell(
+            onTap: () async {
+              if (FirebaseAuth.instance.currentUser == null) {
+                await AuthGateBottomSheet.show(
+                  context,
+                  message: TranslationService.t('auth_call_prompt', widget.lang),
+                );
+                return;
+              }
+              final uri = Uri.parse('tel:${widget.ad.userPhone}');
+              if (await canLaunchUrl(uri)) await launchUrl(uri);
+            },
+            child: Container(
+              height: 56,
+              decoration: BoxDecoration(color: const Color(0xFF10B981), borderRadius: BorderRadius.circular(16)),
+              child: Center(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.phone_rounded, color: Colors.white),
+                    const SizedBox(width: 10),
+                    Text(TranslationService.t('call_btn', widget.lang), style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16))
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
         const SizedBox(width: 12),
-        Expanded(child: ElevatedButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ChatScreen(ad: widget.ad))), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4A80F0), foregroundColor: Colors.white, minimumSize: const Size(0, 56), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), elevation: 0), child: Text(TranslationService.t('write_btn', widget.lang), style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16)))),
+        Expanded(
+          child: ElevatedButton(
+            onPressed: () async {
+              if (FirebaseAuth.instance.currentUser == null) {
+                await AuthGateBottomSheet.show(
+                  context,
+                  message: TranslationService.t('auth_chat_prompt', widget.lang),
+                );
+                return;
+              }
+              Navigator.push(context, MaterialPageRoute(builder: (context) => ChatScreen(ad: widget.ad)));
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4A80F0), foregroundColor: Colors.white, minimumSize: const Size(0, 56), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), elevation: 0),
+            child: Text(TranslationService.t('write_btn', widget.lang), style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16)),
+          ),
+        ),
       ]),
     );
   }
@@ -1059,25 +1118,75 @@ class FullscreenVideoPlayer extends StatefulWidget {
 
 class _FullscreenVideoPlayerState extends State<FullscreenVideoPlayer> {
   bool _isPlaying = false;
+  bool _showControls = true;
+  Timer? _controlsTimer;
 
   @override
   void initState() {
     super.initState();
     _isPlaying = widget.controller.value.isPlaying;
     widget.controller.addListener(_videoListener);
+    
+    // Скрытие системного интерфейса для полного погружения (fullscreen)
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+
+    _startControlsTimer();
   }
 
   void _videoListener() {
     if (mounted) {
-      setState(() {
-        _isPlaying = widget.controller.value.isPlaying;
+      final isPlayingNow = widget.controller.value.isPlaying;
+      if (_isPlaying != isPlayingNow) {
+        setState(() {
+          _isPlaying = isPlayingNow;
+        });
+        if (_isPlaying) {
+          _startControlsTimer();
+        } else {
+          _cancelControlsTimer();
+          setState(() {
+            _showControls = true;
+          });
+        }
+      }
+    }
+  }
+
+  void _startControlsTimer() {
+    _cancelControlsTimer();
+    if (_isPlaying) {
+      _controlsTimer = Timer(const Duration(seconds: 3), () {
+        if (mounted) {
+          setState(() {
+            _showControls = false;
+          });
+        }
       });
+    }
+  }
+
+  void _cancelControlsTimer() {
+    _controlsTimer?.cancel();
+    _controlsTimer = null;
+  }
+
+  void _toggleControls() {
+    setState(() {
+      _showControls = !_showControls;
+    });
+    if (_showControls) {
+      _startControlsTimer();
+    } else {
+      _cancelControlsTimer();
     }
   }
 
   @override
   void dispose() {
+    _cancelControlsTimer();
     widget.controller.removeListener(_videoListener);
+    // Восстанавливаем системный интерфейс
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
   }
 
@@ -1085,93 +1194,129 @@ class _FullscreenVideoPlayerState extends State<FullscreenVideoPlayer> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          Center(
-            child: AspectRatio(
-              aspectRatio: widget.controller.value.aspectRatio,
-              child: VideoPlayer(widget.controller),
-            ),
-          ),
-          
-          Positioned(
-            top: MediaQuery.of(context).padding.top + 10,
-            left: 16,
-            child: CircleAvatar(
-              backgroundColor: Colors.black.withValues(alpha: 0.5),
-              radius: 20,
-              child: IconButton(
-                icon: const Icon(Icons.close_rounded, color: Colors.white, size: 20),
-                onPressed: () => Navigator.pop(context),
+      body: GestureDetector(
+        onTap: _toggleControls,
+        behavior: HitTestBehavior.opaque,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Плеер по центру
+            Center(
+              child: AspectRatio(
+                aspectRatio: widget.controller.value.aspectRatio,
+                child: VideoPlayer(widget.controller),
               ),
             ),
-          ),
-          
-          GestureDetector(
-            onTap: () {
-              if (_isPlaying) {
-                widget.controller.pause();
-              } else {
-                widget.controller.play();
-              }
-            },
-            behavior: HitTestBehavior.opaque,
-            child: Center(
-              child: AnimatedOpacity(
-                opacity: _isPlaying ? 0.0 : 1.0,
-                duration: const Duration(milliseconds: 300),
-                child: Container(
-                  width: 70, height: 70,
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.5),
-                    shape: BoxShape.circle,
+            
+            // Кнопка закрытия (сверху слева)
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 10,
+              left: 16,
+              child: IgnorePointer(
+                ignoring: !_showControls,
+                child: AnimatedOpacity(
+                  opacity: _showControls ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 250),
+                  child: CircleAvatar(
+                    backgroundColor: Colors.black.withValues(alpha: 0.5),
+                    radius: 22,
+                    child: IconButton(
+                      icon: const Icon(Icons.close_rounded, color: Colors.white, size: 22),
+                      onPressed: () => Navigator.pop(context),
+                    ),
                   ),
-                  child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 40),
                 ),
               ),
             ),
-          ),
-
-          Positioned(
-            bottom: MediaQuery.of(context).padding.bottom + 20,
-            left: 20, right: 20,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.6),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1),
-              ),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: Icon(_isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded, color: Colors.white, size: 24),
-                    onPressed: () {
+            
+            // Кнопка Play/Pause по центру экрана
+            IgnorePointer(
+              ignoring: !_showControls,
+              child: AnimatedOpacity(
+                opacity: _showControls ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 250),
+                child: Center(
+                  child: GestureDetector(
+                    onTap: () {
                       if (_isPlaying) {
                         widget.controller.pause();
                       } else {
                         widget.controller.play();
                       }
                     },
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: VideoProgressIndicator(
-                      widget.controller,
-                      allowScrubbing: true,
-                      colors: const VideoProgressColors(
-                        playedColor: Color(0xFF4A80F0),
-                        bufferedColor: Colors.white24,
-                        backgroundColor: Colors.white10,
+                    child: Container(
+                      width: 75, height: 75,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.5),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white24, width: 1.5),
+                      ),
+                      child: Icon(
+                        _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                        color: Colors.white,
+                        size: 45,
                       ),
                     ),
                   ),
-                ],
+                ),
               ),
             ),
-          ),
-        ],
+
+            // Нижний прогресс-бар и кнопки
+            Positioned(
+              bottom: MediaQuery.of(context).padding.bottom + 20,
+              left: 20, right: 20,
+              child: IgnorePointer(
+                ignoring: !_showControls,
+                child: AnimatedOpacity(
+                  opacity: _showControls ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 250),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.65),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.15), width: 1),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Colors.black38,
+                          blurRadius: 10,
+                          offset: Offset(0, 5),
+                        )
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          icon: Icon(_isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded, color: Colors.white, size: 26),
+                          onPressed: () {
+                            if (_isPlaying) {
+                              widget.controller.pause();
+                            } else {
+                              widget.controller.play();
+                            }
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: VideoProgressIndicator(
+                            widget.controller,
+                            allowScrubbing: true,
+                            colors: const VideoProgressColors(
+                              playedColor: Color(0xFF4A80F0),
+                              bufferedColor: Colors.white30,
+                              backgroundColor: Colors.white12,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

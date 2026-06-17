@@ -1,0 +1,13 @@
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    function isAdmin() {
+      // Поддержка как Custom Claims, так и роли в документе
+      return (request.auth.token.admin == true) || 
+             (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.accountType == 'admin');
+    }

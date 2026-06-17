@@ -38,19 +38,25 @@ class TaxiActiveOrderSummary extends StatelessWidget {
     final displayTime = (rawTime == 'time' || rawTime.isEmpty) ? '' : rawTime;
 
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFEFF6FF), // Premium glowing soft blue tint
-        borderRadius: BorderRadius.circular(20),
+        gradient: const LinearGradient(
+          colors: [Color(0xFFEFF6FF), Color(0xFFF5F3FF)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-              color: const Color(0xFF3B82F6).withValues(alpha: 0.08),
-              blurRadius: 16,
-              offset: const Offset(0, 6))
+            color: const Color(0xFF4F46E5).withValues(alpha: 0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          )
         ],
         border: Border.all(
-            color: const Color(0xFF3B82F6).withValues(alpha: 0.35),
-            width: 1.5), // Glowing blue border
+          color: const Color(0xFF4F46E5).withValues(alpha: 0.2),
+          width: 1.5,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -58,57 +64,88 @@ class TaxiActiveOrderSummary extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'АКТИВНЫЙ ЗАКАЗ',
-                style: GoogleFonts.inter(
-                    fontWeight: FontWeight.w900,
-                    color: const Color(0xFF4A80F0),
-                    fontSize: 10,
-                    letterSpacing: 0.8),
+              Row(
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF6366F1),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'АКТИВНЫЙ ЗАКАЗ',
+                    style: GoogleFonts.inter(
+                      fontWeight: FontWeight.w900,
+                      color: const Color(0xFF4F46E5),
+                      fontSize: 10,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                ],
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF4A80F0),
-                  borderRadius: BorderRadius.circular(12),
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF4F46E5), Color(0xFF6366F1)],
+                  ),
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF4F46E5).withValues(alpha: 0.25),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    )
+                  ],
                 ),
                 child: Text(
                   '$currentPrice ₸',
                   style: GoogleFonts.inter(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 12),
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 13,
+                  ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           Text(
             '${order['from']} → ${order['to']}',
             style: GoogleFonts.inter(
-                fontWeight: FontWeight.w800,
-                color: const Color(0xFF4A80F0),
-                fontSize: 16),
+              fontWeight: FontWeight.w900,
+              color: const Color(0xFF1E1B4B),
+              fontSize: 17,
+              letterSpacing: -0.2,
+            ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               TaxiBlueInfoChip(
-                  icon: Icons.calendar_today_rounded,
-                  text: displayDate.isEmpty ? 'Дата' : displayDate),
+                icon: Icons.calendar_today_rounded,
+                text: displayDate.isEmpty ? 'Дата' : displayDate,
+                color: const Color(0xFF4F46E5),
+              ),
               TaxiBlueInfoChip(
-                  icon: Icons.access_time_rounded,
-                  text: displayTime.isEmpty ? 'Время не указано' : displayTime),
+                icon: Icons.access_time_rounded,
+                text: displayTime.isEmpty ? 'Время не указано' : displayTime,
+                color: const Color(0xFF4F46E5),
+              ),
               TaxiInfoChip(
-                  icon: Icons.group_rounded,
-                  text: '${order['seats'] ?? 1} мест',
-                  t: t),
+                icon: Icons.group_rounded,
+                text: '${order['seats'] ?? 1} мест',
+                t: t,
+              ),
             ],
           ),
-          const SizedBox(height: 10),
-          const Divider(height: 1, color: Color(0xFFF1F5F9)),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
+          const Divider(height: 1, color: Color(0xFFE2E8F0)),
+          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
@@ -119,40 +156,43 @@ class TaxiActiveOrderSummary extends StatelessWidget {
                         reason: 'Изменение параметров заказа');
                     if (context.mounted) {
                       NotificationService.notify(
-                          context,
-                          'Редактирование',
-                          'Параметры сброшены. Введите новые данные поездки!',
-                          isSuccess: true);
+                        context,
+                        'Редактирование',
+                        'Параметры сброшены. Введите новые данные поездки!',
+                        isSuccess: true,
+                      );
                     }
                   },
                   child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF4A80F0).withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(10),
+                      color: const Color(0xFF4F46E5).withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                          color: const Color(0xFF4A80F0).withValues(alpha: 0.15)),
+                        color: const Color(0xFF4F46E5).withValues(alpha: 0.12),
+                      ),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         const Icon(Icons.edit_rounded,
-                            color: Color(0xFF4A80F0), size: 13),
-                        const SizedBox(width: 4),
+                            color: Color(0xFF4F46E5), size: 14),
+                        const SizedBox(width: 6),
                         Text(
                           'ИЗМЕНИТЬ',
                           style: GoogleFonts.inter(
-                              color: const Color(0xFF4A80F0),
-                              fontWeight: FontWeight.w800,
-                              fontSize: 10.5,
-                              letterSpacing: 0.3),
+                            color: const Color(0xFF4F46E5),
+                            fontWeight: FontWeight.w800,
+                            fontSize: 11,
+                            letterSpacing: 0.5,
+                          ),
                         ),
                       ],
                     ),
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 10),
               Expanded(
                 child: GestureDetector(
                   onTap: () {
@@ -161,26 +201,28 @@ class TaxiActiveOrderSummary extends StatelessWidget {
                         context, provider, t, orderId);
                   },
                   child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
                     decoration: BoxDecoration(
-                      color: Colors.red.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(10),
+                      color: Colors.red.withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                          color: Colors.red.withValues(alpha: 0.15)),
+                        color: Colors.red.withValues(alpha: 0.12),
+                      ),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         const Icon(Icons.close_rounded,
-                            color: Colors.red, size: 13),
-                        const SizedBox(width: 4),
+                            color: Colors.red, size: 14),
+                        const SizedBox(width: 6),
                         Text(
                           'ОТМЕНИТЬ',
                           style: GoogleFonts.inter(
-                              color: Colors.red,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 10.5,
-                              letterSpacing: 0.3),
+                            color: Colors.red,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 11,
+                            letterSpacing: 0.5,
+                          ),
                         ),
                       ],
                     ),

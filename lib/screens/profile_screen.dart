@@ -16,6 +16,7 @@ import 'package:iqmarket/screens/favorites_screen.dart';
 import 'package:iqmarket/models/ad_model.dart';
 import 'package:iqmarket/screens/login_screen.dart';
 import 'package:iqmarket/screens/legal_info_screen.dart';
+import 'package:iqmarket/screens/home/home_screen.dart';
 import 'package:screen_protector/screen_protector.dart';
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -1638,7 +1639,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       await AuthService.signOut();
       if (mounted) {
         Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const LoginScreen()),
+          MaterialPageRoute(builder: (_) => const IQMarketHome()),
           (route) => false,
         );
       }

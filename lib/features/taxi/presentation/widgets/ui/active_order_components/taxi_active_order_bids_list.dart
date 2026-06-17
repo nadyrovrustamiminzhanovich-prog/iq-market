@@ -57,20 +57,24 @@ class _TaxiActiveOrderBidsListState extends State<TaxiActiveOrderBidsList> {
     }) onShowUserProfile = widget.onShowUserProfile;
     if (bids.isEmpty) {
       return Container(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
-            colors: [Color(0xFFEFF6FF), Color(0xFFF0F9FF)],
+            colors: [Color(0xFFEFF6FF), Color(0xFFF5F3FF)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFF4A80F0).withValues(alpha: 0.15)),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: const Color(0xFF4F46E5).withValues(alpha: 0.2),
+            width: 1.5,
+          ),
           boxShadow: [
             BoxShadow(
-                color: const Color(0xFF4A80F0).withValues(alpha: 0.02),
-                blurRadius: 8,
-                offset: const Offset(0, 3))
+              color: const Color(0xFF4F46E5).withValues(alpha: 0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            )
           ],
         ),
         child: Row(
@@ -78,11 +82,11 @@ class _TaxiActiveOrderBidsListState extends State<TaxiActiveOrderBidsList> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: const Color(0xFF4A80F0).withValues(alpha: 0.1),
+                color: const Color(0xFF4F46E5).withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: const Icon(Icons.check_circle_rounded,
-                  color: Color(0xFF4A80F0), size: 22),
+                  color: Color(0xFF4F46E5), size: 22),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -94,14 +98,14 @@ class _TaxiActiveOrderBidsListState extends State<TaxiActiveOrderBidsList> {
                     style: GoogleFonts.inter(
                         fontSize: 13,
                         fontWeight: FontWeight.w900,
-                        color: const Color(0xFF1E293B)),
+                        color: const Color(0xFF1E1B4B)),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     'Водители видят ваш заказ и скоро свяжутся с вами!',
                     style: GoogleFonts.inter(
                         fontSize: 11,
-                        color: const Color(0xFF64748B),
+                        color: const Color(0xFF4F46E5).withValues(alpha: 0.7),
                         fontWeight: FontWeight.w500),
                   ),
                 ],
@@ -129,12 +133,16 @@ class _TaxiActiveOrderBidsListState extends State<TaxiActiveOrderBidsList> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: const Color(0xFFF1F5F9)),
+                border: Border.all(
+                  color: const Color(0xFF4F46E5).withValues(alpha: 0.12),
+                  width: 1,
+                ),
                 boxShadow: [
                   BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.02),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4))
+                    color: const Color(0xFF4F46E5).withValues(alpha: 0.04),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  )
                 ],
               ),
               child: Column(
@@ -194,7 +202,7 @@ class _TaxiActiveOrderBidsListState extends State<TaxiActiveOrderBidsList> {
                                 style: GoogleFonts.inter(
                                     fontWeight: FontWeight.w800,
                                     fontSize: 14,
-                                    color: const Color(0xFF1E293B)),
+                                    color: const Color(0xFF1E1B4B)),
                               ),
                               const SizedBox(height: 4),
                               TaxiRatingWidget(
@@ -204,8 +212,8 @@ class _TaxiActiveOrderBidsListState extends State<TaxiActiveOrderBidsList> {
                                 'Предлагает: $bidPrice ₸',
                                 style: GoogleFonts.inter(
                                     fontSize: 12,
-                                    fontWeight: FontWeight.w700,
-                                    color: const Color(0xFF4A80F0)),
+                                    fontWeight: FontWeight.w800,
+                                    color: const Color(0xFF4F46E5)),
                               ),
                             ],
                           ),
@@ -292,14 +300,14 @@ class _TaxiActiveOrderBidsListState extends State<TaxiActiveOrderBidsList> {
                                   padding: const EdgeInsets.symmetric(vertical: 10),
                                   decoration: BoxDecoration(
                                     gradient: const LinearGradient(colors: [
-                                      Color(0xFF4A80F0),
-                                      Color(0xFF4A80F0)
+                                      Color(0xFF4F46E5),
+                                      Color(0xFF6366F1)
                                     ]),
                                     borderRadius: BorderRadius.circular(12),
                                     boxShadow: [
                                       BoxShadow(
-                                          color: const Color(0xFF4A80F0)
-                                              .withValues(alpha: 0.15),
+                                          color: const Color(0xFF4F46E5)
+                                              .withValues(alpha: 0.25),
                                           blurRadius: 8,
                                           offset: const Offset(0, 4))
                                     ],
@@ -309,7 +317,7 @@ class _TaxiActiveOrderBidsListState extends State<TaxiActiveOrderBidsList> {
                                       'Принять',
                                       style: GoogleFonts.inter(
                                           color: Colors.white,
-                                          fontWeight: FontWeight.bold,
+                                          fontWeight: FontWeight.w800,
                                           fontSize: 12),
                                     ),
                                   ),

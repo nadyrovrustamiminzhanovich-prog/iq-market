@@ -33,8 +33,10 @@ class TaxiProfileViewScreen extends StatefulWidget {
 
 class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
   bool _isLoadingStats = true;
-  double _taxiAvgRating = 0.0;
-  int _taxiReviewsCount = 0;
+  double _taxiDriverAvgRating = 0.0;
+  int _taxiDriverReviewsCount = 0;
+  double _taxiPassengerAvgRating = 0.0;
+  int _taxiPassengerReviewsCount = 0;
   // ✅ BUG-01 FIX: Track actual trip count separately from review count
   int _taxiTripsCount = 0;
   double _marketAvgRating = 0.0;
@@ -147,16 +149,42 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
           rating: (data['rating'] ?? 0.0).toDouble(),
           comment: data['comment'] ?? '',
           images: [], timestamp: ts,
+          targetRole: data['targetRole'] as String?,
         );
       }).toList()
         ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
       int taxiCount = taxiList.length;
       double taxiAvg = 0.0;
-      // ✅ ISSUE-01 FIX: Apply same <5 threshold as TaxiSyncService for consistency
       if (taxiCount >= 5) {
         double sum = taxiList.fold(0.0, (prev, e) => prev + e.rating);
         taxiAvg = double.parse((sum / taxiCount).toStringAsFixed(1));
+      }
+
+      int taxiDriverCount = 0;
+      double taxiDriverSum = 0.0;
+      int taxiPassengerCount = 0;
+      double taxiPassengerSum = 0.0;
+
+      for (var r in taxiList) {
+        final role = r.targetRole ?? 'driver';
+        if (role == 'passenger') {
+          taxiPassengerCount++;
+          taxiPassengerSum += r.rating;
+        } else {
+          taxiDriverCount++;
+          taxiDriverSum += r.rating;
+        }
+      }
+
+      double taxiDriverAvg = 0.0;
+      if (taxiDriverCount >= 5) {
+        taxiDriverAvg = double.parse((taxiDriverSum / taxiDriverCount).toStringAsFixed(1));
+      }
+
+      double taxiPassengerAvg = 0.0;
+      if (taxiPassengerCount >= 5) {
+        taxiPassengerAvg = double.parse((taxiPassengerSum / taxiPassengerCount).toStringAsFixed(1));
       }
 
       // ✅ BUG-01 FIX: Fetch actual completed trips count (not review count)
@@ -187,8 +215,10 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
       setState(() {
         _taxiReviewsList = taxiList;
         _marketReviewsList = marketList;
-        _taxiAvgRating = taxiAvg;
-        _taxiReviewsCount = taxiCount;
+        _taxiDriverAvgRating = taxiDriverAvg;
+        _taxiDriverReviewsCount = taxiDriverCount;
+        _taxiPassengerAvgRating = taxiPassengerAvg;
+        _taxiPassengerReviewsCount = taxiPassengerCount;
         _marketAvgRating = marketAvg;
         _marketReviewsCount = marketCount;
         _taxiTripsCount = tripsCount;  // ✅ BUG-01
@@ -390,8 +420,8 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.end,
                                   children: [
-                                    _ratingBox(t, _taxiReviewsCount < 5 ? provider.translate('rating_novice') : _taxiAvgRating.toStringAsFixed(1)),
-                                    if (_taxiReviewsCount < 5)
+                                    _ratingBox(t, _taxiDriverReviewsCount < 5 ? provider.translate('rating_novice') : _taxiDriverAvgRating.toStringAsFixed(1)),
+                                    if (_taxiDriverReviewsCount < 5)
                                       Padding(
                                         padding: const EdgeInsets.only(top: 2),
                                         child: Tooltip(
@@ -433,18 +463,18 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
                                               const Text('⭐', style: TextStyle(fontSize: 16)),
                                               const SizedBox(width: 4),
                                               Text(
-                                                _taxiReviewsCount < 5 ? provider.translate('rating_novice') : _taxiAvgRating.toStringAsFixed(1),
+                                                _taxiPassengerReviewsCount < 5 ? provider.translate('rating_novice') : _taxiPassengerAvgRating.toStringAsFixed(1),
                                                 style: GoogleFonts.inter(
                                                   color: t.text,
                                                   fontWeight: FontWeight.w900,
-                                                  fontSize: _taxiReviewsCount < 5 ? 12 : 18,
+                                                  fontSize: _taxiPassengerReviewsCount < 5 ? 12 : 18,
                                                 ),
                                               ),
                                             ],
                                           ),
                                           const SizedBox(height: 2),
                                           Text(
-                                            _taxiReviewsCount < 5 ? provider.translate('rating_after_5') : provider.translate('rate').toUpperCase(),
+                                            _taxiPassengerReviewsCount < 5 ? provider.translate('rating_after_5') : provider.translate('rate').toUpperCase(),
                                             style: GoogleFonts.inter(color: t.sub, fontSize: 9, fontWeight: FontWeight.w600, letterSpacing: 0.3),
                                             textAlign: TextAlign.center,
                                           ),
@@ -464,7 +494,7 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
                                               const Text('💬', style: TextStyle(fontSize: 14)),
                                               const SizedBox(width: 4),
                                               Text(
-                                                '$_taxiReviewsCount',
+                                                '$_taxiPassengerReviewsCount',
                                                 style: GoogleFonts.inter(
                                                   color: t.text,
                                                   fontWeight: FontWeight.w900,
@@ -630,38 +660,102 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
                         ),
                         const SizedBox(height: 20),
                         // Per-tab rating summary card
-                        Container(
-                          margin: const EdgeInsets.only(bottom: 16),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          decoration: BoxDecoration(
-                            color: t.card,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: t.border),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Row(
-                                children: [
-                                  const Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 20),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    _activeReviewTab == 0
-                                        ? (_taxiReviewsCount < 5 ? provider.translate('rating_novice') : _taxiAvgRating.toStringAsFixed(1))
-                                        : (_marketReviewsCount < 5 ? provider.translate('rating_novice') : _marketAvgRating.toStringAsFixed(1)),
-                                    style: GoogleFonts.inter(color: t.text, fontWeight: FontWeight.w900, fontSize: 16),
-                                  ),
-                                ],
+                        _activeReviewTab == 0
+                            ? Container(
+                                margin: const EdgeInsets.only(bottom: 16),
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                decoration: BoxDecoration(
+                                  color: t.card,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(color: t.border),
+                                ),
+                                child: Column(
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            const Icon(Icons.local_taxi_rounded, color: Colors.amber, size: 18),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              '${provider.translate('driver_role')}: ',
+                                              style: GoogleFonts.inter(color: t.sub, fontSize: 13, fontWeight: FontWeight.w600),
+                                            ),
+                                            Text(
+                                              _taxiDriverReviewsCount < 5 
+                                                  ? provider.translate('rating_novice') 
+                                                  : _taxiDriverAvgRating.toStringAsFixed(1),
+                                              style: GoogleFonts.inter(color: t.text, fontWeight: FontWeight.w900, fontSize: 14),
+                                            ),
+                                          ],
+                                        ),
+                                        Text(
+                                          _pluralReviews(_taxiDriverReviewsCount, provider),
+                                          style: GoogleFonts.inter(color: t.sub, fontSize: 12, fontWeight: FontWeight.w600),
+                                        ),
+                                      ],
+                                    ),
+                                    const Padding(
+                                      padding: EdgeInsets.symmetric(vertical: 8.0),
+                                      child: Divider(height: 1),
+                                    ),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            const Icon(Icons.directions_walk_rounded, color: Color(0xFF4A80F0), size: 18),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              '${provider.translate('passenger_role')}: ',
+                                              style: GoogleFonts.inter(color: t.sub, fontSize: 13, fontWeight: FontWeight.w600),
+                                            ),
+                                            Text(
+                                              _taxiPassengerReviewsCount < 5 
+                                                  ? provider.translate('rating_novice') 
+                                                  : _taxiPassengerAvgRating.toStringAsFixed(1),
+                                              style: GoogleFonts.inter(color: t.text, fontWeight: FontWeight.w900, fontSize: 14),
+                                            ),
+                                          ],
+                                        ),
+                                        Text(
+                                          _pluralReviews(_taxiPassengerReviewsCount, provider),
+                                          style: GoogleFonts.inter(color: t.sub, fontSize: 12, fontWeight: FontWeight.w600),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : Container(
+                                margin: const EdgeInsets.only(bottom: 16),
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                decoration: BoxDecoration(
+                                  color: t.card,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(color: t.border),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 20),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          _marketReviewsCount < 5 ? provider.translate('rating_novice') : _marketAvgRating.toStringAsFixed(1),
+                                          style: GoogleFonts.inter(color: t.text, fontWeight: FontWeight.w900, fontSize: 16),
+                                        ),
+                                      ],
+                                    ),
+                                    Text(
+                                      _pluralReviews(_marketReviewsCount, provider),
+                                      style: GoogleFonts.inter(color: t.sub, fontSize: 12, fontWeight: FontWeight.w600),
+                                    ),
+                                  ],
+                                ),
                               ),
-                              Text(
-                                _activeReviewTab == 0
-                                    ? _pluralReviews(_taxiReviewsCount, provider)
-                                    : _pluralReviews(_marketReviewsCount, provider),
-                                style: GoogleFonts.inter(color: t.sub, fontSize: 12, fontWeight: FontWeight.w600),
-                              ),
-                            ],
-                          ),
-                        ),
                         if (_activeReviewTab == 0) ...[
                           if (_taxiReviewsList.isEmpty)
                             Padding(
@@ -677,7 +771,19 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
                             Column(
                               children: _taxiReviewsList.map((r) {
                                 final dateStr = '${r.timestamp.day.toString().padLeft(2, '0')}.${r.timestamp.month.toString().padLeft(2, '0')}.${r.timestamp.year}';
-                                return _reviewItem(t, r.fromUserName, r.comment, r.rating.toStringAsFixed(1), dateStr);
+                                final isPassenger = r.targetRole == 'passenger';
+                                final String roleLabel = isPassenger 
+                                    ? provider.translate('passenger_role') 
+                                    : provider.translate('driver_role');
+                                return _reviewItem(
+                                  t,
+                                  r.fromUserName,
+                                  r.comment,
+                                  r.rating.toStringAsFixed(1),
+                                  dateStr,
+                                  roleLabel: roleLabel,
+                                  isPassenger: isPassenger,
+                                );
                               }).toList(),
                             ),
                         ] else ...[
@@ -789,7 +895,15 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
     ),
   );
 
-  Widget _reviewItem(TaxiTheme t, String name, String text, String rate, String date) => Container(
+  Widget _reviewItem(
+    TaxiTheme t,
+    String name,
+    String text,
+    String rate,
+    String date, {
+    String? roleLabel,
+    bool isPassenger = false,
+  }) => Container(
     margin: const EdgeInsets.only(bottom: 12),
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
@@ -805,13 +919,39 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  name,
-                  style: GoogleFonts.inter(
-                    color: t.text,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                  ),
+                Row(
+                  children: [
+                    Text(
+                      name,
+                      style: GoogleFonts.inter(
+                        color: t.text,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                    if (roleLabel != null) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: isPassenger
+                              ? const Color(0xFF4A80F0).withValues(alpha: 0.1)
+                              : Colors.amber.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          roleLabel,
+                          style: GoogleFonts.inter(
+                            color: isPassenger
+                                ? const Color(0xFF4A80F0)
+                                : const Color(0xFFB45309),
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
                 const SizedBox(height: 2),
                 Text(

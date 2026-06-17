@@ -1,0 +1,5 @@
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if isSignedIn() && request.resource.data.fromUserId == request.auth.uid && request.resource.data.keys().hasAll(['fromUserId', 'toUserId', 'rating']);
+      allow update, delete: if isSignedIn() && isOwner(resource.data.fromUserId);
+    }

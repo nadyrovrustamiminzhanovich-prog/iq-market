@@ -54,14 +54,25 @@ class _TaxiActiveRideTrackingViewState extends State<TaxiActiveRideTrackingView>
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Container(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white, // Белоснежка inside
-          borderRadius: BorderRadius.circular(20),
+          gradient: const LinearGradient(
+            colors: [Color(0xFFECFDF5), Color(0xFFE0F2FE)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(24),
           boxShadow: [
-            BoxShadow(color: const Color(0xFF4A80F0).withValues(alpha: 0.08), blurRadius: 16, offset: const Offset(0, 6))
+            BoxShadow(
+              color: const Color(0xFF10B981).withValues(alpha: 0.08),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            )
           ],
-          border: Border.all(color: const Color(0xFF4A80F0), width: 1.5), // Синие границы
+          border: Border.all(
+            color: const Color(0xFF10B981).withValues(alpha: 0.25),
+            width: 1.5,
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -75,42 +86,77 @@ class _TaxiActiveRideTrackingViewState extends State<TaxiActiveRideTrackingView>
                       width: 8,
                       height: 8,
                       decoration: const BoxDecoration(
-                        color: Color(0xFF4A80F0), // Blue dot
+                        color: Color(0xFF10B981), // Green dot
                         shape: BoxShape.circle,
                       ),
                     ),
                     const SizedBox(width: 6),
                     Text(
                       'АКТИВНЫЙ РЕЙС ВОДИТЕЛЯ',
-                      style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: const Color(0xFF4A80F0), fontSize: 10, letterSpacing: 0.8),
+                      style: GoogleFonts.inter(
+                        fontWeight: FontWeight.w900,
+                        color: const Color(0xFF047857),
+                        fontSize: 10,
+                        letterSpacing: 1.2,
+                      ),
                     ),
                   ],
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF4A80F0),
-                    borderRadius: BorderRadius.circular(12),
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF10B981), Color(0xFF0D9488)],
+                    ),
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF10B981).withValues(alpha: 0.25),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3),
+                      )
+                    ],
                   ),
                   child: Text(
-                    '${currentPrice} ₸',
-                    style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 12),
+                    '$currentPrice ₸',
+                    style: GoogleFonts.inter(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 13,
+                    ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             Text(
               '${ride['from']} → ${ride['to']}',
-              style: GoogleFonts.inter(fontWeight: FontWeight.w800, color: const Color(0xFF4A80F0), fontSize: 16),
+              style: GoogleFonts.inter(
+                fontWeight: FontWeight.w900,
+                color: const Color(0xFF064E3B),
+                fontSize: 17,
+                letterSpacing: -0.2,
+              ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                TaxiBlueInfoChip(icon: Icons.calendar_today_rounded, text: displayDate.isEmpty ? 'Дата' : displayDate),
-                TaxiBlueInfoChip(icon: Icons.access_time_rounded, text: displayTime.isEmpty ? 'Время' : displayTime),
-                TaxiInfoChip(icon: Icons.airline_seat_recline_normal_rounded, text: '${ride['seats'] ?? 4} мест', t: t),
+                TaxiBlueInfoChip(
+                  icon: Icons.calendar_today_rounded,
+                  text: displayDate.isEmpty ? 'Дата' : displayDate,
+                  color: const Color(0xFF0D9488),
+                ),
+                TaxiBlueInfoChip(
+                  icon: Icons.access_time_rounded,
+                  text: displayTime.isEmpty ? 'Время' : displayTime,
+                  color: const Color(0xFF0D9488),
+                ),
+                TaxiInfoChip(
+                  icon: Icons.airline_seat_recline_normal_rounded,
+                  text: '${ride['seats'] ?? 4} мест',
+                  t: t,
+                ),
               ],
             ),
             if (ride['comment'] != null && (ride['comment'] as String).isNotEmpty) ...[
@@ -122,7 +168,7 @@ class _TaxiActiveRideTrackingViewState extends State<TaxiActiveRideTrackingView>
             ],
             const SizedBox(height: 12),
             const Divider(height: 1, color: Color(0xFFE2E8F0)),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             Row(
               children: [
                 Expanded(
@@ -162,24 +208,26 @@ class _TaxiActiveRideTrackingViewState extends State<TaxiActiveRideTrackingView>
                       }
                     },
                     child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF4A80F0).withValues(alpha: 0.08), // Blue button tint
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: const Color(0xFF4A80F0).withValues(alpha: 0.15)),
+                        color: const Color(0xFF10B981).withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                        ),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(Icons.edit_rounded, color: Color(0xFF4A80F0), size: 13),
-                          const SizedBox(width: 4),
+                          const Icon(Icons.edit_rounded, color: Color(0xFF10B981), size: 14),
+                          const SizedBox(width: 6),
                           Text(
                             'ИЗМЕНИТЬ',
                             style: GoogleFonts.inter(
-                              color: const Color(0xFF4A80F0), 
+                              color: const Color(0xFF047857), 
                               fontWeight: FontWeight.w800, 
-                              fontSize: 10.5, 
-                              letterSpacing: 0.3
+                              fontSize: 11, 
+                              letterSpacing: 0.5,
                             ),
                           ),
                         ],
@@ -187,7 +235,7 @@ class _TaxiActiveRideTrackingViewState extends State<TaxiActiveRideTrackingView>
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 10),
                 Expanded(
                   child: GestureDetector(
                     onTap: () async {
@@ -218,24 +266,26 @@ class _TaxiActiveRideTrackingViewState extends State<TaxiActiveRideTrackingView>
                       }
                     },
                     child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
                       decoration: BoxDecoration(
-                        color: Colors.red.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.red.withValues(alpha: 0.15)),
+                        color: Colors.red.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Colors.red.withValues(alpha: 0.15),
+                        ),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(Icons.close_rounded, color: Colors.red, size: 13),
-                          const SizedBox(width: 4),
+                          const Icon(Icons.close_rounded, color: Colors.red, size: 14),
+                          const SizedBox(width: 6),
                           Text(
                             'ОТМЕНИТЬ',
                             style: GoogleFonts.inter(
                               color: Colors.red, 
                               fontWeight: FontWeight.w800, 
-                              fontSize: 10.5, 
-                              letterSpacing: 0.3
+                              fontSize: 11, 
+                              letterSpacing: 0.5,
                             ),
                           ),
                         ],

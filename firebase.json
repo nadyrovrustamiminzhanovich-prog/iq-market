@@ -13,7 +13,10 @@
   ],
   "firestore": {
     "rules": "firestore.rules",
-    "indexes": "firestore.indexes.json"
+    "indexes": "firestore.indexes.json",
+    "predeploy": [
+      "dart scripts/build_rules.dart"
+    ]
   },
   "storage": {
     "rules": "storage.rules"

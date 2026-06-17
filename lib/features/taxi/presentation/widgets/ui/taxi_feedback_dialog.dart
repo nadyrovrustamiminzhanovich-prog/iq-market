@@ -12,6 +12,7 @@ void showTaxiFeedbackDialog(
   TaxiTheme t,
   String targetUserId,
   String targetUserName,
+  String targetRole,
 ) {
   double selectedRating = 5.0;
   final tags = [
@@ -207,6 +208,7 @@ void showTaxiFeedbackDialog(
                           comment: reviewComment.isEmpty
                               ? 'Без комментариев'
                               : reviewComment,
+                          targetRole: targetRole,
                         );
                         if (c.mounted) {
                           NotificationService.notify(

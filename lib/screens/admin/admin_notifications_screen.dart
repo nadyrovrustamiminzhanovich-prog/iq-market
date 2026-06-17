@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
@@ -26,13 +27,77 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
     }
     
     setState(() => _isSending = true);
-    await Future.delayed(const Duration(seconds: 2));
-    
-    if (mounted) {
-      setState(() => _isSending = false);
-      _titleController.clear();
-      _bodyController.clear();
-      _showSuccessDialog();
+
+    try {
+      final title = _titleController.text.trim();
+      final body = _bodyController.text.trim();
+      
+      Query query = FirebaseFirestore.instance.collection('users');
+      
+      if (_selectedTarget == 'Только Бизнес') {
+        query = query.where('accountType', isEqualTo: 'business');
+      } else if (_selectedTarget == 'Только Личные') {
+        query = query.where('accountType', isEqualTo: 'user');
+      } else if (_selectedTarget == 'Водители Такси') {
+        query = query.where('isVerified', isEqualTo: true);
+      }
+      
+      final querySnapshot = await query.get();
+      final usersDocs = querySnapshot.docs;
+      
+      if (usersDocs.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Нет пользователей в выбранной аудитории!'), backgroundColor: Colors.orange)
+          );
+        }
+        setState(() => _isSending = false);
+        return;
+      }
+      
+      final db = FirebaseFirestore.instance;
+      int chunkCount = 0;
+      WriteBatch batch = db.batch();
+      
+      for (var userDoc in usersDocs) {
+        final userId = userDoc.id;
+        final notifRef = db.collection('users').doc(userId).collection('notifications').doc();
+        
+        batch.set(notifRef, {
+          'title': title,
+          'body': body,
+          'timestamp': FieldValue.serverTimestamp(),
+          'type': 'system',
+          'isRead': false,
+          'data': {'sender': 'admin_broadcast'}
+        });
+        
+        chunkCount++;
+        if (chunkCount >= 500) {
+          await batch.commit();
+          batch = db.batch();
+          chunkCount = 0;
+        }
+      }
+      
+      if (chunkCount > 0) {
+        await batch.commit();
+      }
+
+      if (mounted) {
+        setState(() => _isSending = false);
+        _titleController.clear();
+        _bodyController.clear();
+        _showSuccessDialog();
+      }
+    } catch (e) {
+      debugPrint('[AdminNotifications] Send failed: $e');
+      if (mounted) {
+        setState(() => _isSending = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Ошибка при отправке: $e'), backgroundColor: Colors.red)
+        );
+      }
     }
   }
 

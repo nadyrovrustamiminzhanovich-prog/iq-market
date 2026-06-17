@@ -51,24 +51,38 @@ class TaxiInfoChip extends StatelessWidget {
 class TaxiBlueInfoChip extends StatelessWidget {
   final IconData icon;
   final String text;
+  final Color? color;
 
-  const TaxiBlueInfoChip({super.key, required this.icon, required this.text});
+  const TaxiBlueInfoChip({
+    super.key,
+    required this.icon,
+    required this.text,
+    this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final activeColor = color ?? const Color(0xFF4A80F0);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFF4A80F0).withValues(alpha: 0.1),
+        color: activeColor.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF4A80F0).withValues(alpha: 0.15)),
+        border: Border.all(color: activeColor.withValues(alpha: 0.15)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: const Color(0xFF4A80F0), size: 13),
+          Icon(icon, color: activeColor, size: 13),
           const SizedBox(width: 6),
-          Text(text, style: GoogleFonts.inter(color: const Color(0xFF4A80F0), fontSize: 11, fontWeight: FontWeight.w700)),
+          Text(
+            text,
+            style: GoogleFonts.inter(
+              color: activeColor,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
         ],
       ),
     );

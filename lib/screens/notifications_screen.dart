@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:iqmarket/screens/chat_screen.dart';
 import 'package:iqmarket/screens/product_details_screen.dart';
 
@@ -46,6 +47,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
         'earlier': 'РАНЕЕ',
         'no_notifications': 'Уведомлений пока нет',
         'no_chats': 'Чатов пока нет',
+        'ad_rejected_title': 'Объявление отклонено',
+        'ad_rejected_desc1': 'Ваше объявление ',
+        'ad_rejected_desc2': ' не прошло модерацию и было удалено.',
+        'rejection_reason_label': 'ПРИЧИНА ОТКЛОНЕНИЯ:',
+        'ad_rejected_info': 'Пожалуйста, исправьте указанные нарушения и опубликуйте объявление заново.',
+        'got_it': 'ПОНЯТНО',
       },
       'Қазақша': {
         'center': 'Хабарландыру орталығы',
@@ -58,6 +65,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
         'earlier': 'ЕРТЕРЕК',
         'no_notifications': 'Хабарламалар әлі жоқ',
         'no_chats': 'Чаттар әлі жоқ',
+        'ad_rejected_title': 'Хабарландыру қабылданбады',
+        'ad_rejected_desc1': 'Сіздің хабарландыруыңыз ',
+        'ad_rejected_desc2': ' модерациядан өтпей, жойылды.',
+        'rejection_reason_label': 'ҚАБЫЛДАМАУ СЕБЕБІ:',
+        'ad_rejected_info': 'Көрсетілген бұзушылықтарды түзетіп, хабарландыруды қайта жариялаңыз.',
+        'got_it': 'ТҮСІНІКТІ',
       },
       // ✅ Уйгурский язык — полный набор переводов (кириллица)
       'Уйғурчә': {
@@ -71,6 +84,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
         'earlier': 'ИЛГИРИ',
         'no_notifications': 'Уқтурушлар техи йоқ',
         'no_chats': 'Чатлар техи йоқ',
+        'ad_rejected_title': 'Уқтуруш рәт қилинди',
+        'ad_rejected_desc1': 'Сизниң уқтурушиңиз ',
+        'ad_rejected_desc2': ' модерациядин өтмәй, өчүрүлди.',
+        'rejection_reason_label': 'РӘТ ҚИЛИШ СӘВӘВИ:',
+        'ad_rejected_info': 'Көрситилгән бузушларни түзәтип, уқтурушни қайта елан қилиң.',
+        'got_it': 'ЧҮШИНИШЛИК',
       },
     };
     return (localizedValues[widget.lang]?[key] ?? localizedValues['Русский']?[key] ?? key).toString();
@@ -221,6 +240,19 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
   void _handleNotificationTap(NotificationModel notif) async {
     await NotificationService.markAsRead(notif.id);
     
+    if (notif.type == 'ad_rejected') {
+      final String reason = notif.data?['reason'] ?? 'Нарушение правил размещения';
+      String adTitle = 'Ваше объявление';
+      if (notif.body.contains('"')) {
+        final parts = notif.body.split('"');
+        if (parts.length > 1) {
+          adTitle = '"${parts[1]}"';
+        }
+      }
+      _showRejectionDetailsDialog(adTitle, reason);
+      return;
+    }
+    
     if (notif.type == 'chat' && notif.data != null) {
       final String adId = notif.data!['adId'] ?? '';
       final String adTitle = notif.data!['adTitle'] ?? 'Объявление';
@@ -249,6 +281,80 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
         debugPrint('Error loading ad from notification: $e');
       }
     }
+  }
+
+  void _showRejectionDetailsDialog(String adTitle, String reason) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        backgroundColor: Colors.white,
+        title: Row(
+          children: [
+            const Icon(Icons.error_outline_rounded, color: Colors.redAccent, size: 28),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                _t('ad_rejected_title'),
+                style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 16, color: const Color(0xFF1E293B)),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '${_t('ad_rejected_desc1')}$adTitle${_t('ad_rejected_desc2')}',
+              style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF64748B), height: 1.5),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.red.withValues(alpha: 0.15)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _t('rejection_reason_label'),
+                    style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 10, color: Colors.redAccent, letterSpacing: 0.5),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    reason,
+                    style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13, color: const Color(0xFF1E293B), height: 1.45),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              _t('ad_rejected_info'),
+              style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B), height: 1.45),
+            ),
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF4A80F0),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              minimumSize: const Size(100, 40),
+              elevation: 0,
+            ),
+            child: Text(_t('got_it'), style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 12)),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildChatsTab() {

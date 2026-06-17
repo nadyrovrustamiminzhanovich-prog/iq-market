@@ -148,7 +148,8 @@ class TaxiAutoResolutionController {
                       provider, 
                       t, 
                       isDriverRole ? (data['passengerId'] ?? 'demo_passenger_id') : (data['driverId'] ?? 'demo_driver_id'), 
-                      otherName
+                      otherName,
+                      isDriverRole ? 'passenger' : 'driver',
                     );
                   }
                 },

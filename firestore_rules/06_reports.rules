@@ -1,0 +1,4 @@
+    match /reports/{reportId} {
+      allow create: if isSignedIn() && request.resource.data.reporterUserId == request.auth.uid;
+      allow read, delete: if isSignedIn() && isAdmin();
+    }

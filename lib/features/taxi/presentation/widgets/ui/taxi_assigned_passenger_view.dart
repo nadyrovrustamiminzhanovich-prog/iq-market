@@ -139,7 +139,7 @@ class _TaxiAssignedPassengerViewState extends State<TaxiAssignedPassengerView> {
                             style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 16, color: const Color(0xFF1E293B)),
                           ),
                           const SizedBox(height: 4),
-                          TaxiRatingWidget(provider: provider, t: t, userId: passengerId),
+                          TaxiRatingWidget(provider: provider, t: t, userId: passengerId, targetRole: 'passenger'),
                         ],
                       ),
                     ),
@@ -277,7 +277,7 @@ class _TaxiAssignedPassengerViewState extends State<TaxiAssignedPassengerView> {
               }
               if (mounted) {
                 NotificationService.notify(context, 'Поездка завершена', 'Благодарим вас за работу!', isSuccess: true);
-                TaxiDialogsController.showFeedbackDialog(context, provider, t, passengerId, passengerName);
+                TaxiDialogsController.showFeedbackDialog(context, provider, t, passengerId, passengerName, 'passenger');
               }
             },
             child: Container(

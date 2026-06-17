@@ -53,6 +53,26 @@ class ChatService {
     if (uid == null) return null;
 
     final chatId = getChatId(sellerId);
+    
+    // Fetch sender name if not provided
+    String actualSenderName = senderName ?? StorageService.getString('user_name') ?? 'Пользователь';
+
+    // Update last message in chat summary (creates chat doc first to satisfy rules)
+    final summaryData = {
+      'lastMessage': text,
+      'lastTimestamp': FieldValue.serverTimestamp(),
+      'lastSenderId': uid,
+      'isRead': false,
+      'users': [uid, sellerId],
+      'unreadCount_$sellerId': FieldValue.increment(1),
+      'name_$uid': actualSenderName,
+      'name_$sellerId': ad.userName,
+      'adId': ad.id,
+      'adTitle': ad.title,
+      'adImage': ad.images.isNotEmpty ? ad.images.first : '',
+    };
+    await _db.collection('chats').doc(chatId).set(summaryData, SetOptions(merge: true));
+
     final messageData = {
       'senderId': uid,
       'text': text,
@@ -68,26 +88,6 @@ class ChatService {
         .doc(chatId)
         .collection('messages')
         .add(messageData);
-    
-    // Fetch sender name if not provided
-    String actualSenderName = senderName ?? StorageService.getString('user_name') ?? 'Пользователь';
-
-    // Update last message in chat summary
-    final summaryData = {
-      'lastMessage': text,
-      'lastTimestamp': FieldValue.serverTimestamp(),
-      'lastSenderId': uid,
-      'isRead': false,
-      'users': [uid, sellerId],
-      'unreadCount_$sellerId': FieldValue.increment(1),
-      'name_$uid': actualSenderName,
-      'name_$sellerId': ad.userName,
-      'adId': ad.id,
-      'adTitle': ad.title,
-      'adImage': ad.images.isNotEmpty ? ad.images.first : '',
-    };
-    
-    await _db.collection('chats').doc(chatId).set(summaryData, SetOptions(merge: true));
 
     // Identify the recipient correctly
     // If the sender is the one in ad.userId, we need the other person from the chat.
@@ -122,6 +122,26 @@ class ChatService {
     final chatId = getChatId(ad.userId);
     final text = 'Предложение цены: ${price.toInt()} ₸';
     
+    // Fetch sender details
+    final actualSenderName = StorageService.getString('user_name') ?? 'Пользователь';
+    final senderPhone = StorageService.getString('user_phone') ?? '';
+
+    // Update last message in chat summary (creates chat doc first to satisfy rules)
+    final summaryData = {
+      'lastMessage': text,
+      'lastTimestamp': FieldValue.serverTimestamp(),
+      'lastSenderId': uid,
+      'isRead': false,
+      'users': [uid, ad.userId],
+      'unreadCount_${ad.userId}': FieldValue.increment(1),
+      'name_$uid': actualSenderName,
+      'name_${ad.userId}': ad.userName,
+      'adId': ad.id,
+      'adTitle': ad.title,
+      'adImage': ad.images.isNotEmpty ? ad.images.first : '',
+    };
+    await _db.collection('chats').doc(chatId).set(summaryData, SetOptions(merge: true));
+
     final messageData = {
       'senderId': uid,
       'text': text,
@@ -139,27 +159,6 @@ class ChatService {
         .doc(chatId)
         .collection('messages')
         .add(messageData);
-
-    // Fetch sender details
-    final actualSenderName = StorageService.getString('user_name') ?? 'Пользователь';
-    final senderPhone = StorageService.getString('user_phone') ?? '';
-
-    // Update last message in chat summary
-    final summaryData = {
-      'lastMessage': text,
-      'lastTimestamp': FieldValue.serverTimestamp(),
-      'lastSenderId': uid,
-      'isRead': false,
-      'users': [uid, ad.userId],
-      'unreadCount_${ad.userId}': FieldValue.increment(1),
-      'name_$uid': actualSenderName,
-      'name_${ad.userId}': ad.userName,
-      'adId': ad.id,
-      'adTitle': ad.title,
-      'adImage': ad.images.isNotEmpty ? ad.images.first : '',
-    };
-    
-    await _db.collection('chats').doc(chatId).set(summaryData, SetOptions(merge: true));
 
     // Send push notification trigger
     NotificationService.saveNotificationToFirestore(
@@ -397,6 +396,64 @@ class ChatService {
           
           return chats;
         });
+  }
+
+  static Stream<int> getUnreadMessagesCountStream() {
+    final uid = UserService.currentUid;
+    if (uid == null) return Stream.value(0);
+
+    return _db
+        .collection('chats')
+        .where('users', arrayContains: uid)
+        .snapshots()
+        .map((snapshot) {
+          int count = 0;
+          for (var doc in snapshot.docs) {
+            final data = doc.data();
+            final unread = data['unreadCount_$uid'];
+            if (unread != null && unread is int) {
+              count += unread;
+            }
+          }
+          return count;
+        });
+  }
+
+  static Future<void> markAllChatsAsRead() async {
+    final uid = UserService.currentUid;
+    if (uid == null) return;
+    
+    try {
+      final chats = await _db
+          .collection('chats')
+          .where('users', arrayContains: uid)
+          .get();
+
+      final batch = _db.batch();
+      for (var doc in chats.docs) {
+        final data = doc.data();
+        final unreadCount = data['unreadCount_$uid'] ?? 0;
+        if (unreadCount > 0) {
+          batch.set(doc.reference, {
+            'unreadCount_$uid': 0,
+            'isRead': true,
+          }, SetOptions(merge: true));
+          
+          final unreadMessages = await doc.reference
+              .collection('messages')
+              .where('isRead', isEqualTo: false)
+              .get();
+          for (var msgDoc in unreadMessages.docs) {
+            if (msgDoc.data()['senderId'] != uid) {
+              batch.update(msgDoc.reference, {'isRead': true});
+            }
+          }
+        }
+      }
+      await batch.commit();
+    } catch (e) {
+      debugPrint('[ChatService.markAllChatsAsRead] Error: $e');
+    }
   }
 
   /// Seed test data for UI testing

@@ -1,0 +1,40 @@
+    // Правила для Такси
+    match /taxi_rides/{rideId} {
+      allow read: if true;
+      allow create: if isSignedIn() && request.resource.data.driverId == request.auth.uid && request.resource.data.keys().hasAll(['driverId', 'from', 'to', 'status', 'createdAt']);
+      allow update: if isSignedIn() && (
+        request.auth.uid == resource.data.driverId ||
+        request.auth.uid == resource.data.passengerId ||
+        isAdmin()
+      );
+      allow delete: if isSignedIn() && (
+        request.auth.uid == resource.data.driverId ||
+        isAdmin()
+      );
+    }
+
+    match /taxi_orders/{orderId} {
+      allow read: if true;
+      allow create: if isSignedIn() && request.resource.data.passengerId == request.auth.uid && request.resource.data.keys().hasAll(['passengerId', 'from', 'to', 'status', 'createdAt']);
+      allow update: if isSignedIn() && (
+        request.auth.uid == resource.data.passengerId ||
+        request.auth.uid == resource.data.driverId ||
+        isAdmin()
+      );
+      allow delete: if isSignedIn() && (
+        request.auth.uid == resource.data.passengerId ||
+        isAdmin()
+      );
+    }
+
+    match /taxi_bids/{bidId} {
+      allow create: if isSignedIn() && request.resource.data.senderId == request.auth.uid && request.resource.data.keys().hasAll(['senderId', 'receiverId', 'targetId', 'price', 'status']);
+      allow read, update: if isSignedIn() && (request.auth.uid == resource.data.senderId || request.auth.uid == resource.data.receiverId);
+      allow delete: if false;
+    }
+
+    match /taxi_reviews/{reviewId} {
+      allow read: if true;
+      allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid && request.resource.data.keys().hasAll(['authorId', 'rating']);
+      allow update, delete: if isSignedIn() && (request.auth.uid == resource.data.authorId || isAdmin());
+    }

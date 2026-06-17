@@ -38,8 +38,8 @@ class TaxiDriverCard extends StatelessWidget {
     
     // Dynamic rating and verification badge
     final String driverId = driver['driverId'] ?? '';
-    final double realRating = provider.getUserRating(driverId);
-    final int realReviewCount = provider.getUserReviewCount(driverId);
+    final double realRating = provider.getUserRatingAsDriver(driverId);
+    final int realReviewCount = provider.getUserReviewCountAsDriver(driverId);
     final bool isVerified = driver['isVerified'] == true || driverId == 'taxi_driver';
 
     return Container(

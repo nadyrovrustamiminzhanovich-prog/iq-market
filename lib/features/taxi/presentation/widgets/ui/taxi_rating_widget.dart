@@ -24,6 +24,7 @@ class TaxiRatingWidget extends StatelessWidget {
   final TaxiTheme t;
   final String userId;
   final double size;
+  final String targetRole;
 
   const TaxiRatingWidget({
     super.key,
@@ -31,12 +32,17 @@ class TaxiRatingWidget extends StatelessWidget {
     required this.t,
     required this.userId,
     this.size = 12,
+    this.targetRole = 'driver',
   });
 
   @override
   Widget build(BuildContext context) {
-    final int count    = provider.getUserReviewCount(userId);
-    final double rating = provider.getUserRating(userId);
+    final int count = targetRole == 'passenger'
+        ? provider.getUserReviewCountAsPassenger(userId)
+        : provider.getUserReviewCountAsDriver(userId);
+    final double rating = targetRole == 'passenger'
+        ? provider.getUserRatingAsPassenger(userId)
+        : provider.getUserRatingAsDriver(userId);
 
     // ── Меньше 5 отзывов — статус «Новичок» ──────────────────────────────
     if (count < 5) {

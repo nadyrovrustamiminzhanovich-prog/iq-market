@@ -373,7 +373,14 @@ void showTaxiHistoryDetailsSheet(BuildContext context, Map<String, dynamic> trip
                 onTap: () {
                   Navigator.pop(ctx);
                   HapticFeedback.mediumImpact();
-                  showTaxiHistoryRatingSheet(context, provider, targetUserId, counterpartName, t);
+                  showTaxiHistoryRatingSheet(
+                    context,
+                    provider,
+                    targetUserId,
+                    counterpartName,
+                    t,
+                    role == 'driver' ? 'passenger' : 'driver',
+                  );
                 },
                 child: Container(
                   width: double.infinity,

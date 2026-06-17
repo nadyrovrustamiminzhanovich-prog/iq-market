@@ -55,10 +55,13 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
         backgroundColor: _surfaceColor,
         elevation: 0,
         centerTitle: true,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios_new, color: _txtColor, size: 20),
-          onPressed: () => Navigator.pop(context),
-        ),
+        automaticallyImplyLeading: false,
+        leading: Navigator.canPop(context)
+            ? IconButton(
+                icon: Icon(Icons.arrow_back_ios_new, color: _txtColor, size: 20),
+                onPressed: () => Navigator.pop(context),
+              )
+            : null,
         title: Text(_t('title'), style: GoogleFonts.inter(color: _txtColor, fontWeight: FontWeight.w900, fontSize: 18)),
       ),
       body: favoriteIds.isEmpty 

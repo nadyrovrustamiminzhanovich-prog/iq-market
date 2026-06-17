@@ -21,8 +21,9 @@ class TaxiDialogsController {
     TaxiTheme t,
     String targetUserId,
     String targetUserName,
+    String targetRole,
   ) {
-    showTaxiFeedbackDialog(context, provider, t, targetUserId, targetUserName);
+    showTaxiFeedbackDialog(context, provider, t, targetUserId, targetUserName, targetRole);
   }
 
   static void showCancelSurveyDialog(

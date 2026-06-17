@@ -11,6 +11,7 @@ class ReviewModel {
   final String comment;
   final List<String> images;
   final DateTime timestamp;
+  final String? targetRole;
 
   ReviewModel({
     required this.id,
@@ -23,6 +24,7 @@ class ReviewModel {
     required this.comment,
     required this.images,
     required this.timestamp,
+    this.targetRole,
   });
 
   Map<String, dynamic> toMap() {
@@ -36,6 +38,7 @@ class ReviewModel {
       'comment': comment,
       'images': images,
       'timestamp': timestamp,
+      'targetRole': targetRole,
     };
   }
 
@@ -50,7 +53,10 @@ class ReviewModel {
       rating: (map['rating'] ?? 0).toDouble(),
       comment: map['comment'] ?? '',
       images: List<String>.from(map['images'] ?? []),
-      timestamp: (map['timestamp'] as Timestamp).toDate(),
+      timestamp: (map['timestamp'] is Timestamp)
+          ? (map['timestamp'] as Timestamp).toDate()
+          : DateTime.now(),
+      targetRole: map['targetRole'] as String?,
     );
   }
 }

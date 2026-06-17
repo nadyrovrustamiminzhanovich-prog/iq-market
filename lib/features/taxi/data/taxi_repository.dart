@@ -325,6 +325,7 @@ class TaxiRepository {
     required String comment,
     required String firstName,
     required String lastName,
+    required String targetRole,
   }) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
@@ -333,7 +334,7 @@ class TaxiRepository {
     // Using millisecondsSinceEpoch as suffix meant unlimited duplicates.
     // Now re-submitting simply overwrites the existing review (last write wins),
     // which is the intended "edit your review" UX.
-    final docId = 'review_${user.uid}_to_$targetUserId';
+    final docId = 'review_${user.uid}_to_${targetUserId}_as_$targetRole';
 
     final newReview = {
       'id': docId,
@@ -344,6 +345,7 @@ class TaxiRepository {
       'rating': rating,
       'comment': comment,
       'createdAt': FieldValue.serverTimestamp(),
+      'targetRole': targetRole,
     };
 
     await FirebaseFirestore.instance

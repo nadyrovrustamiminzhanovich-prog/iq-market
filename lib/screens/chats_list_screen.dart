@@ -45,7 +45,7 @@ class ChatsListScreen extends StatelessWidget {
             icon: Icon(Icons.more_vert_rounded, color: theme.colorScheme.onSurface),
             onSelected: (v) {
               if (v == 'read_all') {
-                // Logic to mark all as read can be added
+                ChatService.markAllChatsAsRead();
               }
             },
             itemBuilder: (_) => [

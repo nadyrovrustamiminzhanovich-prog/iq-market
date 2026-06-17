@@ -4,7 +4,14 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:iqmarket/theme/taxi_theme.dart';
 import 'package:iqmarket/providers/taxi_provider.dart';
 
-void showTaxiHistoryRatingSheet(BuildContext context, TaxiProvider provider, String targetUserId, String targetUserName, TaxiTheme t) {
+void showTaxiHistoryRatingSheet(
+  BuildContext context,
+  TaxiProvider provider,
+  String targetUserId,
+  String targetUserName,
+  TaxiTheme t,
+  String targetRole,
+) {
   double selectedRating = 5.0;
   final List<String> tags = ['Чистое авто 🚗', 'Вежливый 😊', 'Быстро ⚡', 'Комфортно 🛋️', 'Безопасно 🛡️'];
   final List<String> selectedTags = [];
@@ -165,6 +172,7 @@ void showTaxiHistoryRatingSheet(BuildContext context, TaxiProvider provider, Str
                   targetUserId: targetUserId,
                   rating: selectedRating,
                   comment: reviewComment.isEmpty ? 'Без комментариев' : reviewComment,
+                  targetRole: targetRole,
                 );
 
                 if (context.mounted) {

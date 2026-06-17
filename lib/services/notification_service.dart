@@ -223,6 +223,19 @@ class NotificationService {
         .map((snap) => snap.docs.map((doc) => NotificationModel.fromMap(doc.data(), doc.id)).toList());
   }
 
+  static Stream<int> getUnreadNotificationsCountStream() {
+    final uid = UserService.currentUid;
+    if (uid == null) return Stream.value(0);
+
+    return _db
+        .collection('users')
+        .doc(uid)
+        .collection('notifications')
+        .where('isRead', isEqualTo: false)
+        .snapshots()
+        .map((snap) => snap.docs.length);
+  }
+
   static Future<void> markAsRead(String id) async {
     final uid = UserService.currentUid;
     if (uid == null) return;

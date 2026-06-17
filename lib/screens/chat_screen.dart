@@ -160,6 +160,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     _msgController.dispose();
     _scrollController.dispose();
     _msgFocusNode.dispose();
+    ChatService.updateTypingStatus(widget.ad.userId, false);
     if (ChatService.activeChatId == ChatService.getChatId(widget.ad.userId)) {
       ChatService.activeChatId = null;
       ChatService.updateOnlineStatus(widget.ad.userId, false);
@@ -172,6 +173,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     if (text.isEmpty) return;
     ChatService.sendMessage(ad: widget.ad, text: text, senderName: _currentUserName);
     _msgController.clear();
+    ChatService.updateTypingStatus(widget.ad.userId, false);
     setState(() => _isTyping = false);
     _scrollToBottom();
   }
