@@ -1,0 +1,30 @@
+{
+  "name": "iqmarket",
+  "version": "1.0.0",
+  "description": "**IQ-Market** — это современный маркетплейс объявлений и сервис заказа такси, разработанный специально для рынка Казахстана. Приложение сочетает в себе функционал классической торговой площадки и умного помощника на базе искусственного интеллекта.",
+  "main": "rules.test.js",
+  "directories": {
+    "lib": "lib",
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://nadyrovrustamiminzhanovich-prog@github.com/nadyrovrustamiminzhanovich-prog/iq-market.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/nadyrovrustamiminzhanovich-prog/iq-market/issues"
+  },
+  "homepage": "https://github.com/nadyrovrustamiminzhanovich-prog/iq-market#readme",
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.1",
+    "firebase": "^12.15.0",
+    "jest": "^30.4.2"
+  }
+}

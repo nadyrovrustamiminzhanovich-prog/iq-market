@@ -88,7 +88,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
       await _speech.initialize(
         onError: (val) => debugPrint('Speech Error: $val'),
         onStatus: (val) {
-          if (val == 'done' || val == 'notListening') setState(() => _isListening = false);
+          if ((val == 'done' || val == 'notListening') && mounted) setState(() => _isListening = false);
         },
       );
     } catch (e) {
@@ -100,16 +100,18 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     if (!_isListening) {
       bool available = await _speech.initialize();
       if (available) {
-        setState(() => _isListening = true);
+        if (mounted) setState(() => _isListening = true);
         HapticFeedback.mediumImpact();
         _speech.listen(
           onResult: (val) {
-            setState(() {
-              _controller.text = val.recognizedWords;
-              if (val.finalResult) {
-                _isListening = false;
-              }
-            });
+            if (mounted) {
+              setState(() {
+                _controller.text = val.recognizedWords;
+                if (val.finalResult) {
+                  _isListening = false;
+                }
+              });
+            }
           },
           localeId: _currentLang == 'KZ' ? 'kk-KZ' : _currentLang == 'UG' ? 'tr-TR' : 'ru-RU',
         );
@@ -197,11 +199,11 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
             unicode: true),
         '');
 
-    setState(() => _isSpeaking = true);
+    if (mounted) setState(() => _isSpeaking = true);
 
     await _azureTts.speak(azureCleanText, _currentLang);
 
-    if (!_isSpeaking) {
+    if (mounted && !_isSpeaking) {
       String cleanText = azureCleanText;
       if (_currentLang == 'KZ' || _currentLang == 'UG') {
         cleanText = cleanText
@@ -241,7 +243,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
       await flutterTts.speak(cleanText);
     }
 
-    setState(() => _isSpeaking = false);
+    if (mounted) setState(() => _isSpeaking = false);
   }
 
   @override
@@ -249,6 +251,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     _controller.dispose();
     _scrollController.dispose();
     _azureTts.stop();
+    _azureTts.dispose();
     flutterTts.stop();
     _speech.cancel();
     super.dispose();
@@ -273,7 +276,9 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
       maxWidth: 1024,
       maxHeight: 1024,
     );
-    if (photo != null) setState(() => _selectedFiles.add(File(photo.path)));
+    if (photo != null && mounted) {
+      setState(() => _selectedFiles.add(File(photo.path)));
+    }
   }
 
   Future<List<Map<String, dynamic>>> _searchAdsInFirebase(String query) async {
@@ -377,15 +382,19 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
       final savedDate = prefs.getString('ai_limit_date') ?? '';
       
       if (savedDate == todayStr) {
-        setState(() {
-          _questionCount = prefs.getInt('ai_question_count') ?? 0;
-        });
+        if (mounted) {
+          setState(() {
+            _questionCount = prefs.getInt('ai_question_count') ?? 0;
+          });
+        }
       } else {
         await prefs.setString('ai_limit_date', todayStr);
         await prefs.setInt('ai_question_count', 0);
-        setState(() {
-          _questionCount = 0;
-        });
+        if (mounted) {
+          setState(() {
+            _questionCount = 0;
+          });
+        }
       }
     } catch (e) {
       debugPrint('Error loading question count: $e');
@@ -403,9 +412,11 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
         _questionCount = 0;
       }
       
-      setState(() {
-        _questionCount++;
-      });
+      if (mounted) {
+        setState(() {
+          _questionCount++;
+        });
+      }
       await prefs.setInt('ai_question_count', _questionCount);
     } catch (e) {
       debugPrint('Error incrementing question count: $e');
@@ -437,13 +448,15 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
 
     if (_selectedFiles.isEmpty && _responseCache.containsKey(text.toLowerCase())) {
       final cached = _responseCache[text.toLowerCase()]!;
-      setState(() {
-        _messages.add(
-            {'isMe': true, 'text': text, 'time': DateFormat('HH:mm').format(DateTime.now())});
-        _messages.add(
-            {'isMe': false, 'text': cached, 'time': DateFormat('HH:mm').format(DateTime.now())});
-        _controller.clear();
-      });
+      if (mounted) {
+        setState(() {
+          _messages.add(
+              {'isMe': true, 'text': text, 'time': DateFormat('HH:mm').format(DateTime.now())});
+          _messages.add(
+              {'isMe': false, 'text': cached, 'time': DateFormat('HH:mm').format(DateTime.now())});
+          _controller.clear();
+        });
+      }
       _scrollToBottom();
       return;
     }
@@ -453,23 +466,25 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     final List<File> filesToUpload = List.from(_selectedFiles);
     final displayMsg = text.replaceAll(RegExp(r'\n\[SYSTEM INSTRUCTION:.*?\]'), '');
 
-    setState(() {
-      _messages.add({
-        'isMe': true,
-        'text': text.isEmpty
-            ? (_currentLang == 'KZ'
-                ? "Медиафайл"
-                : _currentLang == 'UG'
-                    ? "Медиаһөжҗәт"
-                    : "Медиафайл")
-            : displayMsg,
-        'files': filesToUpload,
-        'time': DateFormat('HH:mm').format(DateTime.now())
+    if (mounted) {
+      setState(() {
+        _messages.add({
+          'isMe': true,
+          'text': text.isEmpty
+              ? (_currentLang == 'KZ'
+                  ? "Медиафайл"
+                  : _currentLang == 'UG'
+                      ? "Медиаһөжҗәт"
+                      : "Медиафайл")
+              : displayMsg,
+          'files': filesToUpload,
+          'time': DateFormat('HH:mm').format(DateTime.now())
+        });
+        _isLoading = true;
+        _selectedFiles.clear();
+        _controller.clear();
       });
-      _isLoading = true;
-      _selectedFiles.clear();
-      _controller.clear();
-    });
+    }
 
     _scrollToBottom();
 
@@ -477,12 +492,14 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
       final DateTime now = DateTime.now();
       final String timeStr = DateFormat('HH:mm').format(now);
 
-      setState(() {
-        _messages.add({'isMe': false, 'text': '', 'time': timeStr});
-        _isLoading = false;
-        _isStreaming = true;
-        _stopRequested = false;
-      });
+      if (mounted) {
+        setState(() {
+          _messages.add({'isMe': false, 'text': '', 'time': timeStr});
+          _isLoading = false;
+          _isStreaming = true;
+          _stopRequested = false;
+        });
+      }
 
       HapticFeedback.mediumImpact();
 
@@ -504,14 +521,16 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
           fullResponse += chunk.text!;
           if (fullResponse.length % 7 == 0) HapticFeedback.selectionClick();
 
-          setState(() {
-            _messages.last['text'] = fullResponse;
-          });
+          if (mounted) {
+            setState(() {
+              _messages.last['text'] = fullResponse;
+            });
+          }
           _scrollToBottom();
         }
       }
 
-      setState(() => _isStreaming = false);
+      if (mounted) setState(() => _isStreaming = false);
 
       if (filesToUpload.isEmpty) {
         _responseCache[text.toLowerCase()] = fullResponse;
@@ -534,29 +553,33 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                   ? 'Мән тапқан маллар:'
                   : 'Вот несколько товаров по вашему запросу:';
         }
-        setState(() {
-          _messages.last['text'] = finalVisibleText;
-          if (foundAds != null && foundAds.isNotEmpty) {
-            _messages.last['ads'] = foundAds;
-          }
+        if (mounted) {
+          setState(() {
+            _messages.last['text'] = finalVisibleText;
+            if (foundAds != null && foundAds.isNotEmpty) {
+              _messages.last['ads'] = foundAds;
+            }
 
-          if (fullResponse.toUpperCase().contains('ВНИМАНИЕ!') ||
-              fullResponse.toUpperCase().contains('НАЗАР АУДАРЫҢЫЗ!') ||
-              fullResponse.toUpperCase().contains('ДИҚҚӘТ!')) {
-            _showScamAlert = true;
-            _scamReason = finalVisibleText.split('\n').first;
-          } else {
-            _showScamAlert = false;
-          }
-        });
+            if (fullResponse.toUpperCase().contains('ВНИМАНИЕ!') ||
+                fullResponse.toUpperCase().contains('НАЗАР АУДАРЫҢЫЗ!') ||
+                fullResponse.toUpperCase().contains('ДИҚҚӘТ!')) {
+              _showScamAlert = true;
+              _scamReason = finalVisibleText.split('\n').first;
+            } else {
+              _showScamAlert = false;
+            }
+          });
+        }
       } else {
         if (fullResponse.toUpperCase().contains('ВНИМАНИЕ!') ||
             fullResponse.toUpperCase().contains('НАЗАР АУДАРЫҢЫЗ!') ||
             fullResponse.toUpperCase().contains('ДИҚҚӘТ!')) {
-          setState(() {
-            _showScamAlert = true;
-            _scamReason = fullResponse.split('\n').first;
-          });
+          if (mounted) {
+            setState(() {
+              _showScamAlert = true;
+              _scamReason = fullResponse.split('\n').first;
+            });
+          }
         }
       }
 
@@ -578,20 +601,26 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
       }
 
       if (_messages.isNotEmpty && _messages.last['isMe'] == false && _messages.last['text'] == '') {
-        setState(() {
-          _messages.last['text'] = errorMsg;
-        });
-      } else {
-        setState(() {
-          _messages.add({
-            'isMe': false,
-            'text': errorMsg,
-            'time': DateFormat('HH:mm').format(DateTime.now())
+        if (mounted) {
+          setState(() {
+            _messages.last['text'] = errorMsg;
           });
-        });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _messages.add({
+              'isMe': false,
+              'text': errorMsg,
+              'time': DateFormat('HH:mm').format(DateTime.now())
+            });
+          });
+        }
       }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
       _scrollToBottom();
     }
   }
@@ -847,7 +876,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                   {"icon": "🤝", "title": "Арзанрақ сураш", "desc": "Содилашқини йардәм"},
                 ]
               : [
-                  {"icon": "✍️", "title": "Напиши текст", "desc": "Описание для товара"},
+                  {"icon": "✍️", "title": "Напиши text", "desc": "Описание для товара"},
                   {"icon": "⚖️", "title": "Сравни цены", "desc": "Анализ рынка"},
                   {"icon": "🤝", "title": "Как торговаться?", "desc": "Советы профи"},
                 ];
@@ -894,11 +923,12 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
                 boxShadow: [
                   BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.12),
-                      blurRadius: 15,
-                      offset: const Offset(0, 5))
+                      color: Colors.black.withValues(alpha: 0.03),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4))
                 ],
               ),
               child: Column(
@@ -914,16 +944,16 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                   const Spacer(),
                   Text(
                     suggestions[i]['title']!,
-                    style: const TextStyle(
-                        color: Colors.black, fontWeight: FontWeight.w900, fontSize: 13, height: 1.1),
+                    style: GoogleFonts.inter(
+                        color: const Color(0xFF1E293B), fontWeight: FontWeight.w800, fontSize: 13, height: 1.2),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 2),
                   Text(
                     suggestions[i]['desc']!,
-                    style: const TextStyle(
-                        color: Colors.black54, fontSize: 10, fontWeight: FontWeight.w600),
+                    style: GoogleFonts.inter(
+                        color: const Color(0xFF64748B), fontSize: 10.5, fontWeight: FontWeight.w600),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -969,9 +999,9 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
           begin: Alignment(offset - 0.5, -0.3),
           end: Alignment(offset + 0.5, 0.3),
           colors: [
-            Colors.white.withValues(alpha: 0.05),
-            Colors.white.withValues(alpha: 0.15),
-            Colors.white.withValues(alpha: 0.05),
+            const Color(0xFFE2E8F0),
+            const Color(0xFFF1F5F9),
+            const Color(0xFFE2E8F0),
           ],
           stops: const [0.3, 0.5, 0.7],
         ),
@@ -982,7 +1012,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
   Widget _buildAttachmentPreview() {
     if (_selectedFiles.isEmpty) return const SizedBox.shrink();
     return Container(
-      height: 80,
+      height: 85,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       color: Colors.white,
       child: ListView.builder(
@@ -991,28 +1021,29 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
         itemBuilder: (context, i) => Stack(
           children: [
             Container(
-              margin: const EdgeInsets.only(right: 10),
-              width: 60,
-              height: 60,
+              margin: const EdgeInsets.only(right: 12),
+              width: 65,
+              height: 65,
               decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  color: Colors.grey.withValues(alpha: 0.1)),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE2E8F0), width: 1.5),
+                  color: const Color(0xFFF8FAFC)),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(14),
                 child: _isImage(_selectedFiles[i].path)
                     ? Image.file(_selectedFiles[i], fit: BoxFit.cover)
-                    : const Center(child: Icon(Icons.description_rounded, color: Color(0xFF4C4DDC))),
+                    : const Center(child: Icon(Icons.description_rounded, color: Color(0xFF4A80F0))),
               ),
             ),
             Positioned(
-                right: 0,
+                right: 4,
                 top: 0,
                 child: GestureDetector(
                     onTap: () => setState(() => _selectedFiles.removeAt(i)),
                     child: Container(
-                        padding: const EdgeInsets.all(2),
-                        decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
-                        child: const Icon(Icons.close, color: Colors.white, size: 12)))),
+                        padding: const EdgeInsets.all(3),
+                        decoration: const BoxDecoration(color: Color(0xFFEF4444), shape: BoxShape.circle),
+                        child: const Icon(Icons.close, color: Colors.white, size: 10)))),
           ],
         ),
       ),
@@ -1048,28 +1079,41 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
               padding: const EdgeInsets.all(16),
               constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.8),
               decoration: BoxDecoration(
-                color: isMe ? const Color(0xFF2563EB) : Colors.white.withValues(alpha: 0.12),
+                gradient: isMe 
+                    ? const LinearGradient(
+                        colors: [Color(0xFF3B82F6), Color(0xFF4F46E5)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      )
+                    : null,
+                color: isMe ? null : Colors.white,
                 borderRadius: BorderRadius.only(
                   topLeft: const Radius.circular(24),
                   topRight: const Radius.circular(24),
                   bottomLeft: Radius.circular(isMe ? 24 : 4),
                   bottomRight: Radius.circular(isMe ? 4 : 24),
                 ),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1.5),
+                border: isMe ? null : Border.all(color: const Color(0xFFE2E8F0), width: 1),
+                boxShadow: isMe ? null : [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.03),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  )
+                ],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   isMe
                       ? Text(msg['text'],
-                          style:
-                              const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 15))
+                          style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14.5, height: 1.45))
                       : MarkdownBody(
                           data: msg['text'],
                           styleSheet: MarkdownStyleSheet(
-                            p: const TextStyle(color: Colors.white, fontSize: 14.5, height: 1.6),
-                            strong: const TextStyle(
-                                fontWeight: FontWeight.w900, color: Color(0xFF00E5FF)),
+                            p: GoogleFonts.inter(color: const Color(0xFF1E293B), fontSize: 14.5, height: 1.55, fontWeight: FontWeight.w500),
+                            strong: GoogleFonts.inter(
+                                fontWeight: FontWeight.w800, color: const Color(0xFF3B82F6)),
                           ),
                         ),
                   if (!isMe) ...[
@@ -1082,9 +1126,9 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                           child: Container(
                             padding: const EdgeInsets.all(6),
                             decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.1),
+                                color: const Color(0xFFF1F5F9),
                                 borderRadius: BorderRadius.circular(10)),
-                            child: const Icon(Icons.volume_up_rounded, color: Colors.white, size: 16),
+                            child: const Icon(Icons.volume_up_rounded, color: Color(0xFF64748B), size: 16),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -1096,9 +1140,9 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                           child: Container(
                             padding: const EdgeInsets.all(6),
                             decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.1),
+                                color: const Color(0xFFF1F5F9),
                                 borderRadius: BorderRadius.circular(10)),
-                            child: const Icon(Icons.copy_rounded, color: Colors.white, size: 16),
+                            child: const Icon(Icons.copy_rounded, color: Color(0xFF64748B), size: 16),
                           ),
                         ),
                       ],
@@ -1138,7 +1182,8 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
               decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(20),
-                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 10)]),
+                  border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
+                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10, offset: const Offset(0, 4))]),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1157,11 +1202,11 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                       padding: const EdgeInsets.all(8),
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Text('${ad['price']} ₸',
-                            style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF2563EB))),
+                            style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: const Color(0xFF2563EB))),
                         Text(ad['title'] ?? '',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600))
+                            style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600))
                       ])),
                 ],
               ),
@@ -1174,32 +1219,39 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
 
   Widget _inputArea() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: const BoxDecoration(color: Colors.transparent),
       child: SafeArea(
         child: Row(
           children: [
             IconButton(
-                icon: const Icon(Icons.add_photo_alternate_rounded, color: Colors.white, size: 28),
+                icon: const Icon(Icons.add_photo_alternate_rounded, color: Color(0xFF4F46E5), size: 28),
                 onPressed: _pickMedia),
             Expanded(
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 18),
                 decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.15),
+                    color: Colors.white,
                     borderRadius: BorderRadius.circular(30),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 1.5)),
+                    border: Border.all(color: const Color(0xFFE2E8F0), width: 1.5),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.03),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      )
+                    ]),
                 child: Row(
                   children: [
                     Expanded(
                       child: TextField(
                         controller: _controller,
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                        style: GoogleFonts.inter(color: const Color(0xFF1E293B), fontWeight: FontWeight.w600, fontSize: 14.5),
                         decoration: InputDecoration(
                             hintText: _currentLang == 'KZ'
                                 ? 'Сұрағыңыз...'
                                 : _currentLang == 'UG' ? 'Соалиңиз...' : 'Ваш вопрос...',
-                            hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
+                            hintStyle: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontWeight: FontWeight.w500, fontSize: 14),
                             border: InputBorder.none),
                       ),
                     ),
@@ -1212,18 +1264,18 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                               builder: (context, value, child) => Container(
                                   padding: const EdgeInsets.all(8),
                                   decoration: BoxDecoration(
-                                      color: Colors.white,
+                                      color: const Color(0xFFEF4444),
                                       shape: BoxShape.circle,
                                       boxShadow: [
                                         BoxShadow(
-                                            color: Colors.cyanAccent.withValues(alpha: 0.6 * (1 - value)),
+                                            color: const Color(0xFFEF4444).withValues(alpha: 0.6 * (1 - value)),
                                             spreadRadius: 20 * value,
                                             blurRadius: 15)
                                       ]),
-                                  child: const Icon(Icons.mic, color: Color(0xFF2563EB), size: 24)),
+                                  child: const Icon(Icons.mic, color: Colors.white, size: 20)),
                               onEnd: () => setState(() {}),
                             )
-                          : const Icon(Icons.mic_none_rounded, color: Colors.white, size: 28),
+                          : const Icon(Icons.mic_none_rounded, color: Color(0xFF64748B), size: 26),
                     ),
                   ],
                 ),
@@ -1235,11 +1287,15 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
               child: Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                      color: Colors.white,
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF3B82F6), Color(0xFF4F46E5)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
                       shape: BoxShape.circle,
-                      boxShadow: [BoxShadow(color: Colors.white.withValues(alpha: 0.3), blurRadius: 15)]),
+                      boxShadow: [BoxShadow(color: const Color(0xFF4F46E5).withValues(alpha: 0.25), blurRadius: 10, offset: const Offset(0, 4))]),
                   child: Icon(_isStreaming ? Icons.stop_rounded : Icons.send_rounded,
-                      color: const Color(0xFF2563EB), size: 22)),
+                      color: Colors.white, size: 20)),
             ),
           ],
         ),

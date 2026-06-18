@@ -126,13 +126,13 @@ class MainApp extends StatelessWidget {
                   const SizedBox(height: 16),
                   Text(
                     'Упс! Что-то пошло не так',
-                    style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.w900),
+                    style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w900),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     'Мы уже получили отчет и работаем над исправлением.',
                     textAlign: TextAlign.center,
-                    style: GoogleFonts.outfit(color: Colors.grey[600]),
+                    style: GoogleFonts.inter(color: Colors.grey[600]),
                   ),
                   const SizedBox(height: 24),
                   ElevatedButton(

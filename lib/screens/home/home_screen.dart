@@ -60,6 +60,12 @@ class _IQMarketHomeState extends State<IQMarketHome> {
   bool _isAdmin = false;
 
   static const _pageSize = 20;
+  Set<String>? _lastBlockedUserIds;
+
+  bool _areSetsEqual(Set<String> a, Set<String> b) {
+    if (a.length != b.length) return false;
+    return a.containsAll(b);
+  }
   
   // В версии 5.1.1 параметры передаются иначе, либо оставляем пустым, если используем refresh()
   final PagingController<DocumentSnapshot?, AdModel> _pagingController = 
@@ -105,7 +111,9 @@ class _IQMarketHomeState extends State<IQMarketHome> {
         sortBy: _sortBy,
       );
       
-      final List<AdModel> newItems = List<AdModel>.from(result['ads']);
+      final List<AdModel> newItems = List<AdModel>.from(result['ads']).where((ad) {
+        return !config.blockedUserIds.contains(ad.userId);
+      }).toList();
       final isLastPage = newItems.length < _pageSize;
       
       if (isLastPage) {
@@ -148,6 +156,16 @@ class _IQMarketHomeState extends State<IQMarketHome> {
 
   Widget _buildHomePage() {
     final config = Provider.of<AppConfigProvider>(context);
+
+    // Refresh paging controller if blocked user list changed
+    final currentBlocked = config.blockedUserIds;
+    if (_lastBlockedUserIds != null && !_areSetsEqual(_lastBlockedUserIds!, currentBlocked)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _pagingController.refresh();
+      });
+    }
+    _lastBlockedUserIds = Set.from(currentBlocked);
+
     return RefreshIndicator(
       onRefresh: () async {
         _pagingController.refresh();

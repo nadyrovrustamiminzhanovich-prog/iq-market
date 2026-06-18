@@ -226,9 +226,11 @@ class TaxiRepository {
           .get();
 
       final batch = db.batch();
+      final List<Map<String, dynamic>> rejectedBidsData = [];
       for (var doc in otherBids.docs) {
         if (doc.id != bidId) {
           batch.update(doc.reference, {'status': 'rejected'});
+          rejectedBidsData.add(doc.data());
         }
       }
       await batch.commit();
@@ -251,6 +253,16 @@ class TaxiRepository {
         );
       }
 
+      // Notify other bid senders that their bids were rejected
+      for (var bid in rejectedBidsData) {
+        await NotificationService.saveNotificationToFirestore(
+          title: 'Предложение отклонено ❌',
+          body: 'Ваша ставка на ${bid['offeredPrice']} ₸ была отклонена, так как была выбрана другая.',
+          type: 'taxi_bid_rejected',
+          uid: bid['senderId'],
+        );
+      }
+
     } catch (e) {
       debugPrint('Transaction failed: $e');
       rethrow;
@@ -261,14 +273,27 @@ class TaxiRepository {
     final db = FirebaseFirestore.instance;
     final bidRef = db.collection('taxi_bids').doc(bidId);
     
+    Map<String, dynamic>? capturedBidData;
+    
     // БЕЗОПАСНОСТЬ: Использовать транзакцию, чтобы нельзя было отменить уже принятую ставку
     await db.runTransaction((transaction) async {
       final snap = await transaction.get(bidRef);
       if (!snap.exists) return;
-      if (snap.data()!['status'] != 'pending') return;
+      final data = snap.data()!;
+      if (data['status'] != 'pending') return;
 
       transaction.update(bidRef, {'status': 'rejected'});
+      capturedBidData = data;
     });
+
+    if (capturedBidData != null) {
+      await NotificationService.saveNotificationToFirestore(
+        title: 'Предложение отклонено ❌',
+        body: 'Ваша ставка на ${capturedBidData!['offeredPrice']} ₸ была отклонена.',
+        type: 'taxi_bid_rejected',
+        uid: capturedBidData!['senderId'],
+      );
+    }
   }
 
   Future<void> cancelOrder(String orderId, {String? reason}) async {

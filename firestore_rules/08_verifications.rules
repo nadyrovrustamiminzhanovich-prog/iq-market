@@ -1,5 +1,6 @@
     // Для Driver Verification
     match /driver_verifications/{docId} {
-      allow read, create: if isSignedIn();
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
       allow update, delete: if false; 
     }

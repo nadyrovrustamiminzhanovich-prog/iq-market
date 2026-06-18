@@ -145,6 +145,7 @@ class UserService {
 
   /// Get user by ID (for seller info)
   static Future<UserModel?> getUserById(String uid) async {
+    if (uid.isEmpty) return null;
     try {
       final doc = await users.doc(uid).get();
       if (!doc.exists) return null;

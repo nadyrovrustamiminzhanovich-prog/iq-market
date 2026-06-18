@@ -7,12 +7,14 @@ class AppConfigProvider with ChangeNotifier {
   String _language = StorageService.getString('app_lang') ?? 'Русский';
   String _city = StorageService.getString('user_location') ?? 'Все';
   Set<String> _favoriteIds = Set<String>.from(StorageService.getStringList('favorites') ?? []);
+  Set<String> _blockedUserIds = Set<String>.from(StorageService.getStringList('blockedUserIds') ?? []);
+  String? _lastLoadedUid;
   Locale _locale = const Locale('ru', 'RU');
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   void Function(String)? onLanguageChanged;
 
   AppConfigProvider() {
-    _loadFavoritesFromFirestore();
+    _checkAndReload();
   }
 
   Locale get locale => _locale;
@@ -24,8 +26,33 @@ class AppConfigProvider with ChangeNotifier {
 
   String get language => _language;
   String get city => _city;
-  Set<String> get favoriteIds => _favoriteIds;
+  
+  Set<String> get favoriteIds {
+    _checkAndReload();
+    return _favoriteIds;
+  }
+  
+  Set<String> get blockedUserIds {
+    _checkAndReload();
+    return _blockedUserIds;
+  }
+  
   bool get isDarkMode => StorageService.getString('theme') == 'Dark';
+
+  void _checkAndReload() {
+    final uid = UserService.currentUid;
+    if (uid != _lastLoadedUid) {
+      _lastLoadedUid = uid;
+      if (uid != null) {
+        _blockedUserIds = Set<String>.from(StorageService.getStringList('blockedUserIds_${uid}') ?? []);
+        _favoriteIds = Set<String>.from(StorageService.getStringList('favorites_${uid}') ?? []);
+        _loadFavoritesFromFirestore();
+      } else {
+        _favoriteIds = Set<String>.from(StorageService.getStringList('favorites') ?? []);
+        _blockedUserIds = Set<String>.from(StorageService.getStringList('blockedUserIds') ?? []);
+      }
+    }
+  }
 
   void setLanguage(String lang) {
     if (_language == lang) return;
@@ -75,7 +102,14 @@ class AppConfigProvider with ChangeNotifier {
         final List<dynamic>? firestoreFavorites = data['favoriteIds'];
         if (firestoreFavorites != null) {
           _favoriteIds.addAll(firestoreFavorites.map((e) => e.toString()));
-          StorageService.setStringList('favorites', _favoriteIds.toList());
+          StorageService.setStringList('favorites_${uid}', _favoriteIds.toList());
+        }
+
+        // Sync blocked users
+        final List<dynamic>? firestoreBlocked = data['blockedUserIds'];
+        if (firestoreBlocked != null) {
+          _blockedUserIds.addAll(firestoreBlocked.map((e) => e.toString()));
+          StorageService.setStringList('blockedUserIds_${uid}', _blockedUserIds.toList());
         }
 
         // Sync location
@@ -109,6 +143,7 @@ class AppConfigProvider with ChangeNotifier {
   }
 
   void toggleFavorite(String id) async {
+    _checkAndReload();
     if (_favoriteIds.contains(id)) {
       _favoriteIds.remove(id);
     } else {
@@ -116,11 +151,15 @@ class AppConfigProvider with ChangeNotifier {
     }
     
     // Save locally
-    StorageService.setStringList('favorites', _favoriteIds.toList());
+    final uid = UserService.currentUid;
+    if (uid != null) {
+      StorageService.setStringList('favorites_${uid}', _favoriteIds.toList());
+    } else {
+      StorageService.setStringList('favorites', _favoriteIds.toList());
+    }
     notifyListeners();
 
     // Sync to Firestore if logged in
-    final uid = UserService.currentUid;
     if (uid != null) {
       try {
         await _db.collection('users').doc(uid).set({
@@ -132,5 +171,61 @@ class AppConfigProvider with ChangeNotifier {
     }
   }
 
-  bool isFavorite(String id) => _favoriteIds.contains(id);
+  void blockUser(String userId) async {
+    if (userId.isEmpty || userId == UserService.currentUid) return;
+    _checkAndReload();
+    _blockedUserIds.add(userId);
+    
+    final uid = UserService.currentUid;
+    if (uid != null) {
+      StorageService.setStringList('blockedUserIds_${uid}', _blockedUserIds.toList());
+    } else {
+      StorageService.setStringList('blockedUserIds', _blockedUserIds.toList());
+    }
+    notifyListeners();
+
+    if (uid != null) {
+      try {
+        await _db.collection('users').doc(uid).set({
+          'blockedUserIds': _blockedUserIds.toList(),
+        }, SetOptions(merge: true));
+      } catch (e) {
+        debugPrint('Error syncing blockedUserIds to Firestore: $e');
+      }
+    }
+  }
+
+  void unblockUser(String userId) async {
+    if (userId.isEmpty) return;
+    _checkAndReload();
+    _blockedUserIds.remove(userId);
+    
+    final uid = UserService.currentUid;
+    if (uid != null) {
+      StorageService.setStringList('blockedUserIds_${uid}', _blockedUserIds.toList());
+    } else {
+      StorageService.setStringList('blockedUserIds', _blockedUserIds.toList());
+    }
+    notifyListeners();
+
+    if (uid != null) {
+      try {
+        await _db.collection('users').doc(uid).set({
+          'blockedUserIds': _blockedUserIds.toList(),
+        }, SetOptions(merge: true));
+      } catch (e) {
+        debugPrint('Error syncing blockedUserIds to Firestore: $e');
+      }
+    }
+  }
+
+  bool isUserBlocked(String userId) {
+    _checkAndReload();
+    return _blockedUserIds.contains(userId);
+  }
+
+  bool isFavorite(String id) {
+    _checkAndReload();
+    return _favoriteIds.contains(id);
+  }
 }

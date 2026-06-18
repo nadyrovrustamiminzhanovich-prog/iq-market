@@ -1,5 +1,12 @@
     match /reviews/{reviewId} {
       allow read: if true;
-      allow create: if isSignedIn() && request.resource.data.fromUserId == request.auth.uid && request.resource.data.keys().hasAll(['fromUserId', 'toUserId', 'rating']);
-      allow update, delete: if isSignedIn() && isOwner(resource.data.fromUserId);
+      allow create: if isSignedIn() 
+        && request.resource.data.fromUserId == request.auth.uid 
+        && request.resource.data.fromUserId != request.resource.data.toUserId
+        && request.resource.data.keys().hasAll(['fromUserId', 'toUserId', 'rating'])
+        && request.resource.data.rating is number
+        && request.resource.data.rating >= 1
+        && request.resource.data.rating <= 5;
+      allow update: if isSignedIn() && isOwner(resource.data.fromUserId) && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['fromUserId', 'toUserId']));
+      allow delete: if isSignedIn() && isOwner(resource.data.fromUserId);
     }

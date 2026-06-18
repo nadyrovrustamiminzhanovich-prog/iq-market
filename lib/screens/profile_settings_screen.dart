@@ -165,7 +165,8 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
 
       if (_newImage != null) {
         final File? compressed = await FileService.compressImage(_newImage!);
-        final String? uploadedUrl = await FileService.uploadFile(compressed ?? _newImage!, 'avatars');
+        final uid = FirebaseAuth.instance.currentUser?.uid ?? 'unknown';
+        final String? uploadedUrl = await FileService.uploadFile(compressed ?? _newImage!, 'avatars/$uid');
         if (uploadedUrl != null) {
           finalPhotoUrl = uploadedUrl;
           if (widget.profileImagePath != null && widget.profileImagePath!.startsWith('http')) {

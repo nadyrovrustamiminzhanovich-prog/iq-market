@@ -47,7 +47,7 @@ class _AdminAdsScreenState extends State<AdminAdsScreen> with SingleTickerProvid
         backgroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
-        title: Text('МОДЕРАЦИЯ', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: const Color(0xFF0F172A), letterSpacing: 1)),
+        title: Text('МОДЕРАЦИЯ', style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: const Color(0xFF0F172A), letterSpacing: 1)),
         leading: IconButton(icon: const Icon(Icons.arrow_back_ios_new, color: Color(0xFF0F172A), size: 20), onPressed: () => Navigator.pop(context)),
         actions: [
           if (_isSelectionMode)
@@ -88,7 +88,7 @@ class _AdminAdsScreenState extends State<AdminAdsScreen> with SingleTickerProvid
                 indicatorWeight: 3,
                 labelColor: const Color(0xFF0F172A),
                 unselectedLabelColor: Colors.grey[400],
-                labelStyle: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1),
+                labelStyle: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1),
                 tabs: const [Tab(text: 'ОЖИДАНИЕ'), Tab(text: 'АКТИВНЫЕ')],
               ),
             ],
@@ -116,11 +116,11 @@ class _AdminAdsScreenState extends State<AdminAdsScreen> with SingleTickerProvid
       ),
       child: Row(
         children: [
-          Text('ВЫБРАНО: ${_selectedAdIds.length}', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: const Color(0xFF0F172A))),
+          Text('ВЫБРАНО: ${_selectedAdIds.length}', style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: const Color(0xFF0F172A))),
           const Spacer(),
           TextButton(
             onPressed: () => _handleBulkDelete(),
-            child: Text('УДАЛИТЬ', style: GoogleFonts.outfit(color: Colors.redAccent, fontWeight: FontWeight.w800)),
+            child: Text('УДАЛИТЬ', style: GoogleFonts.inter(color: Colors.redAccent, fontWeight: FontWeight.w800)),
           ),
           const SizedBox(width: 12),
           ElevatedButton(
@@ -132,7 +132,7 @@ class _AdminAdsScreenState extends State<AdminAdsScreen> with SingleTickerProvid
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               elevation: 0,
             ),
-            child: Text('ОДОБРИТЬ', style: GoogleFonts.outfit(fontWeight: FontWeight.w900)),
+            child: Text('ОДОБРИТЬ', style: GoogleFonts.inter(fontWeight: FontWeight.w900)),
           ),
         ],
       ),
@@ -200,6 +200,7 @@ class _AdminAdsScreenState extends State<AdminAdsScreen> with SingleTickerProvid
                       child: CachedNetworkImage(
                         imageUrl: ad.images.isNotEmpty ? ad.images.first : '',
                         fit: BoxFit.cover,
+                        memCacheWidth: 350,
                         errorWidget: (context, url, error) => Container(color: Colors.grey[100], child: const Icon(Icons.image_not_supported_rounded, color: Colors.grey)),
                       ),
                     ),
@@ -216,12 +217,12 @@ class _AdminAdsScreenState extends State<AdminAdsScreen> with SingleTickerProvid
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Expanded(child: Text(ad.title, style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A)))),
-                        Text('${ad.price.toInt()} ₸', style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w900, color: const Color(0xFF6366F1))),
+                        Expanded(child: Text(ad.title, style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A)))),
+                        Text('${ad.price.toInt()} ₸', style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w900, color: const Color(0xFF6366F1))),
                       ],
                     ),
                     const SizedBox(height: 4),
-                    Text(ad.userName, style: GoogleFonts.outfit(fontSize: 11, color: Colors.grey[500], fontWeight: FontWeight.w600)),
+                    Text(ad.userName, style: GoogleFonts.inter(fontSize: 11, color: Colors.grey[500], fontWeight: FontWeight.w600)),
                     const SizedBox(height: 20),
                     Row(
                       children: [
@@ -229,7 +230,7 @@ class _AdminAdsScreenState extends State<AdminAdsScreen> with SingleTickerProvid
                           child: OutlinedButton(
                             onPressed: () => _handleDelete(ad),
                             style: OutlinedButton.styleFrom(side: BorderSide(color: Colors.redAccent.withValues(alpha: 0.5)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 12)),
-                            child: Text('ОТКЛОНИТЬ', style: GoogleFonts.outfit(fontWeight: FontWeight.w800, color: Colors.redAccent, fontSize: 12)),
+                            child: Text('ОТКЛОНИТЬ', style: GoogleFonts.inter(fontWeight: FontWeight.w800, color: Colors.redAccent, fontSize: 12)),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -237,7 +238,7 @@ class _AdminAdsScreenState extends State<AdminAdsScreen> with SingleTickerProvid
                           child: ElevatedButton(
                             onPressed: () => _handleApprove(ad),
                             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 12), elevation: 0),
-                            child: Text('ОДОБРИТЬ', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 12)),
+                            child: Text('ОДОБРИТЬ', style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 12)),
                           ),
                         ),
                       ],
@@ -266,7 +267,7 @@ class _AdminAdsScreenState extends State<AdminAdsScreen> with SingleTickerProvid
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: Text('ПРИЧИНА ОТКЛОНЕНИЯ', style: GoogleFonts.outfit(fontWeight: FontWeight.w900)),
+        title: Text('ПРИЧИНА ОТКЛОНЕНИЯ', style: GoogleFonts.inter(fontWeight: FontWeight.w900)),
         content: TextField(
           controller: controller,
           maxLines: 3,
@@ -298,7 +299,7 @@ class _AdminAdsScreenState extends State<AdminAdsScreen> with SingleTickerProvid
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('УДАЛИТЬ ${_selectedAdIds.length} ОБЪЯВЛЕНИЙ?', style: GoogleFonts.outfit(fontWeight: FontWeight.w900)),
+        title: Text('УДАЛИТЬ ${_selectedAdIds.length} ОБЪЯВЛЕНИЙ?', style: GoogleFonts.inter(fontWeight: FontWeight.w900)),
         content: const Text('Это действие нельзя будет отменить.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('ОТМЕНА')),
@@ -336,7 +337,7 @@ class _AdminAdsScreenState extends State<AdminAdsScreen> with SingleTickerProvid
         children: [
           Icon(PhosphorIcons.shieldCheck(), size: 60, color: Colors.grey[200]),
           const SizedBox(height: 16),
-          Text('НЕТ ОБЪЯВЛЕНИЙ', style: GoogleFonts.outfit(color: Colors.grey[300], fontWeight: FontWeight.w900, fontSize: 14)),
+          Text('НЕТ ОБЪЯВЛЕНИЙ', style: GoogleFonts.inter(color: Colors.grey[300], fontWeight: FontWeight.w900, fontSize: 14)),
         ],
       ),
     );

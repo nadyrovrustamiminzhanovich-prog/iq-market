@@ -37,7 +37,7 @@ class _AdminTaxiScreenState extends State<AdminTaxiScreen> with SingleTickerProv
         backgroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
-        title: Text('ТАКСИ МОДЕРАЦИЯ', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: const Color(0xFF0F172A), letterSpacing: 1)),
+        title: Text('ТАКСИ МОДЕРАЦИЯ', style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: const Color(0xFF0F172A), letterSpacing: 1)),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new, color: Color(0xFF0F172A), size: 20),
           onPressed: () => Navigator.pop(context)
@@ -69,7 +69,7 @@ class _AdminTaxiScreenState extends State<AdminTaxiScreen> with SingleTickerProv
                 indicatorWeight: 3,
                 labelColor: const Color(0xFF0F172A),
                 unselectedLabelColor: Colors.grey[400],
-                labelStyle: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1),
+                labelStyle: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1),
                 tabs: const [Tab(text: 'ЗАКАЗЫ (ПАССАЖИРЫ)'), Tab(text: 'ПОЕЗДКИ (ВОДИТЕЛИ)')],
               ),
             ],
@@ -315,7 +315,7 @@ class _AdminTaxiScreenState extends State<AdminTaxiScreen> with SingleTickerProv
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: Text('УДАЛИТЬ ЗАПИСЬ?', style: GoogleFonts.outfit(fontWeight: FontWeight.w900)),
+        title: Text('УДАЛИТЬ ЗАПИСЬ?', style: GoogleFonts.inter(fontWeight: FontWeight.w900)),
         content: Text('Вы действительно хотите навсегда удалить эту поездку/заказ пользователя "$name" из системы?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('ОТМЕНА')),
@@ -346,7 +346,7 @@ class _AdminTaxiScreenState extends State<AdminTaxiScreen> with SingleTickerProv
         children: [
           Icon(PhosphorIcons.taxi(), size: 60, color: Colors.grey[200]),
           const SizedBox(height: 16),
-          Text(msg.toUpperCase(), style: GoogleFonts.outfit(color: Colors.grey[300], fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 0.5)),
+          Text(msg.toUpperCase(), style: GoogleFonts.inter(color: Colors.grey[300], fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 0.5)),
         ],
       ),
     );

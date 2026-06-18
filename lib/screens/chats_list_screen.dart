@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 import 'package:iqmarket/screens/chat_screen.dart';
 import 'package:iqmarket/models/ad_model.dart';
@@ -7,6 +8,7 @@ import 'package:iqmarket/services/user_service.dart';
 import 'package:iqmarket/services/chat_service.dart';
 import 'package:iqmarket/providers/app_config_provider.dart';
 import 'package:iqmarket/services/translation_service.dart';
+import 'package:iqmarket/screens/login_screen.dart';
 
 class ChatsListScreen extends StatelessWidget {
   const ChatsListScreen({super.key});
@@ -22,7 +24,90 @@ class ChatsListScreen extends StatelessWidget {
     if (uid == null) {
       return Scaffold(
         backgroundColor: theme.scaffoldBackgroundColor,
-        body: const Center(child: CircularProgressIndicator()),
+        appBar: AppBar(
+          elevation: 0,
+          backgroundColor: theme.colorScheme.surface,
+          title: Text(
+            TranslationService.t('chats', lang),
+            style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+          ),
+          leading: canPop
+              ? IconButton(
+                  icon: Icon(Icons.arrow_back_ios_new_rounded, color: theme.colorScheme.onSurface),
+                  onPressed: () => Navigator.pop(context),
+                )
+              : null,
+        ),
+        body: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.chat_bubble_outline_rounded,
+                  size: 80,
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  TranslationService.t('auth_required_title', lang),
+                  style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  TranslationService.t('auth_required_chats_desc', lang),
+                  style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 32),
+                SizedBox(
+                  width: double.infinity,
+                  height: 54,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF4A80F0), Color(0xFF3B82F6)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF4A80F0).withValues(alpha: 0.3),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        )
+                      ],
+                    ),
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => LoginScreen(lang: lang),
+                          ),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        shadowColor: Colors.transparent,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      child: Text(
+                        TranslationService.t('login_btn', lang),
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       );
     }
     return Scaffold(
@@ -60,7 +145,12 @@ class ChatsListScreen extends StatelessWidget {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-          final chats = snapshot.data ?? [];
+          final config = Provider.of<AppConfigProvider>(context);
+          final chats = (snapshot.data ?? []).where((chat) {
+            final List users = chat['users'] ?? [];
+            final String otherUserId = users.firstWhere((id) => id != uid, orElse: () => '');
+            return !config.blockedUserIds.contains(otherUserId);
+          }).toList();
           if (chats.isEmpty) {
             return Center(
               child: Column(
@@ -132,7 +222,14 @@ class ChatsListScreen extends StatelessWidget {
                                   child: Hero(
                                     tag: 'chat_ad-image-$adId',
                                     child: adImage.isNotEmpty 
-                                      ? Image.network(adImage, fit: BoxFit.cover)
+                                      ? CachedNetworkImage(
+                                          imageUrl: adImage,
+                                          fit: BoxFit.cover,
+                                          memCacheWidth: 150,
+                                          memCacheHeight: 150,
+                                          placeholder: (context, url) => Container(color: theme.colorScheme.surface),
+                                          errorWidget: (context, url, error) => const Icon(Icons.error_outline_rounded),
+                                        )
                                       : const Icon(Icons.person_outline_rounded, color: Colors.grey),
                                   ),
                                 ),

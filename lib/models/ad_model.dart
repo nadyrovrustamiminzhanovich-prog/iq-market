@@ -81,7 +81,7 @@ class AdModel {
       condition: map['condition'],
       canExchange: map['canExchange'] ?? false,
       hasDelivery: map['hasDelivery'] ?? false,
-      extraFields: map['extraFields'] as Map<String, dynamic>?,
+      extraFields: map['extraFields'] != null ? Map<String, dynamic>.from(map['extraFields'] as Map) : null,
       expiresAt: (map['expiresAt'] as Timestamp?)?.toDate(),
       notifiedExpiry: map['notifiedExpiry'] ?? false,
       oldPrice: map['oldPrice'],

@@ -9,7 +9,9 @@ import 'package:iqmarket/models/user_model.dart';
 import 'package:iqmarket/providers/app_config_provider.dart';
 import 'package:iqmarket/services/chat_service.dart';
 import 'package:iqmarket/services/user_service.dart';
+import 'package:iqmarket/services/translation_service.dart';
 import 'package:iqmarket/screens/product_details_screen.dart';
+import 'package:iqmarket/widgets/report_user_sheet.dart';
 
 class ChatGlassHeader extends StatelessWidget {
   final AdModel ad;
@@ -60,11 +62,12 @@ class ChatGlassHeader extends StatelessWidget {
                     stream: ChatService.getTypingStatusStream(ad.userId),
                     builder: (context, snapshot) {
                       final streamTyping = snapshot.data == true;
+                      final lang = Provider.of<AppConfigProvider>(context, listen: false).language;
                       if (streamTyping || isTyping) {
-                        return Text('печатает...', style: TextStyle(color: const Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold));
+                        return Text(TranslationService.t('typing', lang), style: TextStyle(color: const Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold));
                       }
                       if (isOnline) {
-                        return const Text('в сети', style: TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold));
+                        return Text(TranslationService.t('online', lang), style: const TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold));
                       }
                       return FutureBuilder<UserModel?>(
                         future: UserService.getUserById(ad.userId),
@@ -74,15 +77,15 @@ class ChatGlassHeader extends StatelessWidget {
                             final now = DateTime.now();
                             String timeStr;
                             if (now.day == date.day && now.month == date.month && now.year == date.year) {
-                              timeStr = 'сегодня в ${DateFormat('HH:mm').format(date)}';
+                              timeStr = TranslationService.t('today_at', lang).replaceAll('{time}', DateFormat('HH:mm').format(date));
                             } else if (now.difference(date).inDays == 1 || (now.day - 1 == date.day && now.month == date.month && now.year == date.year)) {
-                              timeStr = 'вчера в ${DateFormat('HH:mm').format(date)}';
+                              timeStr = TranslationService.t('yesterday_at', lang).replaceAll('{time}', DateFormat('HH:mm').format(date));
                             } else {
-                              timeStr = DateFormat('d MMMM в HH:mm', 'ru').format(date);
+                              timeStr = '${DateFormat('d.MM.yyyy').format(date)} ${TranslationService.t('at_time', lang)} ${DateFormat('HH:mm').format(date)}';
                             }
-                            return Text('был(а) в сети $timeStr', style: const TextStyle(color: Colors.white38, fontSize: 11));
+                            return Text('${TranslationService.t('was_online', lang)} $timeStr', style: const TextStyle(color: Colors.white38, fontSize: 11));
                           }
-                          return const Text('не в сети', style: TextStyle(color: Colors.white38, fontSize: 11));
+                          return Text(TranslationService.t('offline', lang), style: const TextStyle(color: Colors.white38, fontSize: 11));
                         }
                       );
                     },
@@ -92,6 +95,55 @@ class ChatGlassHeader extends StatelessWidget {
             ),
             const Spacer(),
             IconButton(icon: const Icon(Icons.call_rounded, color: Colors.white70), onPressed: onCall),
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert_rounded, color: Colors.white70),
+              onSelected: (val) {
+                final config = Provider.of<AppConfigProvider>(context, listen: false);
+                if (val == 'block') {
+                  config.blockUser(ad.userId);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(TranslationService.t('block_success', config.language))),
+                  );
+                } else if (val == 'unblock') {
+                  config.unblockUser(ad.userId);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(TranslationService.t('unblock_success', config.language))),
+                  );
+                } else if (val == 'report') {
+                  ReportUserSheet.show(
+                    context,
+                    reportedUserId: ad.userId,
+                    reportedUserName: ad.userName,
+                    lang: config.language,
+                  );
+                }
+              },
+              itemBuilder: (context) {
+                final config = Provider.of<AppConfigProvider>(context, listen: false);
+                final isBlocked = config.isUserBlocked(ad.userId);
+                return [
+                  PopupMenuItem(
+                    value: isBlocked ? 'unblock' : 'block',
+                    child: Text(
+                      TranslationService.t(isBlocked ? 'unblock_seller' : 'block_seller', config.language),
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'report',
+                    child: Row(
+                      children: [
+                        const Icon(Icons.report_gmailerrorred_rounded, color: Colors.redAccent, size: 20),
+                        const SizedBox(width: 8),
+                        Text(
+                          TranslationService.t('report', config.language),
+                          style: const TextStyle(color: Colors.redAccent),
+                        ),
+                      ],
+                    ),
+                  ),
+                ];
+              },
+            ),
             const SizedBox(width: 4),
           ]),
         ),

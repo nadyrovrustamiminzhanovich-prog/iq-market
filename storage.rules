@@ -2,9 +2,14 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
     
-    // Вспомогательная функция
+    // Вспомогательные функции
     function isSignedIn() {
       return request.auth != null;
+    }
+
+    function isAdmin() {
+      return ('admin' in request.auth.token && request.auth.token.admin == true) || 
+             firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.accountType == 'admin';
     }
 
     // Медиафайлы объявлений (ads/images, ads/videos)
@@ -15,12 +20,32 @@ service firebase.storage {
                    && request.resource.contentType.matches('image/.*|video/.*'); // Только медиа
     }
 
-    // Медиафайлы чатов (chats/...)
-    match /chats/{allPaths=**} {
-      allow read: if isSignedIn();
+
+
+    // Личные голосовые сообщения вне chats
+    match /voice_messages/{chatId}/{allPaths=**} {
+      allow read: if isSignedIn() 
+                   && request.auth.uid in firestore.get(/databases/(default)/documents/chats/$(chatId)).data.users;
       allow write: if isSignedIn() 
-                   && request.resource.size < 20 * 1024 * 1024
-                   && request.resource.contentType.matches('image/.*|video/.*|audio/.*');
+                   && request.auth.uid in firestore.get(/databases/(default)/documents/chats/$(chatId)).data.users
+                   && request.resource.size < 15 * 1024 * 1024;
+    }
+
+    // Чат медиа (если сохраняются вне chats)
+    match /chat_media/{chatId}/{allPaths=**} {
+      allow read: if isSignedIn() 
+                   && request.auth.uid in firestore.get(/databases/(default)/documents/chats/$(chatId)).data.users;
+      allow write: if isSignedIn() 
+                   && request.auth.uid in firestore.get(/databases/(default)/documents/chats/$(chatId)).data.users
+                   && request.resource.size < 20 * 1024 * 1024;
+    }
+
+    // Верификационные документы водителя
+    match /driver_documents/{userId}/{allPaths=**} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow write: if isSignedIn() && request.auth.uid == userId
+                   && request.resource.size < 10 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
     }
 
     // Аватарки и личные файлы (папки с UID пользователя)
@@ -39,8 +64,8 @@ service firebase.storage {
 
     // Резервное правило для остальных загрузок
     match /{allPaths=**} {
-      allow read: if true;
-      allow write: if false; // 🔒 Запрет на запись вне определенных папок
+      allow read: if false;
+      allow write: if false; // 🔒 Запрет на запись/чтение вне определенных папок
     }
   }
 }

@@ -24,8 +24,6 @@ import 'package:iqmarket/screens/taxi/taxi_history_screen.dart';
 import 'package:iqmarket/screens/taxi/taxi_support_screen.dart';
 import 'package:iqmarket/screens/taxi/taxi_user_profile_view.dart';
 
-import 'package:iqmarket/widgets/auth/telegram_verification_dialog.dart';
-
 // ── Legacy shared UI components (TaxiRoleCard etc.) ──────────────────────────
 
 
@@ -105,25 +103,18 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
     _checkConnectivity();
     _connectivitySubscription =
         Connectivity().onConnectivityChanged.listen((results) {
-      setState(() {
-        _isOffline = results.isEmpty ||
-            results.every((r) => r == ConnectivityResult.none);
-      });
+      if (mounted) {
+        setState(() {
+          _isOffline = results.isEmpty ||
+              results.every((r) => r == ConnectivityResult.none);
+        });
+      }
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _taxiProvider = Provider.of<TaxiProvider>(context, listen: false);
       _taxiProvider.resumeFirebaseSync();
-      
-      // Defensive check for Telegram verification if in Driver mode (tab 1)
-      if (_taxiProvider.tab == 1) {
-        _taxiProvider.checkUserTelegramVerification().then((verified) {
-          if (!verified && mounted) {
-            _taxiProvider.setTab(0);
-            TelegramVerificationDialog.show(context, provider: _taxiProvider);
-          }
-        });
-      }
+
 
       String mappedIso = 'ru';
       if (widget.lang == 'Қазақша') mappedIso = 'kz';
@@ -133,10 +124,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
         _taxiProvider.setLanguage(widget.lang);
       }
       // Предзаполняем контроллеры из сохранённого состояния провайдера
-      final phone = (_taxiProvider.phone == '+7 701 000 11 22' ||
-              _taxiProvider.phone == '87010001122')
-          ? ''
-          : _taxiProvider.phone;
+      final phone = _taxiProvider.phone;
       if (_mainPhoneController.text.isEmpty && phone.isNotEmpty) {
         _mainPhoneController.text = phone;
       }
@@ -549,9 +537,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
         }
         // ✅ ISSUE-07 FIX: Use the single authoritative getter
         final isTelegramUser = provider.isFullyTelegramVerified;
-        final hasPhone = isTelegramUser || (provider.phone.isNotEmpty &&
-            provider.phone != '+7 701 000 11 22' &&
-            provider.phone != '87010001122');
+        final hasPhone = isTelegramUser || provider.phone.isNotEmpty;
         if (!hasPhone) {
           showTaxiPhoneBindingSheet(context, provider, t, () {
             if (!provider.isVehicleVerified) {
@@ -667,9 +653,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
     }
     // ✅ ISSUE-07 FIX: Use the single authoritative getter
     final isTelegramUser = provider.isFullyTelegramVerified;
-    if (!isTelegramUser && (provider.phone.isEmpty ||
-        provider.phone == '+7 701 000 11 22' ||
-        provider.phone == '87010001122')) {
+    if (!isTelegramUser && provider.phone.isEmpty) {
       showTaxiPhoneBindingSheet(context, provider, t, () {
         _handlePassengerCallOrChat(provider, t, d, isCall: isCall);
       });
@@ -717,9 +701,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
     }
     // ✅ ISSUE-07 FIX: Use the single authoritative getter
     final isTelegramUser = provider.isFullyTelegramVerified;
-    if (!isTelegramUser && (provider.phone.isEmpty ||
-        provider.phone == '+7 701 000 11 22' ||
-        provider.phone == '87010001122')) {
+    if (!isTelegramUser && provider.phone.isEmpty) {
       showTaxiPhoneBindingSheet(context, provider, t, () {
         _handleDriverCallOrChat(provider, t, o, isCall: isCall);
       });

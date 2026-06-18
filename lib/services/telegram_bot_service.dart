@@ -28,20 +28,25 @@ class TelegramBotService {
   /// Returns sessionToken. Call [buildBotUrl] to get the deep-link, then open
   /// it at the right moment (e.g., after a countdown in the UI).
   static Future<String> startAuthSession({String? phone}) async {
-    final token = _randomAlnum(24);
-    await FirebaseFirestore.instance
-        .collection('tg_auth_sessions')
-        .doc(token)
-        .set({
-      'created_at': FieldValue.serverTimestamp(),
-      'verified': false,
-      'chat_id': null,
-      'otp': null,
-      if (phone != null) 'phone': phone,
-    });
-    // Brief pause to ensure Firestore is synced before the bot reads it
-    await Future.delayed(const Duration(milliseconds: 800));
-    return token;
+    try {
+      final token = _randomAlnum(24);
+      await FirebaseFirestore.instance
+          .collection('tg_auth_sessions')
+          .doc(token)
+          .set({
+        'created_at': FieldValue.serverTimestamp(),
+        'verified': false,
+        'chat_id': null,
+        'otp': null,
+        if (phone != null) 'phone': phone,
+      });
+      // Brief pause to ensure Firestore is synced before the bot reads it
+      await Future.delayed(const Duration(milliseconds: 800));
+      return token;
+    } catch (e) {
+      debugPrint('[TelegramBotService.startAuthSession] Error starting auth session: $e');
+      rethrow;
+    }
   }
 
   // ─── Build the Telegram deep-link URL for a session token ───────────────────

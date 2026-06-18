@@ -298,6 +298,8 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     return CachedNetworkImage(
       imageUrl: url, 
       fit: fit, 
+      memCacheWidth: 800,
+      memCacheHeight: 800,
       placeholder: (context, url) => Container(color: const Color(0xFFF1F5F9), child: const Center(child: CircularProgressIndicator())),
       errorWidget: (context, url, error) => const Icon(Icons.image_not_supported_rounded, color: Colors.grey),
     );

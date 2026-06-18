@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import 'package:iqmarket/providers/app_config_provider.dart';
+import 'package:iqmarket/services/translation_service.dart';
 import 'package:iqmarket/screens/product_details_screen.dart';
 import 'package:iqmarket/screens/chat_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -10,6 +13,7 @@ import 'package:iqmarket/services/ad_service.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:iqmarket/widgets/report_user_sheet.dart';
 
 class SellerProfileScreen extends StatefulWidget {
   final AdModel seller;
@@ -56,6 +60,9 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final config = Provider.of<AppConfigProvider>(context);
+    final isBlocked = config.isUserBlocked(widget.seller.userId);
+
     return StreamBuilder<DocumentSnapshot>(
       stream: FirebaseFirestore.instance.collection('users').doc(widget.seller.userId).snapshots(),
       builder: (context, snapshot) {
@@ -84,27 +91,48 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
           body: CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
-              _buildSliverAppBar(photoUrl, regDate, name, isVerified),
+              _buildSliverAppBar(photoUrl, regDate, name, isVerified, isBlocked),
               SliverToBoxAdapter(
-                child: Column(
-                  children: [
-                    _buildStatsSection(snapshot),
-                    _buildAdsSection(),
-                    _buildReviewsHeader(),
-                    _buildReviewsList(),
-                    const SizedBox(height: 120),
-                  ],
-                ),
+                child: isBlocked
+                  ? Container(
+                      margin: const EdgeInsets.only(top: 40, left: 20, right: 20),
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)],
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.block_flipped, color: Colors.redAccent, size: 48),
+                          const SizedBox(height: 16),
+                          Text(
+                            TranslationService.t('blocked_user_placeholder', widget.lang),
+                            style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 16, color: Colors.redAccent),
+                          ),
+                        ],
+                      ),
+                    )
+                  : Column(
+                      children: [
+                        _buildStatsSection(snapshot),
+                        _buildAdsSection(),
+                        _buildReviewsHeader(),
+                        _buildReviewsList(),
+                        const SizedBox(height: 120),
+                      ],
+                    ),
               ),
             ],
           ),
-          bottomNavigationBar: _buildBottomActions(),
+          bottomNavigationBar: _buildBottomActions(isBlocked),
         );
       }
     );
   }
 
-  Widget _buildSliverAppBar(String photoUrl, DateTime regDate, String name, bool isVerified) => SliverAppBar(
+  Widget _buildSliverAppBar(String photoUrl, DateTime regDate, String name, bool isVerified, bool isBlocked) => SliverAppBar(
     expandedHeight: 240,
     pinned: true,
     backgroundColor: const Color(0xFF4A80F0),
@@ -112,6 +140,53 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
       icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
       onPressed: () => Navigator.pop(context),
     ),
+    actions: [
+      PopupMenuButton<String>(
+        icon: const Icon(Icons.more_vert_rounded, color: Colors.white),
+        onSelected: (val) {
+          final config = Provider.of<AppConfigProvider>(context, listen: false);
+          if (val == 'block') {
+            config.blockUser(widget.seller.userId);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(TranslationService.t('block_success', widget.lang))),
+            );
+          } else if (val == 'unblock') {
+            config.unblockUser(widget.seller.userId);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(TranslationService.t('unblock_success', widget.lang))),
+            );
+          } else if (val == 'report') {
+            ReportUserSheet.show(
+              context,
+              reportedUserId: widget.seller.userId,
+              reportedUserName: name, // variable defined in StreamBuilder
+              lang: widget.lang,
+            );
+          }
+        },
+        itemBuilder: (context) => [
+          PopupMenuItem(
+            value: isBlocked ? 'unblock' : 'block',
+            child: Text(
+              TranslationService.t(isBlocked ? 'unblock_seller' : 'block_seller', widget.lang),
+            ),
+          ),
+          PopupMenuItem(
+            value: 'report',
+            child: Row(
+              children: [
+                const Icon(Icons.report_gmailerrorred_rounded, color: Colors.redAccent, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  TranslationService.t('report', widget.lang),
+                  style: const TextStyle(color: Colors.redAccent),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ],
     flexibleSpace: FlexibleSpaceBar(
       background: Container(
         decoration: const BoxDecoration(
@@ -276,6 +351,8 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
                 ? CachedNetworkImage(
                     imageUrl: ad.images.isNotEmpty ? ad.images.first : '',
                     height: 120, width: 160, fit: BoxFit.cover,
+                    memCacheWidth: 250,
+                    memCacheHeight: 250,
                     errorWidget: (context, url, error) => const Icon(Icons.image),
                   )
                 : Container(height: 120, color: const Color(0xFFF1F5F9)),
@@ -379,39 +456,42 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
     ),
   );
 
-  Widget _buildBottomActions() => Container(
-    padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
-    decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 20, offset: const Offset(0, -5))]),
-    child: Row(
-      children: [
-        Expanded(
-          child: ElevatedButton(
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(ad: widget.seller))),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF4A80F0),
-              foregroundColor: Colors.white,
-              minimumSize: const Size(0, 56),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              elevation: 0,
+  Widget? _buildBottomActions(bool isBlocked) {
+    if (isBlocked) return null;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+      decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 20, offset: const Offset(0, -5))]),
+      child: Row(
+        children: [
+          Expanded(
+            child: ElevatedButton(
+              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(ad: widget.seller))),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF4A80F0),
+                foregroundColor: Colors.white,
+                minimumSize: const Size(0, 56),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                elevation: 0,
+              ),
+              child: Text(_t('message'), style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16)),
             ),
-            child: Text(_t('message'), style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16)),
           ),
-        ),
-        const SizedBox(width: 12),
-        InkWell(
-          onTap: () async {
-            final uri = Uri.parse('tel:${widget.seller.userPhone ?? '+77000000000'}');
-            if (await canLaunchUrl(uri)) await launchUrl(uri);
-          },
-          child: Container(
-            height: 56, width: 56,
-            decoration: BoxDecoration(color: const Color(0xFF10B981), borderRadius: BorderRadius.circular(16)),
-            child: const Icon(Icons.phone_rounded, color: Colors.white, size: 24),
+          const SizedBox(width: 12),
+          InkWell(
+            onTap: () async {
+              final uri = Uri.parse('tel:${widget.seller.userPhone ?? '+77000000000'}');
+              if (await canLaunchUrl(uri)) await launchUrl(uri);
+            },
+            child: Container(
+              height: 56, width: 56,
+              decoration: BoxDecoration(color: const Color(0xFF10B981), borderRadius: BorderRadius.circular(16)),
+              child: const Icon(Icons.phone_rounded, color: Colors.white, size: 24),
+            ),
           ),
-        ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 
   String _formatPrice(double price) {
     return price > 0 ? '${NumberFormat.decimalPattern('ru').format(price.toInt())} ₸' : 'Договорная';

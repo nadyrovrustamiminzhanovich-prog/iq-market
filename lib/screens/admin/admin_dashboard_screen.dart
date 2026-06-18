@@ -14,7 +14,7 @@ class AdminDashboardScreen extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        title: Text('АНАЛИТИКА', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: const Color(0xFF0F172A), letterSpacing: 1)),
+        title: Text('АНАЛИТИКА', style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: const Color(0xFF0F172A), letterSpacing: 1)),
         leading: IconButton(icon: const Icon(Icons.arrow_back_ios_new, color: Color(0xFF0F172A), size: 20), onPressed: () => Navigator.pop(context)),
       ),
       body: SingleChildScrollView(
@@ -59,7 +59,7 @@ class AdminDashboardScreen extends StatelessWidget {
   }
 
   Widget _buildSectionTitle(String title) {
-    return Text(title, style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.grey[400], letterSpacing: 1.5));
+    return Text(title, style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.grey[400], letterSpacing: 1.5));
   }
 
   Widget _buildStatCard(String label, String value, IconData icon, Color color) {
@@ -77,8 +77,8 @@ class AdminDashboardScreen extends StatelessWidget {
           children: [
             Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: color.withValues(alpha: 0.1), shape: BoxShape.circle), child: Icon(icon, color: color, size: 20)),
             const SizedBox(height: 16),
-            Text(value, style: GoogleFonts.outfit(fontSize: 24, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A))),
-            Text(label, style: GoogleFonts.outfit(fontSize: 9, fontWeight: FontWeight.w700, color: Colors.grey[400], letterSpacing: 0.5)),
+            Text(value, style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A))),
+            Text(label, style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.w700, color: Colors.grey[400], letterSpacing: 0.5)),
           ],
         ),
       ),
@@ -116,7 +116,7 @@ class AdminDashboardScreen extends StatelessWidget {
                   value: e.value.value.toDouble(),
                   title: '${e.value.key}\n${e.value.value}',
                   radius: 60,
-                  titleStyle: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
+                  titleStyle: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
                 );
               }).toList(),
             ),

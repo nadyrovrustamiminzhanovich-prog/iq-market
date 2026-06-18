@@ -5,7 +5,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:iqmarket/providers/taxi_provider.dart';
 import 'package:iqmarket/theme/taxi_theme.dart';
 import 'package:iqmarket/screens/taxi/driver_verification_screen.dart';
-import 'package:iqmarket/widgets/auth/telegram_verification_dialog.dart';
 
 /// Контроллер-делегат для проверки права водителя принимать заказ.
 ///
@@ -50,23 +49,8 @@ class TaxiActionGateController {
       return;
     }
 
-    final isTelegramVerified = provider.isTelegramVerified || FirebaseAuth.instance.currentUser?.uid.startsWith('telegram_') == true;
-    if (!isTelegramVerified) {
-      TelegramVerificationDialog.show(context, provider: provider).then((success) {
-        if (success && context.mounted) {
-          checkDriverActionGate(
-            context,
-            provider,
-            t,
-            order,
-            onAuthorized,
-            onNavigateToLogin: onNavigateToLogin,
-            onShowPhoneBinding: onShowPhoneBinding,
-            onShowVerificationGate: onShowVerificationGate,
-            onShowDriverRideConfirmation: onShowDriverRideConfirmation,
-          );
-        }
-      });
+    if (!provider.isVehicleVerified) {
+      showDriverVerificationGateDialog(context, provider, t);
       return;
     }
 
@@ -106,7 +90,7 @@ class TaxiActionGateController {
       return isMyDrive && isMatchingRoute && isActive && isRecent;
     });
 
-    if (provider.isVehicleVerified && hasActiveRide) {
+    if (hasActiveRide) {
       onAuthorized();
     } else {
       showCreateDrivePromptSheet(
@@ -260,9 +244,7 @@ class TaxiActionGateController {
                           return;
                         }
                         final isTelegramUser = provider.isTelegramVerified || FirebaseAuth.instance.currentUser?.uid.startsWith('telegram_') == true;
-                        final hasPhone = isTelegramUser || (provider.phone.isNotEmpty &&
-                            provider.phone != '+7 701 000 11 22' &&
-                            provider.phone != '87010001122');
+                        final hasPhone = isTelegramUser || provider.phone.isNotEmpty;
                         if (!hasPhone) {
                           onShowPhoneBinding(context, provider, t, () {
                             if (!provider.isVehicleVerified) {

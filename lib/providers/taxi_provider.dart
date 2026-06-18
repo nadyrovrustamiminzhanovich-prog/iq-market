@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:iqmarket/theme/taxi_theme.dart';
 import 'package:iqmarket/translations/taxi_strings.dart';
@@ -13,12 +14,16 @@ class TaxiProvider extends ChangeNotifier {
   late final TaxiRepository _repo;
   late final TaxiSyncService _sync;
   void Function(String)? onLanguageChanged;
+  StreamSubscription<User?>? _authSub;
 
   TaxiProvider() {
     _prefs = TaxiPrefsService();
     _repo = TaxiRepository();
     _sync = TaxiSyncService(notifyListeners);
     loadPreferences();
+    _authSub = FirebaseAuth.instance.authStateChanges().listen((_) {
+      loadPreferences();
+    });
   }
 
   // ─── UI & Filter State ───
@@ -44,7 +49,7 @@ class TaxiProvider extends ChangeNotifier {
   String _firstName = "User";
   String _lastName = "IQ";
   File? _profileImage;
-  String _phone = "+7 701 000 11 22";
+  String _phone = "";
   String _driverCar = "Toyota Camry 70";
   String _driverPlate = "777 BBA 05";
   bool _isVehicleVerified = false;
@@ -138,6 +143,7 @@ class TaxiProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    _authSub?.cancel();
     _sync.dispose();
     super.dispose();
   }

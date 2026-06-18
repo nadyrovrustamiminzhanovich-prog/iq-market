@@ -577,7 +577,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(width: 12),
                     Text(
                       _t('tg_otp_title'),
-                      style: GoogleFonts.outfit(
+                      style: GoogleFonts.inter(
                         fontWeight: FontWeight.w900,
                         fontSize: 18,
                         color: const Color(0xFF1A1D1E),

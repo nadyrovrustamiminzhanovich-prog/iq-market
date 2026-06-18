@@ -64,7 +64,7 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
           position: position,
         );
         if (mounted && file.existsSync()) {
-          thumbs.add(file.readAsBytesSync());
+          thumbs.add(await file.readAsBytes());
         } else {
           thumbs.add(null);
         }

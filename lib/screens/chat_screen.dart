@@ -13,6 +13,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:iqmarket/models/ad_model.dart';
 import 'package:iqmarket/models/message_model.dart';
 import 'package:iqmarket/providers/app_config_provider.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:iqmarket/services/translation_service.dart';
 
 import 'package:iqmarket/services/chat_service.dart';
 import 'package:iqmarket/services/user_service.dart';
@@ -169,6 +171,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   }
 
   void _sendMessage() {
+    if (Provider.of<AppConfigProvider>(context, listen: false).isUserBlocked(widget.ad.userId)) return;
     final text = _msgController.text.trim();
     if (text.isEmpty) return;
     ChatService.sendMessage(ad: widget.ad, text: text, senderName: _currentUserName);
@@ -195,8 +198,12 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     final dir = await getTemporaryDirectory();
     final path = '${dir.path}/voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
     await _recorder.start(const RecordConfig(encoder: AudioEncoder.aacLc), path: path);
-    setState(() { _isRecording = true; _recordSeconds = 0; _isCancelled = false; });
-    _recordTimer = Timer.periodic(const Duration(seconds: 1), (_) => setState(() => _recordSeconds++));
+    if (mounted) {
+      setState(() { _isRecording = true; _recordSeconds = 0; _isCancelled = false; });
+    }
+    _recordTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() => _recordSeconds++);
+    });
   }
 
   Future<void> _stopRecording() async {
@@ -204,13 +211,14 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     _recordTimer?.cancel();
     await Future.delayed(const Duration(milliseconds: 200));
     final path = await _recorder.stop();
-    setState(() => _isRecording = false);
+    if (mounted) setState(() => _isRecording = false);
     if (_isCancelled) return;
     if (path != null) {
       final msgId = await ChatService.sendMessage(ad: widget.ad, text: 'Голосовое сообщение', type: 'audio', duration: _recordSeconds, senderName: _currentUserName);
       if (msgId != null) {
-        final task = FileService.uploadFileWithTask(File(path), 'voice_messages');
-        setState(() => _activeUploads[msgId] = task);
+        final chatId = ChatService.getChatId(widget.ad.userId);
+        final task = FileService.uploadFileWithTask(File(path), 'voice_messages/$chatId');
+        if (mounted) setState(() => _activeUploads[msgId] = task);
         task.then((snapshot) async {
           final url = await snapshot.ref.getDownloadURL();
           ChatService.updateMessage(widget.ad.userId, msgId, {'mediaUrl': url});
@@ -227,7 +235,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       debugPrint('Playing voice: id=$id, url=$url');
       if (_currentPlayingId == id) {
         await _audioPlayer.pause();
-        setState(() => _currentPlayingId = null);
+        if (mounted) setState(() => _currentPlayingId = null);
       } else {
         await _audioPlayer.stop();
         if (url.startsWith('http')) {
@@ -235,11 +243,13 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         } else {
           await _audioPlayer.play(DeviceFileSource(url));
         }
-        setState(() {
-          _currentPlayingId = id;
-          _currentPos = Duration.zero;
-          _currentDur = Duration.zero;
-        });
+        if (mounted) {
+          setState(() {
+            _currentPlayingId = id;
+            _currentPos = Duration.zero;
+            _currentDur = Duration.zero;
+          });
+        }
       }
     } catch (e) {
       debugPrint('Error playing voice: $e');
@@ -252,10 +262,12 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   }
 
   void _pickMedia(ImageSource source) async {
+    if (Provider.of<AppConfigProvider>(context, listen: false).isUserBlocked(widget.ad.userId)) return;
     final picker = ImagePicker();
     final file = await picker.pickImage(source: source, imageQuality: 70);
     if (file != null) {
-      final url = await FileService.uploadFile(File(file.path), 'chat_media');
+      final chatId = ChatService.getChatId(widget.ad.userId);
+      final url = await FileService.uploadFile(File(file.path), 'chat_media/$chatId');
       if (url != null) {
         ChatService.sendMessage(ad: widget.ad, text: 'Фото', type: 'image', mediaUrl: url, senderName: _currentUserName);
         _scrollToBottom();
@@ -265,6 +277,9 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    final config = Provider.of<AppConfigProvider>(context);
+    final lang = config.language;
+    final isBlocked = config.isUserBlocked(widget.ad.userId);
     const chatBg = Color(0xFF0E1621); 
     const myBubbleColor = Color(0xFF2B5278);
     const otherBubbleColor = Color(0xFF182533);
@@ -287,31 +302,55 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                 },
               ),
             ),
-            ChatInput(
-              controller: _msgController,
-              focusNode: _msgFocusNode,
-              isTyping: _isTyping,
-              isRecording: _isRecording,
-              recordSeconds: _recordSeconds,
-              showEmoji: _showEmoji,
-              onToggleEmoji: () => setState(() => _showEmoji = !_showEmoji),
-              onTextChanged: (v) {
-                final isNowTyping = v.isNotEmpty;
-                if (_isTyping != isNowTyping) {
-                  ChatService.updateTypingStatus(widget.ad.userId, isNowTyping);
-                  setState(() => _isTyping = isNowTyping);
-                }
-              },
-              onAttach: () => _pickMedia(ImageSource.gallery),
-              onSend: _sendMessage,
-              onLongPressStart: _startRecording,
-              onLongPressEnd: _stopRecording,
-              onEmojiSelected: (emoji) {
-                _msgController.text += emoji;
-                setState(() => _isTyping = true);
-              },
-              emojis: _emojis,
-            ),
+            if (isBlocked)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+                margin: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom + 16, left: 16, right: 16),
+                decoration: BoxDecoration(
+                  color: Colors.redAccent.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.redAccent.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.block_flipped, color: Colors.redAccent, size: 24),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        TranslationService.t('blocked_user_banner', lang),
+                        style: GoogleFonts.inter(color: Colors.redAccent, fontSize: 14, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              ChatInput(
+                controller: _msgController,
+                focusNode: _msgFocusNode,
+                isTyping: _isTyping,
+                isRecording: _isRecording,
+                recordSeconds: _recordSeconds,
+                showEmoji: _showEmoji,
+                onToggleEmoji: () => setState(() => _showEmoji = !_showEmoji),
+                onTextChanged: (v) {
+                  final isNowTyping = v.isNotEmpty;
+                  if (_isTyping != isNowTyping) {
+                    ChatService.updateTypingStatus(widget.ad.userId, isNowTyping);
+                    setState(() => _isTyping = isNowTyping);
+                  }
+                },
+                onAttach: () => _pickMedia(ImageSource.gallery),
+                onSend: _sendMessage,
+                onLongPressStart: _startRecording,
+                onLongPressEnd: _stopRecording,
+                onEmojiSelected: (emoji) {
+                  _msgController.text += emoji;
+                  setState(() => _isTyping = true);
+                },
+                emojis: _emojis,
+              ),
           ]),
           Positioned(
             top: 0, left: 0, right: 0,
@@ -329,7 +368,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                       final url = Uri.parse('tel:$phoneNum');
                       if (await canLaunchUrl(url)) await launchUrl(url);
                     } else {
-                      NotificationService.notify(context, 'Ошибка', 'Номер телефона этого пользователя не указан.', isSuccess: false);
+                      NotificationService.notify(context, TranslationService.t('error_title', lang), TranslationService.t('no_phone_error', lang), isSuccess: false);
                     }
                   },
                 ),
@@ -343,17 +382,19 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildEmptyState() {
+    final lang = Provider.of<AppConfigProvider>(context, listen: false).language;
     return Center(child: Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Icon(Icons.chat_bubble_outline_rounded, size: 64, color: Colors.white.withValues(alpha: 0.2)),
         const SizedBox(height: 16),
-        const Text('Начните общение', style: TextStyle(color: Colors.white54)),
+        Text(TranslationService.t('chat_start', lang), style: const TextStyle(color: Colors.white54)),
       ],
     ));
   }
 
   Widget _buildMessageList(List<MessageModel> messages, Color myColor, Color otherColor) {
+    final lang = Provider.of<AppConfigProvider>(context, listen: false).language;
     final groupedItems = <dynamic>[];
     
     for (int i = 0; i < messages.length; i++) {
@@ -396,14 +437,14 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           onAcceptOffer: () => ChatService.updateOfferStatus(msg.senderId, msg.id, 'accepted'),
           onDeclineOffer: () => ChatService.updateOfferStatus(msg.senderId, msg.id, 'rejected'),
           onWriteOffer: () {
-            _msgController.text = 'Привет! Насчет вашего предложения цены... ';
+            _msgController.text = TranslationService.t('chat_input_bargain_text', lang);
             _msgFocusNode.requestFocus();
             setState(() {
               _isTyping = true;
             });
           },
           onVoiceOffer: () {
-            NotificationService.notify(context, 'Голосовой ответ', 'Зажмите синюю круглую кнопку микрофона справа внизу, чтобы записать голосовое сообщение.', isSuccess: true);
+            NotificationService.notify(context, TranslationService.t('voice_reply_title', lang), TranslationService.t('voice_reply_desc', lang), isSuccess: true);
           },
           onCallOffer: () async {
             final phoneNum = _otherUserPhone ?? widget.ad.userPhone ?? '';
@@ -411,7 +452,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
               final url = Uri.parse('tel:$phoneNum');
               if (await canLaunchUrl(url)) await launchUrl(url);
             } else {
-              NotificationService.notify(context, 'Ошибка', 'Номер телефона этого пользователя не указан.', isSuccess: false);
+              NotificationService.notify(context, TranslationService.t('error_title', lang), TranslationService.t('no_phone_error', lang), isSuccess: false);
             }
           },
         );
@@ -420,12 +461,22 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildDateHeader(DateTime date) {
+    final lang = Provider.of<AppConfigProvider>(context, listen: false).language;
     final now = DateTime.now();
-    String text = (now.day == date.day && now.month == date.month && now.year == date.year) ? 'Сегодня' : (now.day - 1 == date.day && now.month == date.month && now.year == date.year) ? 'Вчера' : DateFormat('d MMMM', 'ru').format(date);
+    String text;
+    if (now.day == date.day && now.month == date.month && now.year == date.year) {
+      text = TranslationService.t('today', lang);
+    } else if (now.day - 1 == date.day && now.month == date.month && now.year == date.year) {
+      text = TranslationService.t('yesterday', lang);
+    } else {
+      final locale = lang == 'Қазақша' ? 'kk' : (lang == 'Уйғурчә' ? 'ug' : 'ru');
+      text = DateFormat('d MMMM', locale).format(date);
+    }
     return Center(child: Container(margin: const EdgeInsets.symmetric(vertical: 12), padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4), decoration: BoxDecoration(color: const Color(0xFF17212D).withValues(alpha: 0.6), borderRadius: BorderRadius.circular(12)), child: Text(text, style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold))));
   }
 
   void _showContextMenu(MessageModel msg) {
+    final lang = Provider.of<AppConfigProvider>(context, listen: false).language;
     final bool isMyMessage = msg.senderId == UserService.currentUid;
     showModalBottomSheet(
       context: context, 
@@ -435,7 +486,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           children: [
             if (msg.type == 'text') ListTile(
               leading: const Icon(Icons.copy_rounded), 
-              title: const Text('Копировать текст'), 
+              title: Text(TranslationService.t('copy_text', lang)), 
               onTap: () { 
                 Clipboard.setData(ClipboardData(text: msg.text)); 
                 Navigator.pop(context); 
@@ -443,7 +494,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             ),
             ListTile(
               leading: const Icon(Icons.delete_outline_rounded, color: Colors.grey), 
-              title: const Text('Удалить у меня'), 
+              title: Text(TranslationService.t('delete_for_me', lang)), 
               onTap: () { 
                 ChatService.deleteMessages(widget.ad.userId, [msg.id]); 
                 Navigator.pop(context); 
@@ -451,7 +502,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             ),
             if (isMyMessage) ListTile(
               leading: const Icon(Icons.delete_forever_rounded, color: Colors.red), 
-              title: const Text('Удалить у всех', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)), 
+              title: Text(TranslationService.t('delete_for_all', lang), style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)), 
               onTap: () { 
                 ChatService.deleteMessages(widget.ad.userId, [msg.id]); 
                 Navigator.pop(context); 
@@ -464,10 +515,11 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   }
 
   void _showFullScreenImage(String url) {
+    final lang = Provider.of<AppConfigProvider>(context, listen: false).language;
     Navigator.push(context, MaterialPageRoute(builder: (_) => Scaffold(backgroundColor: Colors.black, appBar: AppBar(backgroundColor: Colors.black, foregroundColor: Colors.white, actions: [IconButton(icon: const Icon(Icons.download_rounded), onPressed: () async {
       final response = await http.get(Uri.parse(url));
       await Gal.putImageBytes(response.bodyBytes);
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Сохранено в галерею')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(TranslationService.t('saved_to_gallery', lang))));
     })]), body: Center(child: InteractiveViewer(child: (url.isNotEmpty && url.startsWith('http')) 
       ? CachedNetworkImage(
           imageUrl: url,

@@ -66,7 +66,7 @@ class _TelegramVerificationDialogState extends State<TelegramVerificationDialog>
     if (initialPhone.isEmpty) {
       initialPhone = widget.provider.phone;
     }
-    if (initialPhone.isNotEmpty && initialPhone != "+7 701 000 11 22") {
+    if (initialPhone.isNotEmpty) {
       final digits = initialPhone.replaceAll(RegExp(r'\D'), '');
       String localDigits = digits;
       if (digits.length == 11 && (digits.startsWith('7') || digits.startsWith('8'))) {

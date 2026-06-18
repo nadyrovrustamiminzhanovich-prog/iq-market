@@ -35,7 +35,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        title: Text('IQ УПРАВЛЕНИЕ', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: const Color(0xFF0F172A), letterSpacing: 1)),
+        title: Text('IQ УПРАВЛЕНИЕ', style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: const Color(0xFF0F172A), letterSpacing: 1)),
         centerTitle: true,
       leading: Navigator.canPop(context)
           ? IconButton(
@@ -62,7 +62,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
             ),
             
             const SizedBox(height: 40),
-            Text('ИНСТРУМЕНТЫ', style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w800, color: Colors.grey[400], letterSpacing: 1.5)),
+            Text('ИНСТРУМЕНТЫ', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w800, color: Colors.grey[400], letterSpacing: 1.5)),
             const SizedBox(height: 20),
             
             // Сетка инструментов
@@ -92,13 +92,13 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Добро пожаловать', style: GoogleFonts.outfit(fontSize: 28, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A))),
+        Text('Добро пожаловать', style: GoogleFonts.inter(fontSize: 28, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A))),
         const SizedBox(height: 4),
         Row(
           children: [
             const CircleAvatar(radius: 4, backgroundColor: Color(0xFF10B981)),
             const SizedBox(width: 8),
-            Text('СИСТЕМА ОНЛАЙН', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: const Color(0xFF10B981))),
+            Text('СИСТЕМА ОНЛАЙН', style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w900, color: const Color(0xFF10B981))),
           ],
         ),
       ],
@@ -124,10 +124,10 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
               future: future,
               builder: (context, snapshot) {
                 final val = snapshot.hasData ? snapshot.data!.count.toString() : '...';
-                return Text(val, style: GoogleFonts.outfit(fontSize: 24, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A)));
+                return Text(val, style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A)));
               }
             ),
-            Text(label, style: GoogleFonts.outfit(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.grey[400], letterSpacing: 0.5)),
+            Text(label, style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.grey[400], letterSpacing: 0.5)),
           ],
         ),
       ),
@@ -155,9 +155,9 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                 child: Icon(icon, color: color, size: 24),
               ),
               const SizedBox(height: 16),
-              Text(title, style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A))),
+              Text(title, style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A))),
               const SizedBox(height: 4),
-              Text(subtitle, textAlign: TextAlign.center, style: GoogleFonts.outfit(fontSize: 10, color: Colors.grey[500])),
+              Text(subtitle, textAlign: TextAlign.center, style: GoogleFonts.inter(fontSize: 10, color: Colors.grey[500])),
             ],
           ),
         ),

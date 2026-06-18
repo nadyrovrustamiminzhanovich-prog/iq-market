@@ -114,10 +114,7 @@ class _TaxiDriverRideConfirmationSheetContentState
       type: MaskAutoCompletionType.lazy,
     );
 
-    final initialPhone = (widget.provider.phone == "+7 701 000 11 22" ||
-            widget.provider.phone == "87010001122")
-        ? ""
-        : widget.provider.phone;
+    final initialPhone = widget.provider.phone;
     phoneC = TextEditingController(text: initialPhone);
     commentC = TextEditingController(text: widget.initialComment ?? "");
     priceCtrl = TextEditingController(text: price > 0 ? price.toString() : "");

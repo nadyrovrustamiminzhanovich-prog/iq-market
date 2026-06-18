@@ -13,9 +13,7 @@ void showTaxiNegotiateDialog(
   required void Function(BuildContext, TaxiProvider, TaxiTheme, VoidCallback)
       onShowPhoneBinding,
 }) {
-  final hasPhone = provider.phone.isNotEmpty &&
-      provider.phone != '+7 701 000 11 22' &&
-      provider.phone != '87010001122';
+  final hasPhone = provider.phone.isNotEmpty;
 
   if (!hasPhone) {
     onShowPhoneBinding(context, provider, t, () {
