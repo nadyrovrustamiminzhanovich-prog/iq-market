@@ -162,7 +162,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _loadSalesCount() async {
     final prefs = await SharedPreferences.getInstance();
-    setState(() => _salesCount = prefs.getInt('iq_sales_count') ?? 0);
+    if (mounted) {
+      setState(() => _salesCount = prefs.getInt('iq_sales_count') ?? 0);
+    }
   }
 
   static Future<void> recordSale() async {
@@ -1480,14 +1482,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
         onPressed: () async {
           await AuthService.signOut();
           if (widget.onLogout != null) widget.onLogout!();
-          setState(() => _isGuest = true); 
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(_t('logout_confirm')),
-              behavior: SnackBarBehavior.floating,
-              duration: const Duration(seconds: 2),
-            ),
-          );
+          if (mounted) {
+            setState(() => _isGuest = true); 
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(_t('logout_confirm')),
+                behavior: SnackBarBehavior.floating,
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          }
         },
         style: TextButton.styleFrom(
           foregroundColor: Colors.red,

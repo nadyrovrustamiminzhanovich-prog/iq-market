@@ -7,7 +7,7 @@
         allow read: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.users;
         allow create: if isSignedIn() && (request.resource.data.senderId == request.auth.uid) && (request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.users);
         allow update: if isSignedIn() && (request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.users) && (
-          (request.auth.uid == resource.data.senderId) || 
+          (request.auth.uid == resource.data.senderId && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['senderId', 'timestamp', 'type'])) || 
           (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']))
         );
         allow delete: if isSignedIn() && request.auth.uid == resource.data.senderId;

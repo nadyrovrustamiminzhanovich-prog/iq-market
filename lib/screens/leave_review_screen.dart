@@ -24,7 +24,7 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
 
   Future<void> _pickImage() async {
     final picked = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 70);
-    if (picked != null) {
+    if (picked != null && mounted) {
       setState(() => _images.add(File(picked.path)));
     }
   }

@@ -157,6 +157,9 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     _audioPositionSub?.cancel();
     _audioDurationSub?.cancel();
     _audioCompleteSub?.cancel();
+    if (_isRecording) {
+      _recorder.stop();
+    }
     _recorder.dispose();
     _audioPlayer.dispose();
     _msgController.dispose();

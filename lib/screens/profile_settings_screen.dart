@@ -717,7 +717,9 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                 Navigator.pop(context);
                 try {
                   final pickedFile = await _picker.pickImage(source: ImageSource.camera, imageQuality: 70);
-                  if (pickedFile != null) setState(() => _newImage = File(pickedFile.path));
+                  if (pickedFile != null && mounted) {
+                    setState(() => _newImage = File(pickedFile.path));
+                  }
                 } catch (e) {
                   debugPrint('Camera Picker Error: $e');
                   if (mounted) {
@@ -739,7 +741,9 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                 Navigator.pop(context);
                 try {
                   final pickedFile = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
-                  if (pickedFile != null) setState(() => _newImage = File(pickedFile.path));
+                  if (pickedFile != null && mounted) {
+                    setState(() => _newImage = File(pickedFile.path));
+                  }
                 } catch (e) {
                   debugPrint('Gallery Picker Error: $e');
                   if (mounted) {
@@ -1191,10 +1195,14 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
         isGoogleLinked ? null : () async {
           try {
             await AuthService.linkWithGoogle();
-            setState(() {});
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_t('copied_clipboard'))));
+            if (mounted) {
+              setState(() {});
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_t('copied_clipboard'))));
+            }
           } catch (e) {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+            }
           }
         }
       ),
@@ -1640,7 +1648,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                     title: Text(_t('auto_locate'), style: GoogleFonts.inter(fontWeight: FontWeight.w800, color: _primaryColor, fontSize: 15)), 
                     onTap: () async {
                       final city = await LocationService.getCurrentCity();
-                      if (city != null) {
+                      if (city != null && mounted) {
                         setState(() => _cityController.text = city);
                         StorageService.setString('user_location', city);
                         Navigator.pop(context);

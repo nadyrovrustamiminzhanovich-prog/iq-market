@@ -292,7 +292,9 @@ class _AdminAdsScreenState extends State<AdminAdsScreen> with SingleTickerProvid
 
   void _handleBulkApprove() async {
     for (var id in _selectedAdIds) { await AdService.approveAd(id); }
-    setState(() { _selectedAdIds.clear(); _isSelectionMode = false; });
+    if (mounted) {
+      setState(() { _selectedAdIds.clear(); _isSelectionMode = false; });
+    }
   }
 
   void _handleBulkDelete() async {

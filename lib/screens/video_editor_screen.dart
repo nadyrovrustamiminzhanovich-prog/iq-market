@@ -36,21 +36,34 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
   }
 
   Future<void> _loadVideo() async {
-    _controller = VideoPlayerController.file(widget.videoFile);
-    await _controller!.initialize();
-    if (!mounted) {
-      _controller?.dispose();
-      return;
-    }
-    setState(() {
-      _isLoaded = true;
-      _totalDuration = _controller!.value.duration;
-      if (_totalDuration.inSeconds > _maxDurationSec) {
-        _endFraction = _maxDurationSec / _totalDuration.inSeconds;
+    try {
+      _controller = VideoPlayerController.file(widget.videoFile);
+      await _controller!.initialize();
+      if (!mounted) {
+        _controller?.dispose();
+        return;
       }
-    });
-    _controller!.addListener(_playbackListener);
-    _generateThumbnails();
+      setState(() {
+        _isLoaded = true;
+        _totalDuration = _controller!.value.duration;
+        if (_totalDuration.inSeconds > _maxDurationSec) {
+          _endFraction = _maxDurationSec / _totalDuration.inSeconds;
+        }
+      });
+      _controller!.addListener(_playbackListener);
+      _generateThumbnails();
+    } catch (e) {
+      debugPrint("VideoEditorScreen load error: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Ошибка воспроизведения видео ⚠️'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+        Navigator.pop(context);
+      }
+    }
   }
 
   Future<void> _generateThumbnails() async {
@@ -87,6 +100,7 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
 
   @override
   void dispose() {
+    VideoCompress.cancelCompression();
     _controller?.removeListener(_playbackListener);
     _controller?.pause();
     _controller?.dispose();

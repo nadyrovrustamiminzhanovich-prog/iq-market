@@ -364,7 +364,11 @@ class _PostAdScreenState extends State<PostAdScreen> {
         if (mounted) {
           Navigator.push(context, MaterialPageRoute(builder: (context) => VideoTrimmerScreen(
             videoFile: File(file.path), 
-            onSave: (path) => setState(() { _videoFile = File(path); _saveDraft(); })
+            onSave: (path) {
+              if (mounted) {
+                setState(() { _videoFile = File(path); _saveDraft(); });
+              }
+            }
           )));
         }
       }
@@ -374,7 +378,7 @@ class _PostAdScreenState extends State<PostAdScreen> {
         maxWidth: 1280,
         maxHeight: 1280,
       );
-      if (picked.isNotEmpty) {
+      if (picked.isNotEmpty && mounted) {
         setState(() {
           _imageFiles.addAll(picked.map((f) => File(f.path)));
           _saveDraft();
@@ -532,6 +536,7 @@ class _PostAdScreenState extends State<PostAdScreen> {
 
   void _loadDraft() async {
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
     final raw = prefs.getString('ad_draft');
     if (raw != null) {
       final draft = jsonDecode(raw);

@@ -186,7 +186,7 @@ class _DriverVerificationScreenState extends State<DriverVerificationScreen>
       imageQuality: 88,
       preferredCameraDevice: fromCameraOnly ? CameraDevice.front : CameraDevice.rear,
     );
-    if (f == null) return;
+    if (f == null || !mounted) return;
     
     setState(() {
       switch (slot) {
@@ -211,6 +211,7 @@ class _DriverVerificationScreenState extends State<DriverVerificationScreen>
     final provider = Provider.of<TaxiProvider>(context, listen: false);
     final uid = FirebaseAuth.instance.currentUser?.uid ?? 'unknown';
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
     final chatId = prefs.getString('telegram_chat_id') ?? '';
     final docId = '${provider.firstName}_${_plateC.text.trim()}_${DateTime.now().millisecondsSinceEpoch}';
 
@@ -223,7 +224,7 @@ class _DriverVerificationScreenState extends State<DriverVerificationScreen>
       final compCarFront = await FileService.compressImage(_carFront!);
 
       // 2. Загрузка документов в облачное хранилище Firebase Storage
-      setState(() => _aiMsg = _t('uploading'));
+      if (mounted) setState(() => _aiMsg = _t('uploading'));
       final licFUrl = await FileService.uploadFile(compLicF ?? _licF!, 'driver_documents/$uid/license_front');
       final techFUrl = await FileService.uploadFile(compTechF ?? _techF!, 'driver_documents/$uid/tech_front');
       final selfieUrl = await FileService.uploadFile(compSelfie ?? _selfie!, 'driver_documents/$uid/selfie');
@@ -233,7 +234,7 @@ class _DriverVerificationScreenState extends State<DriverVerificationScreen>
         throw Exception(_t('upload_err'));
       }
 
-      setState(() => _aiMsg = _t('ai_analyzing_gemini'));
+      if (mounted) setState(() => _aiMsg = _t('ai_analyzing_gemini'));
       
       final gemini = GeminiService();
       gemini.init(provider.curLang);
@@ -290,7 +291,7 @@ class _DriverVerificationScreenState extends State<DriverVerificationScreen>
 
       // 4. Отправка отчета со всеми фото админу в Телеграм
       if (_needsManual) {
-        setState(() => _aiMsg = _t('ai_manual_msg'));
+        if (mounted) setState(() => _aiMsg = _t('ai_manual_msg'));
         await TelegramBotService.notifyAdminManualReview(
           driverName   : '${provider.firstName} ${provider.lastName}',
           plate        : _plateC.text.trim().toUpperCase(),
@@ -320,11 +321,13 @@ class _DriverVerificationScreenState extends State<DriverVerificationScreen>
       }
 
       await _delay(600);
-      setState(() { _analyzing = false; _done = true; });
+      if (mounted) {
+        setState(() { _analyzing = false; _done = true; });
+      }
     } catch (e) {
       debugPrint('Error in _runAnalysis: $e');
-      setState(() { _analyzing = false; });
       if (mounted) {
+        setState(() { _analyzing = false; });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('${_t('verif_err_prefix')} ${e.toString()} ⚠️'),

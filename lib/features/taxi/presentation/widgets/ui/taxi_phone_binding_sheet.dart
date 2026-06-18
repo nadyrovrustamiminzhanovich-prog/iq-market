@@ -98,6 +98,8 @@ class _TaxiPhoneBindingSheetContentState extends State<_TaxiPhoneBindingSheetCon
     final formattedNum = _phoneMask.getMaskedText();
     final generatedCode = await _otpService.sendSms(formattedNum);
 
+    if (!mounted) return;
+
     setState(() {
       _isVerifying = false;
       _codeSent = true;

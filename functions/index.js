@@ -35,7 +35,14 @@ exports.onNewMessage = functions.firestore.document('chats/{chatId}/messages/{ms
     const userSnap = await db.collection('users').doc(receiverId).get();
     if (!userSnap.exists) return;
 
-    const receiverToken = userSnap.data().fcmToken;
+    const receiverData = userSnap.data();
+    const blockedUsers = receiverData.blockedUserIds || [];
+    if (blockedUsers.includes(senderId)) {
+      console.log(`[onNewMessage] FCM skipped: sender ${senderId} is blocked by receiver ${receiverId}`);
+      return;
+    }
+
+    const receiverToken = receiverData.fcmToken;
     if (!receiverToken) return;
 
     const senderName = chatData[`name_${senderId}`] || 'Пользователь';

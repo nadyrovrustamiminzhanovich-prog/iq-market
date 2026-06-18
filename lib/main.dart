@@ -11,7 +11,6 @@ import 'package:flutter/foundation.dart';
 import 'dart:async';
 
 import 'screens/home/home_screen.dart';
-import 'screens/splash_screen.dart';
 import 'services/storage_service.dart';
 import 'services/notification_service.dart';
 import 'services/analytics_service.dart';
@@ -71,7 +70,7 @@ Future<void> main() async {
   final localeMap = {
     'Русский': const Locale('ru', 'RU'),
     'Қазақша': const Locale('kk', 'KZ'),
-    'Уйғурчә': const Locale('en', 'US'), // Assuming English fallback for Uyghur if not fully supported by system locales
+    'Уйғурчә': const Locale('ug'), // Map to official Uyghur locale code
   };
   final initialLocale = localeMap[savedLang] ?? const Locale('ru', 'RU');
   

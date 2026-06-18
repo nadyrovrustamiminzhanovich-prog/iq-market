@@ -1,5 +1,5 @@
     match /users/{userId} {
-      allow read: if true; 
+      allow read: if isSignedIn(); 
       allow create: if isSignedIn() && request.auth.uid == userId && (!request.resource.data.keys().hasAny(['accountType']) || request.resource.data.accountType in ['user', 'driver']);
       allow delete: if isOwner(userId);
       // Пользователь может обновить свой профиль, но не может изменить роль/рейтинг
