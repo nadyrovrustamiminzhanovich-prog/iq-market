@@ -26,6 +26,17 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    // Автоматически помечаем уведомления прочитанными при открытии экрана
+    // чтобы счётчик (badge) сразу обнулился
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      NotificationService.markAllAsRead();
+    });
+    // Помечаем прочитанными при переключении на вкладку уведомлений
+    _tabController.addListener(() {
+      if (_tabController.index == 1) {
+        NotificationService.markAllAsRead();
+      }
+    });
   }
 
   @override
@@ -180,8 +191,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: notif.isRead ? Colors.white : const Color(0xFF4A80F0).withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: notif.isRead ? Colors.transparent : const Color(0xFF4A80F0).withValues(alpha: 0.15),
+          width: 1,
+        ),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: Material(
@@ -428,7 +443,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(ad.userName, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFF1A1D1E))),
+                      Expanded(
+                        child: Text(
+                          ad.userName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFF1A1D1E)),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
                       Text(time, style: TextStyle(color: unreadCount > 0 ? const Color(0xFF4A80F0) : Colors.grey, fontSize: 11, fontWeight: FontWeight.bold)),
                     ],
                   ),

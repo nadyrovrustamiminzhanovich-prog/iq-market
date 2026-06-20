@@ -91,17 +91,8 @@ class TaxiComplexForm extends StatelessWidget {
   Widget build(BuildContext context) {
     final provider = Provider.of<TaxiProvider>(context);
     final isTelegramUser = provider.isTelegramVerified || FirebaseAuth.instance.currentUser?.uid.startsWith('telegram_') == true;
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 20, offset: const Offset(0, 10))
-        ],
-        border: Border.all(color: const Color(0xFFCBD5E1), width: 1.6),
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         children: [
           TaxiRouteInputWidget(
@@ -109,7 +100,7 @@ class TaxiComplexForm extends StatelessWidget {
             routeTo: routeTo,
             onSwapTap: onSwapTap,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           
           TaxiDateTimeSeatsInputWidget(
             hasDateError: hasDateError,
@@ -120,7 +111,7 @@ class TaxiComplexForm extends StatelessWidget {
             passCnt: passCnt,
             onPassTap: onPassTap,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           
           TaxiPriceInputWidget(
             priceController: priceController,
@@ -129,7 +120,7 @@ class TaxiComplexForm extends StatelessWidget {
             onPriceClear: onPriceClear,
             showPriceClear: showPriceClear,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           
           TaxiCommentInputWidget(
             commentController: commentController,
@@ -138,7 +129,7 @@ class TaxiComplexForm extends StatelessWidget {
             showCommentClear: showCommentClear,
           ),
           if (!isTelegramUser) ...[
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             TaxiFormPhoneInputWidget(
               phoneController: phoneController,
               phoneFormatters: phoneFormatters,
@@ -146,13 +137,15 @@ class TaxiComplexForm extends StatelessWidget {
               onPhoneChanged: onPhoneChanged,
             ),
           ],
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
 
           TaxiActBtn(
             t: t,
             label: provider.translate('lets_go'),
-            color: const Color(0xFF4A80F0),
+            color: t.accent,
             onTap: onSubmitTap,
+            height: 56,
+            borderRadius: 18,
           ),
         ],
       ),

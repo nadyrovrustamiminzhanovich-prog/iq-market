@@ -101,12 +101,20 @@ class _TaxiDriverRideConfirmationSheetContentState
   @override
   void initState() {
     super.initState();
-    localFrom = widget.initialFrom ?? "";
-    localTo = widget.initialTo ?? "";
-    localDate = widget.initialDate ?? "";
-    localTime = widget.initialTime ?? "";
+    localFrom = widget.initialFrom ?? widget.provider.driverFrom;
+    localTo = widget.initialTo ?? widget.provider.driverTo;
+    localDate = widget.initialDate ?? (widget.provider.selDate == 'date' ? "" : widget.provider.selDate);
+    localTime = widget.initialTime ?? (widget.provider.selTime == 'time' ? "" : widget.provider.selTime);
     price = widget.initialPrice ?? 0;
     seats = widget.initialSeats ?? 4;
+
+    // Sync provider driverFrom/driverTo so that picker cancels don't reset fields to empty
+    if (localFrom.isNotEmpty) {
+      widget.provider.setDriverFrom(localFrom);
+    }
+    if (localTo.isNotEmpty) {
+      widget.provider.setDriverTo(localTo);
+    }
 
     phoneMask = MaskTextInputFormatter(
       mask: '+7 (###) ###-##-##',

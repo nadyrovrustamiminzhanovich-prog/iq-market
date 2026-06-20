@@ -39,7 +39,7 @@ class TaxiSideMenuWidget extends StatelessWidget {
   final String firstName;
   final String lastName;
   final String phone;
-  final File? profileImage;
+  final String? profileImage;
   final List<TaxiDrawerItem> items;
 
   const TaxiSideMenuWidget({
@@ -98,8 +98,10 @@ class TaxiSideMenuWidget extends StatelessWidget {
                   border: Border.all(color: t.lime, width: 2),
                 ),
                 child: ClipOval(
-                  child: profileImage != null
-                      ? Image.file(profileImage!, fit: BoxFit.cover)
+                  child: (profileImage != null && profileImage!.isNotEmpty)
+                      ? (profileImage!.startsWith('http')
+                          ? Image.network(profileImage!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Center(child: Icon(LineIcons.user, color: t.lime, size: 30)))
+                          : Image.file(File(profileImage!), fit: BoxFit.cover, errorBuilder: (_, __, ___) => Center(child: Icon(LineIcons.user, color: t.lime, size: 30))))
                       : Center(child: Icon(LineIcons.user, color: t.lime, size: 30)),
                 ),
               ),

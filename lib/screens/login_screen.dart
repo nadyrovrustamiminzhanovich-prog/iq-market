@@ -909,10 +909,11 @@ class _LoginScreenState extends State<LoginScreen> {
  
           AuthSocialLongButton(
             label: 'Продолжить с Google',
-            icon: Container(
-              width: 28, height: 28,
-              decoration: const BoxDecoration(color: Color(0xFFEA4335), shape: BoxShape.circle),
-              child: const Center(child: Text('G', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w900))),
+            icon: Image.network(
+              'https://img.icons8.com/color/96/google-logo.png',
+              width: 26,
+              height: 26,
+              errorBuilder: (context, error, stackTrace) => const Icon(Icons.g_mobiledata_rounded, color: Color(0xFF4285F4), size: 26),
             ),
             onTap: _handleGoogleSignIn,
           ),

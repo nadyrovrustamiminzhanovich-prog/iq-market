@@ -99,7 +99,7 @@ class NotificationService {
       if (_processedMessageIds.length > 100) _processedMessageIds.remove(_processedMessageIds.first);
     }
 
-    // Don't save/show if user is already in this chat
+    // Don't show local notification if user is already in this chat
     final incomingChatId = message.data['chatId'];
     final senderId = message.data['senderId'];
     if (incomingChatId != null && incomingChatId == ChatService.activeChatId) {
@@ -107,12 +107,13 @@ class NotificationService {
       return;
     }
 
-    await saveNotificationToFirestore(
-      title: message.notification?.title ?? 'IQ Market',
-      body: message.notification?.body ?? '',
-      type: message.data['type'] ?? 'system',
-      data: message.data,
-    );
+    // ✅ NOTE: We do NOT call saveNotificationToFirestore here.
+    // Notifications are already saved to Firestore at the time of sending
+    // (via ChatService.sendMessage, ChatService.sendOffer, etc.).
+    // Calling it here again would cause duplicate notifications.
+    // This handler only needs to:
+    //   1. Show local system notification (handled in _onForegroundMessage)
+    //   2. Process special storage flags below
 
     if (message.data['type'] == 'driver_verified') {
       await StorageService.setBool('taxi_verified', true);
@@ -197,6 +198,24 @@ class NotificationService {
     final targetUid = uid ?? UserService.currentUid;
     if (targetUid == null) return;
 
+    // ✅ Для чат-уведомлений используем upsert по chatId
+    // чтобы НЕ создавать новый документ при каждом сообщении (спам счётчика)
+    final chatId = data?['chatId'];
+    if (type == 'chat' && chatId != null) {
+      // Обновляем или создаём один документ на чат
+      final docId = 'chat_$chatId';
+      await _db.collection('users').doc(targetUid).collection('notifications').doc(docId).set({
+        'title': title,
+        'body': body,
+        'timestamp': FieldValue.serverTimestamp(),
+        'type': type,
+        'isRead': false,
+        'data': data,
+      }, SetOptions(merge: false)); // merge:false чтобы обновить весь документ
+      return;
+    }
+
+    // Для системных, верификации и других — создаём новый документ
     final notif = NotificationModel(
       id: '',
       title: title,

@@ -46,54 +46,57 @@ class ChatGlassHeader extends StatelessWidget {
           ),
           child: Row(children: [
             IconButton(icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: Colors.white), onPressed: onBack),
-            GestureDetector(
-              onTap: onProfileTap,
-              child: Row(children: [
-                CircleAvatar(
-                  radius: 18, 
-                  backgroundColor: Colors.white.withValues(alpha: 0.1), 
-                  backgroundImage: sellerAvatarUrl != null ? CachedNetworkImageProvider(sellerAvatarUrl!) : null,
-                  child: sellerAvatarUrl == null ? const Icon(Icons.person, size: 20, color: Colors.white70) : null,
-                ),
-                const SizedBox(width: 12),
-                Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                  Text(ad.userName, maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 16, color: Colors.white)),
-                  StreamBuilder<bool>(
-                    stream: ChatService.getTypingStatusStream(ad.userId),
-                    builder: (context, snapshot) {
-                      final streamTyping = snapshot.data == true;
-                      final lang = Provider.of<AppConfigProvider>(context, listen: false).language;
-                      if (streamTyping || isTyping) {
-                        return Text(TranslationService.t('typing', lang), style: TextStyle(color: const Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold));
-                      }
-                      if (isOnline) {
-                        return Text(TranslationService.t('online', lang), style: const TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold));
-                      }
-                      return FutureBuilder<UserModel?>(
-                        future: UserService.getUserById(ad.userId),
-                        builder: (context, userSnap) {
-                          if (userSnap.hasData && userSnap.data != null) {
-                            final date = userSnap.data!.lastActive;
-                            final now = DateTime.now();
-                            String timeStr;
-                            if (now.day == date.day && now.month == date.month && now.year == date.year) {
-                              timeStr = TranslationService.t('today_at', lang).replaceAll('{time}', DateFormat('HH:mm').format(date));
-                            } else if (now.difference(date).inDays == 1 || (now.day - 1 == date.day && now.month == date.month && now.year == date.year)) {
-                              timeStr = TranslationService.t('yesterday_at', lang).replaceAll('{time}', DateFormat('HH:mm').format(date));
-                            } else {
-                              timeStr = '${DateFormat('d.MM.yyyy').format(date)} ${TranslationService.t('at_time', lang)} ${DateFormat('HH:mm').format(date)}';
-                            }
-                            return Text('${TranslationService.t('was_online', lang)} $timeStr', style: const TextStyle(color: Colors.white38, fontSize: 11));
+            Expanded(
+              child: GestureDetector(
+                onTap: onProfileTap,
+                child: Row(children: [
+                  CircleAvatar(
+                    radius: 18, 
+                    backgroundColor: Colors.white.withValues(alpha: 0.1), 
+                    backgroundImage: sellerAvatarUrl != null ? CachedNetworkImageProvider(sellerAvatarUrl!) : null,
+                    child: sellerAvatarUrl == null ? const Icon(Icons.person, size: 20, color: Colors.white70) : null,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                      Text(ad.userName, maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 16, color: Colors.white)),
+                      StreamBuilder<bool>(
+                        stream: ChatService.getTypingStatusStream(ad.userId),
+                        builder: (context, snapshot) {
+                          final streamTyping = snapshot.data == true;
+                          final lang = Provider.of<AppConfigProvider>(context, listen: false).language;
+                          if (streamTyping || isTyping) {
+                            return Text(TranslationService.t('typing', lang), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: const Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold));
                           }
-                          return Text(TranslationService.t('offline', lang), style: const TextStyle(color: Colors.white38, fontSize: 11));
-                        }
-                      );
-                    },
+                          if (isOnline) {
+                            return Text(TranslationService.t('online', lang), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold));
+                          }
+                          return FutureBuilder<UserModel?>(
+                            future: UserService.getUserById(ad.userId),
+                            builder: (context, userSnap) {
+                              if (userSnap.hasData && userSnap.data != null) {
+                                final date = userSnap.data!.lastActive;
+                                final now = DateTime.now();
+                                String timeStr;
+                                if (now.day == date.day && now.month == date.month && now.year == date.year) {
+                                  timeStr = TranslationService.t('today_at', lang).replaceAll('{time}', DateFormat('HH:mm').format(date));
+                                } else if (now.difference(date).inDays == 1 || (now.day - 1 == date.day && now.month == date.month && now.year == date.year)) {
+                                  timeStr = TranslationService.t('yesterday_at', lang).replaceAll('{time}', DateFormat('HH:mm').format(date));
+                                } else {
+                                  timeStr = '${DateFormat('d.MM.yyyy').format(date)} ${TranslationService.t('at_time', lang)} ${DateFormat('HH:mm').format(date)}';
+                                }
+                                return Text('${TranslationService.t('was_online', lang)} $timeStr', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white38, fontSize: 11));
+                              }
+                              return Text(TranslationService.t('offline', lang), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white38, fontSize: 11));
+                            }
+                          );
+                        },
+                      ),
+                    ]),
                   ),
                 ]),
-              ]),
+              ),
             ),
-            const Spacer(),
             IconButton(icon: const Icon(Icons.call_rounded, color: Colors.white70), onPressed: onCall),
             PopupMenuButton<String>(
               icon: const Icon(Icons.more_vert_rounded, color: Colors.white70),

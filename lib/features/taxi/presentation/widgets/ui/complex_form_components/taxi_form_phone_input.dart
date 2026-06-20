@@ -20,21 +20,34 @@ class TaxiFormPhoneInputWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      height: 54,
+      height: 60,
       decoration: BoxDecoration(
         color: hasPhoneError ? const Color(0xFFFFF1F2) : Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: hasPhoneError ? const Color(0xFFFDA4AF) : const Color(0xFFF1F5F9), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Row(
         children: [
-          const SizedBox(width: 4),
-          Icon(
-            Icons.phone_iphone_rounded, 
-            color: hasPhoneError ? const Color(0xFFE11D48) : const Color(0xFF4A80F0), 
-            size: 22
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: hasPhoneError ? const Color(0xFFFFE4E6) : const Color(0xFFEFF6FF),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              Icons.phone_iphone_rounded, 
+              color: hasPhoneError ? const Color(0xFFE11D48) : const Color(0xFF1E5EE6), 
+              size: 18,
+            ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 12),
           Expanded(
             child: TextField(
               controller: phoneController,
@@ -44,7 +57,7 @@ class TaxiFormPhoneInputWidget extends StatelessWidget {
               decoration: InputDecoration(
                 border: InputBorder.none,
                 hintText: '+7 (700) 000-00-00',
-                hintStyle: GoogleFonts.inter(color: hasPhoneError ? const Color(0xFFFDA4AF) : const Color(0xFF94A3B8), fontSize: 13, fontWeight: FontWeight.w500),
+                hintStyle: GoogleFonts.inter(color: hasPhoneError ? const Color(0xFFFDA4AF) : const Color(0xFF1E293B), fontSize: 14, fontWeight: FontWeight.w700),
                 counterText: '',
               ),
               onChanged: onPhoneChanged,

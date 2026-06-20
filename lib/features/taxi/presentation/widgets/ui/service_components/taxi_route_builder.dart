@@ -97,7 +97,7 @@ class TaxiRouteBuilder extends StatelessWidget {
                             fontWeight: FontWeight.w600,
                             color: hasError
                                 ? const Color(0xFFE11D48)
-                                : const Color(0xFF94A3B8),
+                                : const Color(0xFF475569),
                             letterSpacing: -0.3,
                           ),
                         ),

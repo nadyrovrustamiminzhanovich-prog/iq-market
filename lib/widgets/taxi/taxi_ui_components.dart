@@ -57,7 +57,7 @@ class TaxiRoleCard extends StatelessWidget {
           duration: const Duration(milliseconds: 300),
           height: 48,
           decoration: BoxDecoration(
-            color: isSelected ? const Color(0xFF4A80F0) : const Color(0xFFF1F5F9),
+            color: isSelected ? t.accent : (t.isDark ? t.card2 : const Color(0xFFF1F5F9)),
             borderRadius: BorderRadius.circular(24),
           ),
           child: Row(

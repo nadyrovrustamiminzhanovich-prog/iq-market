@@ -497,7 +497,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
             child: Column(
               children: [
                 _buildMainInfo(isFree),
-                if (_currentUser?.uid != widget.ad.userId) _buildBargainSection(),
+                if (_currentUser?.uid != widget.ad.userId && widget.ad.isBargainAllowed) _buildBargainSection(),
                 _buildTags(),
                 const SizedBox(height: 10),
                 if (widget.ad.extraFields != null && widget.ad.extraFields!.isNotEmpty) _buildSpecsSection(),

@@ -11,6 +11,7 @@ import 'package:iqmarket/theme/taxi_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:iqmarket/providers/taxi_provider.dart';
 import 'package:iqmarket/features/taxi/presentation/widgets/ui/taxi_section_header_widget.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 /// Форма поиска пассажиров для водителя.
 ///
@@ -39,23 +40,22 @@ class TaxiDriverSearchForm extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<TaxiProvider>(context);
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 20, offset: const Offset(0, 10))
-        ],
-        border: Border.all(color: const Color(0xFFCBD5E1), width: 1.6),
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         children: [
           Container(
             decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
+              color: Colors.white,
               borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0xFFF1F5F9), width: 1.5),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.02),
+                  blurRadius: 16,
+                  offset: const Offset(0, 8),
+                ),
+              ],
             ),
             child: Stack(
               children: [
@@ -95,7 +95,7 @@ class TaxiDriverSearchForm extends StatelessWidget {
                           shape: BoxShape.circle,
                           border: Border.all(color: const Color(0xFFF1F5F9)),
                         ),
-                        child: const Icon(Icons.swap_vert_rounded, color: Color(0xFF4A80F0), size: 20),
+                        child: const Icon(Icons.swap_vert_rounded, color: Color(0xFF1E5EE6), size: 20),
                       ),
                     ),
                   ),
@@ -103,19 +103,83 @@ class TaxiDriverSearchForm extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 16),
-          TaxiMiniBtn(
-            t: t,
-            icon: Icons.calendar_today_rounded,
-            value: dateLabel,
-            onTap: onDateTap,
+          const SizedBox(height: 12),
+          GestureDetector(
+            onTap: () {
+              HapticFeedback.selectionClick();
+              onDateTap();
+            },
+            child: Container(
+              height: 60,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: const Color(0xFFF1F5F9),
+                  width: 1.5,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.02),
+                    blurRadius: 16,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEFF6FF),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.calendar_today_rounded,
+                      color: Color(0xFF1E5EE6),
+                      size: 18,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          provider.translate('date_time_label'),
+                          style: GoogleFonts.inter(
+                            fontSize: 10,
+                            color: const Color(0xFF64748B),
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                        const SizedBox(height: 1),
+                        Text(
+                          dateLabel,
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            color: const Color(0xFF1E293B),
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
           TaxiActBtn(
             t: t,
             label: provider.translate('search_btn_hint'),
-            color: const Color(0xFF4A80F0),
+            color: t.accent,
             onTap: onSearchTap,
+            height: 56,
+            borderRadius: 18,
           ),
         ],
       ),

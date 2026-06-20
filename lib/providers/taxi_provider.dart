@@ -48,7 +48,7 @@ class TaxiProvider extends ChangeNotifier {
   bool _isLoggedIn = true;
   String _firstName = "User";
   String _lastName = "IQ";
-  File? _profileImage;
+  String? _profileImage;
   String _phone = "";
   String _driverCar = "Toyota Camry 70";
   String _driverPlate = "777 BBA 05";
@@ -70,7 +70,7 @@ class TaxiProvider extends ChangeNotifier {
   int get passCnt => _passCnt;
   String get curLang => _curLang;
   bool get isDarkGlobal => _isDarkGlobal;
-  File? get profileImage => _profileImage;
+  String? get profileImage => _profileImage;
   String get firstName => _firstName;
   String get lastName => _lastName;
   String get phone => _phone;
@@ -218,9 +218,9 @@ class TaxiProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setProfileImage(File? image) {
-    _profileImage = image;
-    if (image != null) _prefs.save('user_image', image.path);
+  void setProfileImage(String? imagePath) {
+    _profileImage = imagePath;
+    _prefs.save('user_image', imagePath);
     notifyListeners();
   }
 

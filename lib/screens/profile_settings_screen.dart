@@ -75,7 +75,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   Color get _surfaceColor => widget.themes[_currentTheme]?['surface'] ?? (_isDark ? const Color(0xFF1E293B) : Colors.white);
   Color get _txtColor => widget.themes[_currentTheme]?['text'] ?? (_isDark ? Colors.white : const Color(0xFF1A1D1E));
   Color get _subtxtColor => widget.themes[_currentTheme]?['subtext'] ?? (_isDark ? Colors.white60 : const Color(0xFF64748B));
-  Color get _primaryColor => widget.themes[_currentTheme]?['primary'] ?? const Color(0xFF4A80F0);
+  Color get _primaryColor => widget.themes[_currentTheme]?['primary'] ?? const Color(0xFF1E5EE6);
   Color get _secondaryColor => _isDark ? const Color(0xFF6366F1) : const Color(0xFF4F46E5);
 
   @override
@@ -215,107 +215,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   }
 
   Widget _buildProfileCompleteness() {
-    int percent = 0;
-    final user = FirebaseAuth.instance.currentUser;
-    final providers = user?.providerData.map((p) => p.providerId).toList() ?? [];
-    
-    if (_newImage != null || (widget.profileImagePath != null && widget.profileImagePath!.isNotEmpty)) {
-      percent += 20;
-    }
-    if (_nameController.text.trim().isNotEmpty) {
-      percent += 20;
-    }
-    if (_phoneController.text.trim().isNotEmpty) {
-      percent += 20;
-    }
-    if (_cityController.text.trim().isNotEmpty && _cityController.text != 'Все') {
-      percent += 20;
-    }
-    if (_userEmail.isNotEmpty || providers.isNotEmpty) {
-      percent += 20;
-    }
-
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 10),
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: _surfaceColor.withValues(alpha: 0.8),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: _isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.04),
-          width: 1.2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: _primaryColor.withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(Icons.bolt_rounded, color: _primaryColor, size: 18),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _t('profile_completeness_title'),
-                      style: GoogleFonts.plusJakartaSans(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 13,
-                        color: _txtColor,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      percent == 100 
-                          ? _t('profile_complete_good') 
-                          : _t('profile_complete_prompt'),
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 10.5,
-                        color: _subtxtColor,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Text(
-                '$percent%',
-                style: GoogleFonts.plusJakartaSans(
-                  fontWeight: FontWeight.w900,
-                  fontSize: 16,
-                  color: _primaryColor,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: LinearProgressIndicator(
-              value: percent / 100.0,
-              minHeight: 8,
-              backgroundColor: _isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.04),
-              valueColor: AlwaysStoppedAnimation<Color>(_primaryColor),
-            ),
-          ),
-        ],
-      ),
-    );
+    return const SizedBox.shrink();
   }
 
   @override
@@ -346,10 +246,10 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
       bottomNavigationBar: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         decoration: BoxDecoration(
-          color: _surfaceColor,
+          color: _isDark ? _surfaceColor : Colors.white,
           border: Border(
             top: BorderSide(
-              color: _isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.04),
+              color: _isDark ? Colors.white.withValues(alpha: 0.08) : const Color(0xFFF1F5F9),
               width: 1.2,
             ),
           ),
@@ -367,7 +267,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: _primaryColor.withValues(alpha: 0.3),
+                  color: _primaryColor.withValues(alpha: 0.25),
                   blurRadius: 16,
                   offset: const Offset(0, 6),
                 )
@@ -393,14 +293,14 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                           children: [
                             Text(
                               _t('save').toUpperCase(),
-                              style: GoogleFonts.plusJakartaSans(
+                              style: GoogleFonts.inter(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w900,
-                                fontSize: 15,
+                                fontSize: 16,
                                 letterSpacing: 0.8,
                               ),
                             ),
-                            const SizedBox(width: 10),
+                            const SizedBox(width: 8),
                             const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
                           ],
                         ),
@@ -454,8 +354,6 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                 children: [
                   const SizedBox(height: 24),
                   _buildAvatarSection(),
-                  const SizedBox(height: 20),
-                  _buildProfileCompleteness(),
                   const SizedBox(height: 24),
                   _buildSectionTitle(_t('personal')),
                   _buildTextField(_t('name_label'), _nameController, Icons.person_rounded),
@@ -500,6 +398,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                       Icons.badge_rounded, 
                       onTap: () => _showAccountTypePicker(),
                       trailingIcon: Icons.arrow_forward_ios_rounded,
+                      isStandalone: false,
                     ),
                     _buildDivider(),
                     _buildDropdownItem(_t('lang_label'), _selectedLanguage, ['Русский', 'Қазақша', 'Уйғурчә'], (v) => setState(() => _selectedLanguage = v!), Icons.translate_rounded),
@@ -828,25 +727,26 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   );
 
   Widget _buildSectionTitle(String title) => Padding(
-    padding: const EdgeInsets.only(left: 4, bottom: 12, top: 8),
+    padding: const EdgeInsets.only(left: 4, bottom: 12, top: 16),
     child: Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Container(
-          width: 4,
+          width: 3.5,
           height: 16,
           decoration: BoxDecoration(
-            gradient: LinearGradient(colors: [_primaryColor, _secondaryColor]),
-            borderRadius: BorderRadius.circular(4),
+            color: _primaryColor,
+            borderRadius: BorderRadius.circular(2),
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 8),
         Text(
           title.toUpperCase(),
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 11.0,
+          style: GoogleFonts.inter(
+            fontSize: 12.0,
             fontWeight: FontWeight.w800,
-            color: _txtColor.withValues(alpha: 0.75),
-            letterSpacing: 1.2,
+            color: _isDark ? Colors.white70 : const Color(0xFF1E293B),
+            letterSpacing: 0.8,
           ),
         ),
       ],
@@ -856,8 +756,8 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   Widget _buildSettingsCard(List<Widget> children) => Container(
     margin: const EdgeInsets.only(bottom: 20),
     decoration: BoxDecoration(
-      color: _surfaceColor.withValues(alpha: 0.95),
-      borderRadius: BorderRadius.circular(24),
+      color: _isDark ? _surfaceColor : Colors.white,
+      borderRadius: BorderRadius.circular(20),
       boxShadow: [
         BoxShadow(
           color: Colors.black.withValues(alpha: 0.02),
@@ -866,12 +766,12 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
         )
       ],
       border: Border.all(
-        color: _isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.04),
+        color: _isDark ? Colors.white.withValues(alpha: 0.08) : const Color(0xFFF1F5F9),
         width: 1.2,
       ),
     ),
     child: ClipRRect(
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: BorderRadius.circular(20),
       child: Column(children: children),
     ),
   );
@@ -891,44 +791,154 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     isDark: _isDark,
   );
 
-  Widget _buildDisplayField(String label, String value, IconData icon, {VoidCallback? onTap, IconData? trailingIcon}) {
+  Widget _buildDisplayField(String label, String value, IconData icon, {VoidCallback? onTap, IconData? trailingIcon, bool isStandalone = true}) {
     final isCopyable = onTap != null && trailingIcon == null;
+    final isDark = _isDark;
+
+    Widget child = Row(
+      children: [
+        Container(
+          width: isStandalone ? 48 : 44,
+          height: isStandalone ? 48 : 44,
+          decoration: BoxDecoration(
+            color: isDark ? Colors.white.withValues(alpha: 0.05) : const Color(0xFFEFF6FF),
+            borderRadius: BorderRadius.circular(isStandalone ? 14 : 12),
+          ),
+          child: Center(
+            child: Icon(icon, color: _primaryColor, size: isStandalone ? 20 : 18),
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label.toUpperCase(),
+                style: GoogleFonts.inter(
+                  fontSize: 10.0,
+                  color: const Color(0xFF94A3B8),
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.8,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                value,
+                style: GoogleFonts.inter(
+                  color: _txtColor,
+                  fontWeight: FontWeight.w800,
+                  fontSize: isStandalone ? 16.0 : 15.0,
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (trailingIcon != null) ...[
+          const SizedBox(width: 8),
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: isDark ? Colors.white.withValues(alpha: 0.05) : const Color(0xFFF1F5F9),
+            ),
+            child: Center(
+              child: Icon(trailingIcon, color: const Color(0xFF94A3B8), size: 14),
+            ),
+          ),
+        ] else if (isCopyable) ...[
+          const SizedBox(width: 8),
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: isDark ? Colors.white.withValues(alpha: 0.15) : const Color(0xFFE2E8F0),
+                width: 1.2,
+              ),
+              color: isDark ? Colors.white.withValues(alpha: 0.02) : Colors.white,
+            ),
+            child: Center(
+              child: Icon(Icons.content_copy_rounded, color: const Color(0xFF94A3B8), size: 16),
+            ),
+          ),
+        ],
+      ],
+    );
+
+    if (isStandalone) {
+      return GestureDetector(
+        onTap: onTap,
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: isDark ? _surfaceColor : Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: isDark ? Colors.white.withValues(alpha: 0.08) : const Color(0xFFF1F5F9),
+              width: 1.2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.02),
+                blurRadius: 16,
+                offset: const Offset(0, 8),
+              )
+            ],
+          ),
+          child: child,
+        ),
+      );
+    } else {
+      return InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          child: child,
+        ),
+      );
+    }
+  }
+
+  Widget _buildLocationPicker(String label, TextEditingController controller, IconData icon) {
+    final isDark = _isDark;
+    const purpleColor = Color(0xFF7C3AED);
     return GestureDetector(
-      onTap: onTap,
+      onTap: () => _showLocationDialog(),
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: _surfaceColor,
-          borderRadius: BorderRadius.circular(22),
+          color: isDark ? _surfaceColor : Colors.white,
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: _isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.04),
+            color: isDark ? Colors.white.withValues(alpha: 0.08) : const Color(0xFFF1F5F9),
             width: 1.2,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.01),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
+              color: Colors.black.withValues(alpha: 0.02),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
             )
           ],
         ),
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(12),
+              width: 48,
+              height: 48,
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    _primaryColor.withValues(alpha: 0.12),
-                    _primaryColor.withValues(alpha: 0.04),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(16),
+                color: isDark ? Colors.white.withValues(alpha: 0.05) : const Color(0xFFFAF5FF),
+                borderRadius: BorderRadius.circular(14),
               ),
-              child: Icon(icon, color: _primaryColor, size: 20),
+              child: Center(
+                child: Icon(icon, color: purpleColor, size: 20),
+              ),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -938,88 +948,97 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                 children: [
                   Text(
                     label.toUpperCase(),
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 9.5,
-                      color: _primaryColor.withValues(alpha: 0.8),
+                    style: GoogleFonts.inter(
+                      fontSize: 10.0,
+                      color: const Color(0xFF94A3B8),
                       fontWeight: FontWeight.w800,
                       letterSpacing: 0.8,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    value,
-                    style: GoogleFonts.plusJakartaSans(
-                      color: _txtColor,
+                    controller.text == 'Все' ? _t('all_cities') : controller.text,
+                    style: GoogleFonts.inter(
                       fontWeight: FontWeight.w800,
-                      fontSize: 15.0,
+                      fontSize: 16.0,
+                      color: _txtColor,
                     ),
                   ),
                 ],
               ),
             ),
-            if (trailingIcon != null) ...[
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: _subtxtColor.withValues(alpha: 0.05),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(trailingIcon, color: _subtxtColor.withValues(alpha: 0.5), size: 12),
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isDark ? Colors.white.withValues(alpha: 0.05) : const Color(0xFFF1F5F9),
               ),
-            ] else if (isCopyable) ...[
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: _primaryColor.withValues(alpha: 0.05),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(Icons.copy_all_rounded, color: _primaryColor.withValues(alpha: 0.7), size: 14),
+              child: const Center(
+                child: Icon(Icons.chevron_right_rounded, color: Color(0xFF94A3B8), size: 16),
               ),
-            ],
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildLocationPicker(String label, TextEditingController controller, IconData icon) => GestureDetector(
-    onTap: () => _showLocationDialog(),
-    child: Container(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-      decoration: BoxDecoration(
-        color: _surfaceColor,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(
-          color: _isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.04),
-          width: 1.2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.01),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          )
-        ],
-      ),
+  Widget _buildSwitchItem(String title, bool value, Function(bool) onChanged, IconData icon) {
+    final isDark = _isDark;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(12),
+            width: 44,
+            height: 44,
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  _secondaryColor.withValues(alpha: 0.15),
-                  _secondaryColor.withValues(alpha: 0.05),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(16),
+              color: isDark ? Colors.white.withValues(alpha: 0.05) : const Color(0xFFEFF6FF),
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(icon, color: _secondaryColor, size: 20),
+            child: Center(
+              child: Icon(icon, color: _primaryColor, size: 18),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Text(
+              title,
+              style: GoogleFonts.inter(
+                fontWeight: FontWeight.w800,
+                fontSize: 15.0,
+                color: _txtColor,
+              ),
+            ),
+          ),
+          Switch.adaptive(
+            value: value,
+            activeThumbColor: _primaryColor,
+            activeTrackColor: _primaryColor.withValues(alpha: 0.4),
+            onChanged: onChanged,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDropdownItem(String title, String current, List<String> items, Function(String?) onChanged, IconData icon) {
+    final isDark = _isDark;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: isDark ? Colors.white.withValues(alpha: 0.05) : const Color(0xFFEFF6FF),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Center(
+              child: Icon(icon, color: _primaryColor, size: 18),
+            ),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -1028,88 +1047,45 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  label.toUpperCase(),
-                  style: GoogleFonts.plusJakartaSans(
+                  title.toUpperCase(),
+                  style: GoogleFonts.inter(
                     fontSize: 9.5,
-                    color: _secondaryColor,
+                    color: const Color(0xFF94A3B8),
                     fontWeight: FontWeight.w800,
                     letterSpacing: 0.8,
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  controller.text == 'Все' ? _t('all_cities') : controller.text,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 15.0,
-                    color: _txtColor,
+                const SizedBox(height: 2),
+                DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: current,
+                    icon: const SizedBox.shrink(),
+                    isDense: true,
+                    style: GoogleFonts.inter(color: _txtColor, fontWeight: FontWeight.w800, fontSize: 15.0),
+                    borderRadius: BorderRadius.circular(16),
+                    dropdownColor: _surfaceColor,
+                    onChanged: onChanged,
+                    items: items.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
                   ),
                 ),
               ],
             ),
           ),
           Container(
-            padding: const EdgeInsets.all(8),
+            width: 32,
+            height: 32,
             decoration: BoxDecoration(
-              color: _subtxtColor.withValues(alpha: 0.05),
               shape: BoxShape.circle,
+              color: isDark ? Colors.white.withValues(alpha: 0.05) : const Color(0xFFF1F5F9),
             ),
-            child: Icon(Icons.arrow_forward_ios_rounded, color: _subtxtColor.withValues(alpha: 0.5), size: 12),
+            child: const Center(
+              child: Icon(Icons.unfold_more_rounded, color: Color(0xFF94A3B8), size: 16),
+            ),
           ),
         ],
       ),
-    ),
-  );
-
-  Widget _buildSwitchItem(String title, bool value, Function(bool) onChanged, IconData icon) => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-    child: Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(color: _primaryColor.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(15)),
-          child: Icon(icon, color: _primaryColor, size: 20),
-        ),
-        const SizedBox(width: 18),
-        Expanded(
-          child: Text(title, style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 14, color: _txtColor)),
-        ),
-        Switch.adaptive(
-          value: value, 
-          activeThumbColor: _primaryColor,
-          activeTrackColor: _primaryColor.withValues(alpha: 0.5),
-          onChanged: onChanged,
-        ),
-      ],
-    ),
-  );
-
-  Widget _buildDropdownItem(String title, String current, List<String> items, Function(String?) onChanged, IconData icon) => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-    child: Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(color: _primaryColor.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(15)),
-          child: Icon(icon, color: _primaryColor, size: 20),
-        ),
-        const SizedBox(width: 18),
-        Expanded(
-          child: Text(title, style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 14, color: _txtColor)),
-        ),
-        DropdownButton<String>(
-          value: current,
-          icon: Icon(Icons.unfold_more_rounded, size: 20, color: _subtxtColor.withValues(alpha: 0.4)),
-          underline: const SizedBox(),
-          style: GoogleFonts.inter(color: _primaryColor, fontWeight: FontWeight.w800, fontSize: 14),
-          borderRadius: BorderRadius.circular(20),
-          dropdownColor: _surfaceColor,
-          onChanged: onChanged,
-          items: items.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-        ),
-      ],
-    ),
-  );
+    );
+  }
 
   Widget _buildDeleteAccountButton() {
     return Container(
@@ -1231,15 +1207,49 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     ]);
   }
 
-  Widget _buildLinkedItem(String title, String sub, Widget leading, bool isLinked, VoidCallback? onTap) => ListTile(
-    onTap: onTap,
-    leading: leading,
-    title: Text(title, style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 14, color: _txtColor)),
-    subtitle: Text(sub, style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 11, color: isLinked ? const Color(0xFF10B981) : _subtxtColor.withValues(alpha: 0.7))),
-    trailing: isLinked 
-        ? const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 22)
-        : (onTap != null ? Icon(Icons.arrow_forward_ios_rounded, color: _subtxtColor.withValues(alpha: 0.3), size: 14) : null),
-  );
+  Widget _buildLinkedItem(String title, String sub, Widget leading, bool isLinked, VoidCallback? onTap) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        child: Row(
+          children: [
+            leading,
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.inter(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 16.0,
+                      color: _txtColor,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    sub,
+                    style: GoogleFonts.inter(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12.0,
+                      color: isLinked ? const Color(0xFF10B981) : const Color(0xFF94A3B8),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (isLinked)
+              const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 24)
+            else
+              const Icon(Icons.chevron_right_rounded, color: Color(0xFF94A3B8), size: 20),
+          ],
+        ),
+      ),
+    );
+  }
 
   void _showLinkEmailDialog() {
     final emailC = TextEditingController();
@@ -1746,60 +1756,49 @@ class _PremiumTextFieldState extends State<_PremiumTextField> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isDark = widget.isDark;
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
+      duration: const Duration(milliseconds: 150),
       margin: const EdgeInsets.symmetric(vertical: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: widget.surfaceColor,
-        borderRadius: BorderRadius.circular(22),
+        color: isDark ? widget.surfaceColor : Colors.white,
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: _isFocused
               ? widget.primaryColor
-              : (widget.isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.04)),
-          width: _isFocused ? 2.0 : 1.2,
+              : (isDark ? Colors.white.withValues(alpha: 0.08) : const Color(0xFFF1F5F9)),
+          width: 1.2,
         ),
         boxShadow: [
           BoxShadow(
-            color: _isFocused
-                ? widget.primaryColor.withValues(alpha: 0.15)
-                : Colors.black.withValues(alpha: 0.01),
-            blurRadius: _isFocused ? 14 : 8,
-            offset: const Offset(0, 4),
-          )
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+          if (_isFocused)
+            BoxShadow(
+              color: widget.primaryColor.withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
         ],
       ),
       child: Row(
         children: [
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.all(12),
+          Container(
+            width: 48,
+            height: 48,
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: _isFocused
-                    ? [widget.primaryColor, widget.secondaryColor]
-                    : [
-                        widget.primaryColor.withValues(alpha: 0.12),
-                        widget.primaryColor.withValues(alpha: 0.04),
-                      ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: _isFocused
-                  ? [
-                      BoxShadow(
-                        color: widget.primaryColor.withValues(alpha: 0.25),
-                        blurRadius: 8,
-                        offset: const Offset(0, 3),
-                      )
-                    ]
-                  : [],
+              color: isDark ? Colors.white.withValues(alpha: 0.05) : const Color(0xFFEFF6FF),
+              borderRadius: BorderRadius.circular(14),
             ),
-            child: Icon(
-              widget.icon,
-              color: _isFocused ? Colors.white : widget.primaryColor,
-              size: 20,
+            child: Center(
+              child: Icon(
+                widget.icon,
+                color: widget.primaryColor,
+                size: 20,
+              ),
             ),
           ),
           const SizedBox(width: 16),
@@ -1810,9 +1809,9 @@ class _PremiumTextFieldState extends State<_PremiumTextField> {
               children: [
                 Text(
                   widget.label.toUpperCase(),
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 9.5,
-                    color: _isFocused ? widget.primaryColor : widget.subtxtColor.withValues(alpha: 0.7),
+                  style: GoogleFonts.inter(
+                    fontSize: 10.0,
+                    color: const Color(0xFF94A3B8),
                     fontWeight: FontWeight.w800,
                     letterSpacing: 0.8,
                   ),
@@ -1822,10 +1821,10 @@ class _PremiumTextFieldState extends State<_PremiumTextField> {
                   controller: widget.controller,
                   focusNode: _focusNode,
                   inputFormatters: widget.formatters,
-                  style: GoogleFonts.plusJakartaSans(
+                  style: GoogleFonts.inter(
                     color: widget.txtColor,
                     fontWeight: FontWeight.w800,
-                    fontSize: 15.0,
+                    fontSize: 16.0,
                   ),
                   decoration: const InputDecoration(
                     border: InputBorder.none,

@@ -139,6 +139,8 @@ class TaxiActBtn extends StatelessWidget {
   final String label;
   final Color color;
   final VoidCallback onTap;
+  final double? height;
+  final double? borderRadius;
 
   const TaxiActBtn({
     super.key,
@@ -146,20 +148,25 @@ class TaxiActBtn extends StatelessWidget {
     required this.label,
     required this.color,
     required this.onTap,
+    this.height,
+    this.borderRadius,
   });
 
   @override
   Widget build(BuildContext context) {
+    final double btnHeight = height ?? 54;
+    final double btnRadius = borderRadius ?? 16;
+
     return Container(
       width: double.infinity,
-      height: 54,
+      height: btnHeight,
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [color, color.withValues(alpha: 0.85)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(btnRadius),
         boxShadow: [
           BoxShadow(color: color.withValues(alpha: 0.25), blurRadius: 10, offset: const Offset(0, 4)),
         ],
@@ -171,7 +178,7 @@ class TaxiActBtn extends StatelessWidget {
           shadowColor: Colors.transparent,
           foregroundColor: Colors.white,
           elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(btnRadius)),
         ),
         child: Text(
           label.toUpperCase(),

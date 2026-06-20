@@ -5,7 +5,7 @@ import 'package:iqmarket/models/message_model.dart';
 import 'package:iqmarket/services/user_service.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
-class ChatBubble extends StatelessWidget {
+class ChatBubble extends StatefulWidget {
   final MessageModel msg;
   final String? sellerAvatarUrl;
   final Color myBubbleColor;
@@ -47,11 +47,18 @@ class ChatBubble extends StatelessWidget {
   final VoidCallback? onCallOffer;
 
   @override
+  State<ChatBubble> createState() => _ChatBubbleState();
+}
+
+class _ChatBubbleState extends State<ChatBubble> {
+  bool _isOfferLoading = false;
+
+  @override
   Widget build(BuildContext context) {
-    final bool isMe = msg.senderId == UserService.currentUid;
+    final bool isMe = widget.msg.senderId == UserService.currentUid;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
+        child: Row(
         mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
@@ -59,74 +66,74 @@ class ChatBubble extends StatelessWidget {
             CircleAvatar(
               radius: 14,
               backgroundColor: const Color(0xFF17212D),
-              backgroundImage: (sellerAvatarUrl != null && sellerAvatarUrl!.startsWith('http')) 
-                  ? CachedNetworkImageProvider(sellerAvatarUrl!) 
+              backgroundImage: (widget.sellerAvatarUrl != null && widget.sellerAvatarUrl!.startsWith('http')) 
+                  ? CachedNetworkImageProvider(widget.sellerAvatarUrl!) 
                   : null,
-              child: (sellerAvatarUrl == null || !sellerAvatarUrl!.startsWith('http')) 
+              child: (widget.sellerAvatarUrl == null || !widget.sellerAvatarUrl!.startsWith('http')) 
                   ? const Icon(Icons.person, size: 14, color: Colors.white38) 
                   : null,
             ),
-
             const SizedBox(width: 8),
           ],
-          GestureDetector(
-            onLongPress: () => onLongPress(msg),
-            child: Container(
-              constraints: BoxConstraints(
-                maxWidth: MediaQuery.of(context).size.width * 0.72,
-                minWidth: msg.type == 'audio' ? 160 : 0,
-              ),
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: isMe ? null : otherBubbleColor,
-                gradient: isMe ? const LinearGradient(
-                  colors: [Color(0xFF4A80F0), Color(0xFF3B6FE0)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ) : null,
-                borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(18), 
-                  topRight: const Radius.circular(18), 
-                  bottomLeft: Radius.circular(isMe ? 18 : 4), 
-                  bottomRight: Radius.circular(isMe ? 4 : 18)
+          Flexible(
+            child: GestureDetector(
+              onLongPress: () => widget.onLongPress(widget.msg),
+              child: Container(
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.of(context).size.width * 0.72,
+                  minWidth: widget.msg.type == 'audio' ? 160 : 0,
                 ),
-              ),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                if (msg.type == 'image' && msg.mediaUrl != null)
-                  GestureDetector(
-                    onTap: () => onImageTap(msg.mediaUrl!),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12), 
-                      child: Hero(
-                        tag: msg.mediaUrl!, 
-                        child: (msg.mediaUrl != null && msg.mediaUrl!.startsWith('http'))
-                          ? CachedNetworkImage(
-                              imageUrl: msg.mediaUrl!,
-                              errorWidget: (context, url, error) => const Icon(Icons.broken_image_rounded, color: Colors.white),
-                            )
-                          : const Icon(Icons.broken_image_rounded, color: Colors.white)
-                      )
-
-                    ),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: isMe ? null : widget.otherBubbleColor,
+                  gradient: isMe ? const LinearGradient(
+                    colors: [Color(0xFF4A80F0), Color(0xFF3B6FE0)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ) : null,
+                  borderRadius: BorderRadius.only(
+                    topLeft: const Radius.circular(18), 
+                    topRight: const Radius.circular(18), 
+                    bottomLeft: Radius.circular(isMe ? 18 : 4), 
+                    bottomRight: Radius.circular(isMe ? 4 : 18)
                   ),
-                if (msg.type == 'audio') _AudioPlayerWidget(
-                  msg: msg, 
-                  isMe: isMe, 
-                  color: textColor, 
-                  onPlay: onPlayVoice, 
-                  isPlaying: isPlaying,
-                  currentPos: currentPos,
-                  currentDur: currentDur,
                 ),
-                if (msg.text.isNotEmpty && msg.type == 'text')
-                  Text(msg.text, style: TextStyle(color: textColor, fontSize: 15, fontWeight: FontWeight.w500)),
-                if (msg.type == 'offer') _buildOfferCard(context, isMe),
-                const SizedBox(height: 4),
-                Row(mainAxisSize: MainAxisSize.min, children: [
-                  Text(DateFormat('HH:mm').format(msg.timestamp), style: TextStyle(fontSize: 10, color: subTextColor)),
-                  if (isMe) ...[const SizedBox(width: 4), Icon(msg.isRead ? Icons.done_all_rounded : Icons.done_rounded, size: 14, color: msg.isRead ? const Color(0xFF00E5FF) : Colors.white38)],
+                child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                  if (widget.msg.type == 'image' && widget.msg.mediaUrl != null)
+                    GestureDetector(
+                      onTap: () => widget.onImageTap(widget.msg.mediaUrl!),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12), 
+                        child: Hero(
+                          tag: widget.msg.mediaUrl!, 
+                          child: (widget.msg.mediaUrl != null && widget.msg.mediaUrl!.startsWith('http'))
+                            ? CachedNetworkImage(
+                                imageUrl: widget.msg.mediaUrl!,
+                                errorWidget: (context, url, error) => const Icon(Icons.broken_image_rounded, color: Colors.white),
+                              )
+                            : const Icon(Icons.broken_image_rounded, color: Colors.white)
+                        )
+                      ),
+                    ),
+                  if (widget.msg.type == 'audio') _AudioPlayerWidget(
+                    msg: widget.msg, 
+                    isMe: isMe, 
+                    color: widget.textColor, 
+                    onPlay: widget.onPlayVoice, 
+                    isPlaying: widget.isPlaying,
+                    currentPos: widget.currentPos,
+                    currentDur: widget.currentDur,
+                  ),
+                  if (widget.msg.text.isNotEmpty && widget.msg.type == 'text')
+                    Text(widget.msg.text, softWrap: true, style: TextStyle(color: widget.textColor, fontSize: 15, fontWeight: FontWeight.w500)),
+                  if (widget.msg.type == 'offer') _buildOfferCard(context, isMe),
+                  const SizedBox(height: 4),
+                  Row(mainAxisSize: MainAxisSize.min, children: [
+                    Text(DateFormat('HH:mm').format(widget.msg.timestamp), style: TextStyle(fontSize: 10, color: widget.subTextColor)),
+                    if (isMe) ...[const SizedBox(width: 4), Icon(widget.msg.isRead ? Icons.done_all_rounded : Icons.done_rounded, size: 14, color: widget.msg.isRead ? const Color(0xFF00E5FF) : Colors.white38)],
+                  ]),
                 ]),
-              ]),
+              ),
             ),
           ),
         ],
@@ -135,7 +142,7 @@ class ChatBubble extends StatelessWidget {
   }
 
   Widget _buildOfferCard(BuildContext context, bool isMe) {
-    final status = msg.offerStatus ?? 'pending';
+    final status = widget.msg.offerStatus ?? 'pending';
     final isPending = status == 'pending';
     
     return Container(
@@ -159,7 +166,7 @@ class ChatBubble extends StatelessWidget {
           const SizedBox(height: 10),
           Builder(
             builder: (context) {
-              final double priceVal = double.tryParse(msg.offerPrice ?? '0') ?? 0.0;
+              final double priceVal = double.tryParse(widget.msg.offerPrice ?? '0') ?? 0.0;
               final formattedPrice = priceVal > 0 
                   ? '${NumberFormat.decimalPattern('ru').format(priceVal.toInt())} ₸' 
                   : '0 ₸';
@@ -189,14 +196,23 @@ class ChatBubble extends StatelessWidget {
                       ],
                     ),
                     child: ElevatedButton(
-                      onPressed: onDeclineOffer,
+                      onPressed: _isOfferLoading ? null : () async {
+                        setState(() => _isOfferLoading = true);
+                        try {
+                          await Future.microtask(() => widget.onDeclineOffer?.call());
+                        } finally {
+                          if (mounted) setState(() => _isOfferLoading = false);
+                        }
+                      },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.transparent,
                         shadowColor: Colors.transparent,
                         padding: EdgeInsets.zero,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
-                      child: const Text('Отклонить', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.white)),
+                      child: _isOfferLoading 
+                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Text('Отклонить', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.white)),
                     ),
                   ),
                 ),
@@ -220,14 +236,23 @@ class ChatBubble extends StatelessWidget {
                       ],
                     ),
                     child: ElevatedButton(
-                      onPressed: onAcceptOffer,
+                      onPressed: _isOfferLoading ? null : () async {
+                        setState(() => _isOfferLoading = true);
+                        try {
+                          await Future.microtask(() => widget.onAcceptOffer?.call());
+                        } finally {
+                          if (mounted) setState(() => _isOfferLoading = false);
+                        }
+                      },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.transparent,
                         shadowColor: Colors.transparent,
                         padding: EdgeInsets.zero,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
-                      child: const Text('Принять', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.white)),
+                      child: _isOfferLoading 
+                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Text('Принять', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.white)),
                     ),
                   ),
                 ),
@@ -237,26 +262,28 @@ class ChatBubble extends StatelessWidget {
               padding: EdgeInsets.symmetric(vertical: 10),
               child: Divider(color: Colors.white24, height: 1),
             ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              alignment: WrapAlignment.spaceEvenly,
               children: [
                 _quickActionButton(
                   icon: Icons.phone_in_talk_rounded,
                   label: 'Позвонить',
                   color: const Color(0xFF34D399),
-                  onTap: onCallOffer,
+                  onTap: widget.onCallOffer,
                 ),
                 _quickActionButton(
                   icon: Icons.edit_note_rounded,
                   label: 'Написать',
                   color: const Color(0xFF60A5FA),
-                  onTap: onWriteOffer,
+                  onTap: widget.onWriteOffer,
                 ),
                 _quickActionButton(
                   icon: Icons.keyboard_voice_rounded,
                   label: 'Голосовое',
                   color: const Color(0xFFC084FC),
-                  onTap: onVoiceOffer,
+                  onTap: widget.onVoiceOffer,
                 ),
               ],
             ),

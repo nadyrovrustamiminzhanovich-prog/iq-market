@@ -24,15 +24,15 @@ class TaxiTheme {
       lime   = const Color(0xFF10B981); // Success / price green
       shadow = Colors.black.withValues(alpha: 0.5);
     } else {
-      bg     = const Color(0xFFFFFFFF);
+      bg     = const Color(0xFFF8FAFC);
       card   = const Color(0xFFFFFFFF);
       card2  = const Color(0xFFE0E7FF);
       text   = const Color(0xFF1E293B);
       sub    = const Color(0xFF475569);
       border = const Color(0xFFE2E8F0);
-      accent = const Color(0xFF4A80F0); // Action blue
+      accent = const Color(0xFF1E5EE6); // Action royal blue
       lime   = const Color(0xFF10B981); // Success / price green
-      shadow = const Color(0xFF4A80F0).withValues(alpha: 0.08);
+      shadow = const Color(0xFF1E5EE6).withValues(alpha: 0.08);
     }
   }
 

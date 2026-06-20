@@ -90,8 +90,10 @@ class _TaxiProfileScreenState extends State<TaxiProfileScreen> {
                     border: Border.all(color: widget.t.accent, width: 3),
                   ),
                   child: ClipOval(
-                    child: imageFile != null
-                        ? Image.file(imageFile, fit: BoxFit.cover)
+                    child: (imageFile != null && imageFile.isNotEmpty)
+                        ? (imageFile.startsWith('http')
+                            ? Image.network(imageFile, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Icon(Icons.person, size: 60, color: widget.t.sub))
+                            : Image.file(File(imageFile), fit: BoxFit.cover, errorBuilder: (_, __, ___) => Icon(Icons.person, size: 60, color: widget.t.sub)))
                         : Icon(Icons.person, size: 60, color: widget.t.sub),
                   ),
                 ),
@@ -270,7 +272,7 @@ class _TaxiProfileScreenState extends State<TaxiProfileScreen> {
     try {
       final pickedFile = await picker.pickImage(source: source, imageQuality: 50);
       if (pickedFile != null) {
-        provider.setProfileImage(File(pickedFile.path));
+        provider.setProfileImage(pickedFile.path);
       }
     } catch (e) {
       debugPrint("Error picking image: $e");
