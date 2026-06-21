@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:iqmarket/providers/taxi_provider.dart';
 import 'package:iqmarket/theme/taxi_theme.dart';
+import 'package:iqmarket/services/notification_service.dart';
 import 'package:iqmarket/features/taxi/presentation/widgets/ui/taxi_assigned_passenger_view.dart';
 import 'package:iqmarket/features/taxi/presentation/widgets/ui/taxi_active_ride_tracking_view.dart';
 import 'package:iqmarket/features/taxi/presentation/widgets/ui/taxi_active_bids_widget.dart';
@@ -182,18 +183,16 @@ class TaxiDriverView extends StatelessWidget {
                   phone: o['passengerPhone'] ?? o['phone'] ?? '',
                   onNavigateToLogin: onNavigateToLogin,
                 ),
-                onNegotiate: () {
+                onNegotiate: (bidPrice) {
                   onCheckDriverActionGate(o, () {
-                    TaxiDialogsController.showNegotiateDialog(
-                      context, provider, t, {
-                        'price': o['price'] ?? 0,
-                        'name': o['passengerName'] ?? o['name'] ?? provider.translate('passenger_role'),
-                        'targetId': o['id'] ?? '',
-                        'targetType': 'order',
-                        'receiverId': o['passengerId'] ?? o['userId'] ?? '',
-                      },
-                      onShowPhoneBinding: (ctx, p, th, cb) => onShowPhoneBinding(cb),
-                    );
+                    final hasPhone = provider.phone.isNotEmpty;
+                    if (!hasPhone) {
+                      onShowPhoneBinding(() {
+                        _sendDirectBid(context, o, bidPrice);
+                      });
+                    } else {
+                      _sendDirectBid(context, o, bidPrice);
+                    }
                   });
                 },
                 onCall: () {
@@ -258,18 +257,16 @@ class TaxiDriverView extends StatelessWidget {
                   phone: o['passengerPhone'] ?? o['phone'] ?? '',
                   onNavigateToLogin: onNavigateToLogin,
                 ),
-                onNegotiate: () {
+                onNegotiate: (bidPrice) {
                   onCheckDriverActionGate(o, () {
-                    TaxiDialogsController.showNegotiateDialog(
-                      context, provider, t, {
-                        'price': o['price'] ?? 0,
-                        'name': o['passengerName'] ?? o['name'] ?? provider.translate('passenger_role'),
-                        'targetId': o['id'] ?? '',
-                        'targetType': 'order',
-                        'receiverId': o['passengerId'] ?? o['userId'] ?? '',
-                      },
-                      onShowPhoneBinding: (ctx, p, th, cb) => onShowPhoneBinding(cb),
-                    );
+                    final hasPhone = provider.phone.isNotEmpty;
+                    if (!hasPhone) {
+                      onShowPhoneBinding(() {
+                        _sendDirectBid(context, o, bidPrice);
+                      });
+                    } else {
+                      _sendDirectBid(context, o, bidPrice);
+                    }
                   });
                 },
                 onCall: () {
@@ -287,5 +284,38 @@ class TaxiDriverView extends StatelessWidget {
         const SizedBox(height: 100)
       ],
     );
+  }
+
+  Future<void> _sendDirectBid(BuildContext context, Map<String, dynamic> o, int bidPrice) async {
+    final targetId = o['id']?.toString() ?? '';
+    final targetType = 'order';
+    final receiverId = o['passengerId'] ?? o['userId'] ?? '';
+    if (targetId.isNotEmpty && receiverId.isNotEmpty) {
+      try {
+        await provider.sendBid(
+          targetId: targetId,
+          targetType: targetType,
+          receiverId: receiverId,
+          price: bidPrice,
+        );
+        if (context.mounted) {
+          NotificationService.notify(
+            context,
+            'Предложение отправлено',
+            'Ваше предложение отправлено пассажиру ($bidPrice ₸)',
+            isSuccess: true,
+          );
+        }
+      } catch (e) {
+        if (context.mounted) {
+          NotificationService.notify(
+            context,
+            provider.translate('error_label'),
+            provider.translate('general_error_desc'),
+            isSuccess: false,
+          );
+        }
+      }
+    }
   }
 }

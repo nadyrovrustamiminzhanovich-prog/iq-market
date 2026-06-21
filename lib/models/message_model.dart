@@ -30,7 +30,7 @@ class MessageModel {
       'senderId': senderId,
       'text': text,
       'type': type,
-      'timestamp': FieldValue.serverTimestamp(),
+      'timestamp': Timestamp.now(),
       'isRead': isRead,
       'mediaUrl': mediaUrl,
       'duration': duration,

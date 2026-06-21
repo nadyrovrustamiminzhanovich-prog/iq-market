@@ -230,11 +230,11 @@ class _ProductCardState extends State<ProductCard> with SingleTickerProviderStat
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF10B981), // Premium Emerald green for "New"
+                        color: const Color(0xFF4A80F0), // Our signature blue color
                         borderRadius: BorderRadius.circular(8),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF10B981).withValues(alpha: 0.3),
+                            color: const Color(0xFF4A80F0).withValues(alpha: 0.3),
                             blurRadius: 6,
                             offset: const Offset(0, 2),
                           )

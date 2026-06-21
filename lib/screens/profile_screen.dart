@@ -195,10 +195,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _isVerified = user.isVerified;
             _localAccType = user.accountType;
             _firestorePhotoUrl = user.photoUrl ?? '';
+            _isGuest = false; // Auto-recover from Guest if a user document is loaded
           }
 
           final String displayName = _isGuest ? 'Гость' : (user?.name ?? _localName);
           final String photoUrl = user?.photoUrl ?? '';
+
 
           return CustomScrollView(
             physics: const BouncingScrollPhysics(),

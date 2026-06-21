@@ -30,6 +30,8 @@ import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:iqmarket/services/translation_service.dart';
+import 'package:iqmarket/services/auth_service.dart';
+import 'package:iqmarket/services/storage_service.dart';
 
 class IQMarketHome extends StatefulWidget {
   const IQMarketHome({super.key});
@@ -58,6 +60,7 @@ class _IQMarketHomeState extends State<IQMarketHome> {
   // загружаем данные один раз при открытии экрана
   UserModel? _cachedUser;
   bool _isAdmin = false;
+  StreamSubscription? _authSubscription;
 
   static const _pageSize = 20;
   Set<String>? _lastBlockedUserIds;
@@ -78,8 +81,12 @@ class _IQMarketHomeState extends State<IQMarketHome> {
     _pagingController.addPageRequestListener((pageKey) {
       _fetchPage(pageKey);
     });
-    // Загрузить пользователя один раз вместо висящего Firestore listener-а
-    _loadCachedUser();
+    
+    // Subscribe to authentication changes reactively to catch session recovery instantly
+    _authSubscription = AuthService.authStateChanges.listen((_) {
+      _loadCachedUser();
+    });
+    
     // P1 FIX: Process any notification tap that occurred while the app was terminated.
     // Must run post-frame so navigatorKey.currentState is guaranteed non-null.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -89,13 +96,60 @@ class _IQMarketHomeState extends State<IQMarketHome> {
 
   Future<void> _loadCachedUser() async {
     final uid = UserService.currentUid;
-    if (uid == null) return;
-    final user = await UserService.getUserById(uid);
-    if (mounted) {
+    if (uid == null) {
+      if (mounted) {
+        setState(() {
+          _cachedUser = null;
+          _isAdmin = false;
+        });
+      }
+      return;
+    }
+
+    // 1. Synchronously load profile details from SharedPreferences cache for instant rendering
+    final cachedName = StorageService.getString('user_name');
+    final cachedAccType = StorageService.getString('account_type') ?? 'user';
+    final cachedPhoto = StorageService.getString('user_image') ?? '';
+    final cachedVerified = StorageService.getBool('is_verified');
+    if (cachedName != null && mounted) {
       setState(() {
-        _cachedUser = user;
-        _isAdmin = user?.accountType == 'admin';
+        _cachedUser = UserModel(
+          uid: uid,
+          name: cachedName,
+          email: '',
+          phone: '',
+          photoUrl: cachedPhoto,
+          accountType: cachedAccType,
+          isVerified: cachedVerified,
+          status: 'active',
+          registrationDate: DateTime.now(),
+          lastActive: DateTime.now(),
+        );
+        _isAdmin = cachedAccType == 'admin';
       });
+    }
+
+    // 2. Fetch the fresh profile from Firestore in the background to ensure it is up-to-date
+    try {
+      final user = await UserService.getUserById(uid);
+      if (user != null) {
+        if (mounted) {
+          setState(() {
+            _cachedUser = user;
+            _isAdmin = user.accountType == 'admin';
+          });
+        }
+        // Save the fresh profile details back to the local cache
+        await StorageService.saveProfile(
+          user.name,
+          user.photoUrl,
+          false,
+          user.accountType,
+          isVerified: user.isVerified,
+        );
+      }
+    } catch (e) {
+      debugPrint('Error loading fresh profile: $e');
     }
   }
 
@@ -137,12 +191,14 @@ class _IQMarketHomeState extends State<IQMarketHome> {
 
   @override
   void dispose() {
+    _authSubscription?.cancel();
     _searchController.dispose();
     _scrollController.dispose();
     _pagingController.dispose();
     _searchDebounce?.cancel();
     super.dispose();
   }
+
 
   @override
   Widget build(BuildContext context) {

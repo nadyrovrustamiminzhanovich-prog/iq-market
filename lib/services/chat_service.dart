@@ -71,7 +71,7 @@ class ChatService {
       // Update last message in chat summary (creates chat doc first to satisfy rules)
       final summaryData = {
         'lastMessage': text,
-        'lastTimestamp': FieldValue.serverTimestamp(),
+        'lastTimestamp': Timestamp.now(),
         'lastSenderId': uid,
         'isRead': false,
         'users': [uid, sellerId],
@@ -88,7 +88,7 @@ class ChatService {
         'senderId': uid,
         'text': text,
         'type': type,
-        'timestamp': FieldValue.serverTimestamp(),
+        'timestamp': Timestamp.now(),
         'isRead': false,
         'mediaUrl': mediaUrl,
         'duration': duration,
@@ -149,7 +149,7 @@ class ChatService {
       // Update last message in chat summary (creates chat doc first to satisfy rules)
       final summaryData = {
         'lastMessage': text,
-        'lastTimestamp': FieldValue.serverTimestamp(),
+        'lastTimestamp': Timestamp.now(),
         'lastSenderId': uid,
         'isRead': false,
         'users': [uid, ad.userId],
@@ -168,7 +168,7 @@ class ChatService {
         'type': 'offer',
         'offerPrice': price,
         'offerStatus': 'pending',
-        'timestamp': FieldValue.serverTimestamp(),
+        'timestamp': Timestamp.now(),
         'isRead': false,
         'adId': ad.id,
         'adTitle': ad.title,
@@ -222,13 +222,13 @@ class ChatService {
         'senderId': senderId,
         'text': responseText,
         'type': 'text',
-        'timestamp': FieldValue.serverTimestamp(),
+        'timestamp': Timestamp.now(),
         'isRead': false,
       });
 
       await _db.collection('chats').doc(chatId).update({
         'lastMessage': responseText,
-        'lastTimestamp': FieldValue.serverTimestamp(),
+        'lastTimestamp': Timestamp.now(),
       });
 
       // Notify the recipient about offer status change
@@ -364,7 +364,7 @@ class ChatService {
     batch.update(_db.collection('chats').doc(chatId), {
       'lastMessage': 'Чат очищен',
       'unreadCount_${UserService.currentUid}': 0,
-      'lastTimestamp': FieldValue.serverTimestamp(),
+      'lastTimestamp': Timestamp.now(),
     });
     
     await batch.commit();
@@ -542,7 +542,7 @@ class ChatService {
     // Update summary
     await _db.collection('chats').doc(chatId).set({
       'lastMessage': 'Голосовое сообщение',
-      'lastTimestamp': FieldValue.serverTimestamp(),
+      'lastTimestamp': Timestamp.now(),
       'users': [UserService.currentUid, otherUserId],
       'unreadCount_${UserService.currentUid}': 3,
       'name_$otherUserId': 'Иван (Тест)',

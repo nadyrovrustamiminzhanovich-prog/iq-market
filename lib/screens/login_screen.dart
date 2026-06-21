@@ -1190,38 +1190,6 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
             textColor: Colors.white,
           ),
 
-          const SizedBox(height: 12),
-          Center(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-              decoration: BoxDecoration(
-                color: const Color(0xFF229ED9).withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: const Color(0xFF229ED9).withValues(alpha: 0.1)),
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.verified_user_rounded, color: Color(0xFF229ED9), size: 18),
-                      const SizedBox(width: 10),
-                      const Text(
-                        'Верификация через Telegram',
-                        style: TextStyle(color: Color(0xFF229ED9), fontSize: 13, fontWeight: FontWeight.w900),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  const Text(
-                    'Это дает статус «Проверен» ✅, возможность заказать такси и стать водителем в IQ-Taxi.',
-                    style: TextStyle(color: Colors.black54, fontSize: 11, fontWeight: FontWeight.w500, height: 1.4),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
-            ),
-          ),
           const SizedBox(height: 30),
         ]))),
         if (_isLoading) Container(color: Colors.black.withValues(alpha: 0.3), child: const Center(child: CircularProgressIndicator(color: Color(0xFF4A80F0), strokeWidth: 3))),

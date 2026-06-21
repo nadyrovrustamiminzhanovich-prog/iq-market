@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:line_icons/line_icons.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:iqmarket/theme/taxi_theme.dart';
 import 'package:iqmarket/providers/taxi_provider.dart';
 
-class TaxiOrderCard extends StatelessWidget {
+class TaxiOrderCard extends StatefulWidget {
   final TaxiProvider provider;
   final TaxiTheme t;
   final String name;
@@ -20,7 +21,7 @@ class TaxiOrderCard extends StatelessWidget {
   final String phone;
   final String passengerId;
   final VoidCallback onShowProfile;
-  final VoidCallback onNegotiate;
+  final void Function(int price) onNegotiate;
   final VoidCallback onCall;
   final VoidCallback onChat;
 
@@ -46,24 +47,82 @@ class TaxiOrderCard extends StatelessWidget {
   });
 
   @override
+  State<TaxiOrderCard> createState() => _TaxiOrderCardState();
+}
+
+class _TaxiOrderCardState extends State<TaxiOrderCard> {
+  int _bidPrice = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _bidPrice = widget.price;
+  }
+
+  @override
+  void didUpdateWidget(TaxiOrderCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.price != widget.price) {
+      _bidPrice = widget.price;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final provider = widget.provider;
+    final t = widget.t;
+    final name = widget.name;
+    final from = widget.from;
+    final to = widget.to;
+    final price = widget.price;
+    final seats = widget.seats;
+    final comment = widget.comment;
+    final isNegotiated = widget.isNegotiated;
+    final created = widget.created;
+    final img = widget.img;
+    final passengerId = widget.passengerId;
+    final onShowProfile = widget.onShowProfile;
+
     final double realRating = provider.getUserRatingAsPassenger(passengerId);
     final int realReviewCount = provider.getUserReviewCountAsPassenger(passengerId);
+
+    final Color borderCol = t.isDark
+        ? const Color(0xFF6366F1).withValues(alpha: 0.35)
+        : const Color(0xFF4F46E5).withValues(alpha: 0.2);
+
+    final Gradient bgGrad = t.isDark
+        ? const LinearGradient(
+            colors: [Color(0xFF1E1B4B), Color(0xFF0F172A)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          )
+        : const LinearGradient(
+            colors: [Color(0xFFEFF6FF), Color(0xFFF5F3FF)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          );
+
+    final List<BoxShadow> shadows = [
+      BoxShadow(
+        color: t.isDark 
+            ? const Color(0xFF6366F1).withValues(alpha: 0.12)
+            : const Color(0xFF4F46E5).withValues(alpha: 0.08),
+        blurRadius: 20,
+        offset: const Offset(0, 8),
+      )
+    ];
 
     return RepaintBoundary(
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
         decoration: BoxDecoration(
-          color: t.card,
+          gradient: bgGrad,
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: t.border),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF4A80F0).withValues(alpha: 0.08),
-              blurRadius: 16,
-              offset: const Offset(0, 4),
-            )
-          ],
+          border: Border.all(
+            color: borderCol,
+            width: 1.5,
+          ),
+          boxShadow: shadows,
         ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -156,7 +215,7 @@ class TaxiOrderCard extends StatelessWidget {
                       children: [
                         Text('$price ₸',
                             style: GoogleFonts.inter(
-                                color: const Color(0xFF4A80F0), fontWeight: FontWeight.w900, fontSize: 18)),
+                                color: const Color(0xFF4F46E5), fontWeight: FontWeight.w900, fontSize: 18)),
                         const SizedBox(height: 6),
                         if (isNegotiated)
                           Container(
@@ -179,9 +238,11 @@ class TaxiOrderCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                      color: t.bg.withValues(alpha: 0.4),
+                      color: t.isDark 
+                          ? Colors.black.withValues(alpha: 0.2) 
+                          : Colors.white.withValues(alpha: 0.5),
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: t.border.withValues(alpha: 0.5))),
+                      border: Border.all(color: borderCol.withValues(alpha: 0.15))),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -197,18 +258,18 @@ class TaxiOrderCard extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF4A80F0).withValues(alpha: 0.08),
+                              color: const Color(0xFF4F46E5).withValues(alpha: 0.08),
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: const Color(0xFF4A80F0).withValues(alpha: 0.15)),
+                              border: Border.all(color: const Color(0xFF4F46E5).withValues(alpha: 0.15)),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.person_rounded, size: 14, color: Color(0xFF4A80F0)),
+                                const Icon(Icons.person_rounded, size: 14, color: Color(0xFF4F46E5)),
                                 const SizedBox(width: 4),
                                 Text('$seats',
                                     style: GoogleFonts.inter(
-                                        fontSize: 14, fontWeight: FontWeight.w800, color: const Color(0xFF4A80F0))),
+                                        fontSize: 14, fontWeight: FontWeight.w800, color: const Color(0xFF4F46E5))),
                               ],
                             ),
                           ),
@@ -234,6 +295,7 @@ class TaxiOrderCard extends StatelessWidget {
               ],
             ),
           ),
+          _buildBargainSection(context),
           _actionStrip(context),
         ],
       ),
@@ -241,102 +303,164 @@ class TaxiOrderCard extends StatelessWidget {
   );
 }
 
-  Widget _badge(TaxiTheme t, String l, IconData i) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-            color: t.bg, borderRadius: BorderRadius.circular(12), border: Border.all(color: t.border)),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(i, size: 14, color: t.accent),
-            const SizedBox(width: 6),
-            Text(l,
-                style: GoogleFonts.inter(
-                    fontSize: 10, fontWeight: FontWeight.w800, color: t.text)),
-          ],
-        ),
-      );
+  Widget _buildBargainSection(BuildContext context) {
+    final t = widget.t;
+    final Color borderCol = t.isDark
+        ? const Color(0xFF6366F1).withValues(alpha: 0.35)
+        : const Color(0xFF4F46E5).withValues(alpha: 0.2);
 
-  void _showBargainHelpDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: Row(
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 18),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: t.isDark 
+              ? const Color(0xFF1E1B4B).withValues(alpha: 0.3) 
+              : const Color(0xFFEFF6FF).withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: borderCol,
+            width: 1.5,
+          ),
+        ),
+        child: Row(
           children: [
-            const Icon(Icons.lightbulb_outline_rounded, color: Color(0xFF4A80F0), size: 24),
-            const SizedBox(width: 8),
-            Text('Как это работает? 💡', style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 16, color: const Color(0xFF1E293B))),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'ПРЕДЛОЖИТЬ СВОЮ ЦЕНУ',
+                    style: GoogleFonts.inter(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w900,
+                      color: const Color(0xFF4F46E5),
+                      letterSpacing: 0.6,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          if (_bidPrice > 100) {
+                            setState(() {
+                              _bidPrice -= 100;
+                              if (_bidPrice < 100) {
+                                _bidPrice = 100;
+                              }
+                            });
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: const Color(0xFF4F46E5).withValues(alpha: 0.3),
+                              width: 1.5,
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.remove_rounded,
+                            size: 14,
+                            color: Color(0xFF4F46E5),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        '$_bidPrice ₸',
+                        style: GoogleFonts.inter(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
+                          color: t.isDark ? Colors.white : const Color(0xFF1E1B4B),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      GestureDetector(
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          setState(() {
+                            _bidPrice += 100;
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: const Color(0xFF4F46E5).withValues(alpha: 0.3),
+                              width: 1.5,
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.add_rounded,
+                            size: 14,
+                            color: Color(0xFF4F46E5),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            ElevatedButton(
+              onPressed: () => widget.onNegotiate(_bidPrice),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF10B981),
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shadowColor: Colors.transparent,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: Text(
+                'Отправить',
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.2,
+                ),
+              ),
+            ),
           ],
         ),
-        content: Text(
-          'Вы можете предложить пассажиру свою стоимость поездки! Пассажир получит моментальное пуш-уведомление с вашей ценой и сможет согласиться или отказать.',
-          style: GoogleFonts.inter(fontSize: 13, height: 1.45, fontWeight: FontWeight.w500, color: const Color(0xFF475569)),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            child: Text('ПОНЯТНО', style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: const Color(0xFF4A80F0), fontSize: 13)),
-          )
-        ],
       ),
     );
   }
 
   Widget _actionStrip(BuildContext context) => Container(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        padding: const EdgeInsets.fromLTRB(18, 12, 18, 18),
         child: Row(
           children: [
             Expanded(
-              flex: 5,
               child: _stripBtn(
-                provider.translate('bargain'), 
-                LineIcons.coins, 
-                const Color(0xFF4A80F0), 
-                onNegotiate,
-                isFilled: true, 
-                fontSize: 14
+                widget.provider.translate('call'),
+                LineIcons.phone,
+                const Color(0xFF4F46E5),
+                widget.onCall,
+                isFilled: false,
+                fontSize: 13,
               ),
             ),
-            const SizedBox(width: 8),
-            GestureDetector(
-              onTap: () => _showBargainHelpDialog(context),
-              child: Container(
-                width: 32,
-                height: 46,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF4A80F0).withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFF4A80F0).withValues(alpha: 0.15)),
-                ),
-                child: const Icon(Icons.help_outline_rounded, color: Color(0xFF4A80F0), size: 18),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _stripBtn(
+                widget.provider.translate('message'),
+                LineIcons.comment,
+                const Color(0xFF4F46E5),
+                widget.onChat,
+                isFilled: true,
+                fontSize: 13,
               ),
             ),
-            const SizedBox(width: 8),
-            _iconBtn(LineIcons.phone, const Color(0xFF4A80F0), onCall),
-            const SizedBox(width: 8),
-            _iconBtn(LineIcons.comment, const Color(0xFF4A80F0), onChat),
           ],
-        ),
-      );
-
-  Widget _iconBtn(IconData i, Color c, VoidCallback onTap) => Material(
-        color: c,
-        borderRadius: BorderRadius.circular(16),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(16),
-          child: Container(
-            width: 46,
-            height: 46,
-            alignment: Alignment.center,
-            child: Icon(i, size: 20, color: Colors.white),
-          ),
         ),
       );
 

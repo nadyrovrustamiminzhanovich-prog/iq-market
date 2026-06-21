@@ -1,12 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:firebase_app_check/firebase_app_check.dart';
-import 'package:firebase_crashlytics/firebase_crashlytics.dart';
-import 'package:flutter/foundation.dart';
 
 import 'dart:async';
 
@@ -14,58 +9,19 @@ import 'screens/home/home_screen.dart';
 import 'services/storage_service.dart';
 import 'services/notification_service.dart';
 import 'services/analytics_service.dart';
-import 'providers/taxi_provider.dart';
 import 'providers/app_config_provider.dart';
 import 'theme/app_theme.dart';
-import 'services/auth_service.dart';
 import 'widgets/common/offline_wrapper.dart';
+import 'screens/splash_screen.dart';
+
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  bool isFirebaseReady = false;
-  try {
-    await Firebase.initializeApp();
-    isFirebaseReady = true; // FIX 3: Set true immediately so Crashlytics can catch subsequent errors
-    await AnalyticsService.init(); 
-    await AuthService.init();
-    
-    FirebaseFirestore.instance.settings = const Settings(
-      persistenceEnabled: true,
-      cacheSizeBytes: 104857600, // 100 MB cache limit to prevent memory bloating
-    );
-
-    await FirebaseAppCheck.instance.activate(
-      providerAndroid: kDebugMode ? const AndroidDebugProvider() : const AndroidPlayIntegrityProvider(),
-      providerApple: kDebugMode ? const AppleDebugProvider() : const AppleDeviceCheckProvider(),
-    );
-
-    // Pass all uncaught "fatal" errors from the framework to Crashlytics
-    FlutterError.onError = (errorDetails) {
-      FirebaseCrashlytics.instance.recordFlutterFatalError(errorDetails);
-    };
-
-    // Pass all uncaught asynchronous errors that aren't handled by the Flutter framework to Crashlytics
-    PlatformDispatcher.instance.onError = (error, stack) {
-      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
-      return true;
-    };
-
-  } catch (e, stack) {
-    debugPrint('Critical Init Error: $e');
-    if (isFirebaseReady) {
-      FirebaseCrashlytics.instance.recordError(e, stack, fatal: true);
-    }
-  }
-
+  // Initialize StorageService synchronously so we can read the user's preferred language immediately.
   await StorageService.init();
-  await NotificationService.init(); // FIX 1: Add await
-
-  if (isFirebaseReady) {
-    AnalyticsService.logAppOpen(); // FIX 2: Only log if Firebase is ready
-  }
   
-  // Load saved language
+  // Load saved language for initial locale
   final savedLang = StorageService.getString('app_lang') ?? 'Русский';
   final localeMap = {
     'Русский': const Locale('ru', 'RU'),
@@ -73,33 +29,16 @@ Future<void> main() async {
     'Уйғурчә': const Locale('ug'), // Map to official Uyghur locale code
   };
   final initialLocale = localeMap[savedLang] ?? const Locale('ru', 'RU');
-  
-  if (!isFirebaseReady) {
-    runApp(ErrorApp(message: 'Ошибка подключения к серверу. Проверьте интернет.', onRetry: () => main()));
-    return;
-  }
 
-  final taxiProvider = TaxiProvider();
-  final appConfigProvider = AppConfigProvider()..setLocale(initialLocale);
-
-  // Link language change events between both providers
-  appConfigProvider.onLanguageChanged = (lang) {
-    taxiProvider.setLanguage(lang);
-  };
-  taxiProvider.onLanguageChanged = (lang) {
-    appConfigProvider.setLanguage(lang);
-  };
-
+  // Launch AppBootstrap instantly to dismiss the native OS splash screen and show
+  // the premium pulsing custom preloader screen.
   runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider.value(value: taxiProvider),
-        ChangeNotifierProvider.value(value: appConfigProvider),
-      ],
-      child: const MainApp(),
+    AppBootstrap(
+      initialLocale: initialLocale,
     ),
   );
 }
+
 
 class MainApp extends StatelessWidget {
   const MainApp({super.key});

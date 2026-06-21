@@ -32,6 +32,19 @@ class SellerProfileScreen extends StatefulWidget {
 }
 
 class _SellerProfileScreenState extends State<SellerProfileScreen> {
+  final GlobalKey _reviewsKey = GlobalKey();
+
+  void _scrollToReviews() {
+    final context = _reviewsKey.currentContext;
+    if (context != null) {
+      Scrollable.ensureVisible(
+        context,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
   String _t(String key) {
     final translations = {
       'seller_profile': { 'Русский': 'Профиль продавца', 'Қазақша': 'Сатушы профилі', 'Уйғурчә': 'Сатқучи профили' },
@@ -48,13 +61,13 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
   }
 
   String _getMemberSinceText(DateTime date) {
-    final year = date.year.toString();
+    final dateStr = "${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year}";
     if (widget.lang == 'Қазақша') {
-      return '$year жылдан бастап IQ-Market-те';
+      return '$dateStr жылдан бастап IQ-Market-те';
     } else if (widget.lang == 'Уйғурчә') {
-      return '$year-жилдин башлап IQ-Market-тә';
+      return '$dateStr-жилдин башлап IQ-Market-тә';
     } else {
-      return 'На IQ-Market с $year';
+      return 'На IQ-Market с $dateStr года';
     }
   }
 
@@ -70,10 +83,6 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
         DateTime regDate = DateTime(2023); // fallback
         String name = widget.seller.userName;
         bool isVerified = false;
-        String email = widget.seller.userEmail;
-        String phone = widget.seller.userPhone ?? '';
-        String location = widget.seller.location;
-        String accountType = 'Личный';
 
         if (snapshot.hasData && snapshot.data!.exists) {
           final data = snapshot.data!.data() as Map<String, dynamic>?;
@@ -87,10 +96,6 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
             }
             name = data['name'] ?? widget.seller.userName;
             isVerified = data['isVerified'] ?? false;
-            email = data['email'] ?? widget.seller.userEmail;
-            phone = data['phone'] ?? widget.seller.userPhone ?? '';
-            location = data['location'] ?? widget.seller.location;
-            accountType = data['accountType'] ?? 'Личный';
           }
         }
 
@@ -125,7 +130,6 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
                   : Column(
                       children: [
                         _buildStatsSection(snapshot),
-                        _buildPersonalDataSection(phone, email, location, accountType, regDate),
                         _buildAdsSection(),
                         _buildReviewsHeader(),
                         _buildReviewsList(),
@@ -289,75 +293,7 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
     ),
   );
 
-  Widget _buildPersonalDataSection(String phone, String email, String location, String accountType, DateTime regDate) {
-    final phoneLabel = TranslationService.t('phone_label', widget.lang);
-    final emailLabel = 'Email';
-    final locationLabel = TranslationService.t('city_label', widget.lang);
-    final regDateLabel = TranslationService.t('reg_date_label', widget.lang);
-    final accTypeLabel = TranslationService.t('acc_type_label', widget.lang);
 
-    final dateStr = "${regDate.day.toString().padLeft(2, '0')}.${regDate.month.toString().padLeft(2, '0')}.${regDate.year}";
-
-    return Container(
-      margin: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            TranslationService.t('personal', widget.lang),
-            style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w900, color: const Color(0xFF64748B), letterSpacing: 0.5),
-          ),
-          const SizedBox(height: 16),
-          if (phone.isNotEmpty) ...[
-            _infoRow(phoneLabel, phone, Icons.phone_android_rounded),
-            const Divider(height: 24, color: Color(0xFFF1F5F9)),
-          ],
-          if (email.isNotEmpty) ...[
-            _infoRow(emailLabel, email, Icons.alternate_email_rounded),
-            const Divider(height: 24, color: Color(0xFFF1F5F9)),
-          ],
-          if (location.isNotEmpty) ...[
-            _infoRow(locationLabel, location, Icons.location_on_rounded),
-            const Divider(height: 24, color: Color(0xFFF1F5F9)),
-          ],
-          if (accountType.isNotEmpty) ...[
-            _infoRow(accTypeLabel, accountType, Icons.badge_rounded),
-            const Divider(height: 24, color: Color(0xFFF1F5F9)),
-          ],
-          _infoRow(regDateLabel, dateStr, Icons.calendar_today_rounded),
-        ],
-      ),
-    );
-  }
-
-  Widget _infoRow(String label, String value, IconData icon) {
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(color: const Color(0xFF4A80F0).withValues(alpha: 0.05), borderRadius: BorderRadius.circular(10)),
-          child: Icon(icon, color: const Color(0xFF4A80F0), size: 18),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label, style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFF94A3B8))),
-              const SizedBox(height: 2),
-              Text(value, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w800, color: const Color(0xFF1E293B))),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
 
   Widget _buildStatsSection(AsyncSnapshot<DocumentSnapshot> snapshot) {
     double ratingValue = 0.0;
@@ -371,6 +307,7 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
       }
     }
     
+    final hasReviews = reviewsCount > 0;
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 20, 20, 0),
       padding: const EdgeInsets.all(20),
@@ -382,9 +319,17 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _statItem(ratingValue.toStringAsFixed(1), _t('rating'), Icons.star_rounded, Colors.amber),
+          GestureDetector(
+            onTap: hasReviews ? _scrollToReviews : null,
+            behavior: HitTestBehavior.opaque,
+            child: _statItem(ratingValue.toStringAsFixed(1), _t('rating'), Icons.star_rounded, Colors.amber),
+          ),
           Container(width: 1, height: 30, color: const Color(0xFFF1F5F9)),
-          _statItem(reviewsCount.toString(), _t('reviews'), Icons.reviews_rounded, const Color(0xFF4A80F0)),
+          GestureDetector(
+            onTap: hasReviews ? _scrollToReviews : null,
+            behavior: HitTestBehavior.opaque,
+            child: _statItem(reviewsCount.toString(), _t('reviews'), Icons.reviews_rounded, const Color(0xFF4A80F0)),
+          ),
         ],
       ),
     );
@@ -491,6 +436,7 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
   );
 
   Widget _buildReviewsHeader() => Padding(
+    key: _reviewsKey,
     padding: const EdgeInsets.fromLTRB(24, 32, 24, 16),
     child: Text(_t('reviews'), style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w800)),
   );
