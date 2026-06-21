@@ -80,6 +80,11 @@ class _IQMarketHomeState extends State<IQMarketHome> {
     });
     // Загрузить пользователя один раз вместо висящего Firestore listener-а
     _loadCachedUser();
+    // P1 FIX: Process any notification tap that occurred while the app was terminated.
+    // Must run post-frame so navigatorKey.currentState is guaranteed non-null.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      NotificationService.handlePendingNavigation();
+    });
   }
 
   Future<void> _loadCachedUser() async {
@@ -396,7 +401,6 @@ class _IQMarketHomeState extends State<IQMarketHome> {
             listToDisplay = ['Все', 'Чунджа'] + KazakhstanLocations.hierarchy.keys.toList();
           }
 
-          final isDark = Theme.of(context).brightness == Brightness.dark;
           final surfaceColor = Theme.of(context).colorScheme.surface;
           final txtColor = Theme.of(context).colorScheme.onSurface;
           final subtxtColor = Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6);
@@ -644,6 +648,7 @@ class _IQMarketHomeState extends State<IQMarketHome> {
     }
   }
 
+  // ignore: unused_element
   Widget _buildRecs(AppConfigProvider config) => StreamBuilder<List<AdModel>>(
     stream: AdService.getRecommendationsStream(),
     builder: (context, snapshot) {

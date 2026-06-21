@@ -63,6 +63,7 @@ class GeminiService {
     _model = GenerativeModel(
       model: 'gemini-1.5-flash',
       apiKey: 'moderation',
+      systemInstruction: Content.system(AiPrompts.moderationPrompt),
       httpClient: secureClient,
     );
     
@@ -111,7 +112,6 @@ class GeminiService {
       final prompt = "Заголовок: $title\nОписание: $description\n\nПроверь это объявление на соответствие правилам.";
       
       final response = await _model.generateContent([
-        Content.system(AiPrompts.moderationPrompt),
         Content.multi([
           TextPart(prompt),
           ...imageParts,

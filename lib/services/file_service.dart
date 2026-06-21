@@ -8,6 +8,9 @@ import 'package:path_provider/path_provider.dart';
 class FileService {
   static final FirebaseStorage _storage = FirebaseStorage.instance;
 
+  // 🔒 X10: Max file size before aggressive recompression (5 MB)
+  static const int _maxFileSizeBytes = 5 * 1024 * 1024;
+
   /// Upload a file to Firebase Storage and return the Task for cancellation support
   static UploadTask uploadFileWithTask(File file, String folder) {
     final String extension = p.extension(file.path).toLowerCase();
@@ -16,16 +19,55 @@ class FileService {
     return ref.putFile(file);
   }
 
-  /// Upload a file and get URL (Legacy/Simple version)
-  static Future<String?> uploadFile(File file, String folder) async {
-    try {
-      final task = uploadFileWithTask(file, folder);
-      final snapshot = await task;
-      return await snapshot.ref.getDownloadURL();
-    } catch (e) {
-      debugPrint('Error uploading file: $e');
-      return null;
+  /// Upload a file and get URL — with retry logic (3 attempts, exponential backoff)
+  /// Works reliably on 3G/4G and weak Wi-Fi connections.
+  static Future<String?> uploadFile(
+    File file,
+    String folder, {
+    int maxRetries = 3,
+    void Function(double progress, int attempt)? onProgress,
+  }) async {
+    // 🔒 X10: If file is oversized, try aggressive recompression before upload
+    File fileToUpload = file;
+    final fileSize = await file.length();
+    if (fileSize > _maxFileSizeBytes) {
+      debugPrint('FileService: File too large (${fileSize ~/ 1024}KB), applying emergency compression...');
+      final emergency = await compressImageAggressive(file);
+      if (emergency != null) fileToUpload = emergency;
     }
+
+    for (int attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        debugPrint('FileService: Uploading ${p.basename(fileToUpload.path)} (attempt $attempt/$maxRetries)...');
+        final task = uploadFileWithTask(fileToUpload, folder);
+
+        // Track upload progress per attempt
+        task.snapshotEvents.listen((snapshot) {
+          if (snapshot.totalBytes > 0 && onProgress != null) {
+            final progress = snapshot.bytesTransferred / snapshot.totalBytes;
+            onProgress(progress, attempt);
+          }
+        });
+
+        final snapshot = await task.timeout(
+          const Duration(seconds: 90),
+          onTimeout: () => throw Exception('Upload timeout after 90s'),
+        );
+        final url = await snapshot.ref.getDownloadURL();
+        debugPrint('FileService: Upload success (attempt $attempt): $url');
+        return url;
+      } catch (e) {
+        debugPrint('FileService: Upload attempt $attempt failed: $e');
+        if (attempt < maxRetries) {
+          // Exponential backoff: 2s, 4s, 8s
+          final delay = Duration(seconds: 2 * attempt);
+          debugPrint('FileService: Retrying in ${delay.inSeconds}s...');
+          await Future.delayed(delay);
+        }
+      }
+    }
+    debugPrint('FileService: All $maxRetries upload attempts failed.');
+    return null;
   }
 
   /// Upload a file for chat
@@ -33,7 +75,7 @@ class FileService {
     return uploadFile(file, 'chats');
   }
 
-  /// Image compression logic (Aggressive for low bandwidth)
+  /// Image compression — standard quality (~100-200 KB)
   static Future<File?> compressImage(File file) async {
     try {
       final tempDir = await getTemporaryDirectory();
@@ -44,13 +86,35 @@ class FileService {
         targetPath,
         minWidth: 1024,
         minHeight: 1024,
-        quality: 45, // Агрессивное сжатие для размера ~100-200 KB
+        quality: 45,
         format: CompressFormat.jpeg,
       );
 
       return result != null ? File(result.path) : null;
     } catch (e) {
-      debugPrint('Error compressing image: $e');
+      debugPrint('FileService: Error compressing image: $e');
+      return null;
+    }
+  }
+
+  /// Emergency aggressive compression for oversized files (quality 20, 512px)
+  static Future<File?> compressImageAggressive(File file) async {
+    try {
+      final tempDir = await getTemporaryDirectory();
+      final String targetPath = p.join(tempDir.path, '${DateTime.now().millisecondsSinceEpoch}_emergency.jpg');
+
+      final result = await FlutterImageCompress.compressAndGetFile(
+        file.absolute.path,
+        targetPath,
+        minWidth: 512,
+        minHeight: 512,
+        quality: 20,
+        format: CompressFormat.jpeg,
+      );
+
+      return result != null ? File(result.path) : null;
+    } catch (e) {
+      debugPrint('FileService: Error in aggressive compression: $e');
       return null;
     }
   }
@@ -61,7 +125,7 @@ class FileService {
       final Reference ref = _storage.refFromURL(url);
       await ref.delete();
     } catch (e) {
-      debugPrint('Error deleting file: $e');
+      debugPrint('FileService: Error deleting file: $e');
     }
   }
 

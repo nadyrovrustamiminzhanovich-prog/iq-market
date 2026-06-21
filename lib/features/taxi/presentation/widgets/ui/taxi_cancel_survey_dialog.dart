@@ -158,11 +158,18 @@ void showTaxiCancelSurveyDialog(
                                 Navigator.pop(c);
                               }
                             } catch (e) {
+                              debugPrint('[TAXI] Error cancelling order: $e');
                               if (c.mounted) {
+                                String errorMsg = e.toString();
+                                if (errorMsg.contains('Exception:')) {
+                                  errorMsg = errorMsg.replaceAll('Exception:', '').trim();
+                                } else {
+                                  errorMsg = provider.translate('general_error_desc');
+                                }
                                 NotificationService.notify(
                                   c,
                                   provider.translate('error_label'),
-                                  provider.translate('general_error_desc'),
+                                  errorMsg,
                                   isSuccess: false,
                                 );
                               }

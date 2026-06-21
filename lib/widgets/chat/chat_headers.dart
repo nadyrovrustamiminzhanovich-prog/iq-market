@@ -162,6 +162,7 @@ class ChatAdInfoBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final lang = Provider.of<AppConfigProvider>(context).language;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -195,12 +196,11 @@ class ChatAdInfoBar extends StatelessWidget {
             if (ad.category == 'Taxi') {
               _showTaxiDetails(context);
             } else {
-              final lang = Provider.of<AppConfigProvider>(context, listen: false).language;
               Navigator.push(context, MaterialPageRoute(builder: (context) => ProductDetailsScreen(ad: ad, onReport: (_) {}, lang: lang, heroPrefix: 'chat_')));
             }
           },
           style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
-          child: const Text('Смотреть', style: TextStyle(fontSize: 12, color: Color(0xFF4A80F0))),
+          child: Text(TranslationService.t('view_btn', lang), style: const TextStyle(fontSize: 12, color: Color(0xFF4A80F0))),
         ),
       ]),
     );

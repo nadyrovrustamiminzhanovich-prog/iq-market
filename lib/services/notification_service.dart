@@ -19,6 +19,10 @@ class NotificationService {
   static final Set<String> _processedMessageIds = {};
   static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
+  // P1: Stores notification data from terminated-state launch.
+  // Consumed once by [handlePendingNavigation] after the first route is built.
+  static Map<String, dynamic>? _pendingNavigationData;
+
   static Future<void> init() async {
     // 1. Request permissions
     NotificationSettings settings = await _messaging.requestPermission(
@@ -58,15 +62,21 @@ class NotificationService {
 
     // 3. Setup message handling
     FirebaseMessaging.onMessage.listen((message) => _onForegroundMessage(message));
-    
+
     FirebaseMessaging.onMessageOpenedApp.listen((message) {
       debugPrint('Notification opened from background: ${message.notification?.title}');
+      // Navigator is always ready here (app was backgrounded, not terminated)
       _navigateToChat(message.data);
     });
 
-    RemoteMessage? initialMessage = await _messaging.getInitialMessage();
+    // P1 FIX: When app is fully terminated and opened via notification tap,
+    // navigatorKey.currentState is null at this point (widget tree not yet built).
+    // We store the data and let handlePendingNavigation() consume it after
+    // the first route is mounted (called from IQMarketHome.initState).
+    final RemoteMessage? initialMessage = await _messaging.getInitialMessage();
     if (initialMessage != null) {
-      _navigateToChat(initialMessage.data);
+      debugPrint('[FCM] Terminated-state launch detected, storing pending nav data');
+      _pendingNavigationData = initialMessage.data;
     }
 
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
@@ -328,41 +338,61 @@ class NotificationService {
   static Future<void> _onForegroundMessage(RemoteMessage message) async {
     await _handleDataMessage(message);
 
-    RemoteNotification? notification = message.notification;
-    AndroidNotification? android = message.notification?.android;
+    final RemoteNotification? notification = message.notification;
+    if (notification == null) return; // data-only message — nothing to display
 
-    if (notification != null && android != null) {
-      // Don't show popup if we are already in this chat
-      final incomingChatId = message.data['chatId'];
-      if (incomingChatId != null && incomingChatId == ChatService.activeChatId) {
-        return;
-      }
+    // Don't show local banner if user is already in this chat
+    final incomingChatId = message.data['chatId'];
+    if (incomingChatId != null && incomingChatId == ChatService.activeChatId) return;
 
-      // Create a payload string from data map
-    final String payload = Uri(queryParameters: Map<String, String>.from(message.data)).query;
+    // P12 FIX: removed `android != null` guard — iOS foreground also shows local banner
+    final String payload = Uri(
+      queryParameters: Map<String, String>.from(message.data),
+    ).query;
 
-      await _notificationsPlugin.show(
-        id: notification.hashCode,
-        title: notification.title,
-        body: notification.body,
-        notificationDetails: const NotificationDetails(
-          android: AndroidNotificationDetails(
-            'high_importance_channel',
-            'High Importance Notifications',
-            channelDescription: 'Important app notifications.',
-            importance: Importance.max,
-            priority: Priority.high,
-            icon: '@mipmap/ic_launcher',
-          ),
-          iOS: DarwinNotificationDetails(
-            presentAlert: true,
-            presentBadge: true,
-            presentSound: true,
-          ),
+    await _notificationsPlugin.show(
+      id: notification.hashCode,
+      title: notification.title,
+      body: notification.body,
+      notificationDetails: const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'high_importance_channel',
+          'High Importance Notifications',
+          channelDescription: 'Important app notifications.',
+          importance: Importance.max,
+          priority: Priority.high,
+          icon: '@mipmap/ic_launcher',
+          // Show heads-up notification (peek)
+          fullScreenIntent: false,
+          enableVibration: true,
+          playSound: true,
         ),
-        payload: payload,
-      );
-    }
+        iOS: DarwinNotificationDetails(
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
+          interruptionLevel: InterruptionLevel.active,
+        ),
+      ),
+      payload: payload,
+    );
+  }
+
+  /// Call this from the first screen's [initState] (after a short delay so the
+  /// navigator is fully built) to handle terminated-state notification taps.
+  static void handlePendingNavigation() {
+    final data = _pendingNavigationData;
+    if (data == null) return;
+    _pendingNavigationData = null; // consume once
+    // Small delay — navigator needs 1 frame to be ready
+    Future.delayed(const Duration(milliseconds: 600), () {
+      if (navigatorKey.currentState != null) {
+        debugPrint('[FCM] Processing pending terminated-state navigation');
+        _navigateToChat(data);
+      } else {
+        debugPrint('[FCM] navigatorKey still null after delay — skipping pending nav');
+      }
+    });
   }
   
   // ===================== TOPICS =====================

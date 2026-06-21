@@ -70,6 +70,10 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
         DateTime regDate = DateTime(2023); // fallback
         String name = widget.seller.userName;
         bool isVerified = false;
+        String email = widget.seller.userEmail;
+        String phone = widget.seller.userPhone ?? '';
+        String location = widget.seller.location;
+        String accountType = 'Личный';
 
         if (snapshot.hasData && snapshot.data!.exists) {
           final data = snapshot.data!.data() as Map<String, dynamic>?;
@@ -83,6 +87,10 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
             }
             name = data['name'] ?? widget.seller.userName;
             isVerified = data['isVerified'] ?? false;
+            email = data['email'] ?? widget.seller.userEmail;
+            phone = data['phone'] ?? widget.seller.userPhone ?? '';
+            location = data['location'] ?? widget.seller.location;
+            accountType = data['accountType'] ?? 'Личный';
           }
         }
 
@@ -117,6 +125,7 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
                   : Column(
                       children: [
                         _buildStatsSection(snapshot),
+                        _buildPersonalDataSection(phone, email, location, accountType, regDate),
                         _buildAdsSection(),
                         _buildReviewsHeader(),
                         _buildReviewsList(),
@@ -226,22 +235,129 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
     ),
   );
 
-  Widget _buildAvatar(String photoUrl) => Hero(
-    tag: 'seller_avatar',
-    child: Container(
-      width: 90, height: 90,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 4),
-        image: photoUrl.isNotEmpty
-            ? DecorationImage(image: CachedNetworkImageProvider(photoUrl), fit: BoxFit.cover)
+  void _showFullScreenAvatar(String url) {
+    if (url.isEmpty) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (context) => Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            leading: IconButton(
+              icon: const Icon(Icons.close, color: Colors.white),
+              onPressed: () => Navigator.pop(context),
+            ),
+          ),
+          body: Center(
+            child: InteractiveViewer(
+              child: Hero(
+                tag: 'seller_avatar_fullscreen',
+                child: CachedNetworkImage(
+                  imageUrl: url,
+                  fit: BoxFit.contain,
+                  placeholder: (context, url) => const CircularProgressIndicator(color: Colors.white),
+                  errorWidget: (context, url, error) => const Icon(Icons.error, color: Colors.white),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAvatar(String photoUrl) => GestureDetector(
+    onTap: () => _showFullScreenAvatar(photoUrl),
+    child: Hero(
+      tag: 'seller_avatar_fullscreen',
+      child: Container(
+        width: 90, height: 90,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 4),
+          image: photoUrl.isNotEmpty
+              ? DecorationImage(image: CachedNetworkImageProvider(photoUrl), fit: BoxFit.cover)
+              : null,
+        ),
+        child: photoUrl.isEmpty
+            ? const Icon(Icons.person, color: Colors.white, size: 40)
             : null,
       ),
-      child: photoUrl.isEmpty
-          ? const Icon(Icons.person, color: Colors.white, size: 40)
-          : null,
     ),
   );
+
+  Widget _buildPersonalDataSection(String phone, String email, String location, String accountType, DateTime regDate) {
+    final phoneLabel = TranslationService.t('phone_label', widget.lang);
+    final emailLabel = 'Email';
+    final locationLabel = TranslationService.t('city_label', widget.lang);
+    final regDateLabel = TranslationService.t('reg_date_label', widget.lang);
+    final accTypeLabel = TranslationService.t('acc_type_label', widget.lang);
+
+    final dateStr = "${regDate.day.toString().padLeft(2, '0')}.${regDate.month.toString().padLeft(2, '0')}.${regDate.year}";
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            TranslationService.t('personal', widget.lang),
+            style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w900, color: const Color(0xFF64748B), letterSpacing: 0.5),
+          ),
+          const SizedBox(height: 16),
+          if (phone.isNotEmpty) ...[
+            _infoRow(phoneLabel, phone, Icons.phone_android_rounded),
+            const Divider(height: 24, color: Color(0xFFF1F5F9)),
+          ],
+          if (email.isNotEmpty) ...[
+            _infoRow(emailLabel, email, Icons.alternate_email_rounded),
+            const Divider(height: 24, color: Color(0xFFF1F5F9)),
+          ],
+          if (location.isNotEmpty) ...[
+            _infoRow(locationLabel, location, Icons.location_on_rounded),
+            const Divider(height: 24, color: Color(0xFFF1F5F9)),
+          ],
+          if (accountType.isNotEmpty) ...[
+            _infoRow(accTypeLabel, accountType, Icons.badge_rounded),
+            const Divider(height: 24, color: Color(0xFFF1F5F9)),
+          ],
+          _infoRow(regDateLabel, dateStr, Icons.calendar_today_rounded),
+        ],
+      ),
+    );
+  }
+
+  Widget _infoRow(String label, String value, IconData icon) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(color: const Color(0xFF4A80F0).withValues(alpha: 0.05), borderRadius: BorderRadius.circular(10)),
+          child: Icon(icon, color: const Color(0xFF4A80F0), size: 18),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFF94A3B8))),
+              const SizedBox(height: 2),
+              Text(value, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w800, color: const Color(0xFF1E293B))),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
 
   Widget _buildStatsSection(AsyncSnapshot<DocumentSnapshot> snapshot) {
     double ratingValue = 0.0;
@@ -392,67 +508,249 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
     },
   );
 
-  Widget _reviewItem(ReviewModel r) => Container(
-    margin: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-    padding: const EdgeInsets.all(20),
-    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24)),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Text(r.fromUserName, style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 14)),
-            const Spacer(),
-            Text(DateFormat('dd.MM.yyyy').format(r.timestamp), style: GoogleFonts.inter(fontSize: 11, color: Colors.grey)),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: List.generate(5, (i) => Icon(
-            i < r.rating ? Icons.star_rounded : Icons.star_outline_rounded,
-            size: 16, color: Colors.amber,
-          )),
-        ),
-        const SizedBox(height: 12),
-        Text(r.comment, style: GoogleFonts.inter(fontSize: 14, color: const Color(0xFF334155), height: 1.5)),
-        
-        if (r.adTitle.isNotEmpty) ...[
-          const SizedBox(height: 10),
-          Row(
+  void _showReviewDetailsSheet(ReviewModel r) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        maxChildSize: 0.9,
+        minChildSize: 0.4,
+        builder: (context, scrollController) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+          ),
+          child: Column(
             children: [
-              const Icon(Icons.shopping_bag_outlined, size: 14, color: Color(0xFF4A80F0)),
-              const SizedBox(width: 6),
+              const SizedBox(height: 12),
+              Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(10))),
+              const SizedBox(height: 24),
               Expanded(
-                child: Text(
-                  'К объявлению: ${r.adTitle}',
-                  style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF4A80F0)),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                child: ListView(
+                  controller: scrollController,
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  children: [
+                    Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 22,
+                          backgroundColor: const Color(0xFF4A80F0).withValues(alpha: 0.1),
+                          child: const Icon(Icons.person, color: Color(0xFF4A80F0), size: 24),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(r.fromUserName, style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 16, color: const Color(0xFF0F172A))),
+                              const SizedBox(height: 2),
+                              Text(DateFormat('dd.MM.yyyy HH:mm').format(r.timestamp), style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF94A3B8), fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        Row(
+                          children: List.generate(5, (i) => Icon(
+                            i < r.rating ? Icons.star_rounded : Icons.star_outline_rounded,
+                            size: 22, color: Colors.amber,
+                          )),
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          r.rating.toStringAsFixed(1),
+                          style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 16, color: const Color(0xFF0F172A)),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    SelectableText(
+                      r.comment,
+                      style: GoogleFonts.inter(fontSize: 15, color: const Color(0xFF334155), height: 1.6, fontWeight: FontWeight.w500),
+                    ),
+                    const SizedBox(height: 24),
+                    if (r.adTitle.isNotEmpty) ...[
+                      InkWell(
+                        onTap: () async {
+                          try {
+                            final ad = await AdService.getAdById(r.adId);
+                            if (ad != null && context.mounted) {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => ProductDetailsScreen(ad: ad, onReport: (_) {}, lang: widget.lang, heroPrefix: 'review_'),
+                                ),
+                              );
+                            } else {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      widget.lang == 'Қазақша'
+                                          ? 'Хабарландыру табылмады немесе өшірілген'
+                                          : widget.lang == 'Уйғурчә'
+                                              ? 'Елан тепильмиди йаки өчүрүлгән'
+                                              : 'Объявление не найдено или удалено',
+                                    ),
+                                  ),
+                                );
+                              }
+                            }
+                          } catch (e) {
+                            debugPrint('Error getting ad by id: $e');
+                          }
+                        },
+                        borderRadius: BorderRadius.circular(16),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF4A80F0).withValues(alpha: 0.05),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: const Color(0xFF4A80F0).withValues(alpha: 0.1)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.shopping_bag_outlined, color: Color(0xFF4A80F0), size: 20),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      widget.lang == 'Қазақша'
+                                          ? 'Хабарландыру туралы:'
+                                          : widget.lang == 'Уйғурчә'
+                                              ? 'Елан тоғрисида:'
+                                              : 'По объявлению:',
+                                      style: GoogleFonts.inter(fontSize: 10, color: const Color(0xFF94A3B8), fontWeight: FontWeight.w700),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      r.adTitle,
+                                      style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w800, color: const Color(0xFF4A80F0)),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Color(0xFF4A80F0)),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                    ],
+                    if (r.images.isNotEmpty) ...[
+                      Text(
+                        widget.lang == 'Қазақша'
+                            ? 'Пікір суреттері'
+                            : widget.lang == 'Уйғурчә'
+                                ? 'Пикир сүрәтлири'
+                                : 'Фотографии отзыва',
+                        style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF64748B), fontWeight: FontWeight.w800),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        height: 120,
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: r.images.length,
+                          itemBuilder: (context, i) => GestureDetector(
+                            onTap: () => _showFullScreenAvatar(r.images[i]),
+                            child: Container(
+                              width: 120,
+                              margin: const EdgeInsets.only(right: 12),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(16),
+                                image: DecorationImage(image: CachedNetworkImageProvider(r.images[i]), fit: BoxFit.cover),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                    ],
+                  ],
                 ),
               ),
             ],
           ),
-        ],
-        
-        if (r.images.isNotEmpty) ...[
-          const SizedBox(height: 16),
-          SizedBox(
-            height: 80,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: r.images.length,
-              itemBuilder: (context, i) => Container(
-                width: 80,
-                margin: const EdgeInsets.only(right: 8),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  image: DecorationImage(image: CachedNetworkImageProvider(r.images[i]), fit: BoxFit.cover),
+        ),
+      ),
+    );
+  }
+
+  Widget _reviewItem(ReviewModel r) => GestureDetector(
+    onTap: () => _showReviewDetailsSheet(r),
+    behavior: HitTestBehavior.opaque,
+    child: Container(
+      margin: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(r.fromUserName, style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 14)),
+              const Spacer(),
+              Text(DateFormat('dd.MM.yyyy').format(r.timestamp), style: GoogleFonts.inter(fontSize: 11, color: Colors.grey)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: List.generate(5, (i) => Icon(
+              i < r.rating ? Icons.star_rounded : Icons.star_outline_rounded,
+              size: 16, color: Colors.amber,
+            )),
+          ),
+          const SizedBox(height: 12),
+          Text(r.comment, style: GoogleFonts.inter(fontSize: 14, color: const Color(0xFF334155), height: 1.5), maxLines: 3, overflow: TextOverflow.ellipsis),
+          if (r.adTitle.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                const Icon(Icons.shopping_bag_outlined, size: 14, color: Color(0xFF4A80F0)),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'К объявлению: ${r.adTitle}',
+                    style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF4A80F0)),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ],
+          if (r.images.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 60,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: r.images.length.clamp(0, 4),
+                itemBuilder: (context, i) => Container(
+                  width: 60,
+                  margin: const EdgeInsets.only(right: 8),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                    image: DecorationImage(image: CachedNetworkImageProvider(r.images[i]), fit: BoxFit.cover),
+                  ),
                 ),
               ),
             ),
-          ),
+          ],
         ],
-      ],
+      ),
     ),
   );
 

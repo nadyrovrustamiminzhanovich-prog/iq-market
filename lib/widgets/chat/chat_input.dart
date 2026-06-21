@@ -15,6 +15,8 @@ class ChatInput extends StatelessWidget {
   final VoidCallback onLongPressEnd;
   final Function(String) onEmojiSelected;
   final List<String> emojis;
+  final String hintText;
+  final String recordCancelText;
 
   const ChatInput({
     super.key,
@@ -32,6 +34,8 @@ class ChatInput extends StatelessWidget {
     required this.onLongPressEnd,
     required this.onEmojiSelected,
     required this.emojis,
+    this.hintText = 'Сообщение',
+    this.recordCancelText = 'Проведите для отмены',
   });
 
   @override
@@ -61,7 +65,7 @@ class ChatInput extends StatelessWidget {
                   child: AnimatedSwitcher(
                     duration: const Duration(milliseconds: 200),
                     child: isRecording 
-                      ? _RecordingBar(seconds: recordSeconds)
+                      ? _RecordingBar(seconds: recordSeconds, cancelText: recordCancelText)
                       : Row(
                           children: [
                             IconButton(
@@ -76,11 +80,11 @@ class ChatInput extends StatelessWidget {
                                 minLines: 1,
                                 onChanged: onTextChanged,
                                 style: const TextStyle(color: Colors.white, fontSize: 16),
-                                decoration: const InputDecoration(
-                                  hintText: 'Сообщение',
-                                  hintStyle: TextStyle(color: Colors.white38),
+                                decoration: InputDecoration(
+                                  hintText: hintText,
+                                  hintStyle: const TextStyle(color: Colors.white38),
                                   border: InputBorder.none,
-                                  contentPadding: EdgeInsets.symmetric(vertical: 10),
+                                  contentPadding: const EdgeInsets.symmetric(vertical: 10),
                                 ),
                               ),
                             ),
@@ -125,7 +129,8 @@ class ChatInput extends StatelessWidget {
 
 class _RecordingBar extends StatelessWidget {
   final int seconds;
-  const _RecordingBar({required this.seconds});
+  final String cancelText;
+  const _RecordingBar({required this.seconds, this.cancelText = 'Проведите для отмены'});
 
   @override
   Widget build(BuildContext context) {
@@ -137,7 +142,7 @@ class _RecordingBar extends StatelessWidget {
           const SizedBox(width: 12),
           Text(_formatTime(seconds), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           const Spacer(),
-          const Text('Проведите для отмены', style: TextStyle(color: Colors.white54, fontSize: 12)),
+          Text(cancelText, style: const TextStyle(color: Colors.white54, fontSize: 12)),
           const SizedBox(width: 8),
           const Icon(Icons.arrow_back_ios_new_rounded, size: 12, color: Colors.white38),
         ],

@@ -12,6 +12,7 @@ import 'package:iqmarket/services/notification_service.dart';
 import 'package:iqmarket/services/gemini_service.dart';
 import 'package:iqmarket/services/user_service.dart';
 import 'package:iqmarket/services/network_service.dart';
+import 'package:iqmarket/services/telegram_bot_service.dart';
 class AdService {
   static final FirebaseFirestore _db = FirebaseFirestore.instance;
   static final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -171,13 +172,33 @@ class AdService {
 
     // 5. Сохранение
     if (onStatusUpdate != null) onStatusUpdate('Сохранение...');
+    final String savedAdId;
     if (initialAdId != null) {
       await updateAd(initialAdId, adModel.toMap());
-      return initialAdId;
+      savedAdId = initialAdId;
     } else {
       final id = await createAd(adModel);
-      return id ?? '';
+      savedAdId = id ?? '';
     }
+
+    // 📣 X10 NOTIFICATION: Если объявление новое и требует ручной модерации ИИ, отправляем алерт админу в Телеграм
+    if (initialAdId == null && !isApproved && savedAdId.isNotEmpty) {
+      try {
+        await TelegramBotService.notifyAdminNewAd(
+          adId: savedAdId,
+          title: title,
+          price: price,
+          category: category,
+          userName: adModel.userName,
+          reason: '🤖 ИИ запросил ручную проверку (MANUAL_REVIEW).',
+          imageUrls: adModel.images,
+        );
+      } catch (e) {
+        debugPrint('[AdService] Failed to notify admin via Telegram: $e');
+      }
+    }
+
+    return savedAdId;
   }
 
   /// Get a single ad by ID

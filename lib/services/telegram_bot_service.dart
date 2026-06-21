@@ -129,6 +129,50 @@ class TelegramBotService {
     );
   }
 
+  // ─── AD MODERATION: notify admin of new ad requiring manual review ─────────
+  static Future<void> notifyAdminNewAd({
+    required String adId,
+    required String title,
+    required String price,
+    required String category,
+    required String userName,
+    required String reason,
+    List<String> imageUrls = const [],
+  }) async {
+    if (_adminChatId.isEmpty || _adminChatId == '5555555555') return;
+    
+    final StringBuffer sb = StringBuffer();
+    sb.writeln('📢 <b>Новое объявление на модерацию!</b>');
+    sb.writeln();
+    sb.writeln('🏷️ Название: <b>$title</b>');
+    sb.writeln('💰 Цена: <b>$price</b>');
+    sb.writeln('🗂️ Категория: $category');
+    sb.writeln('👤 Автор: $userName');
+    sb.writeln('⚠️ Статус: $reason');
+    
+    if (imageUrls.isNotEmpty) {
+      sb.writeln();
+      sb.writeln('🖼️ <b>Изображения:</b>');
+      for (int i = 0; i < min(imageUrls.length, 5); i++) {
+        sb.writeln('🔗 <a href="${imageUrls[i]}">Фото ${i + 1}</a>');
+      }
+    }
+
+    sb.writeln();
+    sb.writeln('Используйте панель модерации или кнопки ниже:');
+    
+    await _sendWithKeyboard(
+      _adminChatId,
+      sb.toString(),
+      keyboard: [
+        [
+          {'text': '✅ Одобрить', 'callback_data': 'approve_ad|$adId'},
+          {'text': '❌ Отклонить', 'callback_data': 'reject_ad|$adId'},
+        ]
+      ],
+    );
+  }
+
   // ─── DRIVER VERIFICATION: notify driver of result ───────────────────────────
   static Future<void> notifyDriverResult({
     required String driverChatId,

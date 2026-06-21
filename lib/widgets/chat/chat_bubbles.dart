@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:iqmarket/models/message_model.dart';
 import 'package:iqmarket/services/user_service.dart';
+import 'package:iqmarket/services/translation_service.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 class ChatBubble extends StatefulWidget {
@@ -18,6 +19,7 @@ class ChatBubble extends StatefulWidget {
   final Duration currentDur;
   final Function(MessageModel) onLongPress;
   final Function(String) onImageTap;
+  final String lang;
 
   const ChatBubble({
     super.key,
@@ -38,6 +40,7 @@ class ChatBubble extends StatefulWidget {
     this.onWriteOffer,
     this.onVoiceOffer,
     this.onCallOffer,
+    this.lang = 'Русский',
   });
 
   final VoidCallback? onAcceptOffer;
@@ -123,6 +126,7 @@ class _ChatBubbleState extends State<ChatBubble> {
                     isPlaying: widget.isPlaying,
                     currentPos: widget.currentPos,
                     currentDur: widget.currentDur,
+                    lang: widget.lang,
                   ),
                   if (widget.msg.text.isNotEmpty && widget.msg.type == 'text')
                     Text(widget.msg.text, softWrap: true, style: TextStyle(color: widget.textColor, fontSize: 15, fontWeight: FontWeight.w500)),
@@ -160,7 +164,7 @@ class _ChatBubbleState extends State<ChatBubble> {
             children: [
               Icon(PhosphorIcons.handshake(PhosphorIconsStyle.fill), color: Colors.white70, size: 18),
               const SizedBox(width: 8),
-              Text('ПРЕДЛОЖЕНИЕ ЦЕНЫ', style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 0.8)),
+              Text(TranslationService.t('offer_price_label', widget.lang), style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 0.8)),
             ],
           ),
           const SizedBox(height: 10),
@@ -212,7 +216,7 @@ class _ChatBubbleState extends State<ChatBubble> {
                       ),
                       child: _isOfferLoading 
                           ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                          : const Text('Отклонить', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.white)),
+                          : Text(TranslationService.t('decline_btn', widget.lang), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.white)),
                     ),
                   ),
                 ),
@@ -252,7 +256,7 @@ class _ChatBubbleState extends State<ChatBubble> {
                       ),
                       child: _isOfferLoading 
                           ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                          : const Text('Принять', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.white)),
+                          : Text(TranslationService.t('accept_btn', widget.lang), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.white)),
                     ),
                   ),
                 ),
@@ -269,19 +273,19 @@ class _ChatBubbleState extends State<ChatBubble> {
               children: [
                 _quickActionButton(
                   icon: Icons.phone_in_talk_rounded,
-                  label: 'Позвонить',
+                  label: TranslationService.t('call_btn', widget.lang),
                   color: const Color(0xFF34D399),
                   onTap: widget.onCallOffer,
                 ),
                 _quickActionButton(
                   icon: Icons.edit_note_rounded,
-                  label: 'Написать',
+                  label: TranslationService.t('write_btn_short', widget.lang),
                   color: const Color(0xFF60A5FA),
                   onTap: widget.onWriteOffer,
                 ),
                 _quickActionButton(
                   icon: Icons.keyboard_voice_rounded,
-                  label: 'Голосовое',
+                  label: TranslationService.t('voice_btn', widget.lang),
                   color: const Color(0xFFC084FC),
                   onTap: widget.onVoiceOffer,
                 ),
@@ -363,9 +367,9 @@ class _ChatBubbleState extends State<ChatBubble> {
 
   String _getStatusText(String status) {
     switch (status) {
-      case 'accepted': return 'ПРИНЯТО';
-      case 'rejected': return 'ОТКЛОНЕНО';
-      default: return 'В ОЖИДАНИИ';
+      case 'accepted': return TranslationService.t('offer_accepted', widget.lang);
+      case 'rejected': return TranslationService.t('offer_rejected', widget.lang);
+      default: return TranslationService.t('offer_pending', widget.lang);
     }
   }
 }
@@ -379,6 +383,8 @@ class _AudioPlayerWidget extends StatelessWidget {
   final bool isPlaying;
   final Duration currentPos;
   final Duration currentDur;
+  // P5 FIX: accept lang from parent instead of hardcoding 'Русский'
+  final String lang;
 
   const _AudioPlayerWidget({
     required this.msg,
@@ -388,11 +394,13 @@ class _AudioPlayerWidget extends StatelessWidget {
     required this.isPlaying,
     required this.currentPos,
     required this.currentDur,
+    this.lang = 'Русский',
   });
 
   @override
   Widget build(BuildContext context) {
-    final bool isUploading = msg.mediaUrl == null;
+    // P2 FIX: treat empty string as uploading (mediaUrl must be a non-empty URL)
+    final bool isUploading = msg.mediaUrl == null || msg.mediaUrl!.isEmpty;
     
     return Row(mainAxisSize: MainAxisSize.min, children: [
       IconButton(
@@ -421,7 +429,7 @@ class _AudioPlayerWidget extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 2),
-          Text(isPlaying ? _formatDuration(currentPos) : '${msg.duration ?? 0} сек', style: TextStyle(color: color.withValues(alpha: 0.6), fontSize: 10)),
+          Text(isPlaying ? _formatDuration(currentPos) : '${msg.duration ?? 0} ${TranslationService.t('seconds_short', lang)}', style: TextStyle(color: color.withValues(alpha: 0.6), fontSize: 10)),
         ]),
       ),
     ]);

@@ -136,10 +136,10 @@ class TaxiActiveOrderSummary extends StatelessWidget {
                 text: displayTime.isEmpty ? 'Время не указано' : displayTime,
                 color: const Color(0xFF4F46E5),
               ),
-              TaxiInfoChip(
+              TaxiBlueInfoChip(
                 icon: Icons.group_rounded,
                 text: '${order['seats'] ?? 1} мест',
-                t: t,
+                color: const Color(0xFF4F46E5),
               ),
             ],
           ),

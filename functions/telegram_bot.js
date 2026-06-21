@@ -116,6 +116,23 @@ exports.telegramWebhook = functions.https.onRequest(async (req, res) => {
     // ── Inline button callback (admin approve / reject) ────────────────────────
     if (update.callback_query) {
       const cq     = update.callback_query;
+      const fromId = cq.from ? String(cq.from.id) : '';
+
+      // 🔐 X10 SECURITY check: Only the designated ADMIN_CHAT can approve or reject
+      if (!ADMIN_CHAT || fromId !== String(ADMIN_CHAT)) {
+        console.warn(`[telegramWebhook] Unauthorized callback query from: ${fromId}`);
+        await fetch(`${API}/answerCallbackQuery`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            callback_query_id: cq.id,
+            text: '❌ Доступ запрещен: Вы не являетесь администратором!',
+            show_alert: true,
+          }),
+        });
+        return res.sendStatus(200);
+      }
+
       const data   = cq.data || '';
       const parts  = data.split('|');
       const action = parts[0];
@@ -142,6 +159,44 @@ exports.telegramWebhook = functions.https.onRequest(async (req, res) => {
           + 'Документы не прошли проверку. Загрузите чёткие фото и повторите попытку.'
         );
         await tgSend(ADMIN_CHAT || cq.from.id, `❌ Водитель (doc: <code>${docId}</code>) — <b>ОТКЛОНЁН</b>`);
+      } else if (action === 'approve_ad') {
+        await db.collection('ads').doc(docId).update({
+          status: 'active',
+          active: true,
+        });
+        
+        const adSnap = await db.collection('ads').doc(docId).get();
+        if (adSnap.exists) {
+          const adData = adSnap.data();
+          const adTitle = adData.title || '';
+          const userId = adData.userId || '';
+          
+          if (userId.startsWith('telegram_')) {
+            const userChatId = userId.replace('telegram_', '');
+            await tgSend(userChatId, `🎉 <b>Ваше объявление «${adTitle}» успешно проверено и опубликовано!</b>`);
+          }
+        }
+        
+        await tgSend(ADMIN_CHAT || cq.from.id, `✅ Объявление (doc: <code>${docId}</code>) — <b>ОДОБРЕНО И ОПУБЛИКОВАНО</b>`);
+      } else if (action === 'reject_ad') {
+        await db.collection('ads').doc(docId).update({
+          status: 'rejected',
+          active: false,
+        });
+        
+        const adSnap = await db.collection('ads').doc(docId).get();
+        if (adSnap.exists) {
+          const adData = adSnap.data();
+          const adTitle = adData.title || '';
+          const userId = adData.userId || '';
+          
+          if (userId.startsWith('telegram_')) {
+            const userChatId = userId.replace('telegram_', '');
+            await tgSend(userChatId, `❌ <b>Ваше объявление «${adTitle}» отклонено модератором.</b>\nПожалуйста, проверьте правила публикации.`);
+          }
+        }
+        
+        await tgSend(ADMIN_CHAT || cq.from.id, `❌ Объявление (doc: <code>${docId}</code>) — <b>ОТКЛОНЕНО</b>`);
       }
 
       await fetch(`${API}/answerCallbackQuery`, {
@@ -326,6 +381,38 @@ exports.telegramWebhook = functions.https.onRequest(async (req, res) => {
           + `Ваш Chat ID: <code>${chatId}</code>\n\n`
           + `Используйте приложение IQ-Market для входа.`
         );
+      }
+    }
+
+    // /approve_ad_<docId> or /reject_ad_<docId> — admin ad commands
+    else if (text.startsWith('/approve_ad_') || text.startsWith('/reject_ad_')) {
+      if (chatId !== ADMIN_CHAT) {
+        return res.sendStatus(200);
+      }
+      const isApprove = text.startsWith('/approve_ad_');
+      const docId = text.replace(isApprove ? '/approve_ad_' : '/reject_ad_', '').trim();
+      const snap  = await db.collection('ads').doc(docId).get();
+      if (!snap.exists) {
+        await tgSend(chatId, `❌ Объявление \`${docId}\` не найдено.`);
+      } else {
+        const adData = snap.data();
+        const adTitle = adData.title || '';
+        const userId = adData.userId || '';
+        
+        await db.collection('ads').doc(docId).update({
+          status: isApprove ? 'active' : 'rejected',
+          active: isApprove,
+        });
+        
+        if (userId.startsWith('telegram_')) {
+          const userChatId = userId.replace('telegram_', '');
+          const msgText = isApprove
+            ? `🎉 <b>Ваше объявление «${adTitle}» успешно проверено и опубликовано!</b>`
+            : `❌ <b>Ваше объявление «${adTitle}» отклонено модератором.</b>\nПожалуйста, проверьте правила публикации.`;
+          await tgSend(userChatId, msgText);
+        }
+        
+        await tgSend(chatId, isApprove ? `✅ Объявление «${adTitle}» одобрено.` : `❌ Объявление «${adTitle}» отклонено.`);
       }
     }
 

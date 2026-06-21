@@ -40,8 +40,8 @@ class CategoryData {
     CategoryModel(
       id: 'Авто', 
       ru: 'Авто', 
-      kz: 'Авто', 
-      ug: 'Авто', 
+      kz: 'Автокөлік', 
+      ug: 'Машина', 
       icon: Icons.directions_car_rounded, 
       color: const Color(0xFF4A80F0),
       subCategories: [

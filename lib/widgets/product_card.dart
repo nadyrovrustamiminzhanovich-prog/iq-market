@@ -8,6 +8,9 @@ import 'package:iqmarket/models/ad_model.dart';
 import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:iqmarket/widgets/auth_gate_bottom_sheet.dart';
+import 'package:provider/provider.dart';
+import 'package:iqmarket/providers/app_config_provider.dart';
+import 'package:iqmarket/services/translation_service.dart';
 
 class ProductCard extends StatefulWidget {
   final AdModel ad;
@@ -50,6 +53,7 @@ class _ProductCardState extends State<ProductCard> with SingleTickerProviderStat
   @override
   Widget build(BuildContext context) {
     final ad = widget.ad;
+    final lang = Provider.of<AppConfigProvider>(context, listen: false).language;
     final images = ad.images;
     final hasMultiple = images.length > 1;
     final isFree = ad.price == 0.0 || ad.category == 'Отдам даром';
@@ -220,16 +224,31 @@ class _ProductCardState extends State<ProductCard> with SingleTickerProviderStat
                 ),
 
                 // Бейдж "Новый"
-                if (DateTime.now().difference(ad.timestamp).inDays < 3)
+                if (DateTime.now().difference(ad.timestamp).inDays.abs() < 3)
                   Positioned(
                     top: 10, left: 10,
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF4A80F0),
+                        color: const Color(0xFF10B981), // Premium Emerald green for "New"
                         borderRadius: BorderRadius.circular(8),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF10B981).withValues(alpha: 0.3),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          )
+                        ],
                       ),
-                      child: Text('НОВОЕ', style: GoogleFonts.inter(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w900)),
+                      child: Text(
+                        TranslationService.t('new_badge', lang).toUpperCase(),
+                        style: GoogleFonts.inter(
+                          color: Colors.white,
+                          fontSize: 8,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
                     ),
                   ),
 
@@ -385,7 +404,7 @@ class _ProductCardState extends State<ProductCard> with SingleTickerProviderStat
                     children: [
                       _metaInfo(ad.location.isEmpty || ad.location == 'Шонжы' ? 'Чунджа' : ad.location, Icons.location_on_rounded, color: const Color(0xFF4A80F0)),
                       const SizedBox(height: 4),
-                      _metaInfo(_formatRelativeDate(ad.timestamp), Icons.access_time_filled_rounded),
+                      _metaInfo(_formatRelativeDate(ad.timestamp, lang), Icons.access_time_filled_rounded),
                     ],
                   ),
                 ],
@@ -424,14 +443,15 @@ class _ProductCardState extends State<ProductCard> with SingleTickerProviderStat
     return price > 0 ? '${NumberFormat.decimalPattern('ru').format(price.toInt())} ₸' : 'Договорная';
   }
 
-  String _formatRelativeDate(DateTime dt) {
+  String _formatRelativeDate(DateTime dt, String lang) {
     final now = DateTime.now();
+    final timeStr = '${dt.hour}:${dt.minute.toString().padLeft(2, '0')}';
     if (dt.day == now.day && dt.month == now.month && dt.year == now.year) {
-      return 'Сегодня ${dt.hour}:${dt.minute.toString().padLeft(2, '0')}';
+      return TranslationService.t('today_with_time', lang).replaceAll('{time}', timeStr);
     }
     final yesterday = now.subtract(const Duration(days: 1));
     if (dt.day == yesterday.day && dt.month == yesterday.month && dt.year == yesterday.year) {
-      return 'Вчера ${dt.hour}:${dt.minute.toString().padLeft(2, '0')}';
+      return TranslationService.t('yesterday_with_time', lang).replaceAll('{time}', timeStr);
     }
     return '${dt.day} ${['','янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек'][dt.month]}';
   }

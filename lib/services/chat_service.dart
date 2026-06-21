@@ -40,6 +40,8 @@ class ChatService {
         });
   }
 
+  /// Отправить текстовое/медиа/голосовое сообщение.
+  /// Возвращает ID документа или null при ошибке.
   static Future<String?> sendMessage({
     required AdModel ad,
     required String text,
@@ -52,72 +54,89 @@ class ChatService {
     final uid = UserService.currentUid;
     if (uid == null) return null;
 
+    // 🔒 Защита от отправки самому себе
+    if (uid == sellerId) {
+      debugPrint('[CHAT_SERVICE] BLOCKED: attempt to send message to self (uid=$uid)');
+      return null;
+    }
+
     final chatId = getChatId(sellerId);
     
     // Fetch sender name if not provided
     String actualSenderName = senderName ?? StorageService.getString('user_name') ?? 'Пользователь';
+    // P6 FIX: include senderPhone so notification-tap navigation can show phone call button
+    final String senderPhone = StorageService.getString('user_phone') ?? '';
 
-    // Update last message in chat summary (creates chat doc first to satisfy rules)
-    final summaryData = {
-      'lastMessage': text,
-      'lastTimestamp': FieldValue.serverTimestamp(),
-      'lastSenderId': uid,
-      'isRead': false,
-      'users': [uid, sellerId],
-      'unreadCount_$sellerId': FieldValue.increment(1),
-      'name_$uid': actualSenderName,
-      'name_$sellerId': ad.userName,
-      'adId': ad.id,
-      'adTitle': ad.title,
-      'adImage': ad.images.isNotEmpty ? ad.images.first : '',
-    };
-    await _db.collection('chats').doc(chatId).set(summaryData, SetOptions(merge: true));
-
-    final messageData = {
-      'senderId': uid,
-      'text': text,
-      'type': type,
-      'timestamp': FieldValue.serverTimestamp(),
-      'isRead': false,
-      'mediaUrl': mediaUrl,
-      'duration': duration,
-    };
-
-    final docRef = await _db
-        .collection('chats')
-        .doc(chatId)
-        .collection('messages')
-        .add(messageData);
-
-    // Identify the recipient correctly
-    // If the sender is the one in ad.userId, we need the other person from the chat.
-    // In our app, ChatScreen always ensures ad.userId is the 'other' person.
-    // But for robustness, we should ideally fetch the chat summary or pass recipientId.
-    final recipientId = sellerId; // Based on ChatScreen's current implementation
-
-    NotificationService.saveNotificationToFirestore(
-      uid: recipientId,
-      title: 'Новое сообщение: $actualSenderName',
-      body: text,
-      type: 'chat',
-      data: {
-        'chatId': chatId,
+    try {
+      // Update last message in chat summary (creates chat doc first to satisfy rules)
+      final summaryData = {
+        'lastMessage': text,
+        'lastTimestamp': FieldValue.serverTimestamp(),
+        'lastSenderId': uid,
+        'isRead': false,
+        'users': [uid, sellerId],
+        'unreadCount_$sellerId': FieldValue.increment(1),
+        'name_$uid': actualSenderName,
+        'name_$sellerId': ad.userName,
         'adId': ad.id,
         'adTitle': ad.title,
+        'adImage': ad.images.isNotEmpty ? ad.images.first : '',
+      };
+      await _db.collection('chats').doc(chatId).set(summaryData, SetOptions(merge: true));
+
+      final messageData = {
         'senderId': uid,
-        'senderName': actualSenderName,
-      }
-    );
-    
-    return docRef.id;
+        'text': text,
+        'type': type,
+        'timestamp': FieldValue.serverTimestamp(),
+        'isRead': false,
+        'mediaUrl': mediaUrl,
+        'duration': duration,
+      };
+
+      final docRef = await _db
+          .collection('chats')
+          .doc(chatId)
+          .collection('messages')
+          .add(messageData);
+
+      // ad.userId в ChatScreen всегда = «другой пользователь» → он же recipient
+      NotificationService.saveNotificationToFirestore(
+        uid: sellerId,
+        title: 'Новое сообщение: $actualSenderName',
+        body: text,
+        type: 'chat',
+        data: {
+          'chatId': chatId,
+          'adId': ad.id,
+          'adTitle': ad.title,
+          'adImage': ad.images.isNotEmpty ? ad.images.first : '',
+          'senderId': uid,
+          'senderName': actualSenderName,
+          'senderPhone': senderPhone,
+        }
+      );
+
+      return docRef.id;
+    } catch (e) {
+      debugPrint('[CHAT_SERVICE] sendMessage ERROR: $e');
+      return null;
+    }
   }
 
+  /// Отправить предложение цены. Бросает исключение при ошибке для обработки в UI.
   static Future<void> sendOffer({
     required AdModel ad,
     required double price,
   }) async {
     final uid = UserService.currentUid;
-    if (uid == null) return;
+    if (uid == null) throw Exception('Вы не авторизованы');
+
+    // 🔒 Защита от торга с самим собой
+    if (uid == ad.userId) {
+      debugPrint('[CHAT_SERVICE] BLOCKED: attempt to send offer to self');
+      throw Exception('Нельзя отправить предложение самому себе');
+    }
 
     final chatId = getChatId(ad.userId);
     final text = 'Предложение цены: ${price.toInt()} ₸';
@@ -126,55 +145,60 @@ class ChatService {
     final actualSenderName = StorageService.getString('user_name') ?? 'Пользователь';
     final senderPhone = StorageService.getString('user_phone') ?? '';
 
-    // Update last message in chat summary (creates chat doc first to satisfy rules)
-    final summaryData = {
-      'lastMessage': text,
-      'lastTimestamp': FieldValue.serverTimestamp(),
-      'lastSenderId': uid,
-      'isRead': false,
-      'users': [uid, ad.userId],
-      'unreadCount_${ad.userId}': FieldValue.increment(1),
-      'name_$uid': actualSenderName,
-      'name_${ad.userId}': ad.userName,
-      'adId': ad.id,
-      'adTitle': ad.title,
-      'adImage': ad.images.isNotEmpty ? ad.images.first : '',
-    };
-    await _db.collection('chats').doc(chatId).set(summaryData, SetOptions(merge: true));
-
-    final messageData = {
-      'senderId': uid,
-      'text': text,
-      'type': 'offer',
-      'offerPrice': price,
-      'offerStatus': 'pending',
-      'timestamp': FieldValue.serverTimestamp(),
-      'isRead': false,
-      'adId': ad.id,
-      'adTitle': ad.title,
-    };
-
-    await _db
-        .collection('chats')
-        .doc(chatId)
-        .collection('messages')
-        .add(messageData);
-
-    // Send push notification trigger
-    NotificationService.saveNotificationToFirestore(
-      uid: ad.userId,
-      title: 'Предложение цены: $actualSenderName',
-      body: 'Предлагает ${price.toInt()} ₸ за "${ad.title}"',
-      type: 'chat',
-      data: {
-        'chatId': chatId,
+    try {
+      // Update last message in chat summary (creates chat doc first to satisfy rules)
+      final summaryData = {
+        'lastMessage': text,
+        'lastTimestamp': FieldValue.serverTimestamp(),
+        'lastSenderId': uid,
+        'isRead': false,
+        'users': [uid, ad.userId],
+        'unreadCount_${ad.userId}': FieldValue.increment(1),
+        'name_$uid': actualSenderName,
+        'name_${ad.userId}': ad.userName,
         'adId': ad.id,
         'adTitle': ad.title,
+        'adImage': ad.images.isNotEmpty ? ad.images.first : '',
+      };
+      await _db.collection('chats').doc(chatId).set(summaryData, SetOptions(merge: true));
+
+      final messageData = {
         'senderId': uid,
-        'senderName': actualSenderName,
-        'senderPhone': senderPhone,
-      }
-    );
+        'text': text,
+        'type': 'offer',
+        'offerPrice': price,
+        'offerStatus': 'pending',
+        'timestamp': FieldValue.serverTimestamp(),
+        'isRead': false,
+        'adId': ad.id,
+        'adTitle': ad.title,
+      };
+
+      await _db
+          .collection('chats')
+          .doc(chatId)
+          .collection('messages')
+          .add(messageData);
+
+      // Send push notification trigger
+      NotificationService.saveNotificationToFirestore(
+        uid: ad.userId,
+        title: 'Предложение цены: $actualSenderName',
+        body: 'Предлагает ${price.toInt()} ₸ за "${ad.title}"',
+        type: 'chat',
+        data: {
+          'chatId': chatId,
+          'adId': ad.id,
+          'adTitle': ad.title,
+          'senderId': uid,
+          'senderName': actualSenderName,
+          'senderPhone': senderPhone,
+        }
+      );
+    } catch (e) {
+      debugPrint('[CHAT_SERVICE] sendOffer ERROR: $e');
+      rethrow;
+    }
   }
 
   static Future<void> updateOfferStatus(String sellerId, String messageId, String status) async {
@@ -267,32 +291,53 @@ class ChatService {
     await batch.commit();
   }
 
-  /// Delete specific messages (including media files from Storage)
-  static Future<void> deleteMessages(String sellerId, List<String> messageIds) async {
+  /// Delete specific messages (including media files from Storage).
+  /// Firestore rules позволяют удалять только СВОИ сообщения (senderId == uid).
+  /// Возвращает количество успешно удалённых сообщений.
+  static Future<int> deleteMessages(String sellerId, List<String> messageIds) async {
+    final uid = UserService.currentUid;
+    if (uid == null) return 0;
+    
     final chatId = getChatId(sellerId);
     final batch = _db.batch();
+    int deletedCount = 0;
     
     for (var id in messageIds) {
       final docRef = _db.collection('chats').doc(chatId).collection('messages').doc(id);
       
-      // Сначала пробуем удалить файл из Storage, если он есть
       try {
         final doc = await docRef.get();
-        if (doc.exists) {
-          final data = doc.data();
-          final String? mediaUrl = data?['mediaUrl'];
-          if (mediaUrl != null && mediaUrl.isNotEmpty) {
+        if (!doc.exists) continue;
+        final data = doc.data();
+        
+        // 🔒 Firestore rules: можно удалить только если senderId == uid
+        if (data?['senderId'] != uid) {
+          debugPrint('[CHAT_SERVICE] Skip delete: message $id not owned by current user');
+          continue;
+        }
+        
+        // Удаляем медиа из Storage если есть
+        final String? mediaUrl = data?['mediaUrl'];
+        if (mediaUrl != null && mediaUrl.isNotEmpty) {
+          try {
             await FirebaseStorage.instance.refFromURL(mediaUrl).delete();
             debugPrint('[CHAT_SERVICE] Media file deleted from storage: $mediaUrl');
+          } catch (e) {
+            debugPrint('[CHAT_SERVICE] Error deleting media from storage: $e');
           }
         }
-      } catch (e) {
-        debugPrint('[CHAT_SERVICE] Error deleting media from storage: $e');
-      }
 
-      batch.delete(docRef);
+        batch.delete(docRef);
+        deletedCount++;
+      } catch (e) {
+        debugPrint('[CHAT_SERVICE] Error processing message $id for deletion: $e');
+      }
     }
-    await batch.commit();
+    
+    if (deletedCount > 0) {
+      await batch.commit();
+    }
+    return deletedCount;
   }
 
   /// Clear entire chat (including all media files from Storage)

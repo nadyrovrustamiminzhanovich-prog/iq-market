@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:iqmarket/data/category_data.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/services.dart';
@@ -618,10 +619,21 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     ]),
   );
 
+  String _getCategoryTranslation(String categoryId) {
+    try {
+      final cat = CategoryData.categories.firstWhere((c) => c.id == categoryId);
+      if (widget.lang == 'Уйғурчә') return cat.ug.isNotEmpty ? cat.ug : cat.ru;
+      if (widget.lang == 'Қазақша') return cat.kz.isNotEmpty ? cat.kz : cat.ru;
+      return cat.ru;
+    } catch (_) {
+      return TranslationService.t(categoryId, widget.lang);
+    }
+  }
+
   Widget _buildTags() => Container(
     width: double.infinity, color: Colors.white, padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
     child: Wrap(spacing: 8, runSpacing: 8, children: [
-      _tagChip(label: widget.ad.category),
+      _tagChip(label: _getCategoryTranslation(widget.ad.category)),
       if (widget.ad.condition != null && widget.ad.condition!.isNotEmpty) 
         _tagChip(label: widget.ad.condition == 'Новый' 
           ? TranslationService.t('cond_new', widget.lang) 
@@ -871,9 +883,19 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
           if (key == 'carBrand') key = TranslationService.t('car_brand', widget.lang);
           else if (key == 'carModel') key = TranslationService.t('car_model', widget.lang);
           else if (key == 'carYear') key = TranslationService.t('car_year', widget.lang);
+          else if (key == 'carBody') key = TranslationService.t('car_body', widget.lang);
+          else if (key == 'carTransmission') key = TranslationService.t('car_transmission', widget.lang);
+          else if (key == 'carDrive') key = TranslationService.t('car_drive', widget.lang);
+          else if (key == 'carFuel') key = TranslationService.t('car_fuel', widget.lang);
+          else if (key == 'carColor') key = TranslationService.t('car_color', widget.lang);
+          else if (key == 'carEngine') key = TranslationService.t('car_engine', widget.lang);
+          else if (key == 'carMileage') key = TranslationService.t('car_mileage', widget.lang);
           else if (key == 'reRooms') key = TranslationService.t('re_rooms', widget.lang);
+          else if (key == 'reFloor') key = TranslationService.t('re_floor', widget.lang);
           else if (key == 'reArea') key = TranslationService.t('re_area', widget.lang);
           else if (key == 'malAge') key = TranslationService.t('livestock_age', widget.lang);
+          else if (key == 'malWeight') key = TranslationService.t('livestock_weight', widget.lang);
+          else if (key == 'malBreed') key = TranslationService.t('livestock_breed', widget.lang);
 
           return Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),

@@ -102,7 +102,7 @@ class _PostAdScreenState extends State<PostAdScreen> {
     
     // 🔒 Pre-fill phone number from profile
     if (_currentUser != null) {
-      final String profilePhone = _currentUser!.phone ?? '';
+      final String profilePhone = _currentUser!.phone;
       if (profilePhone.isNotEmpty) {
         final digits = profilePhone.replaceAll(RegExp(r'\D'), '');
         String localDigits = digits;
@@ -393,7 +393,7 @@ class _PostAdScreenState extends State<PostAdScreen> {
       return;
     }
 
-    if (_descriptionController.text.length < 20) {
+    if (_descriptionController.text.length < 10) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(TranslationService.t('err_desc_short', widget.lang))));
       return;
     }
@@ -455,6 +455,16 @@ class _PostAdScreenState extends State<PostAdScreen> {
             'carBody': _carBody, 'carTransmission': _carTransmission,
             'carDrive': _carDrive, 'carFuel': _carFuel, 'carColor': _carColor,
             'carMileage': _carMileageController.text, 'carEngine': _carEngineController.text,
+          },
+          if (_selectedCategory == 'Недвижимость') ...{
+            'reRooms': _reRooms,
+            'reFloor': _reFloor,
+            'reArea': _reAreaController.text,
+          },
+          if (_selectedCategory == 'Малбазар') ...{
+            'malAge': _malAge,
+            'malWeight': _malWeightController.text,
+            'malBreed': _malBreedController.text,
           },
         }
       );

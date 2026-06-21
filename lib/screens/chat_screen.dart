@@ -24,6 +24,7 @@ import 'package:iqmarket/services/notification_service.dart';
 import 'package:iqmarket/screens/seller_profile_screen.dart';
 
 import 'package:firebase_storage/firebase_storage.dart';
+
 import 'package:gal/gal.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:http/http.dart' as http;
@@ -35,13 +36,12 @@ import '../widgets/chat/chat_input.dart';
 
 class ChatScreen extends StatefulWidget {
   final AdModel ad;
-  final String? initialOffer;
-  const ChatScreen({super.key, required this.ad, this.initialOffer});
+  const ChatScreen({super.key, required this.ad});
   @override
   State<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
+class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _msgController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final FocusNode _msgFocusNode = FocusNode();
@@ -173,15 +173,26 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     super.dispose();
   }
 
-  void _sendMessage() {
+  Future<void> _sendMessage() async {
     if (Provider.of<AppConfigProvider>(context, listen: false).isUserBlocked(widget.ad.userId)) return;
     final text = _msgController.text.trim();
     if (text.isEmpty) return;
-    ChatService.sendMessage(ad: widget.ad, text: text, senderName: _currentUserName);
+    
     _msgController.clear();
     ChatService.updateTypingStatus(widget.ad.userId, false);
     setState(() => _isTyping = false);
     _scrollToBottom();
+    
+    final msgId = await ChatService.sendMessage(ad: widget.ad, text: text, senderName: _currentUserName);
+    if (msgId == null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Ошибка отправки сообщения. Проверьте интернет.'),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   void _scrollToBottom() {
@@ -227,7 +238,30 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           ChatService.updateMessage(widget.ad.userId, msgId, {'mediaUrl': url});
           if (mounted) setState(() => _activeUploads.remove(msgId));
         }).catchError((e) {
-          if (mounted) setState(() => _activeUploads.remove(msgId));
+          if (mounted) {
+            setState(() => _activeUploads.remove(msgId));
+            // P8 FIX: inform user that voice upload failed so they can retry
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Row(
+                  children: [
+                    Icon(Icons.cloud_off_rounded, color: Colors.white, size: 18),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Не удалось загрузить голосовое. Попробуйте ещё раз.',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
+                ),
+                backgroundColor: Colors.redAccent,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                duration: const Duration(seconds: 4),
+              ),
+            );
+          }
         });
       }
     }
@@ -269,11 +303,28 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     final picker = ImagePicker();
     final file = await picker.pickImage(source: source, imageQuality: 70);
     if (file != null) {
-      final chatId = ChatService.getChatId(widget.ad.userId);
-      final url = await FileService.uploadFile(File(file.path), 'chat_media/$chatId');
-      if (url != null) {
-        ChatService.sendMessage(ad: widget.ad, text: 'Фото', type: 'image', mediaUrl: url, senderName: _currentUserName);
-        _scrollToBottom();
+      try {
+        final chatId = ChatService.getChatId(widget.ad.userId);
+        final url = await FileService.uploadFile(File(file.path), 'chat_media/$chatId');
+        if (url != null) {
+          final msgId = await ChatService.sendMessage(ad: widget.ad, text: 'Фото', type: 'image', mediaUrl: url, senderName: _currentUserName);
+          if (msgId == null && mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Ошибка отправки фото'), backgroundColor: Colors.redAccent, behavior: SnackBarBehavior.floating),
+            );
+          }
+          _scrollToBottom();
+        } else if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Ошибка загрузки фото'), backgroundColor: Colors.redAccent, behavior: SnackBarBehavior.floating),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Ошибка: $e'), backgroundColor: Colors.redAccent, behavior: SnackBarBehavior.floating),
+          );
+        }
       }
     }
   }
@@ -336,6 +387,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                 isRecording: _isRecording,
                 recordSeconds: _recordSeconds,
                 showEmoji: _showEmoji,
+                hintText: TranslationService.t('chat_input_hint', lang),
+                recordCancelText: TranslationService.t('record_cancel_hint', lang),
                 onToggleEmoji: () => setState(() => _showEmoji = !_showEmoji),
                 onTextChanged: (v) {
                   final isNowTyping = v.isNotEmpty;
@@ -349,7 +402,13 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                 onLongPressStart: _startRecording,
                 onLongPressEnd: _stopRecording,
                 onEmojiSelected: (emoji) {
-                  _msgController.text += emoji;
+                  // P10 FIX: preserve cursor at end, don't reset it to start
+                  final text = _msgController.text;
+                  final newText = text + emoji;
+                  _msgController.value = TextEditingValue(
+                    text: newText,
+                    selection: TextSelection.collapsed(offset: newText.length),
+                  );
                   setState(() => _isTyping = true);
                 },
                 emojis: _emojis,
@@ -426,6 +485,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         final msg = item as MessageModel;
         return ChatBubble(
           msg: msg,
+          lang: lang,
           sellerAvatarUrl: _sellerAvatarUrl,
           myBubbleColor: myColor,
           otherBubbleColor: otherColor,
@@ -483,35 +543,51 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     final bool isMyMessage = msg.senderId == UserService.currentUid;
     showModalBottomSheet(
       context: context, 
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min, 
-          children: [
-            if (msg.type == 'text') ListTile(
-              leading: const Icon(Icons.copy_rounded), 
-              title: Text(TranslationService.t('copy_text', lang)), 
-              onTap: () { 
-                Clipboard.setData(ClipboardData(text: msg.text)); 
-                Navigator.pop(context); 
-              }
-            ),
-            ListTile(
-              leading: const Icon(Icons.delete_outline_rounded, color: Colors.grey), 
-              title: Text(TranslationService.t('delete_for_me', lang)), 
-              onTap: () { 
-                ChatService.deleteMessages(widget.ad.userId, [msg.id]); 
-                Navigator.pop(context); 
-              }
-            ),
-            if (isMyMessage) ListTile(
-              leading: const Icon(Icons.delete_forever_rounded, color: Colors.red), 
-              title: Text(TranslationService.t('delete_for_all', lang), style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)), 
-              onTap: () { 
-                ChatService.deleteMessages(widget.ad.userId, [msg.id]); 
-                Navigator.pop(context); 
-              }
-            ),
-          ],
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Color(0xFF1C2B3A),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min, 
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 12, bottom: 8),
+                width: 36, height: 4,
+                decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)),
+              ),
+              if (msg.type == 'text') ListTile(
+                leading: const Icon(Icons.copy_rounded, color: Colors.white70), 
+                title: Text(TranslationService.t('copy_text', lang), style: const TextStyle(color: Colors.white)), 
+                onTap: () { 
+                  Clipboard.setData(ClipboardData(text: msg.text)); 
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(TranslationService.t('copied', lang)),
+                      behavior: SnackBarBehavior.floating,
+                      duration: const Duration(seconds: 1),
+                    ),
+                  );
+                }
+              ),
+              if (isMyMessage) ListTile(
+                leading: const Icon(Icons.delete_forever_rounded, color: Colors.redAccent), 
+                title: Text(TranslationService.t('delete_for_all', lang), style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)), 
+                onTap: () async { 
+                  Navigator.pop(context);
+                  final count = await ChatService.deleteMessages(widget.ad.userId, [msg.id]); 
+                  if (count == 0 && mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Не удалось удалить сообщение'), backgroundColor: Colors.redAccent, behavior: SnackBarBehavior.floating),
+                    );
+                  }
+                }
+              ),
+            ],
+          ),
         ),
       ),
     );

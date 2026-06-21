@@ -216,23 +216,79 @@ class _DriverVerificationScreenState extends State<DriverVerificationScreen>
     final docId = '${provider.firstName}_${_plateC.text.trim()}_${DateTime.now().millisecondsSinceEpoch}';
 
     try {
-      // 1. Оптимизация и сжатие картинок на лету (режим Х10)
-      setState(() { _analyzing = true; _aiMsg = _t('compressing'); });
-      final compLicF = await FileService.compressImage(_licF!);
-      final compTechF = await FileService.compressImage(_techF!);
-      final compSelfie = await FileService.compressImage(_selfie!);
-      final compCarFront = await FileService.compressImage(_carFront!);
+      // 1. Сжатие всех 4 фотографий (Режим X10 — параллельно)
+      if (mounted) setState(() { _analyzing = true; _aiMsg = _t('compressing'); });
+      final results = await Future.wait([
+        FileService.compressImage(_licF!),
+        FileService.compressImage(_techF!),
+        FileService.compressImage(_selfie!),
+        FileService.compressImage(_carFront!),
+      ]);
+      final compLicF    = results[0];
+      final compTechF   = results[1];
+      final compSelfie  = results[2];
+      final compCarFront = results[3];
 
-      // 2. Загрузка документов в облачное хранилище Firebase Storage
-      if (mounted) setState(() => _aiMsg = _t('uploading'));
-      final licFUrl = await FileService.uploadFile(compLicF ?? _licF!, 'driver_documents/$uid/license_front');
-      final techFUrl = await FileService.uploadFile(compTechF ?? _techF!, 'driver_documents/$uid/tech_front');
-      final selfieUrl = await FileService.uploadFile(compSelfie ?? _selfie!, 'driver_documents/$uid/selfie');
-      final carFrontUrl = await FileService.uploadFile(compCarFront ?? _carFront!, 'driver_documents/$uid/car_front');
+      // 2. Загрузка документов с прогрессом и retry-механизмом (3 попытки, экспоненциальная задержка)
+      // Файл 1/4: Водительское удостоверение
+      if (mounted) setState(() => _aiMsg = '${_t('uploading')} (1/4) 🪪');
+      final licFUrl = await FileService.uploadFile(
+        compLicF ?? _licF!,
+        'driver_documents/$uid/license_front',
+        onProgress: (progress, attempt) {
+          if (mounted) {
+            final pct = (progress * 100).toInt();
+            final retryHint = attempt > 1 ? ' (попытка $attempt)' : '';
+            setState(() => _aiMsg = '${_t('uploading')} (1/4) 🪪 — $pct%$retryHint');
+          }
+        },
+      );
+      if (licFUrl == null) throw Exception('${_t('upload_err')} (${_t('licence_label')})');
 
-      if (licFUrl == null || techFUrl == null || selfieUrl == null || carFrontUrl == null) {
-        throw Exception(_t('upload_err'));
-      }
+      // Файл 2/4: Техпаспорт
+      if (mounted) setState(() => _aiMsg = '${_t('uploading')} (2/4) 📄');
+      final techFUrl = await FileService.uploadFile(
+        compTechF ?? _techF!,
+        'driver_documents/$uid/tech_front',
+        onProgress: (progress, attempt) {
+          if (mounted) {
+            final pct = (progress * 100).toInt();
+            final retryHint = attempt > 1 ? ' (попытка $attempt)' : '';
+            setState(() => _aiMsg = '${_t('uploading')} (2/4) 📄 — $pct%$retryHint');
+          }
+        },
+      );
+      if (techFUrl == null) throw Exception('${_t('upload_err')} (${_t('tech_label')})');
+
+      // Файл 3/4: Селфи
+      if (mounted) setState(() => _aiMsg = '${_t('uploading')} (3/4) 🤳');
+      final selfieUrl = await FileService.uploadFile(
+        compSelfie ?? _selfie!,
+        'driver_documents/$uid/selfie',
+        onProgress: (progress, attempt) {
+          if (mounted) {
+            final pct = (progress * 100).toInt();
+            final retryHint = attempt > 1 ? ' (попытка $attempt)' : '';
+            setState(() => _aiMsg = '${_t('uploading')} (3/4) 🤳 — $pct%$retryHint');
+          }
+        },
+      );
+      if (selfieUrl == null) throw Exception('${_t('upload_err')} (${_t('selfie_label')})');
+
+      // Файл 4/4: Фото авто
+      if (mounted) setState(() => _aiMsg = '${_t('uploading')} (4/4) 🚘');
+      final carFrontUrl = await FileService.uploadFile(
+        compCarFront ?? _carFront!,
+        'driver_documents/$uid/car_front',
+        onProgress: (progress, attempt) {
+          if (mounted) {
+            final pct = (progress * 100).toInt();
+            final retryHint = attempt > 1 ? ' (попытка $attempt)' : '';
+            setState(() => _aiMsg = '${_t('uploading')} (4/4) 🚘 — $pct%$retryHint');
+          }
+        },
+      );
+      if (carFrontUrl == null) throw Exception('${_t('upload_err')} (${_t('car_front_label')})');
 
       if (mounted) setState(() => _aiMsg = _t('ai_analyzing_gemini'));
       

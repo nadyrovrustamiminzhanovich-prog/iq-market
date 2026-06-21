@@ -152,10 +152,10 @@ class _TaxiActiveRideTrackingViewState extends State<TaxiActiveRideTrackingView>
                   text: displayTime.isEmpty ? 'Время' : displayTime,
                   color: const Color(0xFF0D9488),
                 ),
-                TaxiInfoChip(
+                TaxiBlueInfoChip(
                   icon: Icons.airline_seat_recline_normal_rounded,
                   text: '${ride['seats'] ?? 4} мест',
-                  t: t,
+                  color: const Color(0xFF0D9488),
                 ),
               ],
             ),
