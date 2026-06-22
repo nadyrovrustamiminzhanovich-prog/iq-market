@@ -853,14 +853,18 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                 ),
               ),
               const SizedBox(height: 4),
-              Text(
-                value,
-                maxLines: maxLines,
-                overflow: overflow,
-                style: GoogleFonts.inter(
-                  color: _txtColor,
-                  fontWeight: FontWeight.w800,
-                  fontSize: fontSize ?? (isStandalone ? 16.0 : 15.0),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  value,
+                  maxLines: maxLines,
+                  overflow: overflow,
+                  style: GoogleFonts.inter(
+                    color: _txtColor,
+                    fontWeight: FontWeight.w800,
+                    fontSize: fontSize ?? (isStandalone ? 16.0 : 15.0),
+                  ),
                 ),
               ),
             ],

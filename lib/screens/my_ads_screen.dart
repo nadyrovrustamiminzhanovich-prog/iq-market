@@ -197,7 +197,6 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
                                     imageUrl: ad.images.first,
                                     fit: BoxFit.contain,
                                     memCacheWidth: 250,
-                                    memCacheHeight: 250,
                                     placeholder: (context, url) => Container(color: const Color(0xFFF1F5F9)),
                                     errorWidget: (context, url, error) => const Icon(Icons.image),
                                   ),

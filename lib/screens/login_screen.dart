@@ -1200,13 +1200,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   }
 
   // ===================== UI WIDGETS =====================
-  Widget _buildToggle() => LayoutBuilder(
-    builder: (context, constraints) {
-      final double width = constraints.maxWidth;
-      final double innerWidth = width - 10;
-      final double tabWidth = innerWidth / 2;
-
-      return Container(
+  Widget _buildToggle() => Container(
         height: 58, 
         padding: const EdgeInsets.all(5), 
         decoration: BoxDecoration(
@@ -1226,18 +1220,20 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
               duration: const Duration(milliseconds: 300), 
               curve: Curves.easeInOutBack, 
               alignment: _isLogin ? Alignment.centerLeft : Alignment.centerRight, 
-              child: Container(
-                width: tabWidth, 
-                decoration: BoxDecoration(
-                  color: const Color(0xFF4A80F0), 
-                  borderRadius: BorderRadius.circular(16), 
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF4A80F0).withValues(alpha: 0.3), 
-                      blurRadius: 10, 
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
+              child: FractionallySizedBox(
+                widthFactor: 0.5,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF4A80F0), 
+                    borderRadius: BorderRadius.circular(16), 
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF4A80F0).withValues(alpha: 0.3), 
+                        blurRadius: 10, 
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -1250,8 +1246,6 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
           ],
         ),
       );
-    },
-  );
 
   Widget _togItem(String t, bool s) => Expanded(
     child: GestureDetector(

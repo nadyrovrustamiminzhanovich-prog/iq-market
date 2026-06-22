@@ -22,7 +22,8 @@ void main() {
 
 
 class MainApp extends StatelessWidget {
-  const MainApp({super.key});
+  final Widget home;
+  const MainApp({super.key, required this.home});
 
   @override
   Widget build(BuildContext context) {
@@ -72,7 +73,7 @@ class MainApp extends StatelessWidget {
         };
         return OfflineWrapper(child: child!);
       },
-      home: const IQMarketHome(),
+      home: home,
       debugShowCheckedModeBanner: false,
       navigatorObservers: [AnalyticsService.observer],
       theme: AppTheme.lightTheme,

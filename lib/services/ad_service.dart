@@ -53,7 +53,7 @@ class AdService {
       
       try {
         final compressed = await FlutterImageCompress.compressAndGetFile(
-          file.absolute.path, targetPath, quality: 80, minWidth: 1080, minHeight: 1080
+          file.absolute.path, targetPath, quality: 80, minWidth: 1080, minHeight: 1080, autoCorrectionAngle: true
         );
         if (compressed != null) {
           compressedImages.add(File(compressed.path));

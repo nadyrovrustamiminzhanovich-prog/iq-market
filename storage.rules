@@ -25,18 +25,18 @@ service firebase.storage {
     // Личные голосовые сообщения вне chats
     match /voice_messages/{chatId}/{allPaths=**} {
       allow read: if isSignedIn() 
-                   && request.auth.uid in firestore.get(/databases/(default)/documents/chats/$(chatId)).data.users;
+                   && (chatId.matches('^' + request.auth.uid + '_.*') || chatId.matches('.*_' + request.auth.uid + '$'));
       allow write: if isSignedIn() 
-                   && request.auth.uid in firestore.get(/databases/(default)/documents/chats/$(chatId)).data.users
+                   && (chatId.matches('^' + request.auth.uid + '_.*') || chatId.matches('.*_' + request.auth.uid + '$'))
                    && (request.resource == null || request.resource.size < 15 * 1024 * 1024);
     }
 
     // Чат медиа (если сохраняются вне chats)
     match /chat_media/{chatId}/{allPaths=**} {
       allow read: if isSignedIn() 
-                   && request.auth.uid in firestore.get(/databases/(default)/documents/chats/$(chatId)).data.users;
+                   && (chatId.matches('^' + request.auth.uid + '_.*') || chatId.matches('.*_' + request.auth.uid + '$'));
       allow write: if isSignedIn() 
-                   && request.auth.uid in firestore.get(/databases/(default)/documents/chats/$(chatId)).data.users
+                   && (chatId.matches('^' + request.auth.uid + '_.*') || chatId.matches('.*_' + request.auth.uid + '$'))
                    && (request.resource == null || request.resource.size < 20 * 1024 * 1024);
     }
 

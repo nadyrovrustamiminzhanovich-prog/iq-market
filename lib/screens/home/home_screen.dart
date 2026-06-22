@@ -504,6 +504,7 @@ class _IQMarketHomeState extends State<IQMarketHome> {
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: TextField(
                     onChanged: (v) => setModalState(() => searchCity = v),
+                    textInputAction: TextInputAction.search,
                     style: GoogleFonts.inter(color: txtColor, fontWeight: FontWeight.w800),
                     decoration: InputDecoration(
                       hintText: 'Введите название города...',

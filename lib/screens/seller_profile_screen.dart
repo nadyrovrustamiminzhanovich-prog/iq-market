@@ -418,7 +418,6 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
                         imageUrl: ad.images.first,
                         fit: BoxFit.contain,
                         memCacheWidth: 250,
-                        memCacheHeight: 250,
                         errorWidget: (context, url, error) => const Icon(Icons.image),
                       ),
                     )

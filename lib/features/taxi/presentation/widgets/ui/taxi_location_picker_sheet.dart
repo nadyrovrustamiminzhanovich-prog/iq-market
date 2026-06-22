@@ -56,6 +56,7 @@ Future<void> showTaxiLocationPickerSheet({
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: TextField(
                 onChanged: (v) => ss(() => q = v),
+                textInputAction: TextInputAction.search,
                 style: GoogleFonts.inter(
                   color: t.text,
                   fontWeight: FontWeight.w700,

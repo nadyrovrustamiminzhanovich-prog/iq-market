@@ -80,6 +80,7 @@ class PostAdProvider extends ChangeNotifier {
           quality: 70,
           minWidth: 1080,
           minHeight: 1080,
+          autoCorrectionAngle: true,
         );
 
         final uploadFuture = FileService.uploadFile(File(compressedFile?.path ?? file.path), 'ads/images');

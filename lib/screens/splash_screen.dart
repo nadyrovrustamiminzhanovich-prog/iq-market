@@ -9,6 +9,7 @@ import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 
 import '../main.dart';
+import 'home/home_screen.dart';
 import '../services/analytics_service.dart';
 import '../services/auth_service.dart';
 import '../services/notification_service.dart';
@@ -35,6 +36,9 @@ class _AppBootstrapState extends State<AppBootstrap> {
   @override
   void initState() {
     super.initState();
+    // Synchronously initialize lightweight providers on startup to avoid initialization latency
+    _taxiProvider = TaxiProvider();
+    _appConfigProvider = AppConfigProvider();
     _initApp();
   }
 
@@ -61,9 +65,8 @@ class _AppBootstrapState extends State<AppBootstrap> {
       };
       final initialLocale = localeMap[savedLang] ?? const Locale('ru', 'RU');
 
-      // 3. Initialize the app providers with initial locale
-      _taxiProvider = TaxiProvider();
-      _appConfigProvider = AppConfigProvider()..setLocale(initialLocale);
+      // 3. Configure the already instantiated providers with language / locale
+      _appConfigProvider.setLocale(initialLocale);
 
       // 4. Bind language synchronization events
       _appConfigProvider.onLanguageChanged = (lang) {
@@ -129,39 +132,29 @@ class _AppBootstrapState extends State<AppBootstrap> {
 
   @override
   Widget build(BuildContext context) {
-    // If initialization fails, show a beautiful offline/error screen with retry button
-    if (_error != null) {
-      return MaterialApp(
-        title: 'IQ-Market',
-        home: ErrorScreen(
-          message: _error!,
-          onRetry: () {
-            setState(() {
-              _error = null;
-            });
-            _initApp();
-          },
-        ),
-        debugShowCheckedModeBanner: false,
-      );
-    }
-
-    // Show pulsing custom preloader while initializing
-    if (!_initialized) {
-      return const MaterialApp(
-        title: 'IQ-Market',
-        home: PreloadSplashScreen(),
-        debugShowCheckedModeBanner: false,
-      );
-    }
-
-    // Swaps the entire root tree to MultiProvider and MainApp once initialization completes
+    // Return a single root MultiProvider and MainApp directly from the first frame.
+    // The MainApp returns the single MaterialApp, and we dynamically swap the home content,
+    // which completely eliminates startup rendering pipeline teardown lags.
     return MultiProvider(
       providers: [
         ChangeNotifierProvider.value(value: _taxiProvider),
         ChangeNotifierProvider.value(value: _appConfigProvider),
       ],
-      child: const MainApp(),
+      child: MainApp(
+        home: _error != null
+            ? ErrorScreen(
+                message: _error!,
+                onRetry: () {
+                  setState(() {
+                    _error = null;
+                  });
+                  _initApp();
+                },
+              )
+            : (!_initialized
+                ? const PreloadSplashScreen()
+                : const IQMarketHome()),
+      ),
     );
   }
 }

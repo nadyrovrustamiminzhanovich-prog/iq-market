@@ -66,8 +66,6 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Ваше местоположение необходимо для поиска объявлений и такси рядом с вами.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Доступ к камере нужен для создания фото ваших объявлений и верификации документов.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

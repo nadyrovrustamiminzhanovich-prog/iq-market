@@ -302,7 +302,6 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
         imageUrl: url, 
         fit: fit, 
         memCacheWidth: 800,
-        memCacheHeight: 800,
         placeholder: (context, url) => Container(color: const Color(0xFFF1F5F9), child: const Center(child: CircularProgressIndicator())),
         errorWidget: (context, url, error) => const Icon(Icons.image_not_supported_rounded, color: Colors.grey),
       );
@@ -521,7 +520,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                 _buildReviewsSection(), 
                 const SizedBox(height: 10),
                 _buildReportButton(),
-                const SizedBox(height: 90),
+                const SizedBox(height: 70),
               ],
             ),
           ),
@@ -931,7 +930,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   Widget _buildBottomBar() {
     if (_currentUser?.uid == widget.ad.userId) return const SizedBox.shrink();
     return Container(
-      padding: EdgeInsets.fromLTRB(20, 10, 20, MediaQuery.of(context).padding.bottom > 0 ? MediaQuery.of(context).padding.bottom + 6 : 10),
+      padding: EdgeInsets.fromLTRB(16, 8, 16, MediaQuery.of(context).padding.bottom > 0 ? MediaQuery.of(context).padding.bottom : 8),
       decoration: const BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 20, offset: Offset(0, -5))]),
       child: Row(children: [
         Expanded(

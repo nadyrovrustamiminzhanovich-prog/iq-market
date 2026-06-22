@@ -35,6 +35,9 @@ class ChatService {
           final messages = snapshot.docs
             .map((doc) => MessageModel.fromMap(doc.data(), doc.id))
             .toList();
+          // 🔒 X10 Fix: Sort explicitly in Dart to keep local pending writes (which initially have a null/mock timestamp)
+          // properly sorted as the newest messages at index 0, preventing chat jumps.
+          messages.sort((a, b) => b.timestamp.compareTo(a.timestamp));
           return messages;
         });
   }
@@ -419,7 +422,6 @@ class ChatService {
     return _db
         .collection('chats')
         .where('users', arrayContains: uid)
-        .limit(50) // 🔒 КРИТИЧНО: без limit() у продавца с 500+ чатами = 500+ Reads каждый рефреш
         .snapshots()
         .map((snapshot) {
           final chats = snapshot.docs.map((doc) {

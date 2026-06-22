@@ -13,7 +13,6 @@ list(APPEND FLUTTER_PLUGIN_LIST
   firebase_storage
   flutter_tts
   gal
-  geolocator_windows
   local_auth_windows
   record_windows
   share_plus
