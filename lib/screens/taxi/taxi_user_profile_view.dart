@@ -154,13 +154,6 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
       }).toList()
         ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
-      int taxiCount = taxiList.length;
-      double taxiAvg = 0.0;
-      if (taxiCount >= 5) {
-        double sum = taxiList.fold(0.0, (prev, e) => prev + e.rating);
-        taxiAvg = double.parse((sum / taxiCount).toStringAsFixed(1));
-      }
-
       int taxiDriverCount = 0;
       double taxiDriverSum = 0.0;
       int taxiPassengerCount = 0;

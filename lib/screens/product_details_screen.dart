@@ -289,21 +289,32 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     });
   }
 
-  Widget _buildImage(String url, {BoxFit fit = BoxFit.cover}) {
+  Widget _buildImage(String url, {BoxFit fit = BoxFit.cover, Color? backgroundColor}) {
+    Widget img;
     if (url.isEmpty || !url.startsWith('http')) {
       if (url.startsWith('/') || url.startsWith('file')) {
-        return Image.file(File(url), fit: fit);
+        img = Image.file(File(url), fit: fit);
+      } else {
+        img = Container(color: const Color(0xFFF1F5F9), child: const Center(child: Icon(Icons.image_not_supported_rounded, color: Colors.grey)));
       }
-      return Container(color: const Color(0xFFF1F5F9), child: const Center(child: Icon(Icons.image_not_supported_rounded, color: Colors.grey)));
+    } else {
+      img = CachedNetworkImage(
+        imageUrl: url, 
+        fit: fit, 
+        memCacheWidth: 800,
+        memCacheHeight: 800,
+        placeholder: (context, url) => Container(color: const Color(0xFFF1F5F9), child: const Center(child: CircularProgressIndicator())),
+        errorWidget: (context, url, error) => const Icon(Icons.image_not_supported_rounded, color: Colors.grey),
+      );
     }
-    return CachedNetworkImage(
-      imageUrl: url, 
-      fit: fit, 
-      memCacheWidth: 800,
-      memCacheHeight: 800,
-      placeholder: (context, url) => Container(color: const Color(0xFFF1F5F9), child: const Center(child: CircularProgressIndicator())),
-      errorWidget: (context, url, error) => const Icon(Icons.image_not_supported_rounded, color: Colors.grey),
-    );
+
+    if (backgroundColor != null) {
+      return Container(
+        color: backgroundColor,
+        child: Center(child: img),
+      );
+    }
+    return img;
   }
 
 
@@ -320,7 +331,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       : (widget.lang == 'Қазақша' 
         ? 'IQ-Market: ${widget.ad.title}\nБағасы: ${_formatPrice(widget.ad.price)}\nҚала: ${widget.ad.location}\n\nБұл хабарландыруды IQ-Market қосымшасында көріңіз! 🔥'
         : 'IQ-Market: ${widget.ad.title}\nЦена: ${_formatPrice(widget.ad.price)}\nГород: ${widget.ad.location}\n\nПосмотри это объявление в приложении IQ-Market! 🔥');
-    Share.share(text);
+    SharePlus.instance.share(ShareParams(text: text));
   }
 
 
@@ -466,7 +477,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                             }
                             
                             // Image slides (photos first)
-                            final imageWidget = _buildImage(images[index]);
+                            final imageWidget = _buildImage(images[index], fit: BoxFit.contain, backgroundColor: const Color(0xFFF1F5F9));
                             
                             if (index == 0) {
                               return Hero(
@@ -510,7 +521,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                 _buildReviewsSection(), 
                 const SizedBox(height: 10),
                 _buildReportButton(),
-                const SizedBox(height: 120),
+                const SizedBox(height: 90),
               ],
             ),
           ),
@@ -846,7 +857,17 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
           Text(_seller?.name ?? widget.ad.userName, style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w800)),
           Text(
             _seller != null
-              ? TranslationService.t('on_market_since', widget.lang).replaceAll('{year}', _seller!.registrationDate.year.toString())
+              ? (() {
+                  final date = _seller!.registrationDate;
+                  final dateStr = "${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year}";
+                  if (widget.lang == 'Қазақша') {
+                    return '$dateStr жылдан бастап IQ-Market-те';
+                  } else if (widget.lang == 'Уйғурчә') {
+                    return '$dateStr-жилдин башлап IQ-Market-тә';
+                  } else {
+                    return 'На IQ-Market с $dateStr года';
+                  }
+                })()
               : TranslationService.t('iq_seller', widget.lang),
             style: GoogleFonts.inter(fontSize: 13, color: Colors.grey),
           ),
@@ -910,7 +931,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   Widget _buildBottomBar() {
     if (_currentUser?.uid == widget.ad.userId) return const SizedBox.shrink();
     return Container(
-      padding: EdgeInsets.fromLTRB(20, 12, 20, MediaQuery.of(context).padding.bottom + 12),
+      padding: EdgeInsets.fromLTRB(20, 10, 20, MediaQuery.of(context).padding.bottom > 0 ? MediaQuery.of(context).padding.bottom + 6 : 10),
       decoration: const BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 20, offset: Offset(0, -5))]),
       child: Row(children: [
         Expanded(

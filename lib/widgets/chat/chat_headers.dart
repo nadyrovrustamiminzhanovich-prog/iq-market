@@ -75,17 +75,29 @@ class ChatGlassHeader extends StatelessWidget {
                             future: UserService.getUserById(ad.userId),
                             builder: (context, userSnap) {
                               if (userSnap.hasData && userSnap.data != null) {
-                                final date = userSnap.data!.lastActive;
+                                final date = userSnap.data!.lastActive.toLocal();
                                 final now = DateTime.now();
+                                final today = DateTime(now.year, now.month, now.day);
+                                final yesterday = today.subtract(const Duration(days: 1));
+                                final activeDay = DateTime(date.year, date.month, date.day);
+
                                 String timeStr;
-                                if (now.day == date.day && now.month == date.month && now.year == date.year) {
+                                if (activeDay == today) {
                                   timeStr = TranslationService.t('today_at', lang).replaceAll('{time}', DateFormat('HH:mm').format(date));
-                                } else if (now.difference(date).inDays == 1 || (now.day - 1 == date.day && now.month == date.month && now.year == date.year)) {
+                                } else if (activeDay == yesterday) {
                                   timeStr = TranslationService.t('yesterday_at', lang).replaceAll('{time}', DateFormat('HH:mm').format(date));
                                 } else {
-                                  timeStr = '${DateFormat('d.MM.yyyy').format(date)} ${TranslationService.t('at_time', lang)} ${DateFormat('HH:mm').format(date)}';
+                                  timeStr = '${DateFormat('dd.MM.yyyy').format(date)} ${TranslationService.t('at_time', lang)} ${DateFormat('HH:mm').format(date)}';
                                 }
-                                return Text('${TranslationService.t('was_online', lang)} $timeStr', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white38, fontSize: 11));
+
+                                String finalStr;
+                                if (lang == 'Русский') {
+                                  finalStr = '${TranslationService.t('was_online', lang)} $timeStr';
+                                } else {
+                                  // For Kazakh and Uighur, the status (verb) comes at the end
+                                  finalStr = '$timeStr ${TranslationService.t('was_online', lang)}';
+                                }
+                                return Text(finalStr, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white38, fontSize: 11));
                               }
                               return Text(TranslationService.t('offline', lang), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white38, fontSize: 11));
                             }

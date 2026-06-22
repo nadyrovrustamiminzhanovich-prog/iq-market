@@ -11,10 +11,10 @@ import 'package:iqmarket/services/notification_service.dart';
 import 'package:iqmarket/services/chat_service.dart';
 import 'package:iqmarket/services/user_service.dart';
 import 'package:iqmarket/data/kazakhstan_locations.dart';
-import 'package:iqmarket/services/location_service.dart';
 import 'package:iqmarket/widgets/home/taxi_card_home.dart';
 import 'package:iqmarket/widgets/home/categories_home.dart';
 import 'package:iqmarket/widgets/home/search_bar_home.dart';
+import 'package:iqmarket/widgets/home/voice_search_bottom_sheet.dart';
 import 'package:iqmarket/widgets/product_card.dart';
 import 'package:iqmarket/widgets/home/home_filters.dart';
 import 'package:iqmarket/screens/chats_list_screen.dart';
@@ -53,7 +53,6 @@ class _IQMarketHomeState extends State<IQMarketHome> {
   String _selectedCondition = 'Все';
 
   late stt.SpeechToText _speech;
-  bool _isListening = false;
   Timer? _searchDebounce;
 
   // ✅ Кэш пользователя: вместо постоянного Firestore-watcher-а в BottomNav
@@ -286,7 +285,15 @@ class _IQMarketHomeState extends State<IQMarketHome> {
             });
           }, 
           onMicTap: _listen, 
-          onFilterTap: _showFilters
+          onFilterTap: _showFilters,
+          onSubmitted: (v) {
+            _searchDebounce?.cancel();
+            if (mounted) {
+              setState(() => _searchQuery = v);
+              _pagingController.refresh();
+            }
+            FocusScope.of(context).unfocus();
+          },
         ),
       ),
     ),
@@ -510,22 +517,6 @@ class _IQMarketHomeState extends State<IQMarketHome> {
                   ),
                 ),
                 const SizedBox(height: 10),
-                if (selectedParent == null && searchCity.isEmpty) ...[
-                  ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 24),
-                    leading: Icon(Icons.my_location_rounded, color: primaryColor), 
-                    title: Text('Определить автоматически', style: GoogleFonts.inter(fontWeight: FontWeight.w800, color: primaryColor, fontSize: 15)), 
-                    onTap: () async {
-                      final city = await LocationService.getCurrentCity();
-                      if (city != null) {
-                        config.setCity(city);
-                        _pagingController.refresh();
-                        Navigator.pop(context);
-                      }
-                    }
-                  ),
-                  const Divider(indent: 24, endIndent: 24, color: Colors.transparent),
-                ],
                 Expanded(
                   child: ListView.separated(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -648,7 +639,7 @@ class _IQMarketHomeState extends State<IQMarketHome> {
         final count = snapshot.data ?? 0;
         return IconButton(
           icon: Badge(
-            label: Text('$count'),
+            label: Text(count > 99 ? '99+' : '$count'),
             isLabelVisible: count > 0,
             backgroundColor: Colors.red,
             textColor: Colors.white,
@@ -672,35 +663,23 @@ class _IQMarketHomeState extends State<IQMarketHome> {
 
   void _listen() async {
     final lang = Provider.of<AppConfigProvider>(context, listen: false).language;
-    if (!_isListening) {
-      bool available = await _speech.initialize(
-        onStatus: (val) {
-          if (val == 'done' || val == 'notListening') if (mounted) setState(() => _isListening = false);
-        },
-        onError: (val) { if (mounted) setState(() => _isListening = false); },
-      );
-      if (available) {
-        setState(() => _isListening = true);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(TranslationService.t('listening', lang)), duration: const Duration(seconds: 2)));
-        _speech.listen(
-          onResult: (val) {
-            setState(() {
-              _searchController.text = val.recognizedWords;
-              _searchQuery = val.recognizedWords;
-            });
-            if (val.finalResult) {
-               _searchDebounce?.cancel();
-               _pagingController.refresh();
-             }
-          },
-          localeId: lang == 'Қазақша' ? 'kk_KZ' : 'ru_RU',
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(TranslationService.t('mic_unavailable', lang))));
-      }
-    } else {
-      setState(() => _isListening = false);
-      _speech.stop();
+    final result = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => VoiceSearchBottomSheet(
+        speech: _speech,
+        lang: lang,
+      ),
+    );
+
+    if (result != null && result.trim().isNotEmpty && mounted) {
+      setState(() {
+        _searchController.text = result;
+        _searchQuery = result;
+      });
+      _searchDebounce?.cancel();
+      _pagingController.refresh();
     }
   }
 
@@ -778,7 +757,7 @@ class _IQMarketHomeState extends State<IQMarketHome> {
               builder: (context, snapshot) {
                 final count = snapshot.data ?? 0;
                 return Badge(
-                  label: Text('$count'),
+                  label: Text(count > 99 ? '99+' : '$count'),
                   isLabelVisible: count > 0,
                   backgroundColor: Colors.red,
                   textColor: Colors.white,

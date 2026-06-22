@@ -75,8 +75,14 @@ class NotificationService {
     // the first route is mounted (called from IQMarketHome.initState).
     final RemoteMessage? initialMessage = await _messaging.getInitialMessage();
     if (initialMessage != null) {
-      debugPrint('[FCM] Terminated-state launch detected, storing pending nav data');
-      _pendingNavigationData = initialMessage.data;
+      debugPrint('[FCM] Terminated-state launch detected');
+      if (navigatorKey.currentState != null) {
+        debugPrint('[FCM] Navigator is ready, navigating directly');
+        _navigateToChat(initialMessage.data);
+      } else {
+        debugPrint('[FCM] Navigator is null, storing pending nav data');
+        _pendingNavigationData = initialMessage.data;
+      }
     }
 
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);

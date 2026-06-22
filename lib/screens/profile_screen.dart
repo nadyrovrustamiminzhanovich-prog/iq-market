@@ -4,10 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:iqmarket/services/storage_service.dart';
 import 'package:iqmarket/services/user_service.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:iqmarket/screens/my_ads_screen.dart';
 import 'package:iqmarket/screens/profile_settings_screen.dart';
 import 'package:iqmarket/screens/help_center_screen.dart';
@@ -17,7 +15,6 @@ import 'package:iqmarket/models/ad_model.dart';
 import 'package:iqmarket/screens/login_screen.dart';
 import 'package:iqmarket/screens/legal_info_screen.dart';
 import 'package:iqmarket/screens/home/home_screen.dart';
-import 'package:screen_protector/screen_protector.dart';
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:iqmarket/screens/admin/admin_panel_screen.dart';
@@ -26,6 +23,7 @@ import 'package:iqmarket/services/auth_service.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:iqmarket/models/user_model.dart';
 import 'package:iqmarket/constants/app_constants.dart';
+import 'package:iqmarket/services/telegram_bot_service.dart';
 import 'package:iqmarket/models/review_model.dart';
 import 'package:iqmarket/services/review_service.dart';
 
@@ -78,7 +76,6 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  final ImagePicker _picker = ImagePicker();
   File? _localImage;
   late String _localName;
   late bool _localBio;
@@ -86,7 +83,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late String _localLang;
   late bool _isGuest;
   late String _currentTheme;
-  int _salesCount = 0;
   String _firestorePhotoUrl = '';
   Timer? _timer;
   int _timerSeconds = 0;
@@ -153,24 +149,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _currentTheme = widget.currentTheme;
     _isVerified = widget.isVerified;
     _firestorePhotoUrl = '';
-    _loadSalesCount();
     // ✅ Инициализируем стрим один раз — Firestore watcher живёт весь жизненный цикл экрана
     _userStream = UserService.getUserStream();
-  }
-
-  int _adminTapCount = 0;
-
-  Future<void> _loadSalesCount() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (mounted) {
-      setState(() => _salesCount = prefs.getInt('iq_sales_count') ?? 0);
-    }
-  }
-
-  static Future<void> recordSale() async {
-    final prefs = await SharedPreferences.getInstance();
-    final current = prefs.getInt('iq_sales_count') ?? 0;
-    await prefs.setInt('iq_sales_count', current + 1);
   }
 
   late bool _isVerified;
@@ -194,7 +174,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _localName = user.name;
             _isVerified = user.isVerified;
             _localAccType = user.accountType;
-            _firestorePhotoUrl = user.photoUrl ?? '';
+            _firestorePhotoUrl = user.photoUrl;
             _isGuest = false; // Auto-recover from Guest if a user document is loaded
           }
 
@@ -822,7 +802,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ElevatedButton.icon(
                             onPressed: () async {
                               if (_tgSessionToken != null) {
-                                final botUrl = 'https://t.me/IQ_Taxi_bot?start=$_tgSessionToken';
+                                final botUrl = TelegramBotService.buildBotUrl(_tgSessionToken!);
                                 await launchUrl(Uri.parse(botUrl), mode: LaunchMode.externalApplication);
                               }
                             },
@@ -1139,84 +1119,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     });
   }
 
-  void _showVerificationInfo(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(30),
-        decoration: BoxDecoration(
-          color: _surfaceColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(40)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: _subtxtColor.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(2)))),
-            const SizedBox(height: 24),
-            Text(_t('why_verify'), style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w900, color: _txtColor)),
-            const SizedBox(height: 24),
-            _buildBenefitItemLarge(_t('verify_benefit_1'), _t('verify_benefit_desc_1')),
-            _buildBenefitItemLarge(_t('verify_benefit_2'), _t('verify_benefit_desc_2')),
-            _buildBenefitItemLarge(_t('verify_benefit_3'), _t('verify_benefit_desc_3')),
-            const SizedBox(height: 30),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => Navigator.pop(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _primaryColor,
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(double.infinity, 56),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                ),
-                child: const Text('ПОНЯТНО', style: TextStyle(fontWeight: FontWeight.w900)),
-              ),
-            ),
-            const SizedBox(height: 10),
-          ],
-        ),
-      ),
-    );
-  }
 
-  Widget _buildBenefitItemLarge(String title, String desc) => Padding(
-    padding: const EdgeInsets.only(bottom: 20),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(color: _primaryColor.withValues(alpha: 0.1), shape: BoxShape.circle),
-          child: Icon(Icons.check_rounded, color: _primaryColor, size: 20),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w800, color: _txtColor)),
-              const SizedBox(height: 4),
-              Text(desc, style: GoogleFonts.inter(fontSize: 13, color: _subtxtColor, height: 1.4)),
-            ],
-          ),
-        ),
-      ],
-    ),
-  );
-
-  Widget _buildBenefitItem(String text) => Padding(
-    padding: const EdgeInsets.only(bottom: 8),
-    child: Row(
-      children: [
-        Icon(Icons.check_circle_rounded, color: _primaryColor, size: 16),
-        const SizedBox(width: 10),
-        Text(text, style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: _subtxtColor)),
-      ],
-    ),
-  );
 
   Widget _buildSimplifiedMenu() {
     final user = FirebaseAuth.instance.currentUser;
@@ -1451,108 +1354,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
 
-  Widget _buildAuthButton(BuildContext context) {
-    if (_isGuest) {
-      return Center(
-        child: ElevatedButton(
-          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const LoginScreen())).then((_) {
-            setState(() => _isGuest = !UserService.isLoggedIn);
-          }),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF4A80F0),
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-            elevation: 4,
-          ),
-          child: FittedBox(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.login_rounded, size: 20),
-                const SizedBox(width: 10),
-                Text('ВОЙТИ ИЛИ СОЗДАТЬ АККАУНТ', style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 13)),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-    
-    return Center(
-      child: TextButton(
-        onPressed: () async {
-          await AuthService.signOut();
-          if (widget.onLogout != null) widget.onLogout!();
-          if (mounted) {
-            setState(() => _isGuest = true); 
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(_t('logout_confirm')),
-                behavior: SnackBarBehavior.floating,
-                duration: const Duration(seconds: 2),
-              ),
-            );
-          }
-        },
-        style: TextButton.styleFrom(
-          foregroundColor: Colors.red,
-          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.logout_rounded, size: 20),
-            const SizedBox(width: 10),
-            Text(_t('logout'), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
-          ],
-        ),
-      ),
-    );
-  }
 
-  void _showFullScreenAvatar() async {
-    if (_localImage == null) return;
-    
-    // Защита от скриншотов при открытии
-    await ScreenProtector.preventScreenshotOn();
-
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: EdgeInsets.zero,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            GestureDetector(
-              onTap: () => Navigator.pop(context),
-              child: Container(color: Colors.black.withValues(alpha: 0.95), width: double.infinity, height: double.infinity),
-            ),
-            Hero(
-              tag: 'avatar_full',
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(20),
-                child: Image.file(_localImage!, fit: BoxFit.contain),
-              ),
-            ),
-            Positioned(
-              top: 50,
-              right: 25,
-              child: IconButton(
-                icon: const Icon(Icons.close_rounded, color: Colors.white, size: 32),
-                onPressed: () => Navigator.pop(context),
-              ),
-            ),
-          ],
-        ),
-      ),
-    ).then((_) async {
-      // Снимаем защиту при закрытии
-      await ScreenProtector.preventScreenshotOff();
-    });
-  }
   void _showSecurityDialog() {
     final passwordController = TextEditingController();
     final confirmController = TextEditingController();
@@ -1734,15 +1536,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _circleButton(IconData icon, VoidCallback onTap) {
-    return Container(
-      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)),
-      child: IconButton(
-        icon: Icon(icon, color: Colors.white, size: 18),
-        onPressed: onTap,
-      ),
-    );
-  }
+
 
   void _openStore() async {
     final appId = "com.iqmarket.app";

@@ -408,15 +408,22 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
             tag: 'seller_ad-image-${ad.id}',
             child: ClipRRect(
               borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-              child: ad.images.isNotEmpty 
-                ? CachedNetworkImage(
-                    imageUrl: ad.images.isNotEmpty ? ad.images.first : '',
-                    height: 120, width: 160, fit: BoxFit.cover,
-                    memCacheWidth: 250,
-                    memCacheHeight: 250,
-                    errorWidget: (context, url, error) => const Icon(Icons.image),
-                  )
-                : Container(height: 120, color: const Color(0xFFF1F5F9)),
+              child: Container(
+                height: 120,
+                width: 160,
+                color: const Color(0xFFF1F5F9),
+                child: ad.images.isNotEmpty 
+                  ? Center(
+                      child: CachedNetworkImage(
+                        imageUrl: ad.images.first,
+                        fit: BoxFit.contain,
+                        memCacheWidth: 250,
+                        memCacheHeight: 250,
+                        errorWidget: (context, url, error) => const Icon(Icons.image),
+                      ),
+                    )
+                  : const Icon(Icons.image, color: Colors.grey),
+              ),
             ),
           ),
           Padding(

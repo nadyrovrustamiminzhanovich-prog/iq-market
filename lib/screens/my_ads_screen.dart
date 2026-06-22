@@ -187,16 +187,23 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
                       children: [
                         ClipRRect(
                           borderRadius: BorderRadius.circular(16),
-                          child: ad.images.isNotEmpty 
-                            ? CachedNetworkImage(
-                                imageUrl: ad.images.first,
-                                width: 85, height: 85, fit: BoxFit.cover,
-                                memCacheWidth: 250,
-                                memCacheHeight: 250,
-                                placeholder: (context, url) => Container(color: const Color(0xFFF1F5F9)),
-                                errorWidget: (context, url, error) => const Icon(Icons.image),
-                              )
-                            : Container(width: 85, height: 85, color: const Color(0xFFF1F5F9), child: const Icon(Icons.image)),
+                          child: Container(
+                            width: 85,
+                            height: 85,
+                            color: const Color(0xFFF1F5F9),
+                            child: ad.images.isNotEmpty 
+                              ? Center(
+                                  child: CachedNetworkImage(
+                                    imageUrl: ad.images.first,
+                                    fit: BoxFit.contain,
+                                    memCacheWidth: 250,
+                                    memCacheHeight: 250,
+                                    placeholder: (context, url) => Container(color: const Color(0xFFF1F5F9)),
+                                    errorWidget: (context, url, error) => const Icon(Icons.image),
+                                  ),
+                                )
+                              : const Icon(Icons.image, color: Colors.grey),
+                          ),
                         ),
                         if (isPending)
                           Positioned(

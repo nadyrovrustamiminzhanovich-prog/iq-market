@@ -63,6 +63,7 @@ class _ChatScreenState extends State<ChatScreen> {
   String? _otherUserPhone;
   late Stream<List<MessageModel>> _messagesStream;
   final Map<String, UploadTask> _activeUploads = {};
+  final Map<String, String> _localAudioPaths = {};
   bool _showEmoji = false;
   bool _isOtherOnline = false;
   bool _isOtherTyping = false;
@@ -178,20 +179,28 @@ class _ChatScreenState extends State<ChatScreen> {
     final text = _msgController.text.trim();
     if (text.isEmpty) return;
     
+    final backupText = _msgController.text;
     _msgController.clear();
     ChatService.updateTypingStatus(widget.ad.userId, false);
     setState(() => _isTyping = false);
     _scrollToBottom();
     
-    final msgId = await ChatService.sendMessage(ad: widget.ad, text: text, senderName: _currentUserName);
-    if (msgId == null && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Ошибка отправки сообщения. Проверьте интернет.'),
-          backgroundColor: Colors.redAccent,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+    try {
+      final msgId = await ChatService.sendMessage(ad: widget.ad, text: text, senderName: _currentUserName);
+      if (msgId == null) {
+        throw Exception('Сообщение не сохранено в БД');
+      }
+    } catch (e) {
+      if (mounted) {
+        _msgController.text = backupText;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Ошибка отправки сообщения. Проверьте интернет.'),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     }
   }
 
@@ -230,6 +239,7 @@ class _ChatScreenState extends State<ChatScreen> {
     if (path != null) {
       final msgId = await ChatService.sendMessage(ad: widget.ad, text: 'Голосовое сообщение', type: 'audio', duration: _recordSeconds, senderName: _currentUserName);
       if (msgId != null) {
+        _localAudioPaths[msgId] = path;
         final chatId = ChatService.getChatId(widget.ad.userId);
         final task = FileService.uploadFileWithTask(File(path), 'voice_messages/$chatId');
         if (mounted) setState(() => _activeUploads[msgId] = task);
@@ -263,6 +273,16 @@ class _ChatScreenState extends State<ChatScreen> {
             );
           }
         });
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Ошибка отправки голосового сообщения.'),
+              backgroundColor: Colors.redAccent,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
       }
     }
   }
@@ -275,11 +295,23 @@ class _ChatScreenState extends State<ChatScreen> {
         if (mounted) setState(() => _currentPlayingId = null);
       } else {
         await _audioPlayer.stop();
-        if (url.startsWith('http')) {
+        
+        // 🔒 Optimization: Use local file if available to speed up playback and save bandwidth
+        final localPath = _localAudioPaths[id];
+        bool playLocal = false;
+        if (localPath != null && await File(localPath).exists()) {
+          playLocal = true;
+        }
+
+        if (playLocal) {
+          debugPrint('Playing local voice file: $localPath');
+          await _audioPlayer.play(DeviceFileSource(localPath!));
+        } else if (url.startsWith('http')) {
           await _audioPlayer.play(UrlSource(url));
         } else {
           await _audioPlayer.play(DeviceFileSource(url));
         }
+        
         if (mounted) {
           setState(() {
             _currentPlayingId = id;
@@ -291,6 +323,9 @@ class _ChatScreenState extends State<ChatScreen> {
     } catch (e) {
       debugPrint('Error playing voice: $e');
       if (mounted) {
+        setState(() {
+          _currentPlayingId = null;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Ошибка воспроизведения: $e'), backgroundColor: Colors.redAccent),
         );
@@ -352,7 +387,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator(color: Color(0xFF4A80F0)));
                   final messages = snapshot.data ?? [];
                   if (messages.isEmpty) return _buildEmptyState();
-                  return _buildMessageList(messages.reversed.toList(), myBubbleColor, otherBubbleColor);
+                  return _buildMessageList(messages, myBubbleColor, otherBubbleColor);
                 },
               ),
             ),

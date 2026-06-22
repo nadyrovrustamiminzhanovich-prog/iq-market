@@ -61,9 +61,7 @@ class TaxiHistoryScreen extends StatelessWidget {
         final String from = trip['from'] ?? '';
         final String to = trip['to'] ?? '';
         final String priceStr = '${trip['price'] ?? 0} ₸';
-        final String date = (trip['date'] == 'today' || trip['date'] == 'tomorrow' || trip['date'] == 'yesterday')
-            ? provider.translate(trip['date'] ?? '')
-            : (trip['date'] ?? '');
+        final String date = TaxiProvider.formatTaxiDisplayDate(trip, provider.curLang);
         final String role = trip['role'] == 'driver' 
             ? provider.translate('driver_role') 
             : provider.translate('passenger_role');

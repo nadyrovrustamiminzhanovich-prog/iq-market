@@ -17,7 +17,7 @@ class UserService {
   static String? get currentUid => _auth.currentUser?.uid;
 
   /// Creates or updates a user document in Firestore after login/registration
-  static Future<void> syncUserAfterLogin({
+  static Future<bool> syncUserAfterLogin({
     required String name,
     String? email,
     String? photoUrl,
@@ -26,7 +26,7 @@ class UserService {
     String? accountType,
   }) async {
     final user = _auth.currentUser;
-    if (user == null) return;
+    if (user == null) return false;
 
     try {
       final docRef = users.doc(user.uid);
@@ -47,20 +47,26 @@ class UserService {
           'reviewsCount': 0,
           'rating': 0.0,
         });
+        return isVerified;
       } else {
+        final existingData = docSnap.data() as Map<String, dynamic>?;
+        final bool existingVerified = existingData?['isVerified'] == true;
+
         // Update existing user profile
         Map<String, dynamic> updates = {};
         if (photoUrl != null && photoUrl.isNotEmpty) updates['photoUrl'] = photoUrl;
         if (email != null && email.isNotEmpty) updates['email'] = email;
-        if (isVerified) updates['isVerified'] = true;
+        if (isVerified && !existingVerified) updates['isVerified'] = true;
         if (accountType != null) updates['accountType'] = accountType;
         
         if (updates.isNotEmpty) {
           await docRef.update(updates);
         }
+        return existingVerified || isVerified;
       }
     } catch (e) {
-      debugPrint('Error syncing user to Firestore: $e');
+      debugPrint('Error syncing user after login: $e');
+      return isVerified;
     }
   }
 

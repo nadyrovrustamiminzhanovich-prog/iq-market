@@ -105,7 +105,7 @@ class _TaxiAssignedDriverViewState extends State<TaxiAssignedDriverView> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Выезд: ${order['date'] == 'today' ? 'Сегодня' : order['date'] == 'tomorrow' ? 'Завтра' : order['date'] ?? ''} в ${order['time']}',
+                  'Выезд: ${TaxiProvider.formatTaxiDisplayDate(order, provider.curLang)} в ${order['time']}',
                   style: GoogleFonts.inter(color: const Color(0xFF4A80F0), fontSize: 15, fontWeight: FontWeight.w600),
                 ),
               ],

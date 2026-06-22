@@ -6,6 +6,7 @@ class SearchBarHome extends StatelessWidget {
   final Function(String) onChanged;
   final VoidCallback onMicTap;
   final VoidCallback onFilterTap;
+  final Function(String)? onSubmitted;
 
   const SearchBarHome({
     super.key, 
@@ -13,6 +14,7 @@ class SearchBarHome extends StatelessWidget {
     required this.onChanged,
     required this.onMicTap,
     required this.onFilterTap,
+    this.onSubmitted,
   });
 
   @override
@@ -41,6 +43,7 @@ class SearchBarHome extends StatelessWidget {
             child: TextField(
               controller: controller,
               style: GoogleFonts.inter(fontSize: 14, color: const Color(0xFF1E293B)),
+              textInputAction: TextInputAction.search,
               decoration: InputDecoration(
                 hintText: 'Поиск товаров, услуг и объявлений',
                 hintStyle: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 13),
@@ -48,6 +51,7 @@ class SearchBarHome extends StatelessWidget {
                 isDense: true,
               ),
               onChanged: onChanged,
+              onSubmitted: onSubmitted,
             ),
           ),
           IconButton(

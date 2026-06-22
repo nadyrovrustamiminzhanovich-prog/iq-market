@@ -99,7 +99,7 @@ class _TaxiAssignedPassengerViewState extends State<TaxiAssignedPassengerView> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Выезд: ${data['date'] == 'today' ? 'Сегодня' : data['date'] == 'tomorrow' ? 'Завтра' : data['date'] ?? ''} в ${data['time']}',
+                  'Выезд: ${TaxiProvider.formatTaxiDisplayDate(data, provider.curLang)} в ${data['time']}',
                   style: GoogleFonts.inter(color: const Color(0xFF4A80F0), fontSize: 15, fontWeight: FontWeight.w600),
                 ),
               ],

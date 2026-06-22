@@ -38,16 +38,7 @@ class _TaxiActiveRideTrackingViewState extends State<TaxiActiveRideTrackingView>
     final rideId = ride['id'] ?? '';
     final currentPrice = (ride['price'] ?? 0) as int;
 
-    // Format date nicely
-    String displayDate = '';
-    final rawDate = ride['date'] ?? '';
-    if (rawDate == 'today') {
-      displayDate = 'Сегодня';
-    } else if (rawDate == 'tomorrow') {
-      displayDate = 'Завтра';
-    } else {
-      displayDate = rawDate;
-    }
+    final displayDate = TaxiProvider.formatTaxiDisplayDate(ride, provider.curLang);
     final rawTime = ride['time'] ?? '';
     final displayTime = (rawTime == 'time' || rawTime.isEmpty) ? '' : rawTime;
 

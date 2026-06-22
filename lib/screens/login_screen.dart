@@ -201,7 +201,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
         user?.displayName ?? _emailController.text.split('@')[0],
         email: user?.email,
         photoUrl: user?.photoURL,
-        isVerified: user?.emailVerified ?? false,
+        isVerified: false,
       );
     } on TimeoutException {
       _showError(_t('err_timeout'));
@@ -275,7 +275,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
           uc.user?.displayName ?? 'Google User',
           email: uc.user?.email,
           photoUrl: uc.user?.photoURL,
-          isVerified: uc.user?.emailVerified ?? true, // Google = verified
+          isVerified: false,
         );
       }
     } on TimeoutException {
@@ -311,7 +311,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
         await _finalizeLogin(
           uc.user?.displayName ?? 'Apple User',
           email: uc.user?.email,
-          isVerified: true, // Apple = verified
+          isVerified: false,
         );
       }
     } catch (e) {
@@ -1059,7 +1059,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   // ===================== FINALIZE =====================
   Future<void> _finalizeLogin(String name, {String? email, String? photoUrl, bool isVerified = false, String? accountType}) async {
     // 1. Сохраняем в Firebase Firestore
-    await UserService.syncUserAfterLogin(
+    final bool finalVerified = await UserService.syncUserAfterLogin(
       name: name,
       email: email,
       photoUrl: photoUrl,
@@ -1068,7 +1068,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     );
     
     // 2. Локальное сохранение
-    StorageService.saveProfile(name, photoUrl, false, accountType ?? 'Личный', isVerified: isVerified);
+    StorageService.saveProfile(name, photoUrl, false, accountType ?? 'Личный', isVerified: finalVerified);
     if (email != null) StorageService.setString('user_email', email);
     StorageService.setBool('taxi_logged_in', true);
     
@@ -1103,17 +1103,17 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
           const SizedBox(height: 10),
           Text(_t('welcome'), style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: Color(0xFF1A1D1E), letterSpacing: -0.5)),
           const SizedBox(height: 8),
-          AnimatedSwitcher(duration: const Duration(milliseconds: 200), child: Text(_isLogin ? _t('sub_login') : _t('sub_reg'), key: ValueKey(_isLogin), style: const TextStyle(fontSize: 16, color: Colors.black54, fontWeight: FontWeight.w600))),
+          AnimatedSwitcher(duration: const Duration(milliseconds: 200), child: Text(_isLogin ? _t('sub_login') : _t('sub_reg'), key: ValueKey(_isLogin), maxLines: 1, softWrap: false, style: const TextStyle(fontSize: 16, color: Colors.black54, fontWeight: FontWeight.w600))),
           const SizedBox(height: 35),
 
           _buildToggle(),
           const SizedBox(height: 35),
 
-          AnimatedCrossFade(duration: const Duration(milliseconds: 300), crossFadeState: _isLogin ? CrossFadeState.showFirst : CrossFadeState.showSecond, firstChild: const SizedBox.shrink(), secondChild: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          AnimatedCrossFade(duration: const Duration(milliseconds: 300), crossFadeState: _isLogin ? CrossFadeState.showFirst : CrossFadeState.showSecond, firstChild: const SizedBox.shrink(), secondChild: SingleChildScrollView(physics: const NeverScrollableScrollPhysics(), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             _label(_t('name_label')), const SizedBox(height: 8),
             AuthField(hint: _t('name_hint'), icon: Icons.person_outline_rounded, controller: _nameController),
             const SizedBox(height: 20),
-          ])),
+          ]))),
 
           _label(_t('email_label')), const SizedBox(height: 8),
           AuthField(hint: _t('email_hint'), icon: Icons.email_outlined, controller: _emailController, keyboardType: TextInputType.emailAddress),
@@ -1122,11 +1122,11 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
           _label(_t('pwd_label')), const SizedBox(height: 8),
           AuthField(hint: _t('pwd_hint'), icon: Icons.lock_outline_rounded, controller: _passwordController, isPassword: true, showToggle: true, isVisible: _showPassword, onToggle: () => setState(() => _showPassword = !_showPassword)),
 
-          AnimatedCrossFade(duration: const Duration(milliseconds: 300), crossFadeState: _isLogin ? CrossFadeState.showFirst : CrossFadeState.showSecond, firstChild: const SizedBox.shrink(), secondChild: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          AnimatedCrossFade(duration: const Duration(milliseconds: 300), crossFadeState: _isLogin ? CrossFadeState.showFirst : CrossFadeState.showSecond, firstChild: const SizedBox.shrink(), secondChild: SingleChildScrollView(physics: const NeverScrollableScrollPhysics(), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             const SizedBox(height: 20),
             _label(_t('confirm_label')), const SizedBox(height: 8),
             AuthField(hint: _t('confirm_hint'), icon: Icons.lock_outline_rounded, controller: _confirmPasswordController, isPassword: true, showToggle: true, isVisible: _showConfirmPassword, onToggle: () => setState(() => _showConfirmPassword = !_showConfirmPassword)),
-          ])),
+          ]))),
 
           if (_isLogin) Align(alignment: Alignment.centerRight, child: TextButton(onPressed: _onForgotPassword, child: Text(_t('forgot_pwd'), style: const TextStyle(color: Color(0xFF4A80F0), fontWeight: FontWeight.w800, fontSize: 14)))),
           const SizedBox(height: 25),
@@ -1200,12 +1200,77 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   }
 
   // ===================== UI WIDGETS =====================
-  Widget _buildToggle() => Container(height: 58, padding: const EdgeInsets.all(5), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 20, offset: const Offset(0, 10))]), child: Stack(children: [
-    AnimatedAlign(duration: const Duration(milliseconds: 300), curve: Curves.easeInOutBack, alignment: _isLogin ? Alignment.centerLeft : Alignment.centerRight, child: Container(width: (MediaQuery.of(context).size.width - 58) / 2, decoration: BoxDecoration(color: const Color(0xFF4A80F0), borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: const Color(0xFF4A80F0).withValues(alpha: 0.3), blurRadius: 10, offset: const Offset(0, 4))]))),
-    Row(children: [_togItem(_t('login_tab'), true), _togItem(_t('reg_tab'), false)]),
-  ]));
+  Widget _buildToggle() => LayoutBuilder(
+    builder: (context, constraints) {
+      final double width = constraints.maxWidth;
+      final double innerWidth = width - 10;
+      final double tabWidth = innerWidth / 2;
 
-  Widget _togItem(String t, bool s) => Expanded(child: GestureDetector(onTap: () => setState(() => _isLogin = s), behavior: HitTestBehavior.opaque, child: Center(child: Text(t, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: _isLogin == s ? Colors.white : Colors.black54)))));
+      return Container(
+        height: 58, 
+        padding: const EdgeInsets.all(5), 
+        decoration: BoxDecoration(
+          color: Colors.white, 
+          borderRadius: BorderRadius.circular(20), 
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04), 
+              blurRadius: 20, 
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ), 
+        child: Stack(
+          children: [
+            AnimatedAlign(
+              duration: const Duration(milliseconds: 300), 
+              curve: Curves.easeInOutBack, 
+              alignment: _isLogin ? Alignment.centerLeft : Alignment.centerRight, 
+              child: Container(
+                width: tabWidth, 
+                decoration: BoxDecoration(
+                  color: const Color(0xFF4A80F0), 
+                  borderRadius: BorderRadius.circular(16), 
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF4A80F0).withValues(alpha: 0.3), 
+                      blurRadius: 10, 
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Row(
+              children: [
+                _togItem(_t('login_tab'), true), 
+                _togItem(_t('reg_tab'), false),
+              ],
+            ),
+          ],
+        ),
+      );
+    },
+  );
+
+  Widget _togItem(String t, bool s) => Expanded(
+    child: GestureDetector(
+      onTap: () => setState(() => _isLogin = s), 
+      behavior: HitTestBehavior.opaque, 
+      child: Center(
+        child: Text(
+          t, 
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: GoogleFonts.inter(
+            fontSize: 15, 
+            fontWeight: FontWeight.w900, 
+            color: _isLogin == s ? Colors.white : Colors.black54,
+          ),
+        ),
+      ),
+    ),
+  );
   Widget _label(String t) => Text(t, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: Color(0xFF1A1D1E)));
 
 }

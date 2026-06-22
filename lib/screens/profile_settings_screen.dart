@@ -6,13 +6,13 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:iqmarket/services/storage_service.dart';
 import 'package:iqmarket/data/kazakhstan_locations.dart';
-import 'package:iqmarket/services/location_service.dart';
 import 'package:iqmarket/screens/legal_info_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import 'package:provider/provider.dart';
 import 'package:iqmarket/providers/app_config_provider.dart';
+import 'package:iqmarket/providers/taxi_provider.dart';
 import 'package:iqmarket/services/translation_service.dart';
 import 'package:iqmarket/services/auth_service.dart';
 import 'package:iqmarket/services/user_service.dart';
@@ -175,7 +175,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
         }
       }
 
-      final String? imagePathToSave = _newImage?.path ?? widget.profileImagePath;
+      final String? imagePathToSave = finalPhotoUrl ?? _newImage?.path ?? widget.profileImagePath;
       await StorageService.saveProfile(_nameController.text, imagePathToSave, _isFaceIdEnabled, _accountType);
       
       if (mounted) {
@@ -186,6 +186,16 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
 
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
+        // 🔒 Sync displayName and photoURL to Firebase Auth profile for taxi/unified access
+        try {
+          await user.updateDisplayName(_nameController.text);
+          if (finalPhotoUrl != null) {
+            await user.updatePhotoURL(finalPhotoUrl);
+          }
+        } catch (authErr) {
+          debugPrint('Auth profile update error: $authErr');
+        }
+
         final Map<String, dynamic> updateData = {
           'name': _nameController.text,
           'phone': _phoneController.text,
@@ -196,6 +206,16 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
           updateData['photoUrl'] = finalPhotoUrl;
         }
         await UserService.updateUserProfile(updateData);
+      }
+
+      // 🔒 Notify TaxiProvider to reload preferences and update its state immediately
+      if (mounted) {
+        try {
+          final taxiProvider = Provider.of<TaxiProvider>(context, listen: false);
+          await taxiProvider.loadPreferences();
+        } catch (taxiErr) {
+          debugPrint('TaxiProvider update error: $taxiErr');
+        }
       }
 
       if (mounted) {
@@ -212,10 +232,6 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
-  }
-
-  Widget _buildProfileCompleteness() {
-    return const SizedBox.shrink();
   }
 
   @override
@@ -363,6 +379,9 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                       'Email', 
                       _userEmail, 
                       Icons.alternate_email_rounded,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      fontSize: 13.0,
                       onTap: () {
                         Clipboard.setData(ClipboardData(text: _userEmail));
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -791,7 +810,17 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     isDark: _isDark,
   );
 
-  Widget _buildDisplayField(String label, String value, IconData icon, {VoidCallback? onTap, IconData? trailingIcon, bool isStandalone = true}) {
+  Widget _buildDisplayField(
+    String label, 
+    String value, 
+    IconData icon, {
+    VoidCallback? onTap, 
+    IconData? trailingIcon, 
+    bool isStandalone = true,
+    int? maxLines,
+    TextOverflow? overflow,
+    double? fontSize,
+  }) {
     final isCopyable = onTap != null && trailingIcon == null;
     final isDark = _isDark;
 
@@ -826,10 +855,12 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
               const SizedBox(height: 4),
               Text(
                 value,
+                maxLines: maxLines,
+                overflow: overflow,
                 style: GoogleFonts.inter(
                   color: _txtColor,
                   fontWeight: FontWeight.w800,
-                  fontSize: isStandalone ? 16.0 : 15.0,
+                  fontSize: fontSize ?? (isStandalone ? 16.0 : 15.0),
                 ),
               ),
             ],
@@ -1340,14 +1371,23 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
       case 'user':
       case 'личный':
       case 'personal':
+      case 'acc_personal':
         return _t('acc_personal');
       case 'business':
       case 'бизнес':
+      case 'acc_business':
         return _t('acc_business');
       case 'admin':
       case 'администратор':
+      case 'acc_admin':
         return _t('acc_admin');
       default:
+        if (type.toLowerCase().contains('personal')) {
+          return _t('acc_personal');
+        }
+        if (type.toLowerCase().contains('business')) {
+          return _t('acc_business');
+        }
         return type;
     }
   }
@@ -1651,22 +1691,6 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                   ),
                 ),
                 const SizedBox(height: 10),
-                if (selectedParent == null && searchCity.isEmpty) ...[
-                  ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 24),
-                    leading: Icon(Icons.my_location_rounded, color: _primaryColor), 
-                    title: Text(_t('auto_locate'), style: GoogleFonts.inter(fontWeight: FontWeight.w800, color: _primaryColor, fontSize: 15)), 
-                    onTap: () async {
-                      final city = await LocationService.getCurrentCity();
-                      if (city != null && mounted) {
-                        setState(() => _cityController.text = city);
-                        StorageService.setString('user_location', city);
-                        Navigator.pop(context);
-                      }
-                    }
-                  ),
-                  const Divider(indent: 24, endIndent: 24, color: Colors.transparent),
-                ],
                 Expanded(
                   child: ListView.separated(
                     padding: const EdgeInsets.symmetric(horizontal: 12),

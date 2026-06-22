@@ -8,6 +8,7 @@ import 'package:iqmarket/features/taxi/data/taxi_repository.dart';
 import 'package:iqmarket/features/taxi/data/taxi_sync_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
 
 class TaxiProvider extends ChangeNotifier {
   late final TaxiPrefsService _prefs;
@@ -390,5 +391,58 @@ class TaxiProvider extends ChangeNotifier {
       firstName: _firstName, lastName: _lastName, phone: _phone,
       driverCar: _driverCar, driverPlate: _driverPlate, isVehicleVerified: _isVehicleVerified,
     );
+  }
+
+  // 🔒 Dynamic Date Formatter with Backwards Compatibility for 'today'/'tomorrow' strings
+  static String formatTaxiDisplayDate(Map<String, dynamic> doc, String lang) {
+    final rawDate = doc['date']?.toString() ?? '';
+    final createdAtObj = doc['createdAt'];
+    
+    DateTime createdDate;
+    if (createdAtObj is Timestamp) {
+      createdDate = createdAtObj.toDate().toLocal();
+    } else {
+      createdDate = DateTime.now();
+    }
+
+    DateTime actualDepartureDate;
+    if (rawDate == 'today') {
+      actualDepartureDate = DateTime(createdDate.year, createdDate.month, createdDate.day);
+    } else if (rawDate == 'tomorrow') {
+      final tom = createdDate.add(const Duration(days: 1));
+      actualDepartureDate = DateTime(tom.year, tom.month, tom.day);
+    } else if (rawDate == 'yesterday') {
+      final yes = createdDate.subtract(const Duration(days: 1));
+      actualDepartureDate = DateTime(yes.year, yes.month, yes.day);
+    } else {
+      try {
+        final parts = rawDate.split('.');
+        if (parts.length == 3) {
+          final day = int.parse(parts[0]);
+          final month = int.parse(parts[1]);
+          final year = int.parse(parts[2]);
+          actualDepartureDate = DateTime(year, month, day);
+        } else {
+          return rawDate;
+        }
+      } catch (_) {
+        return rawDate;
+      }
+    }
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final tomorrow = today.add(const Duration(days: 1));
+    final yesterday = today.subtract(const Duration(days: 1));
+
+    if (actualDepartureDate == today) {
+      return lang == 'kz' ? 'Бүгін' : lang == 'uyg' ? 'Бүгүн' : 'Сегодня';
+    } else if (actualDepartureDate == tomorrow) {
+      return lang == 'kz' ? 'Ертең' : lang == 'uyg' ? 'Әтә' : 'Завтра';
+    } else if (actualDepartureDate == yesterday) {
+      return lang == 'kz' ? 'Кеше' : lang == 'uyg' ? 'Түнүгүн' : 'Вчера';
+    } else {
+      return DateFormat('dd.MM.yyyy').format(actualDepartureDate);
+    }
   }
 }

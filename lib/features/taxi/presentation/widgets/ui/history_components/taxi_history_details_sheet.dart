@@ -9,9 +9,7 @@ import 'taxi_history_rating_sheet.dart';
 void showTaxiHistoryDetailsSheet(BuildContext context, Map<String, dynamic> trip, TaxiProvider provider, TaxiTheme t) {
   final String from = trip['from'] ?? 'Не указано';
   final String to = trip['to'] ?? 'Не указано';
-  final String date = trip['date'] == 'today'
-      ? 'Сегодня'
-      : (trip['date'] == 'tomorrow' ? 'Завтра' : (trip['date'] ?? 'Не указана'));
+  final String date = TaxiProvider.formatTaxiDisplayDate(trip, provider.curLang);
   final String time = trip['time'] ?? '';
   final int price = trip['price'] ?? 0;
   final String role = trip['role'] ?? 'passenger';

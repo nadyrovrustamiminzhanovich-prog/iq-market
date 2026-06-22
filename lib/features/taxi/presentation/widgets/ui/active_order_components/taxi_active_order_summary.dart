@@ -25,15 +25,7 @@ class TaxiActiveOrderSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    String displayDate = '';
-    final rawDate = order['date'] ?? '';
-    if (rawDate == 'today') {
-      displayDate = 'Сегодня';
-    } else if (rawDate == 'tomorrow') {
-      displayDate = 'Завтра';
-    } else {
-      displayDate = rawDate;
-    }
+    final displayDate = TaxiProvider.formatTaxiDisplayDate(order, provider.curLang);
     final rawTime = order['time'] ?? '';
     final displayTime = (rawTime == 'time' || rawTime.isEmpty) ? '' : rawTime;
 

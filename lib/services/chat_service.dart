@@ -30,7 +30,6 @@ class ChatService {
         .doc(chatId)
         .collection('messages')
         .orderBy('timestamp', descending: true)
-        .limit(50)
         .snapshots()
         .map((snapshot) {
           final messages = snapshot.docs

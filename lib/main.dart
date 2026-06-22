@@ -3,10 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
-import 'dart:async';
-
 import 'screens/home/home_screen.dart';
-import 'services/storage_service.dart';
 import 'services/notification_service.dart';
 import 'services/analytics_service.dart';
 import 'providers/app_config_provider.dart';
@@ -15,28 +12,12 @@ import 'widgets/common/offline_wrapper.dart';
 import 'screens/splash_screen.dart';
 
 
-Future<void> main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Initialize StorageService synchronously so we can read the user's preferred language immediately.
-  await StorageService.init();
-  
-  // Load saved language for initial locale
-  final savedLang = StorageService.getString('app_lang') ?? 'Русский';
-  final localeMap = {
-    'Русский': const Locale('ru', 'RU'),
-    'Қазақша': const Locale('kk', 'KZ'),
-    'Уйғурчә': const Locale('ug'), // Map to official Uyghur locale code
-  };
-  final initialLocale = localeMap[savedLang] ?? const Locale('ru', 'RU');
-
   // Launch AppBootstrap instantly to dismiss the native OS splash screen and show
   // the premium pulsing custom preloader screen.
-  runApp(
-    AppBootstrap(
-      initialLocale: initialLocale,
-    ),
-  );
+  runApp(const AppBootstrap());
 }
 
 

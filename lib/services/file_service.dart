@@ -16,7 +16,27 @@ class FileService {
     final String extension = p.extension(file.path).toLowerCase();
     final String fileName = '${DateTime.now().millisecondsSinceEpoch}$extension';
     final Reference ref = _storage.ref().child(folder).child(fileName);
-    return ref.putFile(file);
+    
+    // 🔒 Set content-type metadata to prevent "application/octet-stream" playback failures
+    String? contentType;
+    if (extension == '.m4a') {
+      contentType = 'audio/x-m4a';
+    } else if (extension == '.mp4') {
+      contentType = 'video/mp4';
+    } else if (extension == '.mp3') {
+      contentType = 'audio/mpeg';
+    } else if (extension == '.wav') {
+      contentType = 'audio/wav';
+    } else if (extension == '.jpg' || extension == '.jpeg') {
+      contentType = 'image/jpeg';
+    } else if (extension == '.png') {
+      contentType = 'image/png';
+    } else if (extension == '.gif') {
+      contentType = 'image/gif';
+    }
+
+    final metadata = contentType != null ? SettableMetadata(contentType: contentType) : null;
+    return ref.putFile(file, metadata);
   }
 
   /// Upload a file and get URL — with retry logic (3 attempts, exponential backoff)

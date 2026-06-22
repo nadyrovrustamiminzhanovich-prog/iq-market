@@ -71,9 +71,7 @@ void showTaxiBidDetailsSheet({
   final int originalPrice = (target?['price'] as num?)?.toInt() ?? 0;
   final String comment = target?['comment']?.toString() ?? '';
 
-  String displayDate = date;
-  if (date == 'today') displayDate = 'Сегодня';
-  if (date == 'tomorrow') displayDate = 'Завтра';
+  final displayDate = target != null ? TaxiProvider.formatTaxiDisplayDate(target, provider.curLang) : date;
 
   bool isProcessing = false;
 

@@ -12,6 +12,7 @@ import '../main.dart';
 import '../services/analytics_service.dart';
 import '../services/auth_service.dart';
 import '../services/notification_service.dart';
+import '../services/storage_service.dart';
 import '../providers/taxi_provider.dart';
 import '../providers/app_config_provider.dart';
 
@@ -19,8 +20,7 @@ import '../providers/app_config_provider.dart';
 /// FCM notifications, and auth services. It displays a premium loader and 
 /// handles error recovery on startup.
 class AppBootstrap extends StatefulWidget {
-  final Locale initialLocale;
-  const AppBootstrap({super.key, required this.initialLocale});
+  const AppBootstrap({super.key});
 
   @override
   State<AppBootstrap> createState() => _AppBootstrapState();
@@ -39,10 +39,12 @@ class _AppBootstrapState extends State<AppBootstrap> {
   }
 
   Future<void> _initApp() async {
-    final startTime = DateTime.now();
     try {
-      // 1. Initialize Firebase first (required by dependent services)
-      await Firebase.initializeApp();
+      // 1. Initialize Firebase and StorageService in parallel
+      await Future.wait([
+        Firebase.initializeApp(),
+        StorageService.init(),
+      ]);
 
       // 2. Set Firestore cache/offline settings
       FirebaseFirestore.instance.settings = const Settings(
@@ -50,33 +52,20 @@ class _AppBootstrapState extends State<AppBootstrap> {
         cacheSizeBytes: 104857600, // 100 MB cache limit
       );
 
-      // 3. Initialize all Firebase-dependent services in parallel
-      await Future.wait([
-        AnalyticsService.init(),
-        AuthService.init(),
-        NotificationService.init(),
-        FirebaseAppCheck.instance.activate(
-          providerAndroid: kDebugMode ? const AndroidDebugProvider() : const AndroidPlayIntegrityProvider(),
-          providerApple: kDebugMode ? const AppleDebugProvider() : const AppleDeviceCheckProvider(),
-        ),
-      ]);
-
-      // 4. Set global error tracking handlers
-      FlutterError.onError = (errorDetails) {
-        FirebaseCrashlytics.instance.recordFlutterFatalError(errorDetails);
+      // Load saved language for initial locale
+      final savedLang = StorageService.getString('app_lang') ?? 'Русский';
+      final localeMap = {
+        'Русский': const Locale('ru', 'RU'),
+        'Қазақша': const Locale('kk', 'KZ'),
+        'Уйғурчә': const Locale('ug'),
       };
-      PlatformDispatcher.instance.onError = (error, stack) {
-        FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
-        return true;
-      };
+      final initialLocale = localeMap[savedLang] ?? const Locale('ru', 'RU');
 
-      AnalyticsService.logAppOpen();
-
-      // 5. Initialize the app providers with initial locale
+      // 3. Initialize the app providers with initial locale
       _taxiProvider = TaxiProvider();
-      _appConfigProvider = AppConfigProvider()..setLocale(widget.initialLocale);
+      _appConfigProvider = AppConfigProvider()..setLocale(initialLocale);
 
-      // 6. Bind language synchronization events
+      // 4. Bind language synchronization events
       _appConfigProvider.onLanguageChanged = (lang) {
         _taxiProvider.setLanguage(lang);
       };
@@ -84,18 +73,14 @@ class _AppBootstrapState extends State<AppBootstrap> {
         _appConfigProvider.setLanguage(lang);
       };
 
-      // Ensure the splash animation runs for at least 1200ms to look smooth
-      final elapsed = DateTime.now().difference(startTime);
-      const minDuration = Duration(milliseconds: 1200);
-      if (elapsed < minDuration) {
-        await Future.delayed(minDuration - elapsed);
-      }
-
       if (mounted) {
         setState(() {
           _initialized = true;
         });
       }
+
+      // 5. Initialize the rest of the services in the background without blocking the UI
+      _initServicesInBackground();
     } catch (e, stack) {
       debugPrint('Initialization error: $e');
       if (mounted) {
@@ -105,6 +90,39 @@ class _AppBootstrapState extends State<AppBootstrap> {
       }
       try {
         FirebaseCrashlytics.instance.recordError(e, stack, fatal: true);
+      } catch (_) {}
+    }
+  }
+
+  Future<void> _initServicesInBackground() async {
+    try {
+      // Initialize Firebase App Check first to secure Firestore queries before they are sent
+      await FirebaseAppCheck.instance.activate(
+        providerAndroid: kDebugMode ? const AndroidDebugProvider() : const AndroidPlayIntegrityProvider(),
+        providerApple: kDebugMode ? const AppleDebugProvider() : const AppleDeviceCheckProvider(),
+      );
+
+      // Initialize other services in parallel
+      await Future.wait([
+        AnalyticsService.init(),
+        AuthService.init(),
+        NotificationService.init(),
+      ]);
+
+      // Set global error tracking handlers
+      FlutterError.onError = (errorDetails) {
+        FirebaseCrashlytics.instance.recordFlutterFatalError(errorDetails);
+      };
+      PlatformDispatcher.instance.onError = (error, stack) {
+        FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+        return true;
+      };
+
+      AnalyticsService.logAppOpen();
+    } catch (e, stack) {
+      debugPrint('Background services initialization error: $e');
+      try {
+        FirebaseCrashlytics.instance.recordError(e, stack, fatal: false);
       } catch (_) {}
     }
   }
