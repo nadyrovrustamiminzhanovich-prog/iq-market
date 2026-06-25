@@ -1180,11 +1180,62 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
               try {
                 final user = FirebaseAuth.instance.currentUser;
                 if (user != null) {
+                  // 1. Delete all Firestore listings, active orders, and data first
+                  await UserService.deleteUserData();
+
+                  // 2. Delete profile image from Storage if it exists
+                  if (widget.profileImagePath != null &&
+                      widget.profileImagePath!.isNotEmpty &&
+                      widget.profileImagePath!.startsWith('http')) {
+                    try {
+                      await FileService.deleteFile(widget.profileImagePath!);
+                    } catch (e) {
+                      debugPrint('Error deleting profile image from storage: $e');
+                    }
+                  }
+
+                  // 3. Delete Authentication user
                   await user.delete();
                 }
                 await StorageService.clearAll();
                 if (mounted) {
                   Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+                }
+              } on FirebaseAuthException catch (e) {
+                if (e.code == 'requires-recent-login') {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(_selectedLanguage == 'Қазақша'
+                            ? 'Қауіпсіздік үшін жүйеге қайта кіру қажет. Қайта кіріп әрекетті қайталаңыз.'
+                            : (_selectedLanguage == 'Уйғурчә'
+                                ? 'Хәвпсизлик үшін қайта кириш зөрүр. Қайта кирип синап көрүң.'
+                                : 'Для безопасности требуется свежий вход. Войдите заново и повторите удаление аккаунта.')),
+                        backgroundColor: Colors.orangeAccent,
+                        behavior: SnackBarBehavior.floating,
+                        duration: const Duration(seconds: 3),
+                      ),
+                    );
+                    
+                    // Close the delete confirmation dialog
+                    Navigator.pop(context);
+                    
+                    // Wait for the SnackBar message to be readable
+                    await Future.delayed(const Duration(seconds: 3));
+                    
+                    // Log out user and clean local storage
+                    await AuthService.signOut();
+                    await StorageService.clearAll();
+                    
+                    if (mounted) {
+                      Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+                    }
+                  }
+                } else {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${_t('error_deleting_msg')}: $e')));
+                    Navigator.pop(context);
+                  }
                 }
               } catch (e) {
                 if (mounted) {

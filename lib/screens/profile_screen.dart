@@ -1063,6 +1063,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 _localAccType,
                                 isVerified: true,
                               );
+                              await StorageService.setString('user_phone', _phoneCtrl.text);
                               
                               if (context.mounted) {
                                 Navigator.pop(context);

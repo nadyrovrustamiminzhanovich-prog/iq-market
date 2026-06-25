@@ -197,6 +197,7 @@ class _TelegramVerificationDialogState extends State<TelegramVerificationDialog>
             widget.provider.verificationStatus,
             isVerified: true,
           );
+          await StorageService.setString('user_phone', _phoneCtrl.text);
 
           // 3. Update Provider state
           if (_chatId != null) {

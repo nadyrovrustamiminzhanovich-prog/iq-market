@@ -26,6 +26,8 @@ class AiLimitService {
   /// Увеличивает счетчик запросов
   static Future<void> incrementRequestCount() async {
     final prefs = await SharedPreferences.getInstance();
+    final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    await prefs.setString(_dateKey, today);
     final count = prefs.getInt(_countKey) ?? 0;
     await prefs.setInt(_countKey, count + 1);
   }

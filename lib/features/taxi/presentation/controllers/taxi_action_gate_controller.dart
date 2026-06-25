@@ -4,8 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:iqmarket/providers/taxi_provider.dart';
 import 'package:iqmarket/theme/taxi_theme.dart';
-import 'package:iqmarket/screens/login_screen.dart';
-import 'package:iqmarket/services/auth_service.dart';
+import 'package:iqmarket/widgets/auth/telegram_verification_dialog.dart';
 
 /// Контроллер-делегат для проверки права водителя принимать заказ.
 ///
@@ -40,7 +39,7 @@ class TaxiActionGateController {
     required VoidCallback onNavigateToLogin,
     required void Function(BuildContext, TaxiProvider, TaxiTheme, VoidCallback)
         onShowPhoneBinding,
-    required void Function(TaxiProvider, TaxiTheme, {String? customText})
+    required void Function(TaxiProvider, TaxiTheme, {String? customText, VoidCallback? onSuccess})
         onShowVerificationGate,
     required void Function(TaxiProvider, TaxiTheme, String from, String to)
         onShowDriverRideConfirmation,
@@ -51,7 +50,7 @@ class TaxiActionGateController {
     }
 
     if (!provider.isVehicleVerified) {
-      showDriverVerificationGateDialog(context, provider, t);
+      showDriverVerificationGateDialog(context, provider, t, onSuccess: onAuthorized);
       return;
     }
 
@@ -109,34 +108,31 @@ class TaxiActionGateController {
   }
 
   /// Диалог «Верификация водителя требуется».
-  static void showDriverVerificationGateDialog(
+  static Future<bool> showDriverVerificationGateDialog(
     BuildContext context,
     TaxiProvider provider,
     TaxiTheme t, {
     String? customText,
-  }) {
-    String langName = 'Русский';
-    if (provider.curLang == 'kz') langName = 'Қазақша';
-    else if (provider.curLang == 'uyg') langName = 'Уйғурчә';
-
-    String titleText = 'ВХОД ЧЕРЕЗ TELEGRAM';
-    String contentText = customText ?? 'Для получения доступа к поездкам и заказам водителя необходимо выполнить вход через Telegram. Желаете войти через Telegram сейчас?';
-    String confirmText = 'ВОЙТИ';
+    VoidCallback? onSuccess,
+  }) async {
+    String titleText = 'ПОДТВЕРЖДЕНИЕ TELEGRAM';
+    String contentText = customText ?? 'Для получения доступа к поездкам и заказам водителя необходимо подтвердить номер через Telegram. Подтвердить сейчас?';
+    String confirmText = 'ПОДТВЕРДИТЬ';
     String cancelText = 'ОТМЕНА';
 
     if (provider.curLang == 'kz') {
-      titleText = 'TELEGRAM АРҚЫЛЫ КІРУ';
-      contentText = 'Жүргізуші функцияларына қол жеткізу үшін Telegram арқылы жүйеге кіру қажет. Қазір кіргіңіз келе ме?';
-      confirmText = 'КІРУ';
+      titleText = 'TELEGRAM АРҚЫЛЫ РАСТАУ';
+      contentText = customText ?? 'Жүргізуші функцияларына қол жеткізу үшін телефонды Telegram арқылы растау қажет. Қазір растағыңыз келе ме?';
+      confirmText = 'РАСТАУ';
       cancelText = 'БАС ТАРТУ';
     } else if (provider.curLang == 'uyg') {
-      titleText = 'TELEGRAM АРҚЫЛЫҚ КИРИШ';
-      contentText = 'Шопур функциялириға еришиш үчүн Telegram арқылық кириш зөрүр. Ҳазир кирмәкчимусыз?';
-      confirmText = 'КИРИШ';
+      titleText = 'TELEGRAM АРҚЫЛЫҚ ТӘСДИҚЛӘШ';
+      contentText = customText ?? 'Шопур функциялириға еришиш үчүн телефонни Telegram арқылық тәсдиқләш зөрүр. Ҳазир тәсдиқлимәкчимусыз?';
+      confirmText = 'ТӘСДИҚЛӘШ';
       cancelText = 'ЯҚ';
     }
 
-    showDialog(
+    final bool? result = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: t.bg,
@@ -152,25 +148,12 @@ class TaxiActionGateController {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(context, false),
             child: Text(cancelText,
                 style: GoogleFonts.inter(color: t.sub)),
           ),
           TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              await AuthService.signOut();
-              provider.setLoginStatus(false);
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => LoginScreen(
-                    lang: langName,
-                    autoStartTelegramLogin: true,
-                  ),
-                ),
-              );
-            },
+            onPressed: () => Navigator.pop(context, true),
             child: Text(confirmText,
                 style: GoogleFonts.inter(
                     color: t.accent, fontWeight: FontWeight.bold)),
@@ -178,6 +161,15 @@ class TaxiActionGateController {
         ],
       ),
     );
+
+    if (result == true && context.mounted) {
+      final bool verified = await TelegramVerificationDialog.show(context, provider: provider);
+      if (verified && onSuccess != null) {
+        onSuccess();
+      }
+      return verified;
+    }
+    return false;
   }
 
   /// Боттомшит «Создайте поездку для доступа к заказам по маршруту».
@@ -190,7 +182,7 @@ class TaxiActionGateController {
     required VoidCallback onNavigateToLogin,
     required void Function(BuildContext, TaxiProvider, TaxiTheme, VoidCallback)
         onShowPhoneBinding,
-    required void Function(TaxiProvider, TaxiTheme, {String? customText})
+    required void Function(TaxiProvider, TaxiTheme, {String? customText, VoidCallback? onSuccess})
         onShowVerificationGate,
     required void Function(TaxiProvider, TaxiTheme, String from, String to)
         onShowDriverRideConfirmation,
@@ -278,7 +270,11 @@ class TaxiActionGateController {
                               onShowVerificationGate(provider, t,
                                   customText:
                                       'Для создания собственных поездок необходимо '
-                                      'пройти верификацию вашего автомобиля.');
+                                      'пройти верификацию вашего автомобиля.',
+                                  onSuccess: () {
+                                    onShowDriverRideConfirmation(
+                                        provider, t, from, to);
+                                  });
                             } else {
                               onShowDriverRideConfirmation(
                                   provider, t, from, to);
@@ -288,7 +284,10 @@ class TaxiActionGateController {
                           onShowVerificationGate(provider, t,
                               customText:
                                   'Для создания собственных поездок необходимо '
-                                  'пройти верификацию вашего автомобиля.');
+                                  'пройти верификацию вашего автомобиля.',
+                              onSuccess: () {
+                                onShowDriverRideConfirmation(provider, t, from, to);
+                              });
                         } else {
                           onShowDriverRideConfirmation(provider, t, from, to);
                         }

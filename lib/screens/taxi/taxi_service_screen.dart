@@ -457,10 +457,17 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
             onNavigateToLogin: () => _navigateToLogin(provider, 'auth_taxi_create_prompt'),
             onShowPhoneBinding: (ctx, p, theme, cb) =>
                 showTaxiPhoneBindingSheet(ctx, p, theme, cb),
-            onShowVerificationGate: (p, theme, {customText}) =>
-                TaxiActionGateController.showDriverVerificationGateDialog(
-                    context, p, theme,
-                    customText: customText),
+            onShowVerificationGate: (p, theme, {customText, onSuccess}) async {
+               final verified = await TaxiActionGateController.showDriverVerificationGateDialog(
+                   context, p, theme,
+                   customText: customText,
+                   onSuccess: onSuccess);
+               if (verified && mounted) {
+                 setState(() {
+                   _mainPhoneController.text = p.phone;
+                 });
+               }
+             },
             onShowDriverRideConfirmation: (p, theme, from, to) =>
                 showTaxiDriverRideConfirmationSheet(
               context: context,
@@ -545,7 +552,14 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                 : (provider.curLang == 'uyg'
                     ? 'Шопур сүпитидә поездқа қуруш үчүн Telegram арқылық кириш зөрүр.'
                     : 'Для создания поездок в качестве водителя необходимо выполнить вход через Telegram.'),
-          );
+          ).then((verified) {
+            if (verified && mounted) {
+              setState(() {
+                _mainPhoneController.text = provider.phone;
+              });
+              _openDriverRideSheet(provider, t);
+            }
+          });
         } else {
           _openDriverRideSheet(provider, t);
         }
