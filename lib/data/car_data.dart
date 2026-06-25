@@ -1,0 +1,60 @@
+final List<String> carBrands = [
+  'Toyota', 'Lexus', 'Mercedes-Benz', 'BMW', 'Audi', 'Hyundai', 'Kia', 'Nissan', 'Honda', 'Lada (ВАЗ)', 
+  'Mitsubishi', 'Mazda', 'Chevrolet', 'Volkswagen', 'Subaru', 'Ford', 'Renault', 'Daewoo', 'Ravon', 
+  'Geely', 'Chery', 'Haval', 'Changan', 'Exeed', 'JAC', 'Zeekr', 'Li Auto (Lixiang)', 'Voyah', 'Tank', 'BYD',
+  'Porsche', 'Land Rover', 'Volvo', 'Skoda', 'Tesla', 'Другая'
+];
+
+final Map<String, List<String>> carModels = {
+  'Toyota': ['Camry', 'Land Cruiser', 'Land Cruiser Prado', 'Corolla', 'Hilux', 'RAV4', 'Avalon', 'Carina', 'Caldina', 'Mark II', 'Altezza', 'Avensis', '4Runner', 'Previa', 'Sienna', 'Prius', 'Highlander', 'Fortuner', 'Vitz', 'Yaris'],
+  'Lexus': ['RX300', 'RX330', 'RX350', 'LX470', 'LX570', 'LX600', 'GS300', 'GS350', 'ES250', 'ES300', 'ES350', 'GX460', 'GX470', 'IS250', 'LS460', 'NX200', 'NX300'],
+  'Mercedes-Benz': ['E-class', 'S-class', 'C-class', 'G-class', 'ML', 'GLE', 'GL', 'GLS', 'A-class', 'B-class', 'CL', 'CLK', 'CLS', 'SL', 'SLK', 'Vito', 'Viano', 'Sprinter', '190 (W201)', '124 (W124)'],
+  'BMW': ['3-series', '5-series', '7-series', 'X1', 'X3', 'X4', 'X5', 'X6', 'X7', 'M3', 'M5', 'Z4'],
+  'Audi': ['100', '80', 'A3', 'A4', 'A6', 'A8', 'Q3', 'Q5', 'Q7', 'Q8', 'TT'],
+  'Hyundai': ['Accent', 'Elantra', 'Sonata', 'Tucson', 'Santa Fe', 'Creta', 'Getz', 'i30', 'i40', 'Solaris', 'H-1', 'Starex'],
+  'Kia': ['Rio', 'Sportage', 'Cerato', 'Sorento', 'Optima', 'K5', 'K7', 'Soul', 'Picanto', 'Carnival', 'Ceed', 'Mohave'],
+  'Nissan': ['Patrol', 'Qashqai', 'Juke', 'Terrano', 'X-Trail', 'Almera', 'Maxima', 'Primera', 'Skyline', 'Teana', 'Tiida', 'Murano', 'Pathfinder'],
+  'Honda': ['Civic', 'Accord', 'CR-V', 'Fit', 'HR-V', 'Odyssey', 'Pilot', 'Legend', 'Stream', 'Stepwgn'],
+  'Lada (ВАЗ)': ['2101', '2105', '2106', '2107', '2108', '2109', '21099', '2110', '2112', '2114', '2115', 'Priora', 'Granta', 'Vesta', 'Niva', 'Kalina', 'Largus'],
+  'Mitsubishi': ['Lancer', 'Galant', 'Pajero', 'Pajero Sport', 'Outlander', 'Montero', 'ASX', 'Delica', 'Carisma', 'Eclipse'],
+  'Mazda': ['Mazda3', 'Mazda6', 'CX-5', 'CX-7', 'CX-9', '323', '626', 'MPV', 'RX-8'],
+  'Chevrolet': ['Nexia', 'Cobalt', 'Lacetti', 'Aveo', 'Cruze', 'Captiva', 'Spark', 'Tahoe', 'Suburban', 'Camaro', 'Equinox', 'Malibu'],
+  'Volkswagen': ['Golf', 'Passat', 'Polo', 'Jetta', 'Tiguan', 'Touareg', 'Transporter', 'Multivan', 'Caddy', 'Bora', 'Vento', 'Sharan'],
+  'Subaru': ['Forester', 'Impreza', 'Legacy', 'Outback', 'XV', 'Tribeca'],
+  'Ford': ['Focus', 'Mondeo', 'Fiesta', 'Explorer', 'Escape', 'Transit', 'Ranger', 'F-150'],
+  'Renault': ['Logan', 'Duster', 'Sandero', 'Kaptur', 'Megan', 'Fluence', 'Scenic'],
+  'Daewoo': ['Nexia', 'Matiz', 'Gentra', 'Lacetti', 'Lanos', 'Leganza'],
+  'Ravon': ['R2', 'R3', 'R4', 'Gentra'],
+  'Geely': ['Coolray', 'Atlas', 'Monjaro', 'Tugella', 'Emgrand', 'Okavango', 'Geometry C', 'Preface'],
+  'Chery': ['Tiggo 2', 'Tiggo 4', 'Tiggo 7', 'Tiggo 8', 'Arrizo 6', 'Arrizo 8', 'Omoda C5'],
+  'Haval': ['F7', 'Jolion', 'H6', 'H9', 'Dargo', 'M6'],
+  'Changan': ['UNI-K', 'UNI-V', 'UNI-T', 'CS35 Plus', 'CS55 Plus', 'CS75 Plus', 'Alsvin', 'Hunter'],
+  'Exeed': ['LX', 'TXL', 'VX', 'RX'],
+  'JAC': ['J7', 'S3', 'S5', 'T6', 'T8', 'iEV7S'],
+  'Zeekr': ['001', '009', 'X', '007', 'Mix'],
+  'Li Auto (Lixiang)': ['L7', 'L8', 'L9', 'L6', 'One', 'Mega'],
+  'Voyah': ['Free', 'Dream', 'Passion'],
+  'Tank': ['300', '400', '500', '700'],
+  'BYD': ['Han', 'Tang', 'Song', 'Qin', 'Seal', 'Dolphin', 'Yuan', 'Seagull', 'Destroyer'],
+  'Porsche': ['Cayenne', 'Panamera', 'Macan', '911', 'Taycan'],
+  'Land Rover': ['Range Rover', 'Range Rover Sport', 'Evoque', 'Discovery', 'Defender', 'Freelander'],
+  'Volvo': ['S60', 'S80', 'S90', 'XC60', 'XC90', 'V40'],
+  'Skoda': ['Octavia', 'Superb', 'Rapid', 'Kodiaq', 'Yeti', 'Fabia'],
+  'Tesla': ['Model 3', 'Model Y', 'Model S', 'Model X', 'Cybertruck'],
+  'Другая': [],
+};
+
+final List<Map<String, dynamic>> carColors = [
+  {'name': 'Белый', 'color': 0xFFFFFFFF, 'border': 0xFFCCCCCC},
+  {'name': 'Черный', 'color': 0xFF000000, 'border': 0xFF333333},
+  {'name': 'Серый', 'color': 0xFF808080, 'border': 0xFF808080},
+  {'name': 'Серебристый', 'color': 0xFFC0C0C0, 'border': 0xFFB0B0B0},
+  {'name': 'Синий', 'color': 0xFF0044FF, 'border': 0xFF0044FF},
+  {'name': 'Красный', 'color': 0xFFFF0000, 'border': 0xFFFF0000},
+  {'name': 'Зеленый', 'color': 0xFF008000, 'border': 0xFF008000},
+  {'name': 'Желтый', 'color': 0xFFFFCC00, 'border': 0xFFFFCC00},
+  {'name': 'Коричневый', 'color': 0xFF8B4513, 'border': 0xFF8B4513},
+  {'name': 'Золотистый', 'color': 0xFFFFD700, 'border': 0xFFFFD700},
+];
+
+final List<int> carYears = List.generate(2026 - 1980 + 1, (index) => 2026 - index);

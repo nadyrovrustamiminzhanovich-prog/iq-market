@@ -10,7 +10,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:iqmarket/providers/taxi_provider.dart';
 
-/// Главная кнопка "Создать поездку 🚗" для водителей.
+/// Главная кнопка "Создать поездку" для водителей.
 /// Делегирует логику обработки нажатия (проверки, верификацию, диалоги) 
 /// через [onTap].
 class TaxiCreateRideButton extends StatelessWidget {
@@ -24,21 +24,22 @@ class TaxiCreateRideButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<TaxiProvider>(context);
+    final t = provider.theme;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF4A80F0), Color(0xFF4A80F0)],
+          gradient: LinearGradient(
+            colors: [t.accent, t.accent.withValues(alpha: 0.85)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF4A80F0).withValues(alpha: 0.3),
+              color: t.accent.withValues(alpha: 0.25),
               blurRadius: 15,
               offset: const Offset(0, 6),
             ),
@@ -61,6 +62,8 @@ class TaxiCreateRideButton extends StatelessWidget {
                 children: [
                   Text(
                     provider.translate('create_ride_btn'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.inter(
                       color: Colors.white,
                       fontWeight: FontWeight.w900,
@@ -70,6 +73,8 @@ class TaxiCreateRideButton extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     provider.translate('create_ride_desc'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.inter(
                       color: Colors.white.withValues(alpha: 0.85),
                       fontSize: 11,
@@ -79,6 +84,7 @@ class TaxiCreateRideButton extends StatelessWidget {
                 ],
               ),
             ),
+            const SizedBox(width: 8),
             Icon(Icons.arrow_forward_ios_rounded, color: Colors.white.withValues(alpha: 0.7), size: 16),
           ],
         ),

@@ -24,7 +24,12 @@ import 'package:url_launcher/url_launcher.dart';
 
 class LoginScreen extends StatefulWidget {
   final String lang;
-  const LoginScreen({super.key, this.lang = 'Русский'});
+  final bool autoStartTelegramLogin;
+  const LoginScreen({
+    super.key,
+    this.lang = 'Русский',
+    this.autoStartTelegramLogin = false,
+  });
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -59,6 +64,11 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _tosRecognizer = TapGestureRecognizer()..onTap = () => _showLegalText(_t('tos_title'));
     _privacyRecognizer = TapGestureRecognizer()..onTap = () => _showLegalText(_t('privacy_title'));
+    if (widget.autoStartTelegramLogin) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _handleTelegramLogin();
+      });
+    }
   }
 
   // ===================== TRANSLATIONS =====================

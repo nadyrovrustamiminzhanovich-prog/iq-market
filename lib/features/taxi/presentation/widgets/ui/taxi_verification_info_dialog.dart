@@ -4,7 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:iqmarket/providers/taxi_provider.dart';
 import 'package:iqmarket/theme/taxi_theme.dart';
-import 'package:iqmarket/screens/taxi/driver_verification_screen.dart';
+import 'package:iqmarket/screens/login_screen.dart';
+import 'package:iqmarket/services/auth_service.dart';
 
 /// Боттомшит «Получите статус проверенного ✅».
 ///
@@ -120,7 +121,7 @@ void showTaxiVerificationInfoDialog(
                 ),
               ),
               const SizedBox(width: 12),
-              // Пройти верификацию
+              // Пройти верификацию / Войти через Telegram
               Expanded(
                 child: Container(
                   decoration: BoxDecoration(
@@ -133,13 +134,23 @@ void showTaxiVerificationInfoDialog(
                         BorderRadius.circular(TaxiTheme.radiusButton),
                   ),
                   child: ElevatedButton(
-                    onPressed: () {
+                    onPressed: () async {
                       Navigator.pop(ctx);
                       HapticFeedback.selectionClick();
+                      
+                      String langName = 'Русский';
+                      if (provider.curLang == 'kz') langName = 'Қазақша';
+                      else if (provider.curLang == 'uyg') langName = 'Уйғурчә';
+
+                      await AuthService.signOut();
+                      provider.setLoginStatus(false);
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => const DriverVerificationScreen(),
+                          builder: (_) => LoginScreen(
+                            lang: langName,
+                            autoStartTelegramLogin: true,
+                          ),
                         ),
                       );
                     },
@@ -153,11 +164,13 @@ void showTaxiVerificationInfoDialog(
                       ),
                     ),
                     child: Text(
-                      provider.translate('pass_verification'),
+                      provider.curLang == 'kz' 
+                          ? 'Telegram арқылы кіру' 
+                          : (provider.curLang == 'uyg' ? 'Telegram арқылық кириш' : 'Войти через Telegram'),
                       style: GoogleFonts.inter(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
-                        fontSize: 13.5,
+                        fontSize: 13.0,
                       ),
                     ),
                   ),

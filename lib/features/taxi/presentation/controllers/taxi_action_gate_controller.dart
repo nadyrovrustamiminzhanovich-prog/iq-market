@@ -4,7 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:iqmarket/providers/taxi_provider.dart';
 import 'package:iqmarket/theme/taxi_theme.dart';
-import 'package:iqmarket/screens/taxi/driver_verification_screen.dart';
+import 'package:iqmarket/screens/login_screen.dart';
+import 'package:iqmarket/services/auth_service.dart';
 
 /// Контроллер-делегат для проверки права водителя принимать заказ.
 ///
@@ -114,6 +115,27 @@ class TaxiActionGateController {
     TaxiTheme t, {
     String? customText,
   }) {
+    String langName = 'Русский';
+    if (provider.curLang == 'kz') langName = 'Қазақша';
+    else if (provider.curLang == 'uyg') langName = 'Уйғурчә';
+
+    String titleText = 'ВХОД ЧЕРЕЗ TELEGRAM';
+    String contentText = customText ?? 'Для получения доступа к поездкам и заказам водителя необходимо выполнить вход через Telegram. Желаете войти через Telegram сейчас?';
+    String confirmText = 'ВОЙТИ';
+    String cancelText = 'ОТМЕНА';
+
+    if (provider.curLang == 'kz') {
+      titleText = 'TELEGRAM АРҚЫЛЫ КІРУ';
+      contentText = 'Жүргізуші функцияларына қол жеткізу үшін Telegram арқылы жүйеге кіру қажет. Қазір кіргіңіз келе ме?';
+      confirmText = 'КІРУ';
+      cancelText = 'БАС ТАРТУ';
+    } else if (provider.curLang == 'uyg') {
+      titleText = 'TELEGRAM АРҚЫЛЫҚ КИРИШ';
+      contentText = 'Шопур функциялириға еришиш үчүн Telegram арқылық кириш зөрүр. Ҳазир кирмәкчимусыз?';
+      confirmText = 'КИРИШ';
+      cancelText = 'ЯҚ';
+    }
+
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
@@ -121,30 +143,35 @@ class TaxiActionGateController {
         shape:
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
         title: Text(
-          'ВЕРИФИКАЦИЯ ВОДИТЕЛЯ',
+          titleText,
           style: GoogleFonts.inter(fontWeight: FontWeight.w900),
         ),
         content: Text(
-          customText ??
-              'Для совершения этого действия необходимо пройти верификацию '
-                  'вашего автомобиля в профиле водителя.',
+          contentText,
           style: GoogleFonts.inter(),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('ОТМЕНА',
+            child: Text(cancelText,
                 style: GoogleFonts.inter(color: t.sub)),
           ),
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(context);
+              await AuthService.signOut();
+              provider.setLoginStatus(false);
               Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const DriverVerificationScreen()));
+                context,
+                MaterialPageRoute(
+                  builder: (context) => LoginScreen(
+                    lang: langName,
+                    autoStartTelegramLogin: true,
+                  ),
+                ),
+              );
             },
-            child: Text('ПРОЙТИ',
+            child: Text(confirmText,
                 style: GoogleFonts.inter(
                     color: t.accent, fontWeight: FontWeight.bold)),
           ),

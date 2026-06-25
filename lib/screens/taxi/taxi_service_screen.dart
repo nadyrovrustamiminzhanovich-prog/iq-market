@@ -535,25 +535,17 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
           _navigateToLogin(provider, 'auth_taxi_create_prompt');
           return;
         }
-        // ✅ ISSUE-07 FIX: Use the single authoritative getter
-        final isTelegramUser = provider.isFullyTelegramVerified;
-        final hasPhone = isTelegramUser || provider.phone.isNotEmpty;
-        if (!hasPhone) {
-          showTaxiPhoneBindingSheet(context, provider, t, () {
-            if (!provider.isVehicleVerified) {
-              TaxiActionGateController.showDriverVerificationGateDialog(
-                  context, provider, t,
-                  customText:
-                      'Для создания поездок необходимо пройти верификацию автомобиля в профиле водителя.');
-            } else {
-              _openDriverRideSheet(provider, t);
-            }
-          });
-        } else if (!provider.isVehicleVerified) {
+        if (!provider.isFullyTelegramVerified) {
           TaxiActionGateController.showDriverVerificationGateDialog(
-              context, provider, t,
-              customText:
-                  'Для создания поездок необходимо пройти верификацию автомобиля в профиле водителя.');
+            context,
+            provider,
+            t,
+            customText: provider.curLang == 'kz'
+                ? 'Жүргізуші ретінде поездқа құру үшін Telegram арқылы жүйеге кіру қажет.'
+                : (provider.curLang == 'uyg'
+                    ? 'Шопур сүпитидә поездқа қуруш үчүн Telegram арқылық кириш зөрүр.'
+                    : 'Для создания поездок в качестве водителя необходимо выполнить вход через Telegram.'),
+          );
         } else {
           _openDriverRideSheet(provider, t);
         }

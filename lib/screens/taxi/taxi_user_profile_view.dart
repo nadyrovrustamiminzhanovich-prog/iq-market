@@ -8,9 +8,10 @@ import 'package:iqmarket/theme/taxi_theme.dart';
 import 'package:iqmarket/screens/chat_screen.dart';
 import 'package:iqmarket/models/ad_model.dart';
 import 'package:iqmarket/models/review_model.dart';
-import 'package:iqmarket/screens/taxi/driver_verification_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:iqmarket/providers/taxi_provider.dart';
+import 'package:iqmarket/screens/login_screen.dart';
+import 'package:iqmarket/services/auth_service.dart';
 
 
 class TaxiProfileViewScreen extends StatefulWidget {
@@ -988,23 +989,54 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
       builder: (_) => AlertDialog(
         backgroundColor: t.bg,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
-        title: Text(provider.translate('action_blocked_title'), style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: t.text)),
+        title: Text(
+          provider.curLang == 'kz' 
+              ? 'Телеграм арқылы кіру' 
+              : (provider.curLang == 'uyg' ? 'Телеграм арқылық кириш' : 'Вход через Telegram'), 
+          style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: t.text),
+        ),
         content: Text(
-          provider.translate('action_blocked_desc'), 
-          style: GoogleFonts.inter(color: t.sub)
+          provider.curLang == 'kz'
+              ? 'Бұл әрекетті орындау үшін Telegram арқылы жүйеге кіру қажет. Қазір кіргіңіз келе ме?'
+              : (provider.curLang == 'uyg' 
+                  ? 'Бу амални орунлаш үчүн Telegram арқылық кириш зөрүр. Ҳазир кирмәкчимусыз?'
+                  : 'Для выполнения этого действия необходимо войти в аккаунт через Telegram. Желаете войти через Telegram сейчас?'),
+          style: GoogleFonts.inter(color: t.sub),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text(provider.translate('close'), style: GoogleFonts.inter(color: t.sub, fontWeight: FontWeight.bold)),
+            child: Text(
+              provider.curLang == 'kz' ? 'Жабу' : (provider.curLang == 'uyg' ? 'Йепиш' : 'Закрыть'), 
+              style: GoogleFonts.inter(color: t.sub, fontWeight: FontWeight.bold),
+            ),
           ),
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(context);
               Navigator.pop(context);
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const DriverVerificationScreen()));
+
+              String langName = 'Русский';
+              if (provider.curLang == 'kz') langName = 'Қазақша';
+              else if (provider.curLang == 'uyg') langName = 'Уйғурчә';
+
+              await AuthService.signOut();
+              provider.setLoginStatus(false);
+
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => LoginScreen(
+                    lang: langName,
+                    autoStartTelegramLogin: true,
+                  ),
+                ),
+              );
             },
-            child: Text(provider.translate('pass_verification'), style: GoogleFonts.inter(color: t.accent, fontWeight: FontWeight.bold)),
+            child: Text(
+              provider.curLang == 'kz' ? 'Кіру' : (provider.curLang == 'uyg' ? 'Кириш' : 'Войти'), 
+              style: GoogleFonts.inter(color: t.accent, fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),

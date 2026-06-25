@@ -150,15 +150,15 @@ class TaxiPassengerView extends StatelessWidget {
               margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF4A80F0), Color(0xFF6366F1)],
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
+                gradient: LinearGradient(
+                  colors: [t.accent, t.accent.withValues(alpha: 0.85)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
                 borderRadius: BorderRadius.circular(18),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF4A80F0).withValues(alpha: 0.3),
+                    color: t.accent.withValues(alpha: 0.25),
                     blurRadius: 12,
                     offset: const Offset(0, 4),
                   ),

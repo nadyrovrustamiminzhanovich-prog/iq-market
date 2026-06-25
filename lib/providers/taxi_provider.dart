@@ -90,7 +90,7 @@ class TaxiProvider extends ChangeNotifier {
   String get comment => _comment;
   String get driverCar => _driverCar;
   String get driverPlate => _driverPlate;
-  bool get isVehicleVerified => _isVehicleVerified || _sync.verificationStatus == 'approved' || _sync.verificationStatus == 'approved_by_ai';
+  bool get isVehicleVerified => isFullyTelegramVerified || _isVehicleVerified || _sync.verificationStatus == 'approved' || _sync.verificationStatus == 'approved_by_ai';
   File? get techPassportPhoto => _techPassportPhoto;
   bool get isDriverOnline => _isDriverOnline;
   String get verificationStatus => _verificationStatus;
