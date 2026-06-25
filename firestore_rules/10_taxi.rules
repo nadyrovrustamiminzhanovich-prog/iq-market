@@ -9,7 +9,7 @@
         && request.resource.data.status == 'active';
       allow update: if isSignedIn() && (
         request.auth.uid == resource.data.driverId ||
-        request.auth.uid == resource.data.passengerId ||
+        ('passengerId' in resource.data && request.auth.uid == resource.data.passengerId) ||
         isAdmin()
       ) && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['driverId']));
       allow delete: if isSignedIn() && (
@@ -28,7 +28,7 @@
         && request.resource.data.status == 'active';
       allow update: if isSignedIn() && (
         request.auth.uid == resource.data.passengerId ||
-        request.auth.uid == resource.data.driverId ||
+        ('driverId' in resource.data && request.auth.uid == resource.data.driverId) ||
         isAdmin()
       ) && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['passengerId']));
       allow delete: if isSignedIn() && (
@@ -43,10 +43,7 @@
         && request.resource.data.offeredPrice is number
         && request.resource.data.offeredPrice >= 0
         && request.resource.data.status in ['pending', 'accepted', 'rejected'];
-      allow read: if isSignedIn() && (
-        request.auth.uid == resource.data.senderId || 
-        request.auth.uid == resource.data.receiverId
-      );
+      allow read: if isSignedIn();
       allow update: if isSignedIn() && (
         request.auth.uid == resource.data.senderId || 
         request.auth.uid == resource.data.receiverId

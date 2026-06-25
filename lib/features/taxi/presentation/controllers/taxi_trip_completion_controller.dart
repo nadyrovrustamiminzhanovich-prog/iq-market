@@ -218,23 +218,34 @@ class TaxiTripCompletionController {
               ),
               const SizedBox(height: 10),
 
-              // ❌ Нет, не поехали
               ElevatedButton(
                 onPressed: () async {
                   Navigator.pop(ctx);
                   HapticFeedback.mediumImpact();
-                  if (isOrder) {
-                    await provider.cancelOrder(docId);
-                  } else {
-                    await provider.cancelRide(docId);
-                  }
-                  if (context.mounted) {
-                    NotificationService.notify(
-                      context,
-                      'Поездка отменена',
-                      'Связь успешно сброшена.',
-                      isSuccess: false,
-                    );
+                  try {
+                    if (isOrder) {
+                      await provider.cancelOrder(docId);
+                    } else {
+                      await provider.cancelRide(docId);
+                    }
+                    if (context.mounted) {
+                      NotificationService.notify(
+                        context,
+                        'Поездка отменена',
+                        'Связь успешно сброшена.',
+                        isSuccess: false,
+                      );
+                    }
+                  } catch (e) {
+                    debugPrint('[TAXI] Error completing cancel: $e');
+                    if (context.mounted) {
+                      NotificationService.notify(
+                        context,
+                        'Ошибка',
+                        'Не удалось сбросить поездку: $e',
+                        isSuccess: false,
+                      );
+                    }
                   }
                 },
                 style: ElevatedButton.styleFrom(

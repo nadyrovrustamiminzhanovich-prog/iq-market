@@ -13,6 +13,7 @@ import 'package:iqmarket/services/gemini_service.dart';
 import 'package:iqmarket/services/user_service.dart';
 import 'package:iqmarket/services/network_service.dart';
 import 'package:iqmarket/services/telegram_bot_service.dart';
+import 'package:iqmarket/utils/fuzzy_matcher.dart';
 class AdService {
   static final FirebaseFirestore _db = FirebaseFirestore.instance;
   static final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -303,8 +304,7 @@ class AdService {
       // Клиентские фильтры, которые пока не поддерживаются составным индексом
       if (searchQuery != null && searchQuery.isNotEmpty) {
         ads = ads.where((ad) => 
-          ad.title.toLowerCase().contains(searchQuery.toLowerCase()) || 
-          ad.description.toLowerCase().contains(searchQuery.toLowerCase())
+          FuzzyMatcher.isMatch(searchQuery, '${ad.title} ${ad.description}')
         ).toList();
       }
 
@@ -628,8 +628,7 @@ class AdService {
         
     return snapshot.docs
         .map((doc) => AdModel.fromMap(doc.data() as Map<String, dynamic>, doc.id))
-        .where((ad) => ad.title.toLowerCase().contains(query.toLowerCase()) || 
-                       ad.description.toLowerCase().contains(query.toLowerCase()))
+        .where((ad) => FuzzyMatcher.isMatch(query, '${ad.title} ${ad.description}'))
         .toList();
   }
 

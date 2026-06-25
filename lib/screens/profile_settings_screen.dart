@@ -17,6 +17,7 @@ import 'package:iqmarket/services/translation_service.dart';
 import 'package:iqmarket/services/auth_service.dart';
 import 'package:iqmarket/services/user_service.dart';
 import 'package:iqmarket/services/file_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ProfileSettingsScreen extends StatefulWidget {
   final String currentName;
@@ -100,6 +101,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     }
     
     _loadFirestoreUserData();
+    _checkLostData();
   }
 
   Future<void> _loadFirestoreUserData() async {
@@ -141,6 +143,24 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
       } catch (e) {
         debugPrint('Error loading user data from Firestore: $e');
       }
+    }
+  }
+
+  Future<void> _checkLostData() async {
+    try {
+      final response = await _picker.retrieveLostData();
+      if (response.isEmpty || response.file == null) return;
+      
+      final prefs = await SharedPreferences.getInstance();
+      final target = prefs.getString('lost_picker_profile');
+      if (target == 'avatar' && response.file != null) {
+        setState(() {
+          _newImage = File(response.file!.path);
+        });
+        await prefs.remove('lost_picker_profile');
+      }
+    } catch (e) {
+      debugPrint('Error retrieving lost profile image data: $e');
     }
   }
 
@@ -634,6 +654,8 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
               onTap: () async {
                 Navigator.pop(context);
                 try {
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setString('lost_picker_profile', 'avatar');
                   final pickedFile = await _picker.pickImage(source: ImageSource.camera, imageQuality: 70);
                   if (pickedFile != null && mounted) {
                     setState(() => _newImage = File(pickedFile.path));
@@ -658,6 +680,8 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
               onTap: () async {
                 Navigator.pop(context);
                 try {
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setString('lost_picker_profile', 'avatar');
                   final pickedFile = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
                   if (pickedFile != null && mounted) {
                     setState(() => _newImage = File(pickedFile.path));
@@ -1672,7 +1696,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                       if (selectedParent != null && searchCity.isEmpty) const SizedBox(width: 15),
                       Text(
                         searchCity.isNotEmpty ? _t('search_results') : (selectedParent ?? _t('select_location_title')), 
-                        style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w900, color: _txtColor)
+                        style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w700, color: _txtColor)
                       ),
                     ],
                   ),
@@ -1682,10 +1706,10 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: TextField(
                     onChanged: (v) => setModalState(() => searchCity = v),
-                    style: GoogleFonts.inter(color: _txtColor, fontWeight: FontWeight.w800),
+                    style: GoogleFonts.inter(color: _txtColor, fontWeight: FontWeight.w500),
                     decoration: InputDecoration(
                       hintText: _t('search_city_hint'),
-                      hintStyle: GoogleFonts.inter(color: _subtxtColor.withValues(alpha: 0.6), fontWeight: FontWeight.w600),
+                      hintStyle: GoogleFonts.inter(color: _subtxtColor.withValues(alpha: 0.6), fontWeight: FontWeight.w500),
                       prefixIcon: Icon(Icons.search_rounded, color: _primaryColor),
                       filled: true,
                       fillColor: _subtxtColor.withValues(alpha: 0.05),
@@ -1706,7 +1730,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
 
                       return ListTile(
                         leading: Icon(isParent ? Icons.location_city_rounded : Icons.location_on_rounded, color: _subtxtColor.withValues(alpha: 0.6)),
-                        title: Text(item == 'Все' ? _t('all_cities') : item, style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 15, color: _txtColor)),
+                        title: Text(item == 'Все' ? _t('all_cities') : item, style: GoogleFonts.inter(fontWeight: FontWeight.w500, fontSize: 15, color: _txtColor)),
                         trailing: Icon(isParent ? Icons.arrow_forward_ios_rounded : Icons.check_circle_outline_rounded, size: 14, color: isParent ? _subtxtColor.withValues(alpha: 0.4) : const Color(0xFF10B981)),
                         onTap: () { 
                           if (isParent) {

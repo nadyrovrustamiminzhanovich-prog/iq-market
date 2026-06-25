@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
+import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -190,6 +192,7 @@ class _ChatScreenState extends State<ChatScreen> {
       if (msgId == null) {
         throw Exception('Сообщение не сохранено в БД');
       }
+      _playSentSound();
     } catch (e) {
       if (mounted) {
         _msgController.text = backupText;
@@ -220,7 +223,14 @@ class _ChatScreenState extends State<ChatScreen> {
     HapticFeedback.mediumImpact();
     final dir = await getTemporaryDirectory();
     final path = '${dir.path}/voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
-    await _recorder.start(const RecordConfig(encoder: AudioEncoder.aacLc), path: path);
+    await _recorder.start(
+      const RecordConfig(
+        encoder: AudioEncoder.aacLc,
+        sampleRate: 44100,
+        numChannels: 1,
+      ),
+      path: path,
+    );
     if (mounted) {
       setState(() { _isRecording = true; _recordSeconds = 0; _isCancelled = false; });
     }
@@ -239,17 +249,18 @@ class _ChatScreenState extends State<ChatScreen> {
     if (path != null) {
       final msgId = await ChatService.sendMessage(ad: widget.ad, text: 'Голосовое сообщение', type: 'audio', duration: _recordSeconds, senderName: _currentUserName);
       if (msgId != null) {
+        _playSentSound();
         _localAudioPaths[msgId] = path;
         final chatId = ChatService.getChatId(widget.ad.userId);
         final task = FileService.uploadFileWithTask(File(path), 'voice_messages/$chatId');
-        if (mounted) setState(() => _activeUploads[msgId] = task);
+        if (mounted) setState(() { _activeUploads[msgId] = task; });
         task.then((snapshot) async {
           final url = await snapshot.ref.getDownloadURL();
           ChatService.updateMessage(widget.ad.userId, msgId, {'mediaUrl': url});
-          if (mounted) setState(() => _activeUploads.remove(msgId));
+          if (mounted) setState(() { _activeUploads.remove(msgId); });
         }).catchError((e) {
           if (mounted) {
-            setState(() => _activeUploads.remove(msgId));
+            setState(() { _activeUploads.remove(msgId); });
             // P8 FIX: inform user that voice upload failed so they can retry
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -287,6 +298,126 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  void _playTapSound() async {
+    try {
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/tap.wav');
+      if (!await file.exists()) {
+        final sampleRate = 22050;
+        final durationMs = 80;
+        final totalSamples = (sampleRate * durationMs / 1000).toInt();
+        final bytesPerSample = 2; 
+        final subChunk2Size = totalSamples * bytesPerSample;
+        final chunkSize = 36 + subChunk2Size;
+
+        final header = ByteData(44);
+        header.setUint8(0, 0x52); header.setUint8(1, 0x49); header.setUint8(2, 0x46); header.setUint8(3, 0x46);
+        header.setUint32(4, chunkSize, Endian.little);
+        header.setUint8(8, 0x57); header.setUint8(9, 0x41); header.setUint8(10, 0x56); header.setUint8(11, 0x45);
+        header.setUint8(12, 0x66); header.setUint8(13, 0x6d); header.setUint8(14, 0x74); header.setUint8(15, 0x20);
+        header.setUint32(16, 16, Endian.little);
+        header.setUint16(20, 1, Endian.little);
+        header.setUint16(22, 1, Endian.little);
+        header.setUint32(24, sampleRate, Endian.little);
+        header.setUint32(28, sampleRate * bytesPerSample, Endian.little);
+        header.setUint16(32, bytesPerSample, Endian.little);
+        header.setUint16(34, 16, Endian.little);
+        header.setUint8(36, 0x64); header.setUint8(37, 0x61); header.setUint8(38, 0x74); header.setUint8(39, 0x61);
+        header.setUint32(40, subChunk2Size, Endian.little);
+
+        final data = Int16List(totalSamples);
+        final frequency = 880.0;
+        for (int i = 0; i < totalSamples; i++) {
+          final t = i / sampleRate;
+          final envelope = (totalSamples - i) / totalSamples;
+          data[i] = (math.sin(2 * math.pi * frequency * t) * 32767 * 0.3 * envelope).toInt();
+        }
+
+        final buffer = BytesBuilder();
+        buffer.add(header.buffer.asUint8List());
+        buffer.add(data.buffer.asUint8List());
+        await file.writeAsBytes(buffer.toBytes());
+      }
+      
+      final tapPlayer = AudioPlayer();
+      await tapPlayer.setAudioContext(AudioContext(
+        android: AudioContextAndroid(
+          isSpeakerphoneOn: true,
+          stayAwake: false,
+          contentType: AndroidContentType.sonification,
+          usageType: AndroidUsageType.assistanceSonification,
+        ),
+        iOS: AudioContextIOS(
+          category: AVAudioSessionCategory.playback,
+        ),
+      ));
+      await tapPlayer.play(DeviceFileSource(file.path));
+      Future.delayed(const Duration(milliseconds: 500), () => tapPlayer.dispose());
+    } catch (e) {
+      debugPrint('Error playing tap sound: $e');
+    }
+  }
+
+  void _playSentSound() async {
+    try {
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/sent.wav');
+      if (!await file.exists()) {
+        final sampleRate = 22050;
+        final durationMs = 80;
+        final totalSamples = (sampleRate * durationMs / 1000).toInt();
+        final bytesPerSample = 2; 
+        final subChunk2Size = totalSamples * bytesPerSample;
+        final chunkSize = 36 + subChunk2Size;
+
+        final header = ByteData(44);
+        header.setUint8(0, 0x52); header.setUint8(1, 0x49); header.setUint8(2, 0x46); header.setUint8(3, 0x46);
+        header.setUint32(4, chunkSize, Endian.little);
+        header.setUint8(8, 0x57); header.setUint8(9, 0x41); header.setUint8(10, 0x56); header.setUint8(11, 0x45);
+        header.setUint8(12, 0x66); header.setUint8(13, 0x6d); header.setUint8(14, 0x74); header.setUint8(15, 0x20);
+        header.setUint32(16, 16, Endian.little);
+        header.setUint16(20, 1, Endian.little);
+        header.setUint16(22, 1, Endian.little);
+        header.setUint32(24, sampleRate, Endian.little);
+        header.setUint32(28, sampleRate * bytesPerSample, Endian.little);
+        header.setUint16(32, bytesPerSample, Endian.little);
+        header.setUint16(34, 16, Endian.little);
+        header.setUint8(36, 0x64); header.setUint8(37, 0x61); header.setUint8(38, 0x74); header.setUint8(39, 0x61);
+        header.setUint32(40, subChunk2Size, Endian.little);
+
+        final data = Int16List(totalSamples);
+        final frequency = 1200.0;
+        for (int i = 0; i < totalSamples; i++) {
+          final t = i / sampleRate;
+          final envelope = math.pow((totalSamples - i) / totalSamples, 2); 
+          data[i] = (math.sin(2 * math.pi * frequency * t) * 32767 * 0.25 * envelope).toInt();
+        }
+
+        final buffer = BytesBuilder();
+        buffer.add(header.buffer.asUint8List());
+        buffer.add(data.buffer.asUint8List());
+        await file.writeAsBytes(buffer.toBytes());
+      }
+      
+      final sentPlayer = AudioPlayer();
+      await sentPlayer.setAudioContext(AudioContext(
+        android: AudioContextAndroid(
+          isSpeakerphoneOn: true,
+          stayAwake: false,
+          contentType: AndroidContentType.sonification,
+          usageType: AndroidUsageType.assistanceSonification,
+        ),
+        iOS: AudioContextIOS(
+          category: AVAudioSessionCategory.playback,
+        ),
+      ));
+      await sentPlayer.play(DeviceFileSource(file.path));
+      Future.delayed(const Duration(milliseconds: 500), () => sentPlayer.dispose());
+    } catch (e) {
+      debugPrint('Error playing sent sound: $e');
+    }
+  }
+
   void _playVoice(String id, String url) async {
     try {
       debugPrint('Playing voice: id=$id, url=$url');
@@ -294,8 +425,30 @@ class _ChatScreenState extends State<ChatScreen> {
         await _audioPlayer.pause();
         if (mounted) setState(() => _currentPlayingId = null);
       } else {
+        _playTapSound();
         await _audioPlayer.stop();
         
+        // 🔒 Reset audio context before playing to force speakerphone output and set max volume.
+        // This is crucial because starting a recording session switches the global audio session
+        // to a communication mode, making all playback route through the earpiece.
+        await _audioPlayer.setAudioContext(AudioContext(
+          android: AudioContextAndroid(
+            isSpeakerphoneOn: true,
+            stayAwake: true,
+            contentType: AndroidContentType.music,
+            usageType: AndroidUsageType.media,
+            audioFocus: AndroidAudioFocus.gain,
+          ),
+          iOS: AudioContextIOS(
+            category: AVAudioSessionCategory.playAndRecord,
+            options: {
+              AVAudioSessionOptions.defaultToSpeaker,
+              AVAudioSessionOptions.mixWithOthers,
+            },
+          ),
+        ));
+        await _audioPlayer.setVolume(1.0);
+
         // 🔒 Optimization: Use local file if available to speed up playback and save bandwidth
         final localPath = _localAudioPaths[id];
         bool playLocal = false;
@@ -336,7 +489,19 @@ class _ChatScreenState extends State<ChatScreen> {
   void _pickMedia(ImageSource source) async {
     if (Provider.of<AppConfigProvider>(context, listen: false).isUserBlocked(widget.ad.userId)) return;
     final picker = ImagePicker();
-    final file = await picker.pickImage(source: source, imageQuality: 70);
+    XFile? file;
+    try {
+      file = await picker.pickImage(source: source, imageQuality: 70);
+    } catch (e) {
+      debugPrint("Error picking chat image: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Не удалось открыть галерею/камеру: $e'), backgroundColor: Colors.redAccent, behavior: SnackBarBehavior.floating),
+        );
+      }
+      return;
+    }
+    
     if (file != null) {
       try {
         final chatId = ChatService.getChatId(widget.ad.userId);

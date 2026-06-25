@@ -461,13 +461,13 @@ class _ProductCardState extends State<ProductCard> with SingleTickerProviderStat
     
     Widget img;
     if (url.startsWith('/') || url.startsWith('file')) {
-      img = Image.file(File(url), fit: BoxFit.contain);
+      img = Image.file(File(url), fit: BoxFit.cover);
     } else if (!url.startsWith('http')) {
       return _noImage();
     } else {
       img = CachedNetworkImage(
         imageUrl: url, 
-        fit: BoxFit.contain, 
+        fit: BoxFit.cover, 
         memCacheWidth: 400, // Оптимизация памяти (не грузим оригинал в RAM)
         maxWidthDiskCache: 800, // Оптимизация диска
         placeholder: (context, url) => Container(color: const Color(0xFFF1F5F9)), 
@@ -477,7 +477,9 @@ class _ProductCardState extends State<ProductCard> with SingleTickerProviderStat
 
     return Container(
       color: const Color(0xFFF1F5F9), // Light grey background to blend nicely
-      child: Center(child: img),
+      width: double.infinity,
+      height: double.infinity,
+      child: img,
     );
   }
 

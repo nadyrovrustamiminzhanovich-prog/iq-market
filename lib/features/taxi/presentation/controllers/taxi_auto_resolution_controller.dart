@@ -163,18 +163,24 @@ class TaxiAutoResolutionController {
               ),
               const SizedBox(height: 10),
               
-              // No, we didn't go!
               ElevatedButton(
                 onPressed: () async {
                   Navigator.pop(ctx);
                   HapticFeedback.mediumImpact();
-                  if (isOrder) {
-                    await provider.cancelOrder(docId);
-                  } else {
-                    await provider.cancelRide(docId);
-                  }
-                  if (context.mounted) {
-                    NotificationService.notify(context, 'Поездка отменена', 'Связь успешно сброшена.', isSuccess: false);
+                  try {
+                    if (isOrder) {
+                      await provider.cancelOrder(docId);
+                    } else {
+                      await provider.cancelRide(docId);
+                    }
+                    if (context.mounted) {
+                      NotificationService.notify(context, 'Поездка отменена', 'Связь успешно сброшена.', isSuccess: false);
+                    }
+                  } catch (e) {
+                    debugPrint('[TAXI] Error resolving trip rejection: $e');
+                    if (context.mounted) {
+                      NotificationService.notify(context, 'Ошибка', 'Не удалось сбросить поездку: $e', isSuccess: false);
+                    }
                   }
                 },
                 style: ElevatedButton.styleFrom(

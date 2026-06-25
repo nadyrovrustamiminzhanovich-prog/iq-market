@@ -316,17 +316,21 @@ class TaxiRepository {
       });
     });
 
+    // Извлекаем все активные ставки (как ожидающие, так и уже принятые),
+    // чтобы при отмене заказа освободить всех водителей.
     final bids = await db
         .collection('taxi_bids')
         .where('targetId', isEqualTo: orderId)
-        .where('status', isEqualTo: 'pending')
+        .where('status', whereIn: ['pending', 'accepted'])
         .get();
         
-    final batch = db.batch();
-    for (var doc in bids.docs) {
-      batch.update(doc.reference, {'status': 'rejected'});
+    if (bids.docs.isNotEmpty) {
+      final batch = db.batch();
+      for (var doc in bids.docs) {
+        batch.update(doc.reference, {'status': 'rejected'});
+      }
+      await batch.commit();
     }
-    await batch.commit();
   }
 
   Future<void> updateOrderPrice(String orderId, int newPrice) async {

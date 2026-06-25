@@ -93,7 +93,7 @@ class TaxiDriverRideRouteSelector extends StatelessWidget {
                                 provider.translate('from_hint'),
                                 style: GoogleFonts.inter(
                                   fontSize: 16,
-                                  fontWeight: FontWeight.w600,
+                                  fontWeight: FontWeight.w500,
                                   color: sFromError
                                       ? const Color(0xFFE11D48)
                                       : const Color(0xFF94A3B8),
@@ -110,7 +110,7 @@ class TaxiDriverRideRouteSelector extends StatelessWidget {
                                       color: sFromError
                                           ? const Color(0xFFE11D48)
                                           : const Color(0xFF94A3B8),
-                                      fontWeight: FontWeight.w800,
+                                      fontWeight: FontWeight.w700,
                                     ),
                                   ),
                                   const SizedBox(height: 2),
@@ -118,7 +118,7 @@ class TaxiDriverRideRouteSelector extends StatelessWidget {
                                     localFrom,
                                     style: GoogleFonts.inter(
                                       color: t.text,
-                                      fontWeight: FontWeight.w800,
+                                      fontWeight: FontWeight.w600,
                                       fontSize: 16.5,
                                       letterSpacing: -0.4,
                                     ),
@@ -167,7 +167,7 @@ class TaxiDriverRideRouteSelector extends StatelessWidget {
                                 provider.translate('to_hint'),
                                 style: GoogleFonts.inter(
                                   fontSize: 16,
-                                  fontWeight: FontWeight.w600,
+                                  fontWeight: FontWeight.w500,
                                   color: sToError
                                       ? const Color(0xFFE11D48)
                                       : const Color(0xFF94A3B8),
@@ -184,7 +184,7 @@ class TaxiDriverRideRouteSelector extends StatelessWidget {
                                       color: sToError
                                           ? const Color(0xFFE11D48)
                                           : const Color(0xFF94A3B8),
-                                      fontWeight: FontWeight.w800,
+                                      fontWeight: FontWeight.w700,
                                     ),
                                   ),
                                   const SizedBox(height: 2),
@@ -192,7 +192,7 @@ class TaxiDriverRideRouteSelector extends StatelessWidget {
                                     localTo,
                                     style: GoogleFonts.inter(
                                       color: t.text,
-                                      fontWeight: FontWeight.w800,
+                                      fontWeight: FontWeight.w600,
                                       fontSize: 16.5,
                                       letterSpacing: -0.4,
                                     ),

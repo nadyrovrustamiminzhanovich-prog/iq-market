@@ -28,7 +28,11 @@ class TaxiPrefsService {
     final lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : "";
     
     final imgPath = prefs.getString('user_image');
-    final profileImage = (imgPath != null && imgPath.isNotEmpty) ? imgPath : null;
+    final profileImage = (imgPath != null && imgPath.isNotEmpty)
+        ? imgPath
+        : (firebaseUser?.photoURL != null && firebaseUser?.photoURL?.isNotEmpty == true)
+            ? firebaseUser?.photoURL
+            : null;
 
     final savedMainLang = prefs.getString('app_lang');
     String mappedLang = 'ru';

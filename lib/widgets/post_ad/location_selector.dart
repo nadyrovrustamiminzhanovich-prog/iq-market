@@ -24,7 +24,7 @@ class LocationSelector extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(TranslationService.t('select_city', lang), style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 15)),
+        Text(TranslationService.t('select_city', lang), style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 15)),
         const SizedBox(height: 12),
         InkWell(
           onTap: () => _showOptions(context, lang),
@@ -34,7 +34,7 @@ class LocationSelector extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(selectedLocation, style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+                Text(selectedLocation, style: GoogleFonts.inter(fontWeight: FontWeight.w500)),
                 const Icon(Icons.keyboard_arrow_down_rounded),
               ],
             ),
@@ -60,11 +60,11 @@ class LocationSelector extends StatelessWidget {
               children: [
                 Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
                 const SizedBox(height: 16),
-                Text(TranslationService.t('select_city', lang), style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 18)),
+                Text(TranslationService.t('select_city', lang), style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 18)),
                 const SizedBox(height: 20),
                 TextField(
                   onChanged: (v) => setModalState(() => searchQuery = v),
-                  style: GoogleFonts.inter(fontWeight: FontWeight.w700),
+                  style: GoogleFonts.inter(fontWeight: FontWeight.w500),
                   decoration: InputDecoration(
                     hintText: TranslationService.t('search_city', lang),
                     prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF4A80F0)),
@@ -78,7 +78,7 @@ class LocationSelector extends StatelessWidget {
                   child: ListView.builder(
                     itemCount: filtered.length,
                     itemBuilder: (context, i) => ListTile(
-                      title: Text(filtered[i], style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+                      title: Text(filtered[i], style: GoogleFonts.inter(fontWeight: FontWeight.w500)),
                       trailing: selectedLocation == filtered[i] ? const Icon(Icons.check_circle, color: Color(0xFF4A80F0)) : null,
                       onTap: () {
                         onLocationSelected(filtered[i]);

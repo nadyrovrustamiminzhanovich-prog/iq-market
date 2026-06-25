@@ -59,7 +59,7 @@ Future<void> showTaxiLocationPickerSheet({
                 textInputAction: TextInputAction.search,
                 style: GoogleFonts.inter(
                   color: t.text,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w500,
                 ),
                 decoration: InputDecoration(
                   hintText: provider.translate('search_hint'),
@@ -107,7 +107,7 @@ Future<void> showTaxiLocationPickerSheet({
                       city,
                       style: GoogleFonts.inter(
                         color: t.text,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                     onTap: () {

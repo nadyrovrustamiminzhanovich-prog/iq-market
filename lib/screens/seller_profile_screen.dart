@@ -413,13 +413,11 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
                 width: 160,
                 color: const Color(0xFFF1F5F9),
                 child: ad.images.isNotEmpty 
-                  ? Center(
-                      child: CachedNetworkImage(
-                        imageUrl: ad.images.first,
-                        fit: BoxFit.contain,
-                        memCacheWidth: 250,
-                        errorWidget: (context, url, error) => const Icon(Icons.image),
-                      ),
+                  ? CachedNetworkImage(
+                      imageUrl: ad.images.first,
+                      fit: BoxFit.cover,
+                      memCacheWidth: 250,
+                      errorWidget: (context, url, error) => const Icon(Icons.image),
                     )
                   : const Icon(Icons.image, color: Colors.grey),
               ),

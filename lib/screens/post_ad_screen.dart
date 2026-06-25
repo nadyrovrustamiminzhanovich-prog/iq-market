@@ -268,16 +268,6 @@ class _PostAdScreenState extends State<PostAdScreen> {
           _saveDraft();
         }),
       );
-    } else if (_selectedCategory == 'Малбазар') {
-      child = LivestockSpecsWidget(
-        malAge: _malAge,
-        malWeightController: _malWeightController,
-        malBreedController: _malBreedController,
-        onSelect: (f, v) => setState(() {
-          if (f == 'malAge') _malAge = v;
-          _saveDraft();
-        }),
-      );
     }
 
     return AnimatedSize(
@@ -358,31 +348,43 @@ class _PostAdScreenState extends State<PostAdScreen> {
   // --- Logic Methods ---
 
   Future<void> _pickMedia(bool isVideo) async {
-    if (isVideo) {
-      final XFile? file = await _picker.pickVideo(source: ImageSource.gallery);
-      if (file != null) {
-        if (mounted) {
-          Navigator.push(context, MaterialPageRoute(builder: (context) => VideoTrimmerScreen(
-            videoFile: File(file.path), 
-            onSave: (path) {
-              if (mounted) {
-                setState(() { _videoFile = File(path); _saveDraft(); });
+    try {
+      if (isVideo) {
+        final XFile? file = await _picker.pickVideo(source: ImageSource.gallery);
+        if (file != null) {
+          if (mounted) {
+            Navigator.push(context, MaterialPageRoute(builder: (context) => VideoTrimmerScreen(
+              videoFile: File(file.path), 
+              onSave: (path) {
+                if (mounted) {
+                  setState(() { _videoFile = File(path); _saveDraft(); });
+                }
               }
-            }
-          )));
+            )));
+          }
+        }
+      } else {
+        final List<XFile> picked = await _picker.pickMultiImage(
+          imageQuality: 75,
+          maxWidth: 1280,
+          maxHeight: 1280,
+        );
+        if (picked.isNotEmpty && mounted) {
+          setState(() {
+            _imageFiles.addAll(picked.map((f) => File(f.path)));
+            _saveDraft();
+          });
         }
       }
-    } else {
-      final List<XFile> picked = await _picker.pickMultiImage(
-        imageQuality: 75,
-        maxWidth: 1280,
-        maxHeight: 1280,
-      );
-      if (picked.isNotEmpty && mounted) {
-        setState(() {
-          _imageFiles.addAll(picked.map((f) => File(f.path)));
-          _saveDraft();
-        });
+    } catch (e) {
+      debugPrint("Error picking ad media: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Не удалось выбрать фото или видео: $e'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
       }
     }
   }
@@ -461,11 +463,7 @@ class _PostAdScreenState extends State<PostAdScreen> {
             'reFloor': _reFloor,
             'reArea': _reAreaController.text,
           },
-          if (_selectedCategory == 'Малбазар') ...{
-            'malAge': _malAge,
-            'malWeight': _malWeightController.text,
-            'malBreed': _malBreedController.text,
-          },
+
         }
       );
       

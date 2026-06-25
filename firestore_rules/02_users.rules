@@ -10,6 +10,9 @@
       match /notifications/{notifId} {
         allow create: if isSignedIn() && request.resource.data.keys().hasAll(['title', 'body', 'type', 'timestamp']);
         allow read, delete: if isOwner(userId);
-        allow update: if false;
+        allow update: if isSignedIn() && (
+          isOwner(userId) || 
+          (resource.data.type == 'chat' && request.resource.data.type == 'chat' && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['type']))
+        );
       }
     }

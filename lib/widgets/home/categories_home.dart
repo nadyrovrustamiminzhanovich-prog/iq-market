@@ -28,105 +28,156 @@ class CategoriesHome extends StatelessWidget {
     final config = Provider.of<AppConfigProvider>(context);
     final lang = config.language;
 
+    // Локализация подписей (короткие названия во избежание переполнения)
+    String transportName = 'Авто';
+    String malBazarName = 'МалБазар';
+    String electroName = 'Техника';
+    String reName = 'Жилье';
+    String allCatsName = 'Категории';
+
+    if (lang == 'Қазақша') {
+      transportName = 'Авто';
+      malBazarName = 'Малбазар';
+      electroName = 'Техника';
+      reName = 'Мүлік';
+      allCatsName = 'Санаттар';
+    } else if (lang == 'Уйғурчә') {
+      transportName = 'Авто';
+      malBazarName = 'Малбазар';
+      electroName = 'Техника';
+      reName = 'Мүлүк';
+      allCatsName = 'Категориялар';
+    }
+
+    final bool isTransportSelected = selectedCategoryId == 'Авто';
+    final bool isMalBazarSelected = selectedCategoryId == 'Малбазар';
+    final bool isElectroSelected = selectedCategoryId == 'Электроника';
+    final bool isReSelected = selectedCategoryId == 'Недвижимость';
+    
+    // "Все категории" считается выбранной, если активен любой другой фильтр, кроме этих четырех
+    final bool isAllCatsSelected = selectedCategoryId != 'Все' && 
+        !['Авто', 'Малбазар', 'Электроника', 'Недвижимость'].contains(selectedCategoryId);
+
     return Container(
-      height: 120, // Увеличил высоту для больших иконок
-      margin: const EdgeInsets.symmetric(vertical: 12),
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        physics: const BouncingScrollPhysics(),
+      margin: const EdgeInsets.only(top: 8, bottom: 0),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // "Все" Категория
-          Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: _catItem(
-              context,
-              TranslationService.t('all', lang), 
-              Icons.grid_view_rounded, 
-              const Color(0xFF4A80F0),
-              () => onCategorySelected('Все'),
-              isSelected: selectedCategoryId == 'Все'
-            ),
+          _rowCatItem(
+            context,
+            transportName,
+            Icons.directions_car_rounded,
+            () => onCategorySelected('Авто'),
+            isSelected: isTransportSelected,
           ),
-          
-          ...CategoryData.categories.take(7).map((cat) => Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: _catItem(
-              context,
-              _getCatName(cat, lang), 
-              cat.icon, 
-              cat.color,
-              () => onCategorySelected(cat.id),
-              isSelected: selectedCategoryId == cat.id
-            ),
-          )).toList(),
-          
-          if (CategoryData.categories.length > 7)
-            Builder(
-              builder: (context) {
-                final bool isMoreSelected = selectedCategoryId != 'Все' && 
-                    !CategoryData.categories.take(7).any((cat) => cat.id == selectedCategoryId);
-                return _catItem(
-                  context,
-                  TranslationService.t('more_btn', lang),
-                  Icons.more_horiz_rounded,
-                  const Color(0xFF64748B),
-                  () => _showAllCategoriesSheet(context, lang),
-                  isSelected: isMoreSelected
-                );
-              },
-            ),
+          _rowCatItem(
+            context,
+            malBazarName,
+            Icons.shopping_basket_rounded,
+            () => onCategorySelected('Малбазар'),
+            isSelected: isMalBazarSelected,
+          ),
+          _rowCatItem(
+            context,
+            electroName,
+            Icons.smartphone_rounded,
+            () => onCategorySelected('Электроника'),
+            isSelected: isElectroSelected,
+          ),
+          _rowCatItem(
+            context,
+            reName,
+            Icons.home_rounded,
+            () => onCategorySelected('Недвижимость'),
+            isSelected: isReSelected,
+          ),
+          _rowCatItem(
+            context,
+            allCatsName,
+            Icons.grid_view_rounded,
+            () => _showAllCategoriesSheet(context, lang),
+            isSelected: isAllCatsSelected,
+          ),
         ],
       ),
     );
   }
 
-  Widget _catItem(BuildContext context, String name, IconData icon, Color color, VoidCallback onTap, {bool isSelected = false}) => GestureDetector(
-    onTap: onTap,
-    child: Column(
-      children: [
-        AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
-          padding: const EdgeInsets.all(16), // Увеличил отступ (было 10)
-          decoration: BoxDecoration(
-            color: isSelected ? const Color(0xFF4A80F0) : const Color(0xFFF1F5F9), 
-            borderRadius: BorderRadius.circular(20), // More rounded corners
-            border: Border.all(
-              color: isSelected ? const Color(0xFF4A80F0) : const Color(0xFFE2E8F0),
-              width: 2, // Thicker border
+  Widget _rowCatItem(BuildContext context, String name, IconData icon, VoidCallback onTap, {bool isSelected = false}) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(13),
+              decoration: BoxDecoration(
+                color: isSelected ? const Color(0xFF2563EB) : const Color(0xFFEFF6FF),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Icon(
+                icon,
+                color: isSelected ? Colors.white : const Color(0xFF2563EB),
+                size: 26,
+              ),
             ),
-            boxShadow: isSelected ? [
-              BoxShadow(
-                color: const Color(0xFF4A80F0).withValues(alpha: 0.35),
-                blurRadius: 12,
-                offset: const Offset(0, 6),
-              )
-            ] : [],
-          ),
-          child: Icon(
-            icon, 
-            color: isSelected ? Colors.white : const Color(0xFF4A80F0), 
-            size: 26 // Large icon
-          ), 
+            const SizedBox(height: 8),
+            Text(
+              name,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.inter(
+                fontSize: 11,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                color: isSelected ? const Color(0xFF2563EB) : const Color(0xFF1E293B),
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: 10),
-        SizedBox(
-          width: 75, // Slightly wider for text
-          child: Text(
+      ),
+    );
+  }
+
+  Widget _sheetCatItem(BuildContext context, String name, IconData icon, VoidCallback onTap, {bool isSelected = false}) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: isSelected ? const Color(0xFF2563EB) : const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Icon(
+              icon,
+              color: isSelected ? Colors.white : const Color(0xFF2563EB),
+              size: 26,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
             name,
             textAlign: TextAlign.center,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.inter(
-              fontSize: 12, 
-              fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600, 
-              color: isSelected ? const Color(0xFF4A80F0) : const Color(0xFF1E293B)
+              fontSize: 12,
+              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+              color: isSelected ? const Color(0xFF2563EB) : const Color(0xFF1E293B),
             ),
           ),
-        ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 
   void _showAllCategoriesSheet(BuildContext context, String lang) {
     showModalBottomSheet(
@@ -135,56 +186,57 @@ class CategoriesHome extends StatelessWidget {
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(32))),
       builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.7,
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+        height: MediaQuery.of(context).size.height * 0.75,
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(TranslationService.t('all_categories_title', lang), style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A))),
+                Text(
+                  TranslationService.t('all_categories_title', lang), 
+                  style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A)),
+                ),
                 IconButton(
                   onPressed: () => Navigator.pop(context), 
-                  icon: const Icon(Icons.close_rounded, color: Color(0xFF64748B))
+                  icon: const Icon(Icons.close_rounded, color: Color(0xFF64748B)),
                 ),
               ],
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 24),
             Expanded(
               child: GridView.builder(
                 gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                  maxCrossAxisExtent: 120,
-                  mainAxisSpacing: 24,
-                  crossAxisSpacing: 16,
-                  childAspectRatio: 0.75,
+                  maxCrossAxisExtent: 110,
+                  mainAxisSpacing: 20,
+                  crossAxisSpacing: 12,
+                  childAspectRatio: 0.8,
                 ),
                 itemCount: CategoryData.categories.length + 1,
                 itemBuilder: (context, index) {
                   if (index == 0) {
-                    return _catItem(
+                    return _sheetCatItem(
                       context, 
                       TranslationService.t('all', lang), 
                       Icons.grid_view_rounded, 
-                      const Color(0xFF4A80F0), 
                       () {
                         onCategorySelected('Все');
                         Navigator.pop(context);
                       },
-                      isSelected: selectedCategoryId == 'Все'
+                      isSelected: selectedCategoryId == 'Все',
                     );
                   }
                   final cat = CategoryData.categories[index - 1];
-                  return _catItem(
+                  return _sheetCatItem(
                     context, 
                     _getCatName(cat, lang), 
                     cat.icon, 
-                    cat.color, 
                     () {
                       onCategorySelected(cat.id);
                       Navigator.pop(context);
                     },
-                    isSelected: selectedCategoryId == cat.id
+                    isSelected: selectedCategoryId == cat.id,
                   );
                 },
               ),

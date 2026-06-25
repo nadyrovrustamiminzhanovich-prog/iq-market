@@ -144,15 +144,27 @@ class TaxiActiveOrderSummary extends StatelessWidget {
                 child: GestureDetector(
                   onTap: () async {
                     HapticFeedback.heavyImpact();
-                    await provider.cancelOrder(orderId,
-                        reason: 'Изменение параметров заказа');
-                    if (context.mounted) {
-                      NotificationService.notify(
-                        context,
-                        'Редактирование',
-                        'Параметры сброшены. Введите новые данные поездки!',
-                        isSuccess: true,
-                      );
+                    try {
+                      await provider.cancelOrder(orderId,
+                          reason: 'Изменение параметров заказа');
+                      if (context.mounted) {
+                        NotificationService.notify(
+                          context,
+                          'Редактирование',
+                          'Параметры сброшены. Введите новые данные поездки!',
+                          isSuccess: true,
+                        );
+                      }
+                    } catch (e) {
+                      debugPrint('[TAXI] Error modifying order: $e');
+                      if (context.mounted) {
+                        NotificationService.notify(
+                          context,
+                          'Ошибка',
+                          'Не удалось изменить параметры заказа: $e',
+                          isSuccess: false,
+                        );
+                      }
                     }
                   },
                   child: Container(

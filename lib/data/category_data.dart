@@ -67,6 +67,20 @@ class CategoryData {
       ],
     ),
     CategoryModel(
+      id: 'Малбазар', 
+      ru: 'МалБазар', 
+      kz: 'Малбазар', 
+      ug: 'Малбазар', 
+      icon: Icons.pets_rounded, 
+      color: const Color(0xFF4A80F0),
+      subCategories: [
+        SubCategoryModel(id: 'cattle', ru: 'КРС (Коровы/Быки)', kz: 'Ірі қара', ug: 'Кала'),
+        SubCategoryModel(id: 'sheep', ru: 'Овцы/Козы', kz: 'Қой/Ешкі', ug: 'Қой/Өшкә'),
+        SubCategoryModel(id: 'horses', ru: 'Лошади', kz: 'Жылқылар', ug: 'Ат'),
+        SubCategoryModel(id: 'birds', ru: 'Птицы', kz: 'Құстар', ug: 'Қушлар'),
+      ],
+    ),
+    CategoryModel(
       id: 'Продукты', 
       ru: 'Еда', 
       kz: 'Өнімдер', 
@@ -159,20 +173,6 @@ class CategoryData {
         SubCategoryModel(id: 'houses', ru: 'Дома', kz: 'Үйлер', ug: 'Өйләр'),
         SubCategoryModel(id: 'land', ru: 'Участки', kz: 'Жер учаскелері', ug: 'Йәр'),
         SubCategoryModel(id: 'commercial', ru: 'Коммерческая', kz: 'Коммерциялық', ug: 'Тиҗарәт'),
-      ],
-    ),
-    CategoryModel(
-      id: 'Малбазар', 
-      ru: 'Животные', 
-      kz: 'Малбазар', 
-      ug: 'Малбазар', 
-      icon: Icons.pets_rounded, 
-      color: const Color(0xFF4A80F0),
-      subCategories: [
-        SubCategoryModel(id: 'cattle', ru: 'КРС (Коровы/Быки)', kz: 'Ірі қара', ug: 'Кала'),
-        SubCategoryModel(id: 'sheep', ru: 'Овцы/Козы', kz: 'Қой/Ешкі', ug: 'Қой/Өшкә'),
-        SubCategoryModel(id: 'horses', ru: 'Лошади', kz: 'Жылқылар', ug: 'Ат'),
-        SubCategoryModel(id: 'birds', ru: 'Птицы', kz: 'Құстар', ug: 'Қушлар'),
       ],
     ),
     CategoryModel(

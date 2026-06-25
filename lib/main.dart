@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'services/storage_service.dart';
 
 import 'screens/home/home_screen.dart';
 import 'services/notification_service.dart';
@@ -12,8 +14,15 @@ import 'widgets/common/offline_wrapper.dart';
 import 'screens/splash_screen.dart';
 
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  try {
+    await Firebase.initializeApp();
+    await StorageService.init();
+  } catch (e) {
+    debugPrint('Initialization failed: $e');
+  }
   
   // Launch AppBootstrap instantly to dismiss the native OS splash screen and show
   // the premium pulsing custom preloader screen.

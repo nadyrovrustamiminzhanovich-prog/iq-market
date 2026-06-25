@@ -200,13 +200,11 @@ class _AdminAdsScreenState extends State<AdminAdsScreen> with SingleTickerProvid
                       child: Container(
                         color: const Color(0xFFF1F5F9),
                         child: ad.images.isNotEmpty 
-                          ? Center(
-                              child: CachedNetworkImage(
-                                imageUrl: ad.images.first,
-                                fit: BoxFit.contain,
-                                memCacheWidth: 350,
-                                errorWidget: (context, url, error) => Container(color: Colors.grey[100], child: const Icon(Icons.image_not_supported_rounded, color: Colors.grey)),
-                              ),
+                          ? CachedNetworkImage(
+                              imageUrl: ad.images.first,
+                              fit: BoxFit.cover,
+                              memCacheWidth: 350,
+                              errorWidget: (context, url, error) => Container(color: Colors.grey[100], child: const Icon(Icons.image_not_supported_rounded, color: Colors.grey)),
                             )
                           : Container(color: Colors.grey[100], child: const Icon(Icons.image_not_supported_rounded, color: Colors.grey)),
                       ),

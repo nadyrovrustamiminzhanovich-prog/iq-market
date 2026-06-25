@@ -97,6 +97,35 @@ class _DriverVerificationScreenState extends State<DriverVerificationScreen>
     _fadeCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 400));
     _fadeAnim = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeInOut);
     _fadeCtrl.forward();
+    _checkLostData();
+  }
+
+  Future<void> _checkLostData() async {
+    try {
+      final response = await _picker.retrieveLostData();
+      if (response.isEmpty || response.file == null) return;
+      
+      final prefs = await SharedPreferences.getInstance();
+      final slot = prefs.getString('lost_picker_slot');
+      final step = prefs.getInt('lost_picker_step');
+      
+      if (slot != null && response.file != null) {
+        setState(() {
+          if (step != null) _step = step;
+          switch (slot) {
+            case 'lf': _licF  = File(response.file!.path); break;
+            case 'tf': _techF = File(response.file!.path); break;
+            case 'se': _selfie = File(response.file!.path); break;
+            case 'cf': _carFront = File(response.file!.path); break;
+          }
+        });
+        
+        await prefs.remove('lost_picker_slot');
+        await prefs.remove('lost_picker_step');
+      }
+    } catch (e) {
+      debugPrint('Error retrieving lost verification data: $e');
+    }
   }
 
   @override
@@ -175,25 +204,56 @@ class _DriverVerificationScreenState extends State<DriverVerificationScreen>
 
   // ── pick image ───────────────────────────────────────────────────────────────
   Future<void> _pick(String slot, {bool fromCameraOnly = false}) async {
-    HapticFeedback.selectionClick();
-    final ImageSource? source = fromCameraOnly 
+    final source = fromCameraOnly 
         ? ImageSource.camera 
         : await _showSourcePicker();
     if (source == null) return;
     
-    final f = await _picker.pickImage(
-      source: source, 
-      imageQuality: 88,
-      preferredCameraDevice: fromCameraOnly ? CameraDevice.front : CameraDevice.rear,
-    );
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('lost_picker_slot', slot);
+      await prefs.setInt('lost_picker_step', _step);
+    } catch (prefErr) {
+      debugPrint('Error saving lost picker state: $prefErr');
+    }
+
+    XFile? f;
+    try {
+      f = await _picker.pickImage(
+        source: source, 
+        imageQuality: 88,
+        preferredCameraDevice: (Platform.isIOS && fromCameraOnly) ? CameraDevice.front : CameraDevice.rear,
+      );
+    } catch (e) {
+      debugPrint('Ошибка при открытии камеры с preferredCameraDevice: $e');
+      try {
+        f = await _picker.pickImage(
+          source: source, 
+          imageQuality: 88,
+        );
+      } catch (innerErr) {
+        debugPrint('Критическая ошибка открытия камеры: $innerErr');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Не удалось запустить камеру: $innerErr'),
+              backgroundColor: Colors.redAccent,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    }
+    
     if (f == null || !mounted) return;
     
+    final nonNullFile = f;
     setState(() {
       switch (slot) {
-        case 'lf': _licF  = File(f.path); break;
-        case 'tf': _techF = File(f.path); break;
-        case 'se': _selfie = File(f.path); break;
-        case 'cf': _carFront = File(f.path); break;
+        case 'lf': _licF  = File(nonNullFile.path); break;
+        case 'tf': _techF = File(nonNullFile.path); break;
+        case 'se': _selfie = File(nonNullFile.path); break;
+        case 'cf': _carFront = File(nonNullFile.path); break;
       }
     });
   }

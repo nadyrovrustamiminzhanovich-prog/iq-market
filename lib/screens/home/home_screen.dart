@@ -437,7 +437,7 @@ class _IQMarketHomeState extends State<IQMarketHome> {
     child: Row(children: [
       const Icon(Icons.location_on_rounded, color: Color(0xFF4A80F0), size: 18),
       const SizedBox(width: 4),
-      Text(config.city == 'Все' ? TranslationService.t('all_cities', config.language) : config.city, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w800)),
+      Text(config.city == 'Все' ? TranslationService.t('all_cities', config.language) : config.city, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600)),
       const Icon(Icons.keyboard_arrow_down_rounded, size: 20),
     ]),
   );
@@ -494,7 +494,7 @@ class _IQMarketHomeState extends State<IQMarketHome> {
                       if (selectedParent != null && searchCity.isEmpty) const SizedBox(width: 15),
                       Text(
                         searchCity.isNotEmpty ? 'Результаты поиска' : (selectedParent ?? 'Выберите локацию'), 
-                        style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w900, color: txtColor)
+                        style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w700, color: txtColor)
                       ),
                     ],
                   ),
@@ -505,10 +505,10 @@ class _IQMarketHomeState extends State<IQMarketHome> {
                   child: TextField(
                     onChanged: (v) => setModalState(() => searchCity = v),
                     textInputAction: TextInputAction.search,
-                    style: GoogleFonts.inter(color: txtColor, fontWeight: FontWeight.w800),
+                    style: GoogleFonts.inter(color: txtColor, fontWeight: FontWeight.w500),
                     decoration: InputDecoration(
                       hintText: 'Введите название города...',
-                      hintStyle: GoogleFonts.inter(color: subtxtColor.withValues(alpha: 0.6), fontWeight: FontWeight.w600),
+                      hintStyle: GoogleFonts.inter(color: subtxtColor.withValues(alpha: 0.6), fontWeight: FontWeight.w500),
                       prefixIcon: Icon(Icons.search_rounded, color: primaryColor),
                       filled: true,
                       fillColor: subtxtColor.withValues(alpha: 0.05),
@@ -529,7 +529,7 @@ class _IQMarketHomeState extends State<IQMarketHome> {
 
                       return ListTile(
                         leading: Icon(isParent ? Icons.location_city_rounded : Icons.location_on_rounded, color: subtxtColor.withValues(alpha: 0.6)),
-                        title: Text(item == 'Все' ? 'Все города' : item, style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 15, color: txtColor)),
+                        title: Text(item == 'Все' ? 'Все города' : item, style: GoogleFonts.inter(fontWeight: FontWeight.w500, fontSize: 15, color: txtColor)),
                         trailing: Icon(isParent ? Icons.arrow_forward_ios_rounded : Icons.check_circle_outline_rounded, size: 14, color: isParent ? subtxtColor.withValues(alpha: 0.4) : const Color(0xFF10B981)),
                         onTap: () { 
                           if (isParent) {
@@ -654,7 +654,13 @@ class _IQMarketHomeState extends State<IQMarketHome> {
       },
     );
   }
-  Widget _sectionHeader(String title) => Padding(padding: const EdgeInsets.fromLTRB(16, 24, 16, 16), child: Text(title, style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w900)));
+  Widget _sectionHeader(String title) => Padding(
+    padding: const EdgeInsets.fromLTRB(16, 10, 16, 12), 
+    child: Text(
+      title, 
+      style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w900),
+    ),
+  );
   
   void _navToTaxi(AppConfigProvider config) => Navigator.push(context, MaterialPageRoute(builder: (_) => TaxiServiceScreen(lang: config.language)));
   void _showDetails(AdModel ad) {

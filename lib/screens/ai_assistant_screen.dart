@@ -14,6 +14,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'product_details_screen.dart';
 import '../services/azure_tts_service.dart';
 import '../services/gemini_service.dart';
+import '../utils/fuzzy_matcher.dart';
 
 class AiAssistantScreen extends StatefulWidget {
   final String? initialLanguage;
@@ -301,6 +302,28 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
       }
 
       if (found.isEmpty) {
+        // Fallback: fetch latest active ads and filter using FuzzyMatcher
+        final fallbackSnapshot = await FirebaseFirestore.instance
+            .collection('ads')
+            .where('active', isEqualTo: true)
+            .where('status', isEqualTo: 'active')
+            .orderBy('timestamp', descending: true)
+            .limit(100)
+            .get();
+
+        for (var doc in fallbackSnapshot.docs) {
+          final data = doc.data();
+          final title = (data['title'] ?? '').toString();
+          final desc = (data['description'] ?? '').toString();
+          if (FuzzyMatcher.isMatch(query, '$title $desc')) {
+            var adMap = data;
+            adMap['id'] = doc.id;
+            found.add(adMap);
+          }
+        }
+      }
+
+      if (found.isEmpty) {
         final List<Map<String, dynamic>> mockAds = [
           {
             'id': 'm1',
@@ -331,14 +354,11 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
             'image': 'https://img.icons8.com/color/512/sedan.png'
           },
         ];
-        final words = q.split(' ');
         for (var ad in mockAds) {
-          final title = (ad['title'] ?? '').toString().toLowerCase();
-          for (var word in words) {
-            if (word.length > 2 && title.contains(word)) {
-              if (!found.contains(ad)) found.add(ad);
-              break;
-            }
+          final title = (ad['title'] ?? '').toString();
+          final desc = (ad['description'] ?? '').toString();
+          if (FuzzyMatcher.isMatch(query, '$title $desc')) {
+            found.add(ad);
           }
         }
       }

@@ -101,7 +101,7 @@ class TaxiRouteRow extends StatelessWidget {
                           isFrom ? provider.translate('from_hint') : provider.translate('to_hint'),
                           style: GoogleFonts.inter(
                             fontSize: 16,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w500,
                             color: hasError ? const Color(0xFFE11D48) : const Color(0xFF94A3B8),
                             letterSpacing: -0.3,
                           ),
@@ -133,7 +133,7 @@ class TaxiRouteRow extends StatelessWidget {
                           isFrom ? provider.translate('from') : provider.translate('to'),
                           style: GoogleFonts.inter(
                             fontSize: 10,
-                            fontWeight: FontWeight.w900,
+                            fontWeight: FontWeight.w700,
                             color: const Color(0xFF94A3B8),
                             letterSpacing: 0.8,
                           ),
@@ -143,7 +143,7 @@ class TaxiRouteRow extends StatelessWidget {
                           value,
                           style: GoogleFonts.inter(
                             fontSize: 16.5,
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w600,
                             color: const Color(0xFF1E293B),
                             letterSpacing: -0.4,
                           ),

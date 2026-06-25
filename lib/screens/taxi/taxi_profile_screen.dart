@@ -6,6 +6,10 @@ import 'package:provider/provider.dart';
 import 'package:iqmarket/providers/taxi_provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:iqmarket/services/file_service.dart';
+import 'package:iqmarket/services/user_service.dart';
 
 class TaxiProfileScreen extends StatefulWidget {
   final TaxiTheme t;
@@ -48,6 +52,7 @@ class _TaxiProfileScreenState extends State<TaxiProfileScreen> {
       }
     }
     _phC = TextEditingController(text: formattedPhone);
+    _checkLostData();
   }
 
   @override
@@ -124,10 +129,54 @@ class _TaxiProfileScreenState extends State<TaxiProfileScreen> {
           _pf(tr('phone'), _phC),
           const SizedBox(height: 40),
           GestureDetector(
-            onTap: () {
-              provider.updateProfile(_fnC.text, _lnC.text, _phC.text);
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr('saved_success'))));
-              Navigator.pop(context);
+            onTap: () async {
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (_) => const Center(child: CircularProgressIndicator()),
+              );
+              try {
+                String? finalPhotoUrl = provider.profileImage;
+                if (finalPhotoUrl != null && finalPhotoUrl.isNotEmpty && !finalPhotoUrl.startsWith('http')) {
+                  final file = File(finalPhotoUrl);
+                  final uid = FirebaseAuth.instance.currentUser?.uid ?? 'unknown';
+                  final compressed = await FileService.compressImage(file);
+                  final uploadedUrl = await FileService.uploadFile(compressed ?? file, 'avatars/$uid');
+                  if (uploadedUrl != null) {
+                    finalPhotoUrl = uploadedUrl;
+                    provider.setProfileImage(uploadedUrl);
+                    
+                    final user = FirebaseAuth.instance.currentUser;
+                    if (user != null) {
+                      await user.updatePhotoURL(uploadedUrl);
+                      await UserService.updateUserProfile({'photoUrl': uploadedUrl});
+                    }
+                  }
+                }
+
+                final user = FirebaseAuth.instance.currentUser;
+                if (user != null) {
+                  final newFullName = '${_fnC.text} ${_lnC.text}'.trim();
+                  await user.updateDisplayName(newFullName);
+                  await UserService.updateUserProfile({
+                    'name': newFullName,
+                    'phone': _phC.text,
+                  });
+                }
+
+                provider.updateProfile(_fnC.text, _lnC.text, _phC.text);
+                
+                if (mounted) {
+                  Navigator.pop(context); // Dismiss loading dialog
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr('saved_success'))));
+                  Navigator.pop(context); // Back to settings
+                }
+              } catch (e) {
+                if (mounted) {
+                  Navigator.pop(context); // Dismiss loading dialog
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ошибка сохранения: $e')));
+                }
+              }
             },
             child: Container(
               height: 60,
@@ -270,12 +319,32 @@ class _TaxiProfileScreenState extends State<TaxiProfileScreen> {
   Future<void> _pickImage(TaxiProvider provider, ImageSource source) async {
     final ImagePicker picker = ImagePicker();
     try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('lost_picker_taxi_profile', 'avatar');
       final pickedFile = await picker.pickImage(source: source, imageQuality: 50);
       if (pickedFile != null) {
         provider.setProfileImage(pickedFile.path);
       }
     } catch (e) {
       debugPrint("Error picking image: $e");
+    }
+  }
+
+  Future<void> _checkLostData() async {
+    try {
+      final ImagePicker picker = ImagePicker();
+      final response = await picker.retrieveLostData();
+      if (response.isEmpty || response.file == null) return;
+
+      final prefs = await SharedPreferences.getInstance();
+      final target = prefs.getString('lost_picker_taxi_profile');
+      if (target == 'avatar' && response.file != null) {
+        final provider = Provider.of<TaxiProvider>(context, listen: false);
+        provider.setProfileImage(response.file!.path);
+        await prefs.remove('lost_picker_taxi_profile');
+      }
+    } catch (e) {
+      debugPrint('Error retrieving lost taxi profile image data: $e');
     }
   }
 }
