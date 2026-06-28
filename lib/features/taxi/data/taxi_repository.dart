@@ -527,4 +527,148 @@ class TaxiRepository {
     }
     await batch.commit();
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 📞 DIRECT CALL AGREEMENT — "Вы договорились?"
+  // Записывает завершённую поездку, когда пользователи договорились по телефону
+  // без использования системы торгов. Аналог механизма InDriver.
+  //
+  // [targetType]:
+  //   'drive'  — я пассажир, позвонил водителю (из списка taxi_rides)
+  //   'order'  — я водитель, позвонил пассажиру (из списка taxi_orders)
+  // ─────────────────────────────────────────────────────────────────────────
+  Future<void> recordDirectCallTrip({
+    required String targetId,
+    required String targetType,
+    required int agreedPrice,
+    required String myFirstName,
+    required String myLastName,
+    required String myPhone,
+    required String myCar,
+    required String myPlate,
+    required bool myVerified,
+  }) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final db = FirebaseFirestore.instance;
+    final safeMyPhone = _sanitizePhone(myPhone);
+    final myName = '$myFirstName $myLastName'.trim().isEmpty
+        ? (targetType == 'drive' ? 'Пассажир' : 'Водитель')
+        : '$myFirstName $myLastName'.trim();
+    final myImg = user.photoURL ?? '';
+
+    final String sourceCollection =
+        targetType == 'drive' ? 'taxi_rides' : 'taxi_orders';
+    final targetRef = db.collection(sourceCollection).doc(targetId);
+
+    final targetSnap = await targetRef.get();
+    if (!targetSnap.exists) {
+      throw Exception('Поездка не найдена. Возможно, она уже отменена.');
+    }
+
+    final targetData = targetSnap.data()!;
+    final currentStatus = targetData['status']?.toString() ?? '';
+    if (currentStatus == 'completed') {
+      throw Exception('Эта поездка уже была завершена.');
+    }
+
+    // ── Определяем контрагента по роли ───────────────────────────────────
+    final String counterpartId;
+    final String counterpartName;
+    final String counterpartPhone;
+    final String counterpartImg;
+    final String counterpartCar;
+    final String counterpartPlate;
+    final bool counterpartVerified;
+
+    if (targetType == 'drive') {
+      // Я пассажир → контрагент водитель
+      counterpartId    = targetData['driverId']?.toString() ?? '';
+      counterpartName  = targetData['driverName']?.toString() ?? 'Водитель';
+      counterpartPhone = targetData['driverPhone']?.toString() ?? targetData['phone']?.toString() ?? '';
+      counterpartImg   = targetData['driverImg']?.toString() ?? '';
+      counterpartCar   = targetData['driverCar']?.toString() ?? '';
+      counterpartPlate = targetData['driverPlate']?.toString() ?? '';
+      counterpartVerified = targetData['driverVerified'] == true;
+    } else {
+      // Я водитель → контрагент пассажир
+      counterpartId    = targetData['passengerId']?.toString() ?? targetData['userId']?.toString() ?? '';
+      counterpartName  = targetData['passengerName']?.toString() ?? targetData['name']?.toString() ?? 'Пассажир';
+      counterpartPhone = targetData['passengerPhone']?.toString() ?? targetData['phone']?.toString() ?? '';
+      counterpartImg   = targetData['passengerImg']?.toString() ?? '';
+      counterpartCar   = '';
+      counterpartPlate = '';
+      counterpartVerified = false;
+    }
+
+    final String from = targetData['from']?.toString() ?? '';
+    final String to   = targetData['to']?.toString() ?? '';
+    final String date = targetData['date']?.toString() ?? '';
+    final String time = targetData['time']?.toString() ?? '';
+    final int finalPrice = agreedPrice > 0
+        ? agreedPrice
+        : (targetData['price'] as num?)?.toInt() ?? 0;
+
+    final String myRole = targetType == 'drive' ? 'passenger' : 'driver';
+    final String counterpartRole = myRole == 'passenger' ? 'driver' : 'passenger';
+
+    // ── Базовые поля, одинаковые для обоих участников ────────────────────
+    final Map<String, dynamic> tripBase = {
+      'matchedVia': 'direct_call',
+      'status': 'completed',
+      'from': from,
+      'to': to,
+      'date': date,
+      'time': time,
+      'price': finalPrice,
+      // Всегда пишем обоих участников
+      'driverId':       myRole == 'driver' ? user.uid : counterpartId,
+      'driverName':     myRole == 'driver' ? myName : counterpartName,
+      'driverPhone':    myRole == 'driver' ? safeMyPhone : counterpartPhone,
+      'driverImg':      myRole == 'driver' ? myImg : counterpartImg,
+      'driverCar':      myRole == 'driver' ? myCar : counterpartCar,
+      'driverPlate':    myRole == 'driver' ? myPlate : counterpartPlate,
+      'driverVerified': myRole == 'driver' ? myVerified : counterpartVerified,
+      'passengerId':    myRole == 'passenger' ? user.uid : counterpartId,
+      'passengerName':  myRole == 'passenger' ? myName : counterpartName,
+      'passengerPhone': myRole == 'passenger' ? safeMyPhone : counterpartPhone,
+      'passengerImg':   myRole == 'passenger' ? myImg : counterpartImg,
+      'createdAt': FieldValue.serverTimestamp(),
+    };
+
+    // ── Атомарная запись в taxi_history для обоих ─────────────────────────
+    final batchWrite = db.batch();
+
+    // Моя история
+    final myRef = db.collection('taxi_history').doc();
+    batchWrite.set(myRef, {...tripBase, 'id': myRef.id, 'role': myRole});
+
+    // История контрагента
+    if (counterpartId.isNotEmpty) {
+      final theirRef = db.collection('taxi_history').doc();
+      batchWrite.set(theirRef, {...tripBase, 'id': theirRef.id, 'role': counterpartRole});
+    }
+
+    // Помечаем оригинальный документ как завершённый
+    if (currentStatus != 'completed') {
+      batchWrite.update(targetRef, {
+        'status': 'completed',
+        'matchedVia': 'direct_call',
+        'price': finalPrice,
+      });
+    }
+
+    await batchWrite.commit();
+
+    // Push-уведомление контрагенту
+    if (counterpartId.isNotEmpty) {
+      await NotificationService.saveNotificationToFirestore(
+        title: 'Поездка подтверждена 🚕',
+        body: '$myName подтвердил(а) совместную поездку за $finalPrice ₸',
+        type: 'taxi_trip_confirmed',
+        uid: counterpartId,
+      );
+    }
+  }
 }

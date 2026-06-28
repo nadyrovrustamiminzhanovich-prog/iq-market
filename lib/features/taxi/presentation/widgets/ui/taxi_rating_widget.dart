@@ -37,50 +37,6 @@ class TaxiRatingWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final int count = targetRole == 'passenger'
-        ? provider.getUserReviewCountAsPassenger(userId)
-        : provider.getUserReviewCountAsDriver(userId);
-    final double rating = targetRole == 'passenger'
-        ? provider.getUserRatingAsPassenger(userId)
-        : provider.getUserRatingAsDriver(userId);
-
-    // ── Меньше 5 отзывов — статус «Новичок» ──────────────────────────────
-    if (count < 5) {
-      return Tooltip(
-        message: 'Рейтинг формируется после 5 оценок от других пользователей',
-        preferBelow: true,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.star_rounded, color: Colors.amber.withValues(alpha: 0.35), size: size + 2),
-            const SizedBox(width: 4),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('Новичок',
-                    style: GoogleFonts.inter(fontSize: size - 1, color: t.sub, fontWeight: FontWeight.w600)),
-                Text('Рейтинг после 5 оценок',
-                    style: GoogleFonts.inter(fontSize: 9, color: Colors.grey, fontWeight: FontWeight.w500)),
-              ],
-            ),
-          ],
-        ),
-      );
-    }
-
-    // ── 5+ отзывов — полноценный рейтинг ─────────────────────────────────
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(Icons.star_rounded, color: Colors.amber, size: size + 2),
-        const SizedBox(width: 4),
-        Text('$rating',
-            style: GoogleFonts.inter(fontSize: size, fontWeight: FontWeight.bold, color: t.text)),
-        const SizedBox(width: 6),
-        Text('($count отзывов)',
-            style: GoogleFonts.inter(fontSize: size - 1, color: t.sub, fontWeight: FontWeight.w500)),
-      ],
-    );
+    return const SizedBox.shrink();
   }
 }

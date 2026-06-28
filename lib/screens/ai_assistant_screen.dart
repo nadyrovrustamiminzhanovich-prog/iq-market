@@ -7,14 +7,14 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:path/path.dart' as p;
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import 'product_details_screen.dart';
 import '../services/azure_tts_service.dart';
-import '../services/gemini_service.dart';
-import '../utils/fuzzy_matcher.dart';
+
+import '../services/support_bot_service.dart';
 
 class AiAssistantScreen extends StatefulWidget {
   final String? initialLanguage;
@@ -39,18 +39,12 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
   final ScrollController _scrollController = ScrollController();
   final List<Map<String, dynamic>> _messages = [];
   bool _isLoading = false;
-  bool _isStreaming = false;
-  bool _stopRequested = false;
   bool _showScamAlert = false;
   String _scamReason = "";
-  int _questionCount = 0;
 
   String _currentLang = 'RU';
-  final GeminiService _geminiService = GeminiService();
   final stt.SpeechToText _speech = stt.SpeechToText();
   bool _isListening = false;
-
-  final Map<String, String> _responseCache = {};
   final List<File> _selectedFiles = [];
   final ImagePicker _picker = ImagePicker();
   final FlutterTts flutterTts = FlutterTts();
@@ -61,10 +55,8 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
   void initState() {
     super.initState();
     _initCurrentLang();
-    _geminiService.init(_currentLang);
     _initSpeech();
     _setupHighQualityVoice();
-    _loadQuestionCount();
     
     if (widget.bargainMode && widget.initialAd != null) {
       _startBargaining();
@@ -99,27 +91,47 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
 
   void _toggleVoice() async {
     if (!_isListening) {
-      bool available = await _speech.initialize();
-      if (available) {
-        if (mounted) setState(() => _isListening = true);
-        HapticFeedback.mediumImpact();
-        _speech.listen(
-          onResult: (val) {
-            if (mounted) {
-              setState(() {
-                _controller.text = val.recognizedWords;
-                if (val.finalResult) {
-                  _isListening = false;
-                }
-              });
+      try {
+        bool available = await _speech.initialize(
+          onError: (val) => debugPrint('Speech Error: $val'),
+          onStatus: (val) {
+            if ((val == 'done' || val == 'notListening') && mounted) {
+              setState(() => _isListening = false);
             }
           },
-          localeId: _currentLang == 'KZ' ? 'kk-KZ' : _currentLang == 'UG' ? 'tr-TR' : 'ru-RU',
         );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Голосовой ввод недоступен на этом устройстве')),
-        );
+        if (available) {
+          if (mounted) setState(() => _isListening = true);
+          HapticFeedback.mediumImpact();
+          _speech.listen(
+            onResult: (val) {
+              if (!mounted) return;
+              setState(() {
+                _controller.text = val.recognizedWords;
+              });
+              // Автоматически отправить сообщение после финального результата
+              if (val.finalResult && val.recognizedWords.trim().isNotEmpty) {
+                setState(() => _isListening = false);
+                Future.delayed(const Duration(milliseconds: 300), () {
+                  if (mounted && _controller.text.trim().isNotEmpty) {
+                    _sendMessage();
+                  }
+                });
+              }
+            },
+            localeId: _currentLang == 'KZ' ? 'kk-KZ' : _currentLang == 'UG' ? 'tr-TR' : 'ru-RU',
+            listenMode: stt.ListenMode.confirmation,
+          );
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Голосовой ввод недоступен на этом устройстве')),
+            );
+          }
+        }
+      } catch (e) {
+        debugPrint('Voice toggle error: $e');
+        if (mounted) setState(() => _isListening = false);
       }
     } else {
       setState(() => _isListening = false);
@@ -260,10 +272,10 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
 
   void _addInitialMessage() {
     String welcomeText = _currentLang == 'KZ'
-        ? 'Сәлем! Мен сенің ЖИ-көмекшің IQ GPT-мін. Қалааралық такси сапарлары, жариялау ережелері немесе IQ Market қосымшасымен жұмыс істеу туралы кез келген сұрағыңды қой! 🚕✨'
+        ? 'Сәлем! Мен сенің ЖИ-көмекшіңмін. 🚕✨\n\nIQ Market қосымшасы мен такси туралы кез келген сұрағыңызды қойыңыз. Көмектесуге әрқашан дайынмын!'
         : _currentLang == 'UG'
-            ? 'Әссаламу әләйкум! Мән сизниң Сүнъий әқил йардәмчиңиз IQ GPT. Шәһәрләр ара такси сапарлири, елан чиқириш қаидилири яки IQ Market программиси тоғрисида һәр қандақ соал қойсиңиз болиду! 🚕✨'
-            : 'Привет! Я твой ИИ-помощник IQ GPT. Задай любой вопрос о поездках межгородского такси, правилах публикации или по работе с приложением IQ Market! 🚕✨';
+            ? 'Әссаламу әләйкум! Мән сизниң Сүнъий әқил йардәмчиңиз. 🚕✨\n\nIQ Market программиси вә такси соаллири бойичә кез кәлгән соал қойсиңиз болиду. Йардәм беришкә тәйярмән!'
+            : 'Привет! Я твой ИИ-помощник. 🚕✨\n\nЗадавай любые вопросы по работе с приложением IQ Market и Такси межгород. Я всегда готов помочь!';
     setState(() {
       _messages.add(
           {'isMe': false, 'text': welcomeText, 'time': DateFormat('HH:mm').format(DateTime.now())});
@@ -282,367 +294,59 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     }
   }
 
-  Future<List<Map<String, dynamic>>> _searchAdsInFirebase(String query) async {
-    try {
-      final q = query.toLowerCase().trim();
-      List<Map<String, dynamic>> found = [];
 
-      final snapshot = await FirebaseFirestore.instance
-          .collection('ads')
-          .where('title_lowercase', isGreaterThanOrEqualTo: q)
-          .where('title_lowercase', isLessThanOrEqualTo: q + '\uf8ff')
-          .limit(20)
-          .get();
 
-      for (var doc in snapshot.docs) {
-        final data = doc.data();
-        var adMap = data;
-        adMap['id'] = doc.id;
-        found.add(adMap);
-      }
 
-      if (found.isEmpty) {
-        // Fallback: fetch latest active ads and filter using FuzzyMatcher
-        final fallbackSnapshot = await FirebaseFirestore.instance
-            .collection('ads')
-            .where('active', isEqualTo: true)
-            .where('status', isEqualTo: 'active')
-            .orderBy('timestamp', descending: true)
-            .limit(100)
-            .get();
-
-        for (var doc in fallbackSnapshot.docs) {
-          final data = doc.data();
-          final title = (data['title'] ?? '').toString();
-          final desc = (data['description'] ?? '').toString();
-          if (FuzzyMatcher.isMatch(query, '$title $desc')) {
-            var adMap = data;
-            adMap['id'] = doc.id;
-            found.add(adMap);
-          }
-        }
-      }
-
-      if (found.isEmpty) {
-        final List<Map<String, dynamic>> mockAds = [
-          {
-            'id': 'm1',
-            'title': 'Nike Air Zoom Кроссовки',
-            'price': '45 000',
-            'category': 'Одежда',
-            'image': 'https://img.icons8.com/color/512/sneakers.png'
-          },
-          {
-            'id': 'm2',
-            'title': 'Adidas Yeezy Boost',
-            'price': '120 000',
-            'category': 'Одежда',
-            'image': 'https://img.icons8.com/color/512/sneakers.png'
-          },
-          {
-            'id': 'm3',
-            'title': 'iPhone 15 Pro',
-            'price': '600 000',
-            'category': 'Электроника',
-            'image': 'https://img.icons8.com/color/512/iphone.png'
-          },
-          {
-            'id': 'm4',
-            'title': 'Toyota Camry 70',
-            'price': '15 000 000',
-            'category': 'Авто',
-            'image': 'https://img.icons8.com/color/512/sedan.png'
-          },
-        ];
-        for (var ad in mockAds) {
-          final title = (ad['title'] ?? '').toString();
-          final desc = (ad['description'] ?? '').toString();
-          if (FuzzyMatcher.isMatch(query, '$title $desc')) {
-            found.add(ad);
-          }
-        }
-      }
-
-      return found;
-    } catch (e) {
-      return [];
-    }
-  }
-
-  bool _isAppRelatedQuestion(String text) {
-    final cleanText = text.toLowerCase();
-    final keywords = [
-      'iq', 'market', 'taxi', 'такси', 'маркет',
-      'объявлен', 'елан', 'хабарландыру',
-      'купи', 'прода', 'сатып ал', 'сату', 'сетиш', 'сетип ал', 'buy', 'sell',
-      'цена', 'цене', 'цены', 'стоимост', 'баға', 'баһа', 'price',
-      'машин', 'авто', 'көлік', 'car',
-      'дорог', 'поездк', 'жол', 'сапар', 'йол', 'сәпәр', 'trip', 'road',
-      'водител', 'пассажир', 'жүргізуші', 'жолаушы', 'һайдиғучи', 'йолувчи', 'driver', 'passenger',
-      'заказ', 'тапсырыс', 'буйрутма', 'order',
-      'профил', 'регистр', 'вход', 'тіркелу', 'тизим', 'login', 'register',
-      'баланс', 'оплат', 'кошелек', 'төлем', 'әмиян', 'төләм', 'balance', 'payment',
-      'поддержк', 'қолдау', 'қолдаш', 'support',
-      'правил', 'ереже', 'қаидә', 'rules',
-      'верифик', 'тексеру', 'тәкшүрүш', 'verification', 'verify'
-    ];
-
-    for (final word in keywords) {
-      if (cleanText.contains(word)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  Future<void> _loadQuestionCount() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
-      final savedDate = prefs.getString('ai_limit_date') ?? '';
-      
-      if (savedDate == todayStr) {
-        if (mounted) {
-          setState(() {
-            _questionCount = prefs.getInt('ai_question_count') ?? 0;
-          });
-        }
-      } else {
-        await prefs.setString('ai_limit_date', todayStr);
-        await prefs.setInt('ai_question_count', 0);
-        if (mounted) {
-          setState(() {
-            _questionCount = 0;
-          });
-        }
-      }
-    } catch (e) {
-      debugPrint('Error loading question count: $e');
-    }
-  }
-
-  Future<void> _incrementQuestionCount() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
-      final savedDate = prefs.getString('ai_limit_date') ?? '';
-      
-      if (savedDate != todayStr) {
-        await prefs.setString('ai_limit_date', todayStr);
-        _questionCount = 0;
-      }
-      
-      if (mounted) {
-        setState(() {
-          _questionCount++;
-        });
-      }
-      await prefs.setInt('ai_question_count', _questionCount);
-    } catch (e) {
-      debugPrint('Error incrementing question count: $e');
-    }
-  }
 
   void _sendMessage() async {
     String text = _controller.text.trim();
     if (text.isEmpty && _selectedFiles.isEmpty) return;
 
-    if (widget.isHomeMode) {
-      final isAppRelated = _isAppRelatedQuestion(text);
-      if (!isAppRelated) {
-        await _incrementQuestionCount();
-      }
-      
-      if (_questionCount > 5) {
-        String instruction = "";
-        if (_currentLang == 'KZ') {
-          instruction = "\n[SYSTEM INSTRUCTION: Пайдаланушы жалпы сұрақтар бойынша күндізгі лимитінен (күніне 5 сұрақ) асып кетті. Осы сәттен бастап, оған сыпайы және әдемі түрде жалпы тақырыптарға сұрақтар лимиті таусылғанын хабарлаңыз. Бірақ IQ-Market қосымшасы (сатып алу, сату, хабарландырулар) және IQ-Taxi (қалааралық такси) бойынша сұрақтарға шектеусіз жауап бере алатыныңызды түсіндіріңіз. Осыны өте жылы және сыпайы түрде қазақ тілінде жазыңыз.]";
-        } else if (_currentLang == 'UG') {
-          instruction = "\n[SYSTEM INSTRUCTION: Пайдаланғучи умумий соаллар бойичә күнлүк лимитидин (күнигә 5 соал) ешип кәтти. Осы сәттин башлап, униңға сипайи вә чирайлиқ йосұнда умумий тақилиқ соаллар лимити түгәп қалғинини йәткүзүң. Бирақ IQ-Market программиси (сетиш, сетип елиш, еланлар) вә IQ-Taxi (шәһәрләр ара такси) бойичә соалларға чәкләнмигән йосұнда җавап берәләйдиғанлиқиңизни чүшәндүрүң. Осыни уйғур тилида чирайлиқ йезиң.]";
-        } else {
-          instruction = "\n[SYSTEM INSTRUCTION: Пользователь превысил лимит на 5 общих вопросов в день. Начиная с этого момента, МЯГКО и КРАСИВО сообщите ему, что лимит общих вопросов (5 в день) исчерпан. Объясните, что на любые вопросы о приложении IQ-Market (покупки, продажи, публикации) и сервисе такси IQ-Taxi вы готовы отвечать абсолютно БЕЗЛИМИТНО и свободно! Напишите это очень дружелюбно и вежливо на русском языке.]";
-        }
-        text += instruction;
-      }
-    }
-
-    if (_selectedFiles.isEmpty && _responseCache.containsKey(text.toLowerCase())) {
-      final cached = _responseCache[text.toLowerCase()]!;
-      if (mounted) {
-        setState(() {
-          _messages.add(
-              {'isMe': true, 'text': text, 'time': DateFormat('HH:mm').format(DateTime.now())});
-          _messages.add(
-              {'isMe': false, 'text': cached, 'time': DateFormat('HH:mm').format(DateTime.now())});
-          _controller.clear();
-        });
-      }
-      _scrollToBottom();
-      return;
-    }
-
     HapticFeedback.mediumImpact();
 
-    final List<File> filesToUpload = List.from(_selectedFiles);
-    final displayMsg = text.replaceAll(RegExp(r'\n\[SYSTEM INSTRUCTION:.*?\]'), '');
+    final timeStr = DateFormat('HH:mm').format(DateTime.now());
 
     if (mounted) {
       setState(() {
         _messages.add({
           'isMe': true,
-          'text': text.isEmpty
-              ? (_currentLang == 'KZ'
-                  ? "Медиафайл"
-                  : _currentLang == 'UG'
-                      ? "Медиаһөжҗәт"
-                      : "Медиафайл")
-              : displayMsg,
-          'files': filesToUpload,
-          'time': DateFormat('HH:mm').format(DateTime.now())
+          'text': text.isEmpty ? "Медиафайл" : text,
+          'time': timeStr,
+        });
+        _messages.add({
+          'isMe': false,
+          'text': '',
+          'time': timeStr,
+          'loading': true,
         });
         _isLoading = true;
-        _selectedFiles.clear();
         _controller.clear();
+        _selectedFiles.clear();
       });
     }
-
     _scrollToBottom();
 
-    try {
-      final DateTime now = DateTime.now();
-      final String timeStr = DateFormat('HH:mm').format(now);
+    final reply = await SupportBotService.processMessage(
+      userMessage: text,
+      mode: 'market',
+      lang: _currentLang,
+      chatHistory: [],
+    );
 
-      if (mounted) {
-        setState(() {
-          _messages.add({'isMe': false, 'text': '', 'time': timeStr});
-          _isLoading = false;
-          _isStreaming = true;
-          _stopRequested = false;
-        });
-      }
-
-      HapticFeedback.mediumImpact();
-
-      String fullResponse = "";
-      final responseStream = _geminiService.sendMessageStream(
-          text.isEmpty
-              ? (_currentLang == 'KZ'
-                  ? "Бұл файлдарда не көрінеді?"
-                  : _currentLang == 'UG'
-                      ? "Бу һөжҗәтләрдә немә бар?"
-                      : "Что на этих файлах?")
-              : text,
-          filesToUpload);
-
-      await for (final chunk in responseStream) {
-        if (_stopRequested) break;
-
-        if (chunk.text != null) {
-          fullResponse += chunk.text!;
-          if (fullResponse.length % 7 == 0) HapticFeedback.selectionClick();
-
-          if (mounted) {
-            setState(() {
-              _messages.last['text'] = fullResponse;
-            });
-          }
-          _scrollToBottom();
-        }
-      }
-
-      if (mounted) setState(() => _isStreaming = false);
-
-      if (filesToUpload.isEmpty) {
-        _responseCache[text.toLowerCase()] = fullResponse;
-      }
-
-      List<Map<String, dynamic>>? foundAds;
-      final RegExp searchRegExp = RegExp(r'\[SEARCH:\s*(.*?)\]', caseSensitive: false);
-      final match = searchRegExp.firstMatch(fullResponse);
-
-      if (match != null) {
-        String searchQuery = (match.group(1) ?? '').trim();
-        if (searchQuery.length >= 3) {
-          foundAds = await _searchAdsInFirebase(searchQuery);
-        }
-        String finalVisibleText = fullResponse.replaceAll(searchRegExp, '').trim();
-        if (finalVisibleText.isEmpty) {
-          finalVisibleText = _currentLang == 'KZ'
-              ? 'Міне, мен тапқан тауарлар:'
-              : _currentLang == 'UG'
-                  ? 'Мән тапқан маллар:'
-                  : 'Вот несколько товаров по вашему запросу:';
-        }
-        if (mounted) {
-          setState(() {
-            _messages.last['text'] = finalVisibleText;
-            if (foundAds != null && foundAds.isNotEmpty) {
-              _messages.last['ads'] = foundAds;
-            }
-
-            if (fullResponse.toUpperCase().contains('ВНИМАНИЕ!') ||
-                fullResponse.toUpperCase().contains('НАЗАР АУДАРЫҢЫЗ!') ||
-                fullResponse.toUpperCase().contains('ДИҚҚӘТ!')) {
-              _showScamAlert = true;
-              _scamReason = finalVisibleText.split('\n').first;
-            } else {
-              _showScamAlert = false;
-            }
-          });
-        }
-      } else {
-        if (fullResponse.toUpperCase().contains('ВНИМАНИЕ!') ||
-            fullResponse.toUpperCase().contains('НАЗАР АУДАРЫҢЫЗ!') ||
-            fullResponse.toUpperCase().contains('ДИҚҚӘТ!')) {
-          if (mounted) {
-            setState(() {
-              _showScamAlert = true;
-              _scamReason = fullResponse.split('\n').first;
-            });
-          }
-        }
-      }
-
-      _speak(fullResponse);
-    } catch (e) {
-      String errorStr = e.toString().toLowerCase();
-      String errorMsg = _currentLang == 'KZ'
-          ? 'Кешіріңіз, желі үзілді немесе серверде қате шықты. Қайтадан байқап көріңізші 🥺'
-          : _currentLang == 'UG'
-              ? 'Кәчүрүң, алақә үзүлүп қалди, қайта синап көрүң 🥺'
-              : 'Извините, связь с нейросетью прервалась. Пожалуйста, попробуйте еще раз! 🥺';
-
-      if (errorStr.contains('429') || errorStr.contains('quota')) {
-        errorMsg = _currentLang == 'KZ'
-            ? 'Лимит таусылды, бір минуттан соң қайталаңыз ⏳'
-            : _currentLang == 'UG'
-                ? 'Лимит түгәп қалди, бир минуттин кейин қайта синап көрүң ⏳'
-                : 'Лимит запросов исчерпан, пожалуйста, подождите минуту ⏳';
-      }
-
-      if (_messages.isNotEmpty && _messages.last['isMe'] == false && _messages.last['text'] == '') {
-        if (mounted) {
-          setState(() {
-            _messages.last['text'] = errorMsg;
-          });
-        }
-      } else {
-        if (mounted) {
-          setState(() {
-            _messages.add({
-              'isMe': false,
-              'text': errorMsg,
-              'time': DateFormat('HH:mm').format(DateTime.now())
-            });
-          });
-        }
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-      _scrollToBottom();
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+        _messages.last = {
+          'isMe': false,
+          'text': reply.text,
+          'time': timeStr,
+          'loading': false,
+          'showContact': reply.showContact,
+          'isOffline': reply.isOffline,
+        };
+      });
     }
+    _scrollToBottom();
   }
 
   void _scrollToBottom() {
@@ -756,37 +460,6 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
             Column(
               children: [
                 const SizedBox(height: 105), // Space for header
-                // 💡 Premium daily limit notification banner!
-                Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF4A80F0).withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFF4A80F0).withValues(alpha: 0.15), width: 1),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.info_outline_rounded, color: Color(0xFF4A80F0), size: 20),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          _currentLang == 'KZ'
-                              ? "Күнделікті жалпы сұрақтар лимиті: 5 сұрақ. Такси және хабарландыру сұрақтары — шектеусіз!"
-                              : _currentLang == 'UG'
-                                  ? "Умумий соалларға күнлүк лимит: 5 соал. Такси вә елан соаллири — чәкләнмигән!"
-                                  : "Лимит на общие вопросы: 5 в день. Вопросы о такси и объявлениях — безлимитно!",
-                          style: GoogleFonts.inter(
-                            color: const Color(0xFF1E293B),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            height: 1.3,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
                 Expanded(
                   child: ListView.builder(
                     controller: _scrollController,
@@ -1136,6 +809,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                                 fontWeight: FontWeight.w800, color: const Color(0xFF3B82F6)),
                           ),
                         ),
+                  if (msg['showContact'] == true) _buildInlineContactWidget(),
                   if (!isMe) ...[
                     const SizedBox(height: 12),
                     Row(
@@ -1173,6 +847,77 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
             ),
           ),
           if (msg['ads'] != null) _buildAdCarousel(msg['ads']),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInlineContactWidget() {
+    final String waMsg = _currentLang == 'KZ'
+        ? 'Сәлеметсіз бе! Маған IQ-Market қосымшасы бойынша көмек керек.'
+        : _currentLang == 'UG'
+            ? 'Әссаламу әлейкум! Маңа IQ-Market программиси бойичә йардәм керәк.'
+            : 'Здравствуйте! Мне нужна помощь по приложению IQ-Market.';
+
+    Future<void> openWhatsApp() async {
+      final msg = Uri.encodeComponent(waMsg);
+      final wa = Uri.parse('whatsapp://send?phone=77089007030&text=$msg');
+      final waWeb = Uri.parse('https://wa.me/77089007030?text=$msg');
+      if (await canLaunchUrl(wa)) {
+        await launchUrl(wa, mode: LaunchMode.externalApplication);
+      } else {
+        await launchUrl(waWeb, mode: LaunchMode.externalApplication);
+      }
+    }
+
+    Future<void> openTelegram() async {
+      final msg = Uri.encodeComponent(waMsg);
+      final tg = Uri.parse('https://t.me/+77089007030?text=$msg');
+      await launchUrl(tg, mode: LaunchMode.externalApplication);
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          GestureDetector(
+            onTap: openWhatsApp,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF25D366),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(PhosphorIcons.whatsappLogo(PhosphorIconsStyle.fill), color: Colors.white, size: 16),
+                  const SizedBox(width: 6),
+                  const Text('WhatsApp', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: openTelegram,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF24A1DE),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(PhosphorIcons.telegramLogo(PhosphorIconsStyle.fill), color: Colors.white, size: 16),
+                  const SizedBox(width: 6),
+                  const Text('Telegram', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -1303,7 +1048,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
             ),
             const SizedBox(width: 10),
             GestureDetector(
-              onTap: _isStreaming ? () => setState(() => _stopRequested = true) : _sendMessage,
+              onTap: _sendMessage,
               child: Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
@@ -1314,7 +1059,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                       ),
                       shape: BoxShape.circle,
                       boxShadow: [BoxShadow(color: const Color(0xFF4F46E5).withValues(alpha: 0.25), blurRadius: 10, offset: const Offset(0, 4))]),
-                  child: Icon(_isStreaming ? Icons.stop_rounded : Icons.send_rounded,
+                  child: const Icon(Icons.send_rounded,
                       color: Colors.white, size: 20)),
             ),
           ],

@@ -9,6 +9,7 @@ import 'package:iqmarket/services/user_service.dart';
 import 'package:iqmarket/screens/my_ads_screen.dart';
 import 'package:iqmarket/screens/profile_settings_screen.dart';
 import 'package:iqmarket/screens/help_center_screen.dart';
+import 'package:iqmarket/screens/iq_support_screen.dart';
 import 'package:iqmarket/screens/notifications_screen.dart';
 import 'package:iqmarket/screens/favorites_screen.dart';
 import 'package:iqmarket/models/ad_model.dart';
@@ -26,6 +27,7 @@ import 'package:iqmarket/constants/app_constants.dart';
 import 'package:iqmarket/services/telegram_bot_service.dart';
 import 'package:iqmarket/models/review_model.dart';
 import 'package:iqmarket/services/review_service.dart';
+import 'package:iqmarket/widgets/secure_image_viewer.dart';
 
 class ProfileScreen extends StatefulWidget {
   final List<AdModel> allAds;
@@ -1175,6 +1177,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           // GROUP 3: Информация
           _buildMenuSectionTitle(_t('info_title')),
           _buildMenuCard([
+            _buildListItem(Icons.support_agent_rounded, 'IQ-Поддержка', () {
+              Navigator.push(context, MaterialPageRoute(builder: (context) => IqSupportScreen(lang: _localLang)));
+            }),
+            _buildListItemDivider(),
             _buildListItem(Icons.help_outline_rounded, _t('help'), () {
               Navigator.push(context, MaterialPageRoute(builder: (context) => HelpCenterScreen(lang: _localLang)));
             }),
@@ -1305,27 +1311,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     
     if (imageProvider == null) return;
 
-    Navigator.push(context, MaterialPageRoute(builder: (context) => Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.close_rounded, color: Colors.white, size: 28),
-          onPressed: () => Navigator.pop(context),
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SecureImageViewerScreen(
+          imageProvider: imageProvider!,
+          heroTag: 'avatar_full',
         ),
       ),
-      body: Center(
-        child: Hero(
-          tag: 'avatar_full',
-          child: InteractiveViewer(
-            clipBehavior: Clip.none,
-            maxScale: 4.0,
-            child: Image(image: imageProvider!),
-          ),
-        ),
-      ),
-    )));
+    );
   }
 
   void _openSettings(String currentPhotoUrl) {

@@ -66,6 +66,14 @@
       ]
     },
     {
+      "collectionGroup": "ads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status",    "order": "ASCENDING"  },
+        { "fieldPath": "expiresAt", "order": "ASCENDING"  }
+      ]
+    },
+    {
       "collectionGroup": "taxi_orders",
       "queryScope": "COLLECTION",
       "fields": [

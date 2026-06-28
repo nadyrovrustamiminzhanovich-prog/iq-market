@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'iq_support_screen.dart';
 
 class HelpCenterScreen extends StatefulWidget {
   final String lang;
@@ -29,6 +30,9 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
       'tg_support': 'Telegram',
       'inapp_support': 'ЧАТ В ПРИЛОЖЕНИИ',
       'wa_message': 'Здравствуйте! Мне нужна помощь по приложению IQ-Market.',
+      'ai_chat_title': 'IQ-Поддержка — ИИ Ассистент',
+      'ai_chat_sub': 'Задайте вопрос — ответим за секунды 🚀',
+      'ai_chat_btn': 'Открыть чат',
     };
 
     final kz = {
@@ -45,6 +49,9 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
       'tg_support': 'Telegram',
       'inapp_support': 'ҚОСЫМШАДАҒЫ ЧАТ',
       'wa_message': 'Сәлеметсіз бе! Маған IQ-Market қосымшасы бойынша көмек керек.',
+      'ai_chat_title': 'IQ-Қолдау — ЖИ Ассистенті',
+      'ai_chat_sub': 'Сұрақ қойыңыз — секундтар ішінде жауап 🚀',
+      'ai_chat_btn': 'Чатты ашу',
     };
 
     final uyg = {
@@ -61,6 +68,9 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
       'tg_support': 'Telegram',
       'inapp_support': 'Программа ичидики чат',
       'wa_message': 'Әссаламу әлейкум! Маңа IQ-Market программиси бойичә йардәм керәк еди.',
+      'ai_chat_title': 'IQ-Йардәм — ЯЗ Йардәмчиси',
+      'ai_chat_sub': 'Соал қойуң — секундларда җавап 🚀',
+      'ai_chat_btn': 'Чатни ечиш',
     };
 
     final dict = widget.lang == 'Қазақша' ? kz : (widget.lang == 'Уйғурчә' ? uyg : ru);
@@ -180,6 +190,7 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
       body: CustomScrollView(
         slivers: [
           _buildSliverHeader(context),
+          SliverToBoxAdapter(child: _buildAiChatBanner(context)),
           SliverToBoxAdapter(child: _buildSearchBar()),
           SliverToBoxAdapter(child: _buildCategories()),
           SliverToBoxAdapter(child: _buildOperatorCard(context)),
@@ -194,6 +205,90 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
           ),
           const SliverToBoxAdapter(child: SizedBox(height: 40)),
         ],
+      ),
+    );
+  }
+
+  // ── IQ-Поддержка баннер ──────────────────────────
+  Widget _buildAiChatBanner(BuildContext context) {
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => IqSupportScreen(lang: widget.lang),
+        ),
+      ),
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF4A80F0), Color(0xFF6366F1)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF4A80F0).withValues(alpha: 0.3),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Icon(Icons.support_agent_rounded, color: Colors.white, size: 28),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _t('ai_chat_title'),
+                    style: GoogleFonts.plusJakartaSans(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 15,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    _t('ai_chat_sub'),
+                    style: GoogleFonts.inter(
+                      color: Colors.white.withValues(alpha: 0.85),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                _t('ai_chat_btn'),
+                style: GoogleFonts.plusJakartaSans(
+                  color: const Color(0xFF4A80F0),
+                  fontWeight: FontWeight.w900,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

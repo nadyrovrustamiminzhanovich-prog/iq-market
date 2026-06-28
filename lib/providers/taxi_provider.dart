@@ -393,6 +393,30 @@ class TaxiProvider extends ChangeNotifier {
     );
   }
 
+  /// 📞 Записывает поездку, о которой договорились по прямому звонку (без торгов).
+  /// Оба участника получат запись в своей истории поездок.
+  Future<void> recordDirectCallTrip({
+    required String targetId,
+    required String targetType,
+    required int agreedPrice,
+  }) async {
+    await _repo.recordDirectCallTrip(
+      targetId: targetId,
+      targetType: targetType,
+      agreedPrice: agreedPrice,
+      myFirstName: _firstName,
+      myLastName: _lastName,
+      myPhone: _phone,
+      myCar: _driverCar,
+      myPlate: _driverPlate,
+      myVerified: _isVehicleVerified,
+    );
+    // Обновляем счётчики и историю
+    await _sync.fetchDriverTripsCount();
+    await _sync.fetchPassengerTripsCount();
+    await _sync.fetchHistoryTrips();
+  }
+
   // 🔒 Dynamic Date Formatter with Backwards Compatibility for 'today'/'tomorrow' strings
   static String formatTaxiDisplayDate(Map<String, dynamic> doc, String lang) {
     final rawDate = doc['date']?.toString() ?? '';

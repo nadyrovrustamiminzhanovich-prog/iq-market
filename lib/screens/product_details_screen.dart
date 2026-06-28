@@ -146,10 +146,10 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) {
+      builder: (modalContext) => StatefulBuilder(
+        builder: (builderContext, setModalState) {
           return Container(
-            padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(context).viewInsets.bottom + 24),
+            padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(builderContext).viewInsets.bottom + 24),
             decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
             child: SingleChildScrollView(
               child: Column(
@@ -198,8 +198,13 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                           'timestamp': FieldValue.serverTimestamp(),
                         });
                         if (mounted) {
-                          Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(TranslationService.t('report_sent_success', widget.lang))));
+                          Navigator.pop(modalContext);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(TranslationService.t('report_sent_success', widget.lang)),
+                              backgroundColor: const Color(0xFF10B981),
+                            ),
+                          );
                         }
                       },
                       style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4A80F0), foregroundColor: Colors.white, disabledBackgroundColor: Colors.grey[300], padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), elevation: 0),
@@ -213,7 +218,6 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
         }
       ),
     ).then((_) {
-      // ✅ Освобождаем контроллер ПОСЛЕ закрытия шторки — предотвращает утечку памяти
       commentCtrl.dispose();
     });
   }
@@ -508,7 +512,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
             child: Column(
               children: [
                 _buildMainInfo(isFree),
-                if (_currentUser?.uid != widget.ad.userId && widget.ad.isBargainAllowed) _buildBargainSection(),
+                if (_currentUser?.uid != widget.ad.userId) _buildBargainSection(),
                 _buildTags(),
                 const SizedBox(height: 10),
                 if (widget.ad.extraFields != null && widget.ad.extraFields!.isNotEmpty) _buildSpecsSection(),
@@ -705,22 +709,45 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   Widget _buildReviewItem(ReviewModel review) => Container(
     margin: const EdgeInsets.only(bottom: 16),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(children: [
-        Text(review.fromUserName, style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 14)), 
-        const SizedBox(width: 8),
-        Text(_formatRelativeDate(review.timestamp), style: GoogleFonts.inter(fontSize: 12, color: Colors.grey[500], fontWeight: FontWeight.w500)),
-        const Spacer(), 
-        if (_currentUser?.accountType == 'admin') 
-          IconButton(
-            icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Colors.redAccent),
-            onPressed: () => _confirmDeleteReview(review),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  review.fromUserName,
+                  style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 14),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  _formatRelativeDate(review.timestamp),
+                  style: GoogleFonts.inter(fontSize: 11, color: Colors.grey[500], fontWeight: FontWeight.w500),
+                ),
+              ],
+            ),
           ),
-        const SizedBox(width: 8),
-        Row(children: List.generate(5, (i) => Icon(Icons.star_rounded, size: 14, color: i < review.rating ? Colors.orange : Colors.grey[300]))),
-      ]),
-      const SizedBox(height: 4),
+          const SizedBox(width: 8),
+          if (_currentUser?.accountType == 'admin') ...[
+            IconButton(
+              icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Colors.redAccent),
+              onPressed: () => _confirmDeleteReview(review),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+            const SizedBox(width: 8),
+          ],
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: List.generate(5, (i) => Icon(Icons.star_rounded, size: 14, color: i < review.rating ? Colors.orange : Colors.grey[300])),
+          ),
+        ],
+      ),
+      const SizedBox(height: 6),
       Text(review.comment, style: GoogleFonts.inter(fontSize: 14, color: Colors.grey[700])),
 
       if (review.images.isNotEmpty) ...[ 

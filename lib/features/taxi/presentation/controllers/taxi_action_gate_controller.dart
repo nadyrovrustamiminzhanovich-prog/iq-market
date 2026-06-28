@@ -115,18 +115,18 @@ class TaxiActionGateController {
     String? customText,
     VoidCallback? onSuccess,
   }) async {
-    String titleText = 'ПОДТВЕРЖДЕНИЕ TELEGRAM';
+    String titleText = 'Подтверждение Telegram';
     String contentText = customText ?? 'Для получения доступа к поездкам и заказам водителя необходимо подтвердить номер через Telegram. Подтвердить сейчас?';
     String confirmText = 'ПОДТВЕРДИТЬ';
     String cancelText = 'ОТМЕНА';
 
     if (provider.curLang == 'kz') {
-      titleText = 'TELEGRAM АРҚЫЛЫ РАСТАУ';
+      titleText = 'Растау Telegram';
       contentText = customText ?? 'Жүргізуші функцияларына қол жеткізу үшін телефонды Telegram арқылы растау қажет. Қазір растағыңыз келе ме?';
       confirmText = 'РАСТАУ';
       cancelText = 'БАС ТАРТУ';
     } else if (provider.curLang == 'uyg') {
-      titleText = 'TELEGRAM АРҚЫЛЫҚ ТӘСДИҚЛӘШ';
+      titleText = 'Тәсдиқләш Telegram';
       contentText = customText ?? 'Шопур функциялириға еришиш үчүн телефонни Telegram арқылық тәсдиқләш зөрүр. Ҳазир тәсдиқлимәкчимусыз?';
       confirmText = 'ТӘСДИҚЛӘШ';
       cancelText = 'ЯҚ';
@@ -134,31 +134,98 @@ class TaxiActionGateController {
 
     final bool? result = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (_) => Dialog(
         backgroundColor: t.bg,
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
-        title: Text(
-          titleText,
-          style: GoogleFonts.inter(fontWeight: FontWeight.w900),
-        ),
-        content: Text(
-          contentText,
-          style: GoogleFonts.inter(),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(cancelText,
-                style: GoogleFonts.inter(color: t.sub)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(confirmText,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Красивая круглая иконка Telegram
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF24A1DE).withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.telegram_rounded,
+                  color: Color(0xFF24A1DE),
+                  size: 44,
+                ),
+              ),
+              const SizedBox(height: 18),
+              // Заголовок без переноса букв
+              Text(
+                titleText,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.plusJakartaSans(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 19,
+                  color: t.text,
+                ),
+              ),
+              const SizedBox(height: 12),
+              // Текст
+              Text(
+                contentText,
+                textAlign: TextAlign.center,
                 style: GoogleFonts.inter(
-                    color: t.accent, fontWeight: FontWeight.bold)),
+                  fontSize: 13.5,
+                  color: t.sub,
+                  height: 1.5,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 24),
+              // Кнопки
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        side: BorderSide(color: t.sub.withValues(alpha: 0.2)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                      child: Text(
+                        cancelText,
+                        style: GoogleFonts.plusJakartaSans(
+                          color: t.sub,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 12.5,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF24A1DE),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                      child: Text(
+                        confirmText,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 12.5,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
 

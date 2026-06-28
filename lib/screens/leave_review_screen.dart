@@ -3,10 +3,13 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
 import 'package:iqmarket/models/ad_model.dart';
 import 'package:iqmarket/models/review_model.dart';
+import 'package:iqmarket/providers/app_config_provider.dart';
 import 'package:iqmarket/services/review_service.dart';
 import 'package:iqmarket/services/file_service.dart';
+import 'package:iqmarket/services/translation_service.dart';
 
 class LeaveReviewScreen extends StatefulWidget {
   final AdModel ad;
@@ -29,9 +32,11 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
     }
   }
 
-  Future<void> _submit() async {
+  Future<void> _submit(String lang) async {
     if (_commentCtrl.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Напишите текст отзыва')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(TranslationService.t('err_enter_comment', lang)))
+      );
       return;
     }
 
@@ -41,7 +46,9 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Войдите в аккаунт, чтобы оставить отзыв')));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(TranslationService.t('err_login_to_review', lang)))
+          );
         }
         return;
       }
@@ -52,12 +59,11 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
         if (mounted) {
           setState(() => _isUploading = false);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Вы уже оставляли отзыв на это объявление'))
+            SnackBar(content: Text(TranslationService.t('err_already_reviewed', lang)))
           );
         }
         return;
       }
-
 
       // Upload images if any
       List<String> imageUrls = [];
@@ -82,7 +88,9 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
       if (mounted) {
         final messenger = ScaffoldMessenger.of(context);
         Navigator.pop(context);
-        messenger.showSnackBar(const SnackBar(content: Text('Спасибо! Отзыв опубликован.')));
+        messenger.showSnackBar(
+          SnackBar(content: Text(TranslationService.t('review_published_success', lang)))
+        );
       }
     } catch (e) {
       debugPrint('Error publishing review: $e');
@@ -92,7 +100,6 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
     } finally {
       if (mounted) setState(() => _isUploading = false);
     }
-
   }
 
   @override
@@ -103,10 +110,16 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final config = Provider.of<AppConfigProvider>(context);
+    final lang = config.language;
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: Text('Оставить отзыв', style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 18)),
+        title: Text(
+          TranslationService.t('leave_review', lang), 
+          style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 18)
+        ),
         centerTitle: true,
         elevation: 0,
         backgroundColor: Colors.white,
@@ -124,7 +137,7 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
             Center(
               child: Column(
                 children: [
-                  Text('Ваша оценка', style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w700)),
+                  Text(TranslationService.t('your_rating', lang), style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 12),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -142,13 +155,13 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
             ),
             
             const SizedBox(height: 32),
-            Text('Ваш комментарий', style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w700)),
+            Text(TranslationService.t('your_comment', lang), style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w700)),
             const SizedBox(height: 12),
             TextField(
               controller: _commentCtrl,
               maxLines: 5,
               decoration: InputDecoration(
-                hintText: 'Поделитесь впечатлениями о сделке...',
+                hintText: TranslationService.t('comment_placeholder', lang),
                 filled: true,
                 fillColor: const Color(0xFFF1F5F9),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
@@ -157,7 +170,7 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
             ),
             
             const SizedBox(height: 24),
-            Text('Фотографии (необязательно)', style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w700)),
+            Text(TranslationService.t('photos_optional', lang), style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w700)),
             const SizedBox(height: 12),
             SizedBox(
               height: 100,
@@ -191,7 +204,7 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
               width: double.infinity,
               height: 56,
               child: ElevatedButton(
-                onPressed: _isUploading ? null : _submit,
+                onPressed: _isUploading ? null : () => _submit(lang),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF4A80F0),
                   foregroundColor: Colors.white,
@@ -200,7 +213,10 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
                 ),
                 child: _isUploading 
                   ? const CircularProgressIndicator(color: Colors.white)
-                  : Text('Опубликовать отзыв', style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16)),
+                  : Text(
+                      TranslationService.t('publish_review_btn', lang), 
+                      style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16)
+                    ),
               ),
             ),
           ],

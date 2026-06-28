@@ -116,6 +116,8 @@ exports.checkExpiredAds = functions.pubsub.schedule('0 3 * * *').timeZone('Asia/
         .where('status', '==', 'active')
         .get();
 
+      const sendPromises = [];
+
       for (const doc of expiringAdsSnap.docs) {
         const data = doc.data();
         if (data.notifiedExpiry === true) continue;
@@ -138,16 +140,19 @@ exports.checkExpiredAds = functions.pubsub.schedule('0 3 * * *').timeZone('Asia/
               },
               data: { type: 'ad_expiring', adId: doc.id, click_action: 'FLUTTER_NOTIFICATION_CLICK' },
             };
-            admin.messaging().send(payload)
+            const sendPromise = admin.messaging().send(payload)
               .then(() => notifyCount++)
               .catch(e => console.error('Push error:', e));
+            sendPromises.push(sendPromise);
           }
         }
       }
 
       if (batchCount > 0) batchOps.push(currentBatch.commit());
-      if (batchOps.length > 0) {
+      
+      if (batchOps.length > 0 || sendPromises.length > 0) {
         await Promise.all(batchOps);
+        await Promise.all(sendPromises);
         console.log(`[checkExpiredAds] Archived ${expiredCount}, notified ${notifyCount}`);
       } else {
         console.log('[checkExpiredAds] No expired or expiring ads today.');
@@ -197,7 +202,12 @@ exports.secureGeminiCall = functions.https.onRequest(async (req, res) => {
     res.status(fetchResponse.status);
     const contentType = fetchResponse.headers.get('content-type');
     if (contentType) res.setHeader('content-type', contentType);
-    fetchResponse.body.pipe(res);
+    if (fetchResponse.body) {
+      const { Readable } = require('stream');
+      Readable.fromWeb(fetchResponse.body).pipe(res);
+    } else {
+      res.end();
+    }
   } catch (error) {
     console.error('[secureGeminiCall] Error:', error);
     res.status(500).send('Internal Server Error');

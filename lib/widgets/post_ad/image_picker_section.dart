@@ -39,10 +39,11 @@ class ImagePickerSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(child: _mediaBtn(Icons.add_photo_alternate_rounded, TranslationService.t('photo_btn', lang), onPickImages, color: const Color(0xFF4A80F0))),
+            Expanded(child: _buildPhotoCard(lang)),
             const SizedBox(width: 12),
-            Expanded(child: _mediaBtn(Icons.videocam_rounded, TranslationService.t('video_btn', lang), onPickVideo, color: const Color(0xFF6366F1))),
+            Expanded(child: _buildVideoCard(lang)),
           ],
         ),
         if (hasMedia) ...[
@@ -111,16 +112,23 @@ class ImagePickerSection extends StatelessWidget {
         ],
         const SizedBox(height: 12),
         Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(color: const Color(0xFF4A80F0).withValues(alpha: 0.05), borderRadius: BorderRadius.circular(12)),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF0F5FF),
+            borderRadius: BorderRadius.circular(14),
+          ),
           child: Row(
             children: [
-              const Icon(Icons.info_outline_rounded, size: 16, color: Color(0xFF4A80F0)),
+              const Icon(Icons.info, size: 18, color: Color(0xFF1A73E8)),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   TranslationService.t('media_hint', lang),
-                  style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF4A80F0), fontWeight: FontWeight.w600),
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    color: const Color(0xFF1E3A8A),
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
             ],
@@ -158,26 +166,137 @@ class ImagePickerSection extends StatelessWidget {
     );
   }
 
-  Widget _mediaBtn(IconData icon, String label, VoidCallback onTap, {Color? color}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 80,
-        decoration: BoxDecoration(
-          color: (color ?? const Color(0xFF64748B)).withValues(alpha: 0.05),
+  Widget _buildPhotoCard(String lang) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEBF3FF),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFD6E4FF), width: 1),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: (color ?? const Color(0xFF64748B)).withValues(alpha: 0.2), width: 2),
+          onTap: onPickImages,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFD2E3FC),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Icon(Icons.image_rounded, color: Color(0xFF1A73E8), size: 24),
+                  ),
+                  Positioned(
+                    bottom: -2,
+                    right: -2,
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF1A73E8),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.add, color: Colors.white, size: 10),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                TranslationService.t('photo_title', lang),
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFF0F172A),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                TranslationService.t('photo_desc', lang),
+                style: GoogleFonts.inter(
+                  fontSize: 11,
+                  color: const Color(0xFF64748B),
+                  height: 1.3,
+                ),
+              ),
+            ],
+          ),
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: color ?? const Color(0xFF64748B), size: 28),
-            const SizedBox(height: 6),
-            Text(
-              label,
-              style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w800, color: color ?? const Color(0xFF64748B)),
-            ),
-          ],
+      ),
+    );
+  }
+
+  Widget _buildVideoCard(String lang) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF3EFFF),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFEDE9FE), width: 1),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: onPickVideo,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE8E0FF),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Icon(Icons.videocam_rounded, color: Color(0xFF7C3AED), size: 24),
+                  ),
+                  Positioned(
+                    bottom: -2,
+                    right: -2,
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF7C3AED),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.add, color: Colors.white, size: 10),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                TranslationService.t('video_title', lang),
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFF0F172A),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                TranslationService.t('video_desc', lang),
+                style: GoogleFonts.inter(
+                  fontSize: 11,
+                  color: const Color(0xFF64748B),
+                  height: 1.3,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

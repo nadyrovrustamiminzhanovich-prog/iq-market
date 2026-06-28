@@ -19,7 +19,7 @@ import 'package:iqmarket/services/translation_service.dart';
 
 // ── Screens ──────────────────────────────────────────────────────────────────
 import 'package:iqmarket/screens/taxi/taxi_settings_screen.dart';
-import 'package:iqmarket/screens/taxi/taxi_profile_screen.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:iqmarket/screens/taxi/taxi_history_screen.dart';
 import 'package:iqmarket/screens/taxi/taxi_support_screen.dart';
 import 'package:iqmarket/screens/taxi/taxi_user_profile_view.dart';
@@ -36,6 +36,7 @@ import 'package:iqmarket/features/taxi/presentation/widgets/ui/taxi_sos_bottom_s
 import 'package:iqmarket/features/taxi/presentation/widgets/ui/taxi_side_menu_widget.dart';
 import 'package:iqmarket/features/taxi/presentation/widgets/ui/taxi_location_picker_sheet.dart';
 import 'package:iqmarket/features/taxi/presentation/widgets/ui/taxi_phone_binding_sheet.dart';
+import 'package:iqmarket/features/taxi/presentation/widgets/ui/call_agreement_dialog.dart';
 import 'package:iqmarket/features/taxi/presentation/widgets/ui/taxi_bid_details_sheet.dart';
 import 'package:iqmarket/features/taxi/presentation/widgets/ui/taxi_passenger_order_confirmation_sheet.dart';
 import 'package:iqmarket/features/taxi/presentation/widgets/ui/taxi_driver_ride_confirmation_sheet.dart';
@@ -61,7 +62,8 @@ class TaxiServiceScreen extends StatefulWidget {
   State<TaxiServiceScreen> createState() => _TaxiServiceScreenState();
 }
 
-class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
+class _TaxiServiceScreenState extends State<TaxiServiceScreen>
+    with WidgetsBindingObserver {
   // ── Scaffold ─────────────────────────────────────────────────────────────
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
@@ -94,12 +96,21 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
   Set<String> _lastCheckedRideIds = {};
 
   // ─────────────────────────────────────────────────────────────────────────
+  // 📞 Direct Call Agreement — «Вы договорились?»
+  // Сохраняем данные о том, кому позвонили, чтобы при возврате показать диалог.
+  // ─────────────────────────────────────────────────────────────────────────
+  Map<String, dynamic>? _pendingCallTarget; // данные карточки (drive или order)
+  String? _pendingCallTargetType;           // 'drive' или 'order'
+  bool _callDialogPending = false;          // защита от двойного показа
+
+  // ─────────────────────────────────────────────────────────────────────────
   // Lifecycle
   // ─────────────────────────────────────────────────────────────────────────
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this); // 📞 слушаем AppLifecycle
     _checkConnectivity();
     _connectivitySubscription =
         Connectivity().onConnectivityChanged.listen((results) {
@@ -163,12 +174,69 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this); // 📞 снимаем слушатель
     _taxiProvider.pauseFirebaseSync();
     _connectivitySubscription?.cancel();
     _mainPhoneController.dispose();
     _priceController.dispose();
     _commentController.dispose();
     super.dispose();
+  }
+
+  // ── 📞 «Вы договорились?» ─────────────────────────────────────────────────
+  // Срабатывает при возврате из звонилки (AppLifecycleState.resumed)
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed &&
+        _callDialogPending &&
+        _pendingCallTarget != null &&
+        mounted) {
+      _callDialogPending = false;
+
+      final target = _pendingCallTarget!;
+      final targetType = _pendingCallTargetType ?? 'drive';
+      final provider = Provider.of<TaxiProvider>(context, listen: false);
+      final t = provider.theme;
+
+      final String counterpartName;
+      final String counterpartPhone;
+      final String counterpartImg;
+      final int suggestedPrice;
+
+      if (targetType == 'drive') {
+        // Я пассажир → звонил водителю
+        counterpartName  = target['driverName']?.toString() ?? target['name']?.toString() ?? 'Водитель';
+        counterpartPhone = target['driverPhone']?.toString() ?? target['phone']?.toString() ?? '';
+        counterpartImg   = target['driverImg']?.toString() ?? target['img']?.toString() ?? '';
+        suggestedPrice   = (target['price'] as num?)?.toInt() ?? 0;
+      } else {
+        // Я водитель → звонил пассажиру
+        counterpartName  = target['passengerName']?.toString() ?? target['name']?.toString() ?? 'Пассажир';
+        counterpartPhone = target['passengerPhone']?.toString() ?? target['phone']?.toString() ?? '';
+        counterpartImg   = target['passengerImg']?.toString() ?? target['img']?.toString() ?? '';
+        suggestedPrice   = (target['price'] as num?)?.toInt() ?? 0;
+      }
+
+      // Показываем диалог с небольшой задержкой (UI должен успеть «проснуться»)
+      Future.delayed(const Duration(milliseconds: 600), () {
+        if (!mounted) return;
+        showCallAgreementDialog(
+          context: context,
+          provider: provider,
+          t: t,
+          targetId: target['id']?.toString() ?? '',
+          targetType: targetType,
+          counterpartName: counterpartName,
+          counterpartPhone: counterpartPhone,
+          counterpartImg: counterpartImg,
+          suggestedPrice: suggestedPrice,
+        );
+      });
+
+      // Сбрасываем pending-состояние
+      _pendingCallTarget = null;
+      _pendingCallTargetType = null;
+    }
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -215,8 +283,19 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
                 label: provider.translate('profile'),
                 onTap: () {
                   Navigator.pop(context);
-                  Navigator.push(context,
-                      MaterialPageRoute(builder: (_) => TaxiProfileScreen(t: t)));
+                  final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+                  final fullName = '${provider.firstName} ${provider.lastName}'.trim();
+                  _showUserProfile(
+                    provider,
+                    t,
+                    fullName,
+                    provider.profileImage ?? '',
+                    provider.driverCar,
+                    provider.isVehicleVerified,
+                    uid,
+                    isVerified: provider.isVehicleVerified,
+                    phone: provider.phone,
+                  );
                 },
               ),
               TaxiDrawerItem(
@@ -666,7 +745,11 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
       return;
     }
     if (isCall) {
-      launchUrl(Uri.parse('tel:${d['phone'] ?? ''}'));
+      // 📞 Сохраняем данные водителя перед звонком
+      _pendingCallTarget = d;
+      _pendingCallTargetType = 'drive';
+      _callDialogPending = true;
+      launchUrl(Uri.parse('tel:${d['phone'] ?? d['driverPhone'] ?? ''}'));
     } else {
       Navigator.push(
         context,
@@ -719,6 +802,10 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen> {
 
     if (isCall) {
       if (passengerPhone.isNotEmpty) {
+        // 📞 Сохраняем данные пассажира перед звонком
+        _pendingCallTarget = o;
+        _pendingCallTargetType = 'order';
+        _callDialogPending = true;
         await launchUrl(Uri.parse('tel:$passengerPhone'));
       } else {
         NotificationService.notify(context, 'Нет номера',

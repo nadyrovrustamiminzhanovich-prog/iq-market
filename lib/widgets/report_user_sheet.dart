@@ -27,14 +27,14 @@ class ReportUserSheet {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) {
+      builder: (modalCtx) => StatefulBuilder(
+        builder: (builderCtx, setModalState) {
           return Container(
             padding: EdgeInsets.fromLTRB(
               24,
               24,
               24,
-              MediaQuery.of(context).viewInsets.bottom + 24,
+              MediaQuery.of(builderCtx).viewInsets.bottom + 24,
             ),
             decoration: const BoxDecoration(
               color: Colors.white,
@@ -127,16 +127,16 @@ class ReportUserSheet {
                                 'comment': commentCtrl.text.trim(),
                                 'timestamp': FieldValue.serverTimestamp(),
                               });
-                              if (context.mounted) {
-                                Navigator.pop(context);
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      TranslationService.t('report_sent_success', lang),
-                                    ),
+                              // Use the outer context passed to the static method
+                              Navigator.pop(modalCtx);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    TranslationService.t('report_sent_success', lang),
                                   ),
-                                );
-                              }
+                                  backgroundColor: const Color(0xFF10B981),
+                                ),
+                              );
                             },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF4A80F0),

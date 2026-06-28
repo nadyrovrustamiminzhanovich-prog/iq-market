@@ -26,19 +26,15 @@ class AppBootstrap extends StatefulWidget {
   @override
   State<AppBootstrap> createState() => _AppBootstrapState();
 }
-
 class _AppBootstrapState extends State<AppBootstrap> {
   bool _initialized = false;
   String? _error;
-  late final TaxiProvider _taxiProvider;
-  late final AppConfigProvider _appConfigProvider;
+  late TaxiProvider _taxiProvider;
+  late AppConfigProvider _appConfigProvider;
 
   @override
   void initState() {
     super.initState();
-    // Synchronously initialize lightweight providers on startup to avoid initialization latency
-    _taxiProvider = TaxiProvider();
-    _appConfigProvider = AppConfigProvider();
     _initApp();
   }
 
@@ -55,6 +51,10 @@ class _AppBootstrapState extends State<AppBootstrap> {
         persistenceEnabled: true,
         cacheSizeBytes: 104857600, // 100 MB cache limit
       );
+
+      // Initialize lightweight providers only after dependencies are ready
+      _taxiProvider = TaxiProvider();
+      _appConfigProvider = AppConfigProvider();
 
       // Load saved language for initial locale
       final savedLang = StorageService.getString('app_lang') ?? 'Русский';
@@ -132,15 +132,8 @@ class _AppBootstrapState extends State<AppBootstrap> {
 
   @override
   Widget build(BuildContext context) {
-    // Return a single root MultiProvider and MainApp directly from the first frame.
-    // The MainApp returns the single MaterialApp, and we dynamically swap the home content,
-    // which completely eliminates startup rendering pipeline teardown lags.
-    return MultiProvider(
-      providers: [
-        ChangeNotifierProvider.value(value: _taxiProvider),
-        ChangeNotifierProvider.value(value: _appConfigProvider),
-      ],
-      child: MainApp(
+    if (!_initialized) {
+      return MaterialApp(
         home: _error != null
             ? ErrorScreen(
                 message: _error!,
@@ -151,9 +144,19 @@ class _AppBootstrapState extends State<AppBootstrap> {
                   _initApp();
                 },
               )
-            : (!_initialized
-                ? const PreloadSplashScreen()
-                : const IQMarketHome()),
+            : const PreloadSplashScreen(),
+        theme: ThemeData(scaffoldBackgroundColor: Colors.white),
+        debugShowCheckedModeBanner: false,
+      );
+    }
+
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider.value(value: _taxiProvider),
+        ChangeNotifierProvider.value(value: _appConfigProvider),
+      ],
+      child: MainApp(
+        home: const IQMarketHome(),
       ),
     );
   }

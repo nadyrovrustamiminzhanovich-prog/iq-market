@@ -14,6 +14,9 @@ class PostAdInput extends StatelessWidget {
   final String? errorText;
   final ValueChanged<String>? onChanged;
   final List<TextInputFormatter>? inputFormatters;
+  final Widget? prefixIcon;
+  final Widget? suffixIcon;
+  final String? suffixText;
 
   const PostAdInput({
     super.key,
@@ -27,6 +30,9 @@ class PostAdInput extends StatelessWidget {
     this.errorText,
     this.onChanged,
     this.inputFormatters,
+    this.prefixIcon,
+    this.suffixIcon,
+    this.suffixText,
   });
 
   @override
@@ -36,9 +42,9 @@ class PostAdInput extends StatelessWidget {
       children: [
         Row(
           children: [
-            Text(label, style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16, color: const Color(0xFF1E293B))),
+            Text(label, style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 15, color: const Color(0xFF0F172A))),
             if (isRequired)
-              const Text(' *', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 16)),
+              const Text(' *', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 15)),
           ],
         ),
         const SizedBox(height: 8),
@@ -57,12 +63,16 @@ class PostAdInput extends StatelessWidget {
             errorStyle: GoogleFonts.inter(fontWeight: FontWeight.w600),
             hintStyle: GoogleFonts.inter(color: Colors.grey[400], fontSize: 14),
             filled: true,
-            fillColor: const Color(0xFFF8FAFC),
+            fillColor: Colors.white,
+            prefixIcon: prefixIcon,
+            suffixIcon: suffixIcon,
+            suffixText: suffixText,
+            suffixStyle: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A)),
             counterStyle: GoogleFonts.inter(fontSize: 10, color: Colors.grey[500]),
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.grey[200]!)),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFF4A80F0), width: 2)),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE2E8F0), width: 1.5)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE2E8F0), width: 1.5)),
+            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF4A80F0), width: 1.5)),
           ),
         ),
       ],
@@ -103,24 +113,59 @@ class PostAdOptionSwitch extends StatelessWidget {
   final String label;
   final bool value;
   final ValueChanged<bool> onChanged;
+  final IconData icon;
 
   const PostAdOptionSwitch({
     super.key,
     required this.label,
     required this.value,
     required this.onChanged,
+    required this.icon,
   });
 
   @override
   Widget build(BuildContext context) {
-    return SwitchListTile(
-      value: value,
-      onChanged: onChanged,
-      title: Text(label, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: const Color(0xFF1E293B))),
-      activeThumbColor: const Color(0xFF4A80F0),
-      activeTrackColor: const Color(0xFF4A80F0).withValues(alpha: 0.5),
-      contentPadding: EdgeInsets.zero,
-      dense: true,
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE2E8F0), width: 1.5),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: const Color(0xFFEBF3FF),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: const Color(0xFF1A73E8), size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              label,
+              style: GoogleFonts.inter(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF0F172A),
+              ),
+            ),
+          ),
+          Switch(
+            value: value,
+            onChanged: onChanged,
+            activeColor: Colors.white,
+            activeTrackColor: const Color(0xFF1A73E8),
+            inactiveThumbColor: Colors.white,
+            inactiveTrackColor: const Color(0xFFE2E8F0),
+            trackOutlineColor: WidgetStateProperty.all(Colors.transparent),
+          ),
+        ],
+      ),
     );
   }
 }

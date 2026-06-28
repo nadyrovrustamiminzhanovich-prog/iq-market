@@ -18,6 +18,7 @@ import 'package:iqmarket/services/auth_service.dart';
 import 'package:iqmarket/services/user_service.dart';
 import 'package:iqmarket/services/file_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:iqmarket/widgets/secure_image_viewer.dart';
 
 class ProfileSettingsScreen extends StatefulWidget {
   final String currentName;
@@ -585,22 +586,15 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     
     if (imageProvider == null) return;
 
-    Navigator.push(context, MaterialPageRoute(builder: (context) => Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.close_rounded, color: Colors.white, size: 28),
-          onPressed: () => Navigator.pop(context),
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SecureImageViewerScreen(
+          imageProvider: imageProvider,
+          heroTag: 'avatar_full_settings',
         ),
       ),
-      body: Center(
-        child: InteractiveViewer(
-          child: Image(image: imageProvider, fit: BoxFit.contain),
-        ),
-      ),
-    )));
+    );
   }
 
   void _showImagePickerOptions() {

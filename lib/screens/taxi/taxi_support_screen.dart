@@ -5,7 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:provider/provider.dart';
 import 'package:iqmarket/theme/taxi_theme.dart';
 import 'package:iqmarket/providers/taxi_provider.dart';
-import 'package:iqmarket/screens/ai_assistant_screen.dart';
+import 'package:iqmarket/screens/iq_support_screen.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 class TaxiSupportScreen extends StatefulWidget {
@@ -230,7 +230,7 @@ class _TaxiSupportScreenState extends State<TaxiSupportScreen> {
         child: InkWell(
           onTap: () {
             HapticFeedback.heavyImpact();
-            // Convert app locale code into corresponding string for AiAssistantScreen state initialization
+            // Convert app locale code into corresponding string for IqSupportScreen state initialization
             final String aiLang = provider.curLang == 'kz' 
                 ? 'Қазақша' 
                 : (provider.curLang == 'uyg' ? 'Уйғурчә' : 'Русский');
@@ -238,9 +238,9 @@ class _TaxiSupportScreenState extends State<TaxiSupportScreen> {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => AiAssistantScreen(
-                  isHomeMode: true,
-                  initialLanguage: aiLang,
+                builder: (_) => IqSupportScreen(
+                  lang: aiLang,
+                  initialMode: 'taxi',
                 ),
               ),
             );

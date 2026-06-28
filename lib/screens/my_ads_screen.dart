@@ -146,6 +146,9 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
   Widget _buildAdCard(AdModel ad) {
     final bool isPending = ad.status == 'pending';
     final bool isArchived = !ad.active || ad.status == 'archived' || ad.status == 'archive';
+    final DateTime now = DateTime.now();
+    final bool isExpired = ad.expiresAt != null && ad.expiresAt!.isBefore(now);
+    final bool isNearExpiry = ad.expiresAt != null && ad.expiresAt!.difference(now).inDays <= 3;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -262,7 +265,7 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  if (ad.expiresAt != null && (ad.expiresAt!.difference(DateTime.now()).inDays <= 3 || !ad.active))
+                  if (isNearExpiry || (isArchived && isExpired))
                     Container(
                       margin: const EdgeInsets.only(right: 8),
                       child: TextButton.icon(
@@ -281,12 +284,19 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
                     label: Text('Редакт.', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
                   ),
                   const SizedBox(width: 8),
-                  if (ad.active && (ad.expiresAt == null || ad.expiresAt!.difference(DateTime.now()).inDays > 3))
+                  if (ad.active)
                     TextButton.icon(
-                      onPressed: () => AdService.toggleAdStatus(ad.id, !ad.active),
+                      onPressed: () => AdService.toggleAdStatus(ad.id, false),
                       style: TextButton.styleFrom(foregroundColor: const Color(0xFF64748B)),
-                      icon: Icon(ad.active ? Icons.archive_outlined : Icons.unarchive_outlined, size: 18),
-                      label: Text(ad.active ? 'В архив' : 'Активир.', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+                      icon: const Icon(Icons.archive_outlined, size: 18),
+                      label: Text('В архив', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+                    )
+                  else if (!isExpired)
+                    TextButton.icon(
+                      onPressed: () => AdService.toggleAdStatus(ad.id, true),
+                      style: TextButton.styleFrom(foregroundColor: const Color(0xFF64748B)),
+                      icon: const Icon(Icons.unarchive_outlined, size: 18),
+                      label: Text('Активир.', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
                     ),
                   const Spacer(),
                   IconButton(

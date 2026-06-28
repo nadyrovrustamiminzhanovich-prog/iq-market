@@ -24,18 +24,49 @@ class LocationSelector extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(TranslationService.t('select_city', lang), style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 15)),
-        const SizedBox(height: 12),
+        Row(
+          children: [
+            Text(
+              TranslationService.t('select_city', lang), 
+              style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 15, color: const Color(0xFF0F172A)),
+            ),
+            const Text(' *', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 15)),
+          ],
+        ),
+        const SizedBox(height: 8),
         InkWell(
           onTap: () => _showOptions(context, lang),
+          borderRadius: BorderRadius.circular(12),
           child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(16)),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE2E8F0), width: 1.5),
+            ),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(selectedLocation, style: GoogleFonts.inter(fontWeight: FontWeight.w500)),
-                const Icon(Icons.keyboard_arrow_down_rounded),
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEBF3FF),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.location_on_rounded, color: Color(0xFF1A73E8), size: 20),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    selectedLocation,
+                    style: GoogleFonts.inter(
+                      fontWeight: FontWeight.w600, 
+                      fontSize: 15,
+                      color: const Color(0xFF0F172A),
+                    ),
+                  ),
+                ),
+                const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF64748B), size: 24),
               ],
             ),
           ),

@@ -21,6 +21,7 @@ import 'package:iqmarket/widgets/post_ad/location_selector.dart';
 import 'package:iqmarket/widgets/post_ad/image_picker_section.dart';
 import 'package:lottie/lottie.dart';
 import 'package:iqmarket/services/translation_service.dart';
+import 'package:iqmarket/screens/help_center_screen.dart';
 
 import '../widgets/post_ad/post_ad_components.dart';
 import '../widgets/post_ad/category_specs_widgets.dart';
@@ -72,8 +73,6 @@ class _PostAdScreenState extends State<PostAdScreen> {
   String? _carBrand, _carModel, _carYear, _carBody, _carTransmission, _carDrive, _carFuel, _carColor;
   // RE specifics
   String? _reRooms, _reFloor;
-  // Mal specifics
-  String? _malAge;
 
   UserModel? _currentUser;
 
@@ -98,7 +97,8 @@ class _PostAdScreenState extends State<PostAdScreen> {
   }
 
   void _loadUserAndDraft() async {
-    _currentUser = await UserService.getUserById(FirebaseAuth.instance.currentUser?.uid ?? '');
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    _currentUser = await UserService.getUserById(uid);
     
     // 🔒 Pre-fill phone number from profile
     if (_currentUser != null) {
@@ -111,14 +111,22 @@ class _PostAdScreenState extends State<PostAdScreen> {
         } else if (digits.length > 11) {
           localDigits = digits.substring(digits.length - 10);
         }
-        _phoneController.text = _phoneMask.maskText(localDigits);
+        if (mounted) {
+          setState(() {
+            _phoneController.text = _phoneMask.maskText(localDigits);
+          });
+        }
       }
     }
 
-    if (widget.initialAd != null) {
-      _fillFromAd(widget.initialAd!);
-    } else {
-      _loadDraft();
+    if (mounted) {
+      setState(() {
+        if (widget.initialAd != null) {
+          _fillFromAd(widget.initialAd!);
+        } else {
+          _loadDraft();
+        }
+      });
     }
   }
 
@@ -154,9 +162,44 @@ class _PostAdScreenState extends State<PostAdScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        title: Text(widget.initialAd != null ? TranslationService.t('edit_ad', widget.lang) : TranslationService.t('post_ad', widget.lang), 
-            style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 16, color: const Color(0xFF0F172A), letterSpacing: 1)),
-        leading: IconButton(icon: const Icon(Icons.close_rounded, color: Color(0xFF0F172A)), onPressed: () => Navigator.pop(context)),
+        centerTitle: true,
+        title: Text(
+          widget.initialAd != null 
+              ? TranslationService.t('edit_ad', widget.lang) 
+              : TranslationService.t('post_ad', widget.lang), 
+          style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 18, color: const Color(0xFF0F172A)),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Color(0xFF0F172A)), 
+          onPressed: () => Navigator.pop(context),
+        ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: GestureDetector(
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (ctx) => HelpCenterScreen(lang: widget.lang))),
+              child: Container(
+                width: 26,
+                height: 26,
+                margin: const EdgeInsets.symmetric(vertical: 15),
+                decoration: BoxDecoration(
+                  border: Border.all(color: const Color(0xFF0F172A), width: 1.5),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                alignment: Alignment.center,
+                child: const Text(
+                  '?',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF0F172A),
+                    height: 1.1,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
       body: PopScope(
         canPop: true,
@@ -214,10 +257,29 @@ class _PostAdScreenState extends State<PostAdScreen> {
     PostAdInput(label: TranslationService.t('description_label', widget.lang), controller: _descriptionController, hint: TranslationService.t('description_hint', widget.lang), maxLines: 5, maxLength: 1000, onChanged: (_) => _saveDraft()),
     const SizedBox(height: 20),
     if (_selectedCategory != 'Отдам даром') ...[
-      PostAdInput(label: TranslationService.t('price_label', widget.lang), controller: _priceController, hint: '0', keyboardType: TextInputType.number, isRequired: true, inputFormatters: [PriceInputFormatter()], onChanged: (_) => _saveDraft()),
+      PostAdInput(
+        label: TranslationService.t('price_label', widget.lang),
+        controller: _priceController,
+        hint: TranslationService.t('price_hint', widget.lang),
+        keyboardType: TextInputType.number,
+        isRequired: true,
+        inputFormatters: [PriceInputFormatter()],
+        onChanged: (_) => _saveDraft(),
+        prefixIcon: const Icon(Icons.local_offer_outlined, color: Color(0xFF64748B), size: 20),
+        suffixText: '₸',
+      ),
       const SizedBox(height: 20),
     ],
-    PostAdInput(label: TranslationService.t('phone_contact', widget.lang), controller: _phoneController, hint: '+7 (700) 000-00-00', keyboardType: TextInputType.phone, isRequired: true, inputFormatters: [_phoneMask], onChanged: (_) => _saveDraft()),
+    PostAdInput(
+      label: TranslationService.t('phone_contact', widget.lang), 
+      controller: _phoneController, 
+      hint: '+7 (700) 000-00-00', 
+      keyboardType: TextInputType.phone, 
+      isRequired: true, 
+      inputFormatters: [_phoneMask], 
+      onChanged: (_) => _saveDraft(),
+      prefixIcon: const Icon(Icons.phone_outlined, color: Color(0xFF64748B), size: 20),
+    ),
     const SizedBox(height: 20),
     LocationSelector(
       selectedLocation: _selectedLocation, 
@@ -285,7 +347,10 @@ class _PostAdScreenState extends State<PostAdScreen> {
   Widget _buildConditionSelector() => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Text(TranslationService.t('condition', widget.lang), style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16, color: const Color(0xFF1E293B))),
+      Text(
+        TranslationService.t('condition', widget.lang), 
+        style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 15, color: const Color(0xFF0F172A)),
+      ),
       const SizedBox(height: 12),
       Row(children: [
         _conditionBtn('Новый'), const SizedBox(width: 12), _conditionBtn('Б/у'),
@@ -298,37 +363,132 @@ class _PostAdScreenState extends State<PostAdScreen> {
     String displayLabel = label == 'Новый' 
         ? TranslationService.t('cond_new', widget.lang) 
         : TranslationService.t('cond_used', widget.lang);
+
+    final IconData icon = label == 'Новый' 
+        ? Icons.auto_awesome_rounded 
+        : Icons.watch_later_outlined;
+
     return Expanded(
       child: GestureDetector(
         onTap: () => setState(() { _condition = label; _saveDraft(); }),
-        child: Container(
-          height: 50,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          height: 70,
           decoration: BoxDecoration(
-            color: isSelected ? const Color(0xFF4A80F0) : const Color(0xFFF8FAFC),
+            color: isSelected ? const Color(0xFFEBF3FF) : Colors.white,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: isSelected ? const Color(0xFF4A80F0) : Colors.grey[200]!, width: 2),
-            boxShadow: isSelected ? [BoxShadow(color: const Color(0xFF4A80F0).withValues(alpha: 0.2), blurRadius: 10, offset: const Offset(0, 4))] : [],
+            border: Border.all(
+              color: isSelected ? const Color(0xFF1A73E8) : const Color(0xFFF1F5F9), 
+              width: 1.5,
+            ),
           ),
-          child: Center(child: Text(displayLabel, style: GoogleFonts.inter(color: isSelected ? Colors.white : const Color(0xFF64748B), fontWeight: FontWeight.w800, fontSize: 14))),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                color: isSelected ? const Color(0xFF1A73E8) : const Color(0xFF64748B),
+                size: 20,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                displayLabel, 
+                style: GoogleFonts.inter(
+                  color: isSelected ? const Color(0xFF1A73E8) : const Color(0xFF64748B), 
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500, 
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildOptions() => Column(children: [
-    PostAdOptionSwitch(label: TranslationService.t('bargain_switch', widget.lang), value: _bargainAvailable, onChanged: (v) => setState(() { _bargainAvailable = v; _saveDraft(); })),
-    PostAdOptionSwitch(label: TranslationService.t('exchange_switch', widget.lang), value: _canExchange, onChanged: (v) => setState(() { _canExchange = v; _saveDraft(); })),
-    PostAdOptionSwitch(label: TranslationService.t('delivery_switch', widget.lang), value: _hasDelivery, onChanged: (v) => setState(() { _hasDelivery = v; _saveDraft(); })),
+    PostAdOptionSwitch(
+      label: TranslationService.t('bargain_switch', widget.lang), 
+      value: _bargainAvailable, 
+      onChanged: (v) => setState(() { _bargainAvailable = v; _saveDraft(); }),
+      icon: Icons.local_offer_outlined,
+    ),
+    PostAdOptionSwitch(
+      label: TranslationService.t('exchange_switch', widget.lang), 
+      value: _canExchange, 
+      onChanged: (v) => setState(() { _canExchange = v; _saveDraft(); }),
+      icon: Icons.swap_horiz_rounded,
+    ),
+    PostAdOptionSwitch(
+      label: TranslationService.t('delivery_switch', widget.lang), 
+      value: _hasDelivery, 
+      onChanged: (v) => setState(() { _hasDelivery = v; _saveDraft(); }),
+      icon: Icons.local_shipping_outlined,
+    ),
   ]);
 
   Widget _buildActionButtons() => Column(children: [
-    SizedBox(width: double.infinity, height: 56, child: OutlinedButton.icon(onPressed: _showPreview, icon: const Icon(Icons.remove_red_eye_rounded), label: Text(TranslationService.t('preview', widget.lang)), style: OutlinedButton.styleFrom(foregroundColor: const Color(0xFF4A80F0), side: const BorderSide(color: Color(0xFF4A80F0), width: 2), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), textStyle: GoogleFonts.inter(fontWeight: FontWeight.w800)))),
+    Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0F5FF),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.info_outline_rounded, color: Color(0xFF1A73E8), size: 18),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              TranslationService.t('ad_tip_banner', widget.lang),
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                color: const Color(0xFF1E3A8A),
+                fontWeight: FontWeight.w500,
+                height: 1.3,
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+    const SizedBox(height: 24),
+    SizedBox(
+      width: double.infinity, 
+      height: 56, 
+      child: OutlinedButton.icon(
+        onPressed: _showPreview, 
+        icon: const Icon(Icons.visibility_outlined, size: 20), 
+        label: Text(TranslationService.t('preview', widget.lang)), 
+        style: OutlinedButton.styleFrom(
+          foregroundColor: const Color(0xFF1A73E8), 
+          side: const BorderSide(color: Color(0xFF1A73E8), width: 1.5), 
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), 
+          textStyle: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 16),
+        ),
+      ),
+    ),
     const SizedBox(height: 12),
-    SizedBox(width: double.infinity, height: 60, child: ElevatedButton(
-      onPressed: _isLoading ? null : _handlePublish, 
-      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4A80F0), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), elevation: 0), 
-      child: Text(widget.initialAd != null ? TranslationService.t('update', widget.lang) : TranslationService.t('publish', widget.lang), style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w900))
-    )),
+    SizedBox(
+      width: double.infinity, 
+      height: 56, 
+      child: ElevatedButton.icon(
+        onPressed: _isLoading ? null : _handlePublish, 
+        icon: const Icon(Icons.near_me_outlined, size: 20),
+        label: Text(
+          widget.initialAd != null 
+              ? TranslationService.t('update', widget.lang) 
+              : TranslationService.t('publish', widget.lang), 
+          style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w700),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF1A73E8), 
+          foregroundColor: Colors.white, 
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), 
+          elevation: 0,
+        ),
+      ),
+    ),
   ]);
 
   Widget _buildLoadingOverlay() => Container(

@@ -68,32 +68,32 @@ class TaxiCardHome extends StatelessWidget {
           child: Stack(
             children: [
               // ── Декоративные пины и пунктирная линия маршрута ──────────────────
-              // Левый пин
+              // Левый пин (сдвинут вправо, чтобы не перекрывать текст)
               Positioned(
-                right: 90,
-                top: 40,
+                right: 75,
+                top: 30,
                 child: Icon(
                   Icons.location_on_rounded, 
-                  color: Colors.white.withValues(alpha: 0.45), 
-                  size: 24,
+                  color: Colors.white.withValues(alpha: 0.35), 
+                  size: 18,
                 ),
               ),
-              // Правый пин
+              // Правый пин (сдвинут вправо)
               Positioned(
-                right: 20,
-                top: 20,
+                right: 15,
+                top: 15,
                 child: Icon(
                   Icons.location_on_rounded, 
-                  color: Colors.white.withValues(alpha: 0.45), 
-                  size: 24,
+                  color: Colors.white.withValues(alpha: 0.35), 
+                  size: 18,
                 ),
               ),
               // Линия маршрута
               Positioned(
-                right: 22,
-                top: 20,
-                width: 70,
-                height: 24,
+                right: 17,
+                top: 15,
+                width: 60,
+                height: 18,
                 child: CustomPaint(
                   painter: DashedCurvePainter(),
                 ),

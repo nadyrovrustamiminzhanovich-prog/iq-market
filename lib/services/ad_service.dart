@@ -135,8 +135,29 @@ class AdService {
     final isAdmin = userData?.accountType == 'admin';
     final isApproved = moderationVerdict == 'APPROVED' || isAdmin;
 
-    // 🔒 Auto-sync phone number to user profile in Firestore
-    if (userPhone.isNotEmpty) {
+    // Get original ad owner if editing (to prevent changing userId and failing firestore rules)
+    String finalUserId = user.uid;
+    String finalUserName = user.displayName ?? 'Пользователь';
+    String finalUserEmail = user.email ?? '';
+
+    if (initialAdId != null) {
+      try {
+        final existingAdDoc = await _adsCollection.doc(initialAdId).get();
+        if (existingAdDoc.exists) {
+          final existingData = existingAdDoc.data() as Map<String, dynamic>?;
+          if (existingData != null && existingData.containsKey('userId')) {
+            finalUserId = existingData['userId'];
+            finalUserName = existingData['userName'] ?? finalUserName;
+            finalUserEmail = existingData['userEmail'] ?? finalUserEmail;
+          }
+        }
+      } catch (e) {
+        debugPrint('[AdService] Error fetching original ad owner: $e');
+      }
+    }
+
+    // 🔒 Auto-sync phone number to user profile in Firestore (only if creator is editing)
+    if (userPhone.isNotEmpty && finalUserId == user.uid) {
       try {
         final uid = user.uid;
         final userDocRef = _db.collection('users').doc(uid);
@@ -155,9 +176,9 @@ class AdService {
       category: category,
       images: [...(existingImages ?? []), ...imageUrls],
       videoUrl: videoUrl,
-      userId: user.uid,
-      userName: user.displayName ?? 'Пользователь',
-      userEmail: user.email ?? '',
+      userId: finalUserId,
+      userName: finalUserName,
+      userEmail: finalUserEmail,
       userPhone: userPhone,
       timestamp: DateTime.now(),
       location: location,

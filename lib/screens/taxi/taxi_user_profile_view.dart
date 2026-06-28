@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:iqmarket/widgets/secure_image_viewer.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:line_icons/line_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -377,13 +379,15 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
                                       children: [
                                         const Icon(Icons.verified_rounded, color: Color(0xFF4A80F0), size: 18),
                                         const SizedBox(width: 6),
-                                        Text(
-                                          provider.translate('verif_ok'),
-                                          style: GoogleFonts.inter(
-                                            color: const Color(0xFF4A80F0),
-                                            fontWeight: FontWeight.w700,
-                                            fontSize: 12,
-                                            letterSpacing: 1,
+                                        Flexible(
+                                          child: Text(
+                                            provider.translate('verif_ok'),
+                                            style: GoogleFonts.inter(
+                                              color: const Color(0xFF4A80F0),
+                                              fontWeight: FontWeight.w700,
+                                              fontSize: 12,
+                                              letterSpacing: 1,
+                                            ),
                                           ),
                                         ),
                                       ],
@@ -394,13 +398,15 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
                                       children: [
                                         Icon(Icons.shield_outlined, color: t.sub, size: 18),
                                         const SizedBox(width: 6),
-                                        Text(
-                                          provider.translate('verif_req'),
-                                          style: GoogleFonts.inter(
-                                            color: t.sub,
-                                            fontWeight: FontWeight.w700,
-                                            fontSize: 12,
-                                            letterSpacing: 1,
+                                        Flexible(
+                                          child: Text(
+                                            provider.translate('verif_req'),
+                                            style: GoogleFonts.inter(
+                                              color: t.sub,
+                                              fontWeight: FontWeight.w700,
+                                              fontSize: 12,
+                                              letterSpacing: 1,
+                                            ),
                                           ),
                                         ),
                                       ],
@@ -408,398 +414,69 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
                                 ],
                               ),
                             ),
-                            if (widget.isDriver)
-                              GestureDetector(
-                                onTap: _scrollToReviews,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: [
-                                    _ratingBox(t, _taxiDriverReviewsCount < 5 ? provider.translate('rating_novice') : _taxiDriverAvgRating.toStringAsFixed(1)),
-                                    if (_taxiDriverReviewsCount < 5)
-                                      Padding(
-                                        padding: const EdgeInsets.only(top: 2),
-                                        child: Tooltip(
-                                          message: provider.translate('rating_tooltip'),
-                                          child: Text(
-                                            provider.translate('rating_after_5'),
-                                            style: GoogleFonts.inter(fontSize: 9, color: Colors.grey, fontWeight: FontWeight.w500),
-                                          ),
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ),
                           ],
                         ),
                         if (!widget.isDriver) ...[
                           const SizedBox(height: 16),
-                          GestureDetector(
-                            onTap: _scrollToReviews,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
-                              decoration: BoxDecoration(
-                                color: t.card,
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(color: t.border),
-                              ),
-                              child: IntrinsicHeight(
-                                child: Row(
-                                  children: [
-                                    // Rating stat
-                                    Expanded(
-                                      child: Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Row(
-                                            mainAxisAlignment: MainAxisAlignment.center,
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              const Text('⭐', style: TextStyle(fontSize: 16)),
-                                              const SizedBox(width: 4),
-                                              Text(
-                                                _taxiPassengerReviewsCount < 5 ? provider.translate('rating_novice') : _taxiPassengerAvgRating.toStringAsFixed(1),
-                                                style: GoogleFonts.inter(
-                                                  color: t.text,
-                                                  fontWeight: FontWeight.w900,
-                                                  fontSize: _taxiPassengerReviewsCount < 5 ? 12 : 18,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 2),
-                                          Text(
-                                            _taxiPassengerReviewsCount < 5 ? provider.translate('rating_after_5') : provider.translate('rate').toUpperCase(),
-                                            style: GoogleFonts.inter(color: t.sub, fontSize: 9, fontWeight: FontWeight.w600, letterSpacing: 0.3),
-                                            textAlign: TextAlign.center,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    VerticalDivider(width: 1, thickness: 1, color: t.border),
-                                    // Reviews stat
-                                    Expanded(
-                                      child: Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Row(
-                                            mainAxisAlignment: MainAxisAlignment.center,
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              const Text('💬', style: TextStyle(fontSize: 14)),
-                                              const SizedBox(width: 4),
-                                              Text(
-                                                '$_taxiPassengerReviewsCount',
-                                                style: GoogleFonts.inter(
-                                                  color: t.text,
-                                                  fontWeight: FontWeight.w900,
-                                                  fontSize: 18,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 2),
-                                          Text(
-                                            provider.translate('reviews_label').toUpperCase(),
-                                            style: GoogleFonts.inter(color: t.sub, fontSize: 9, fontWeight: FontWeight.w600, letterSpacing: 0.3),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    // ✅ BUG-01 FIX: Show actual trips count, not reviewsCount
-                                    VerticalDivider(width: 1, thickness: 1, color: t.border),
-                                    Expanded(
-                                      child: Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Row(
-                                            mainAxisAlignment: MainAxisAlignment.center,
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              const Text('🚗', style: TextStyle(fontSize: 14)),
-                                              const SizedBox(width: 4),
-                                              Text(
-                                                '$_taxiTripsCount',
-                                                style: GoogleFonts.inter(
-                                                  color: t.text,
-                                                  fontWeight: FontWeight.w900,
-                                                  fontSize: 18,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 2),
-                                          Text(
-                                            provider.translate('trips').toUpperCase(),
-                                            style: GoogleFonts.inter(color: t.sub, fontSize: 9, fontWeight: FontWeight.w600, letterSpacing: 0.3),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
+                          Container(
+                            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                            decoration: BoxDecoration(
+                              color: t.card,
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(color: t.border),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Text('🚗', style: TextStyle(fontSize: 18)),
+                                const SizedBox(width: 8),
+                                Text(
+                                  '$_taxiTripsCount ${provider.translate('trips')}',
+                                  style: GoogleFonts.inter(
+                                    color: t.text,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 15,
+                                  ),
                                 ),
-                              ),
+                              ],
+                            ),
+                          ),
+                        ] else ...[
+                          // Поездки водителя
+                          const SizedBox(height: 16),
+                          Container(
+                            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                            decoration: BoxDecoration(
+                              color: t.card,
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(color: t.border),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Text('🚗', style: TextStyle(fontSize: 18)),
+                                const SizedBox(width: 8),
+                                Text(
+                                  '$_taxiTripsCount ${provider.translate('trips')}',
+                                  style: GoogleFonts.inter(
+                                    color: t.text,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 15,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 24),
                         if (widget.isDriver) ...[
                           _sectionTitle(t, provider.translate('car_short').toUpperCase()),
                           const SizedBox(height: 12),
-                          // ✅ BUG-06 FIX: Read plate from both 'plate' and 'driverPlate' keys.
-                          // Previously u['plate'] was always null because the map used 'driverPlate'.
                           _infoCard(t, LineIcons.car, u['car'] ?? u['driverCar'] ?? 'Toyota Camry',
                               u['plate'] ?? u['driverPlate'] ?? ''),
                           const SizedBox(height: 24),
                         ],
-                        // Custom premium reviews segment tab control
-                        Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            color: t.card2,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: t.border),
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: GestureDetector(
-                                  onTap: () => setState(() => _activeReviewTab = 0),
-                                  child: AnimatedContainer(
-                                    duration: const Duration(milliseconds: 250),
-                                    curve: Curves.easeInOut,
-                                    padding: const EdgeInsets.symmetric(vertical: 12),
-                                    decoration: BoxDecoration(
-                                      color: _activeReviewTab == 0 ? const Color(0xFF4A80F0) : Colors.transparent,
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    alignment: Alignment.center,
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Text(
-                                          provider.translate('taxi_tab_label'),
-                                          style: GoogleFonts.inter(
-                                            color: _activeReviewTab == 0 ? Colors.white : t.sub,
-                                            fontWeight: FontWeight.w800,
-                                            fontSize: 13,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: _activeReviewTab == 0 ? Colors.white.withValues(alpha: 0.2) : t.border,
-                                            borderRadius: BorderRadius.circular(8),
-                                          ),
-                                          child: Text(
-                                            _taxiReviewsList.length.toString(),
-                                            style: GoogleFonts.inter(
-                                              color: _activeReviewTab == 0 ? Colors.white : t.text,
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.w900,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              Expanded(
-                                child: GestureDetector(
-                                  onTap: () => setState(() => _activeReviewTab = 1),
-                                  child: AnimatedContainer(
-                                    duration: const Duration(milliseconds: 250),
-                                    curve: Curves.easeInOut,
-                                    padding: const EdgeInsets.symmetric(vertical: 12),
-                                    decoration: BoxDecoration(
-                                      color: _activeReviewTab == 1 ? const Color(0xFF4A80F0) : Colors.transparent,
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    alignment: Alignment.center,
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Text(
-                                          provider.translate('market_tab_label'),
-                                          style: GoogleFonts.inter(
-                                            color: _activeReviewTab == 1 ? Colors.white : t.sub,
-                                            fontWeight: FontWeight.w800,
-                                            fontSize: 13,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: _activeReviewTab == 1 ? Colors.white.withValues(alpha: 0.2) : t.border,
-                                            borderRadius: BorderRadius.circular(8),
-                                          ),
-                                          child: Text(
-                                            _marketReviewsList.length.toString(),
-                                            style: GoogleFonts.inter(
-                                              color: _activeReviewTab == 1 ? Colors.white : t.text,
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.w900,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        // Per-tab rating summary card
-                        _activeReviewTab == 0
-                            ? Container(
-                                margin: const EdgeInsets.only(bottom: 16),
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                decoration: BoxDecoration(
-                                  color: t.card,
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(color: t.border),
-                                ),
-                                child: Column(
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Row(
-                                          children: [
-                                            const Icon(Icons.local_taxi_rounded, color: Colors.amber, size: 18),
-                                            const SizedBox(width: 8),
-                                            Text(
-                                              '${provider.translate('driver_role')}: ',
-                                              style: GoogleFonts.inter(color: t.sub, fontSize: 13, fontWeight: FontWeight.w600),
-                                            ),
-                                            Text(
-                                              _taxiDriverReviewsCount < 5 
-                                                  ? provider.translate('rating_novice') 
-                                                  : _taxiDriverAvgRating.toStringAsFixed(1),
-                                              style: GoogleFonts.inter(color: t.text, fontWeight: FontWeight.w900, fontSize: 14),
-                                            ),
-                                          ],
-                                        ),
-                                        Text(
-                                          _pluralReviews(_taxiDriverReviewsCount, provider),
-                                          style: GoogleFonts.inter(color: t.sub, fontSize: 12, fontWeight: FontWeight.w600),
-                                        ),
-                                      ],
-                                    ),
-                                    const Padding(
-                                      padding: EdgeInsets.symmetric(vertical: 8.0),
-                                      child: Divider(height: 1),
-                                    ),
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Row(
-                                          children: [
-                                            const Icon(Icons.directions_walk_rounded, color: Color(0xFF4A80F0), size: 18),
-                                            const SizedBox(width: 8),
-                                            Text(
-                                              '${provider.translate('passenger_role')}: ',
-                                              style: GoogleFonts.inter(color: t.sub, fontSize: 13, fontWeight: FontWeight.w600),
-                                            ),
-                                            Text(
-                                              _taxiPassengerReviewsCount < 5 
-                                                  ? provider.translate('rating_novice') 
-                                                  : _taxiPassengerAvgRating.toStringAsFixed(1),
-                                              style: GoogleFonts.inter(color: t.text, fontWeight: FontWeight.w900, fontSize: 14),
-                                            ),
-                                          ],
-                                        ),
-                                        Text(
-                                          _pluralReviews(_taxiPassengerReviewsCount, provider),
-                                          style: GoogleFonts.inter(color: t.sub, fontSize: 12, fontWeight: FontWeight.w600),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              )
-                            : Container(
-                                margin: const EdgeInsets.only(bottom: 16),
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                decoration: BoxDecoration(
-                                  color: t.card,
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(color: t.border),
-                                ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        const Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 20),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          _marketReviewsCount < 5 ? provider.translate('rating_novice') : _marketAvgRating.toStringAsFixed(1),
-                                          style: GoogleFonts.inter(color: t.text, fontWeight: FontWeight.w900, fontSize: 16),
-                                        ),
-                                      ],
-                                    ),
-                                    Text(
-                                      _pluralReviews(_marketReviewsCount, provider),
-                                      style: GoogleFonts.inter(color: t.sub, fontSize: 12, fontWeight: FontWeight.w600),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                        if (_activeReviewTab == 0) ...[
-                          if (_taxiReviewsList.isEmpty)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 24),
-                              child: Center(
-                                child: Text(
-                                  provider.translate('no_taxi_reviews'),
-                                  style: GoogleFonts.inter(color: t.sub, fontSize: 13, fontWeight: FontWeight.w600),
-                                ),
-                              ),
-                            )
-                          else
-                            Column(
-                              children: _taxiReviewsList.map((r) {
-                                final dateStr = '${r.timestamp.day.toString().padLeft(2, '0')}.${r.timestamp.month.toString().padLeft(2, '0')}.${r.timestamp.year}';
-                                final isPassenger = r.targetRole == 'passenger';
-                                final String roleLabel = isPassenger 
-                                    ? provider.translate('passenger_role') 
-                                    : provider.translate('driver_role');
-                                return _reviewItem(
-                                  t,
-                                  r.fromUserName,
-                                  r.comment,
-                                  r.rating.toStringAsFixed(1),
-                                  dateStr,
-                                  roleLabel: roleLabel,
-                                  isPassenger: isPassenger,
-                                );
-                              }).toList(),
-                            ),
-                        ] else ...[
-                          if (_marketReviewsList.isEmpty)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 24),
-                              child: Center(
-                                child: Text(
-                                  provider.translate('no_market_reviews'),
-                                  style: GoogleFonts.inter(color: t.sub, fontSize: 13, fontWeight: FontWeight.w600),
-                                ),
-                              ),
-                            )
-                          else
-                            Column(
-                              children: _marketReviewsList.map((r) {
-                                final dateStr = '${r.timestamp.day.toString().padLeft(2, '0')}.${r.timestamp.month.toString().padLeft(2, '0')}.${r.timestamp.year}';
-                                return _reviewItem(t, r.fromUserName, r.comment, r.rating.toStringAsFixed(1), dateStr);
-                              }).toList(),
-                            ),
-                        ],
-                        const SizedBox(height: 120),
+                        const SizedBox(height: 100),
                       ],
                     ),
                   ),
@@ -1150,108 +827,22 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
   );
 
   void _showFullScreenImage(BuildContext context, String imageUrl) {
+    if (imageUrl.isEmpty) return;
+
+    ImageProvider imageProvider;
+    if (imageUrl.startsWith('http')) {
+      imageProvider = NetworkImage(imageUrl);
+    } else {
+      imageProvider = FileImage(File(imageUrl));
+    }
+
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => SecureImageViewerScreen(
-          imageUrl: imageUrl,
+          imageProvider: imageProvider,
           heroTag: 'taxi_p_${widget.user['name']}',
         ),
-      ),
-    );
-  }
-}
-
-class SecureImageViewerScreen extends StatefulWidget {
-  final String imageUrl;
-  final String heroTag;
-
-  const SecureImageViewerScreen({
-    super.key,
-    required this.imageUrl,
-    required this.heroTag,
-  });
-
-  @override
-  State<SecureImageViewerScreen> createState() => _SecureImageViewerScreenState();
-}
-
-class _SecureImageViewerScreenState extends State<SecureImageViewerScreen> {
-  @override
-  void initState() {
-    super.initState();
-    _enableScreenshotProtection();
-  }
-
-  @override
-  void dispose() {
-    _disableScreenshotProtection();
-    super.dispose();
-  }
-
-  void _enableScreenshotProtection() async {
-    try {
-      await ScreenProtector.preventScreenshotOn();
-    } catch (e) {
-      debugPrint("Error enabling screenshot protection: $e");
-    }
-  }
-
-  void _disableScreenshotProtection() async {
-    try {
-      await ScreenProtector.preventScreenshotOff();
-    } catch (e) {
-      debugPrint("Error disabling screenshot protection: $e");
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.close_rounded, color: Colors.white, size: 28),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
-      body: Stack(
-        children: [
-          Center(
-            child: InteractiveViewer(
-              child: Hero(
-                tag: widget.heroTag,
-                child: Image.network(
-                  widget.imageUrl,
-                  fit: BoxFit.contain,
-                  errorBuilder: (_, __, ___) => const Icon(Icons.broken_image_rounded, size: 64, color: Colors.white24),
-                ),
-              ),
-            ),
-          ),
-          IgnorePointer(
-            child: Center(
-              child: Opacity(
-                opacity: 0.12,
-                child: Transform.rotate(
-                  angle: -0.4,
-                  child: Text(
-                    'COPYRIGHT IQ MARKET\nSECURE VIEW ONLY',
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.inter(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 4,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
