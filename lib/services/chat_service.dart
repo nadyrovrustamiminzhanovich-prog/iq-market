@@ -228,15 +228,20 @@ class ChatService {
         'isRead': false,
       });
 
-      await _db.collection('chats').doc(chatId).update({
+      final offerSenderId = adData['senderId'];
+
+      final Map<String, dynamic> chatUpdate = {
         'lastMessage': responseText,
         'lastTimestamp': Timestamp.now(),
-      });
+      };
+      if (offerSenderId != null) {
+        chatUpdate['unreadCount_$offerSenderId'] = FieldValue.increment(1);
+      }
+      await _db.collection('chats').doc(chatId).update(chatUpdate);
 
       // Notify the recipient about offer status change
       // We need to find who sent the offer originally. 
       // It's the 'senderId' of the message with messageId.
-      final offerSenderId = adData['senderId'];
       if (offerSenderId != null) {
         NotificationService.saveNotificationToFirestore(
           uid: offerSenderId,

@@ -8,7 +8,8 @@
         allow create: if isSignedIn() && (request.resource.data.senderId == request.auth.uid) && (request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.users);
         allow update: if isSignedIn() && (request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.users) && (
           (request.auth.uid == resource.data.senderId && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['senderId', 'timestamp', 'type'])) || 
-          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']))
+          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead'])) ||
+          (resource.data.type == 'offer' && request.auth.uid != resource.data.senderId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['offerStatus']) && request.resource.data.offerStatus in ['accepted', 'rejected'])
         );
         allow delete: if isSignedIn() && request.auth.uid == resource.data.senderId;
       }

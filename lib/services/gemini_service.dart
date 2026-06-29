@@ -61,7 +61,7 @@ class GeminiService {
     
     // Config model for ad moderation (routes to moderation key on backend)
     _model = GenerativeModel(
-      model: 'gemini-1.5-flash',
+      model: 'gemini-2.5-flash',
       apiKey: 'moderation',
       systemInstruction: Content.system(AiPrompts.moderationPrompt),
       httpClient: secureClient,
@@ -69,7 +69,7 @@ class GeminiService {
     
     // Config model for chat assistant (routes to assistant key on backend)
     _chatModel = GenerativeModel(
-      model: 'gemini-1.5-flash',
+      model: 'gemini-2.5-flash',
       apiKey: 'assistant',
       systemInstruction: Content.system(AiPrompts.getPrompt(lang)),
       httpClient: secureClient,

@@ -12,6 +12,20 @@ class TelegramBotService {
   // Replace with your own Telegram chat_id (get it from @userinfobot)
   static const String _adminChatId = '1910159480';
 
+  static Future<String> _getAdminChatId() async {
+    try {
+      final doc = await FirebaseFirestore.instance.collection('settings').doc('telegram').get();
+      final data = doc.data();
+      if (data != null && data['adminChatId'] != null) {
+        final idStr = data['adminChatId'].toString().trim();
+        if (idStr.isNotEmpty) return idStr;
+      }
+    } catch (e) {
+      debugPrint('[TelegramBotService._getAdminChatId] Error: $e');
+    }
+    return _adminChatId;
+  }
+
   // ─── HELPERS ────────────────────────────────────────────────────────────────
   static String _randomAlnum(int len) {
     const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
@@ -93,7 +107,8 @@ class TelegramBotService {
     String? selfie,
     String? carFront,
   }) async {
-    if (_adminChatId.isEmpty || _adminChatId == '5555555555') return;
+    final adminId = await _getAdminChatId();
+    if (adminId.isEmpty || adminId == '5555555555') return;
     
     final StringBuffer sb = StringBuffer();
     sb.writeln('🔍 <b>Требуется ручная проверка водителя!</b>');
@@ -118,7 +133,7 @@ class TelegramBotService {
     sb.writeln('Используйте панель: /approve_$reviewDocId или /reject_$reviewDocId');
 
     await _sendWithKeyboard(
-      _adminChatId,
+      adminId,
       sb.toString(),
       keyboard: [
         [
@@ -139,7 +154,8 @@ class TelegramBotService {
     required String reason,
     List<String> imageUrls = const [],
   }) async {
-    if (_adminChatId.isEmpty || _adminChatId == '5555555555') return;
+    final adminId = await _getAdminChatId();
+    if (adminId.isEmpty || adminId == '5555555555') return;
     
     final StringBuffer sb = StringBuffer();
     sb.writeln('📢 <b>Новое объявление на модерацию!</b>');
@@ -162,12 +178,55 @@ class TelegramBotService {
     sb.writeln('Используйте панель модерации или кнопки ниже:');
     
     await _sendWithKeyboard(
-      _adminChatId,
+      adminId,
       sb.toString(),
       keyboard: [
         [
           {'text': '✅ Одобрить', 'callback_data': 'approve_ad|$adId'},
           {'text': '❌ Отклонить', 'callback_data': 'reject_ad|$adId'},
+        ]
+      ],
+    );
+  }
+
+  // ─── AD MODERATION: notify admin of new ad auto-approved by AI ─────────────
+  static Future<void> notifyAdminAdAutoApproved({
+    required String adId,
+    required String title,
+    required String price,
+    required String category,
+    required String userName,
+    List<String> imageUrls = const [],
+  }) async {
+    final adminId = await _getAdminChatId();
+    if (adminId.isEmpty || adminId == '5555555555') return;
+    
+    final StringBuffer sb = StringBuffer();
+    sb.writeln('🤖 <b>Объявление АВТО-ОДОБРЕНО ИИ!</b>');
+    sb.writeln();
+    sb.writeln('🏷️ Название: <b>$title</b>');
+    sb.writeln('💰 Цена: <b>$price</b>');
+    sb.writeln('🗂️ Категория: $category');
+    sb.writeln('👤 Автор: $userName');
+    sb.writeln('✅ Статус: Опубликовано автоматически');
+    
+    if (imageUrls.isNotEmpty) {
+      sb.writeln();
+      sb.writeln('🖼️ <b>Изображения:</b>');
+      for (int i = 0; i < min(imageUrls.length, 5); i++) {
+        sb.writeln('🔗 <a href="${imageUrls[i]}">Фото ${i + 1}</a>');
+      }
+    }
+
+    sb.writeln();
+    sb.writeln('Вы можете отклонить его при необходимости:');
+    
+    await _sendWithKeyboard(
+      adminId,
+      sb.toString(),
+      keyboard: [
+        [
+          {'text': '❌ Отклонить (Снять с публикации)', 'callback_data': 'reject_ad|$adId'},
         ]
       ],
     );

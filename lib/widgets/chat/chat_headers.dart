@@ -40,26 +40,26 @@ class ChatGlassHeader extends StatelessWidget {
         filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
         child: Container(
           padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top, bottom: 8),
-          decoration: BoxDecoration(
-            color: const Color(0xFF17212B).withValues(alpha: 0.8),
-            border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05))),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
           ),
           child: Row(children: [
-            IconButton(icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: Colors.white), onPressed: onBack),
+            IconButton(icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: Color(0xFF0F172A)), onPressed: onBack),
             Expanded(
               child: GestureDetector(
                 onTap: onProfileTap,
                 child: Row(children: [
                   CircleAvatar(
                     radius: 18, 
-                    backgroundColor: Colors.white.withValues(alpha: 0.1), 
+                    backgroundColor: const Color(0xFFF1F5F9), 
                     backgroundImage: sellerAvatarUrl != null ? CachedNetworkImageProvider(sellerAvatarUrl!) : null,
-                    child: sellerAvatarUrl == null ? const Icon(Icons.person, size: 20, color: Colors.white70) : null,
+                    child: sellerAvatarUrl == null ? const Icon(Icons.person, size: 20, color: Color(0xFF94A3B8)) : null,
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                      Text(ad.userName, maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 16, color: Colors.white)),
+                      Text(ad.userName, maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 16, color: const Color(0xFF0F172A))),
                       StreamBuilder<bool>(
                         stream: ChatService.getTypingStatusStream(ad.userId),
                         builder: (context, snapshot) {
@@ -97,9 +97,9 @@ class ChatGlassHeader extends StatelessWidget {
                                   // For Kazakh and Uighur, the status (verb) comes at the end
                                   finalStr = '$timeStr ${TranslationService.t('was_online', lang)}';
                                 }
-                                return Text(finalStr, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white38, fontSize: 11));
+                                return Text(finalStr, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Color(0xFF64748B), fontSize: 11));
                               }
-                              return Text(TranslationService.t('offline', lang), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white38, fontSize: 11));
+                              return Text(TranslationService.t('offline', lang), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Color(0xFF64748B), fontSize: 11));
                             }
                           );
                         },
@@ -109,9 +109,9 @@ class ChatGlassHeader extends StatelessWidget {
                 ]),
               ),
             ),
-            IconButton(icon: const Icon(Icons.call_rounded, color: Colors.white70), onPressed: onCall),
+            IconButton(icon: const Icon(Icons.call_rounded, color: Color(0xFF334155)), onPressed: onCall),
             PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert_rounded, color: Colors.white70),
+              icon: const Icon(Icons.more_vert_rounded, color: Color(0xFF334155)),
               onSelected: (val) {
                 final config = Provider.of<AppConfigProvider>(context, listen: false);
                 if (val == 'block') {
@@ -178,32 +178,32 @@ class ChatAdInfoBar extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFF17212B).withValues(alpha: 0.6),
-        border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05))),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
       ),
       child: Row(children: [
         Container(
           width: 42, height: 42,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(color: Colors.white24, width: 1.5),
+            border: Border.all(color: const Color(0xFFE2E8F0), width: 1.5),
           ),
           child: ClipOval(
             child: Hero(
               tag: 'chat_ad-image-${ad.id}',
               child: ad.images.isNotEmpty 
-                ? CachedNetworkImage(imageUrl: ad.images.isNotEmpty ? ad.images.first : '', fit: BoxFit.cover, errorWidget: (context, url, error) => const Icon(Icons.image, color: Colors.white24))
-                : const Icon(Icons.shopping_bag_outlined, color: Colors.white54, size: 20),
+                ? CachedNetworkImage(imageUrl: ad.images.isNotEmpty ? ad.images.first : '', fit: BoxFit.cover, errorWidget: (context, url, error) => const Icon(Icons.image, color: Color(0xFF94A3B8)))
+                : const Icon(Icons.shopping_bag_outlined, color: Color(0xFF94A3B8), size: 20),
             ),
           ),
         ),
         const SizedBox(width: 10),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(ad.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.white)),
-          Text('${ad.price.toInt()} ₸', style: const TextStyle(color: Color(0xFF4A80F0), fontWeight: FontWeight.w900, fontSize: 11)),
+          Text(ad.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A))),
+          Text('${ad.price.toInt()} ₸', style: const TextStyle(color: Color(0xFF2563EB), fontWeight: FontWeight.w900, fontSize: 12)),
         ])),
-        TextButton(
+        ElevatedButton(
           onPressed: () {
             if (ad.category == 'Taxi') {
               _showTaxiDetails(context);
@@ -211,8 +211,21 @@ class ChatAdInfoBar extends StatelessWidget {
               Navigator.push(context, MaterialPageRoute(builder: (context) => ProductDetailsScreen(ad: ad, onReport: (_) {}, lang: lang, heroPrefix: 'chat_')));
             }
           },
-          style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
-          child: Text(TranslationService.t('view_btn', lang), style: const TextStyle(fontSize: 12, color: Color(0xFF4A80F0))),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFFEFF6FF),
+            foregroundColor: const Color(0xFF2563EB),
+            elevation: 0,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+            minimumSize: Size.zero,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+          child: Text(
+            TranslationService.t('view_btn', lang),
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+          ),
         ),
       ]),
     );

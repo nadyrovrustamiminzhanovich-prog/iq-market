@@ -75,8 +75,24 @@ class AdService {
       gemini.init(lang);
       // Передаем УЖЕ сжатые фотографии! Это ускоряет загрузку в 30 раз!
       final result = await gemini.checkContent(title, description, compressedImages);
-      if (result.contains('APPROVED')) moderationVerdict = 'APPROVED';
-      else if (result.contains('REJECTED')) moderationVerdict = 'REJECTED';
+      final upperResult = result.toUpperCase().trim();
+      if (upperResult.contains('APPROVED')) {
+        moderationVerdict = 'APPROVED';
+      } else if (upperResult.contains('REJECTED')) {
+        final rejectIdx = upperResult.indexOf('REJECTED');
+        String reason = '';
+        if (rejectIdx != -1) {
+          final afterReject = result.substring(rejectIdx + 8).trim();
+          if (afterReject.startsWith(':')) {
+            reason = afterReject.substring(1).trim();
+          } else {
+            reason = afterReject;
+          }
+        }
+        moderationVerdict = reason.isNotEmpty ? 'REJECTED: $reason' : 'REJECTED';
+      } else {
+        moderationVerdict = 'MANUAL_REVIEW';
+      }
     } catch (e) {
       debugPrint('[AdService] Gemini failed: $e');
       // If AI fails, we allow manual review instead of blocking
@@ -203,18 +219,31 @@ class AdService {
       savedAdId = id ?? '';
     }
 
-    // 📣 X10 NOTIFICATION: Если объявление новое и требует ручной модерации ИИ, отправляем алерт админу в Телеграм
-    if (initialAdId == null && !isApproved && savedAdId.isNotEmpty) {
+    // 📣 X10 NOTIFICATION: Отправляем уведомление админу в Телеграм для всех новых объявлений
+    if (initialAdId == null && savedAdId.isNotEmpty) {
       try {
-        await TelegramBotService.notifyAdminNewAd(
-          adId: savedAdId,
-          title: title,
-          price: price,
-          category: category,
-          userName: adModel.userName,
-          reason: '🤖 ИИ запросил ручную проверку (MANUAL_REVIEW).',
-          imageUrls: adModel.images,
-        );
+        if (isApproved) {
+          // Если одобрено ИИ — отправляем информационное уведомление с кнопкой "Отклонить"
+          await TelegramBotService.notifyAdminAdAutoApproved(
+            adId: savedAdId,
+            title: title,
+            price: price,
+            category: category,
+            userName: adModel.userName,
+            imageUrls: adModel.images,
+          );
+        } else {
+          // Если требует ручной модерации — отправляем алерт на ручную проверку (кнопки "Одобрить"/"Отклонить")
+          await TelegramBotService.notifyAdminNewAd(
+            adId: savedAdId,
+            title: title,
+            price: price,
+            category: category,
+            userName: adModel.userName,
+            reason: '🤖 ИИ запросил ручную проверку (MANUAL_REVIEW).',
+            imageUrls: adModel.images,
+          );
+        }
       } catch (e) {
         debugPrint('[AdService] Failed to notify admin via Telegram: $e');
       }

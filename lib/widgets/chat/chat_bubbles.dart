@@ -88,18 +88,30 @@ class _ChatBubbleState extends State<ChatBubble> {
                 ),
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: isMe ? null : widget.otherBubbleColor,
-                  gradient: isMe ? const LinearGradient(
-                    colors: [Color(0xFF4A80F0), Color(0xFF3B6FE0)],
+                  color: widget.msg.type == 'offer' 
+                      ? Colors.white 
+                      : (isMe ? null : widget.otherBubbleColor),
+                  gradient: (widget.msg.type != 'offer' && isMe) ? const LinearGradient(
+                    colors: [Color(0xFF3B82F6), Color(0xFF2563EB)], // Beautiful blue gradient
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ) : null,
-                  borderRadius: BorderRadius.only(
-                    topLeft: const Radius.circular(18), 
-                    topRight: const Radius.circular(18), 
-                    bottomLeft: Radius.circular(isMe ? 18 : 4), 
-                    bottomRight: Radius.circular(isMe ? 4 : 18)
-                  ),
+                  boxShadow: widget.msg.type == 'offer' ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.04),
+                      blurRadius: 16,
+                      offset: const Offset(0, 4),
+                    )
+                  ] : null,
+                  border: widget.msg.type == 'offer' ? Border.all(color: const Color(0xFFE2E8F0), width: 1.5) : null,
+                  borderRadius: widget.msg.type == 'offer'
+                      ? BorderRadius.circular(24)
+                      : BorderRadius.only(
+                          topLeft: const Radius.circular(18), 
+                          topRight: const Radius.circular(18), 
+                          bottomLeft: Radius.circular(isMe ? 18 : 4), 
+                          bottomRight: Radius.circular(isMe ? 4 : 18)
+                        ),
                 ),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
                   if (widget.msg.type == 'image' && widget.msg.mediaUrl != null)
@@ -121,7 +133,7 @@ class _ChatBubbleState extends State<ChatBubble> {
                   if (widget.msg.type == 'audio') _AudioPlayerWidget(
                     msg: widget.msg, 
                     isMe: isMe, 
-                    color: widget.textColor, 
+                    color: isMe ? Colors.white : const Color(0xFF3B82F6), 
                     onPlay: widget.onPlayVoice, 
                     isPlaying: widget.isPlaying,
                     currentPos: widget.currentPos,
@@ -129,12 +141,12 @@ class _ChatBubbleState extends State<ChatBubble> {
                     lang: widget.lang,
                   ),
                   if (widget.msg.text.isNotEmpty && widget.msg.type == 'text')
-                    Text(widget.msg.text, softWrap: true, style: TextStyle(color: widget.textColor, fontSize: 15, fontWeight: FontWeight.w500)),
+                    Text(widget.msg.text, softWrap: true, style: TextStyle(color: isMe ? Colors.white : const Color(0xFF0F172A), fontSize: 15, fontWeight: FontWeight.w500)),
                   if (widget.msg.type == 'offer') _buildOfferCard(context, isMe),
                   const SizedBox(height: 4),
                   Row(mainAxisSize: MainAxisSize.min, children: [
-                    Text(DateFormat('HH:mm').format(widget.msg.timestamp), style: TextStyle(fontSize: 10, color: widget.subTextColor)),
-                    if (isMe) ...[const SizedBox(width: 4), Icon(widget.msg.isRead ? Icons.done_all_rounded : Icons.done_rounded, size: 14, color: widget.msg.isRead ? const Color(0xFF00E5FF) : Colors.white38)],
+                    Text(DateFormat('HH:mm').format(widget.msg.timestamp), style: TextStyle(fontSize: 10, color: widget.msg.type == 'offer' ? const Color(0xFF94A3B8) : (isMe ? Colors.white70 : const Color(0xFF64748B)))),
+                    if (isMe && widget.msg.type != 'offer') ...[const SizedBox(width: 4), Icon(widget.msg.isRead ? Icons.done_all_rounded : Icons.done_rounded, size: 14, color: widget.msg.isRead ? const Color(0xFF00E5FF) : Colors.white38)],
                   ]),
                 ]),
               ),
@@ -151,54 +163,37 @@ class _ChatBubbleState extends State<ChatBubble> {
     
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12), width: 1),
-      ),
+      color: Colors.transparent,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(PhosphorIcons.handshake(PhosphorIconsStyle.fill), color: Colors.white70, size: 18),
+              Icon(PhosphorIcons.handshake(PhosphorIconsStyle.fill), color: const Color(0xFF3B82F6), size: 20),
               const SizedBox(width: 8),
-              Text(TranslationService.t('offer_price_label', widget.lang), style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 0.8)),
+              Text(
+                TranslationService.t('offer_price_label', widget.lang).toUpperCase(), 
+                style: const TextStyle(color: Color(0xFF64748B), fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 0.8)
+              ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           Builder(
             builder: (context) {
               final double priceVal = double.tryParse(widget.msg.offerPrice ?? '0') ?? 0.0;
               final formattedPrice = priceVal > 0 
                   ? '${NumberFormat.decimalPattern('ru').format(priceVal.toInt())} ₸' 
                   : '0 ₸';
-              return Text(formattedPrice, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: -0.5));
+              return Text(formattedPrice, style: const TextStyle(color: Color(0xFF0F172A), fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: -0.5));
             },
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           if (!isMe && isPending) ...[
             Row(
               children: [
                 Expanded(
-                  child: Container(
-                    height: 44,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFFEF4444), Color(0xFFF43F5E)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFFEF4444).withValues(alpha: 0.3),
-                          blurRadius: 8,
-                          offset: const Offset(0, 3),
-                        )
-                      ],
-                    ),
+                  child: SizedBox(
+                    height: 48,
                     child: ElevatedButton(
                       onPressed: _isOfferLoading ? null : () async {
                         setState(() => _isOfferLoading = true);
@@ -209,36 +204,33 @@ class _ChatBubbleState extends State<ChatBubble> {
                         }
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.transparent,
-                        shadowColor: Colors.transparent,
+                        backgroundColor: const Color(0xFFEF4444),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                         padding: EdgeInsets.zero,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                       child: _isOfferLoading 
                           ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                          : Text(TranslationService.t('decline_btn', widget.lang), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.white)),
+                          : Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(3),
+                                  decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                                  child: const Icon(Icons.close_rounded, size: 12, color: Color(0xFFEF4444)),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(TranslationService.t('decline_btn', widget.lang), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Colors.white)),
+                              ],
+                            ),
                     ),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Container(
-                    height: 44,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF10B981), Color(0xFF059669)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF10B981).withValues(alpha: 0.3),
-                          blurRadius: 8,
-                          offset: const Offset(0, 3),
-                        )
-                      ],
-                    ),
+                  child: SizedBox(
+                    height: 48,
                     child: ElevatedButton(
                       onPressed: _isOfferLoading ? null : () async {
                         setState(() => _isOfferLoading = true);
@@ -249,62 +241,82 @@ class _ChatBubbleState extends State<ChatBubble> {
                         }
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.transparent,
-                        shadowColor: Colors.transparent,
+                        backgroundColor: const Color(0xFF10B981),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                         padding: EdgeInsets.zero,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                       child: _isOfferLoading 
                           ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                          : Text(TranslationService.t('accept_btn', widget.lang), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.white)),
+                          : Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(3),
+                                  decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                                  child: const Icon(Icons.check_rounded, size: 12, color: Color(0xFF10B981)),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(TranslationService.t('accept_btn', widget.lang), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Colors.white)),
+                              ],
+                            ),
                     ),
                   ),
                 ),
               ],
             ),
             const Padding(
-              padding: EdgeInsets.symmetric(vertical: 10),
-              child: Divider(color: Colors.white24, height: 1),
+              padding: EdgeInsets.symmetric(vertical: 14),
+              child: Divider(color: Color(0xFFF1F5F9), height: 1, thickness: 1),
             ),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              alignment: WrapAlignment.spaceEvenly,
+            Row(
               children: [
-                _quickActionButton(
-                  icon: Icons.phone_in_talk_rounded,
-                  label: TranslationService.t('call_btn', widget.lang),
-                  color: const Color(0xFF34D399),
-                  onTap: widget.onCallOffer,
+                Expanded(
+                  child: _quickActionButton(
+                    icon: Icons.phone_in_talk_rounded,
+                    label: TranslationService.t('call_btn', widget.lang),
+                    color: const Color(0xFF10B981),
+                    onTap: widget.onCallOffer,
+                  ),
                 ),
-                _quickActionButton(
-                  icon: Icons.edit_note_rounded,
-                  label: TranslationService.t('write_btn_short', widget.lang),
-                  color: const Color(0xFF60A5FA),
-                  onTap: widget.onWriteOffer,
-                ),
-                _quickActionButton(
-                  icon: Icons.keyboard_voice_rounded,
-                  label: TranslationService.t('voice_btn', widget.lang),
-                  color: const Color(0xFFC084FC),
-                  onTap: widget.onVoiceOffer,
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _quickActionButton(
+                    icon: Icons.edit_note_rounded,
+                    label: TranslationService.t('write_btn_short', widget.lang),
+                    color: const Color(0xFF3B82F6),
+                    onTap: widget.onWriteOffer,
+                  ),
                 ),
               ],
             ),
+            const SizedBox(height: 8),
+            Center(
+              child: _quickActionButton(
+                icon: Icons.keyboard_voice_rounded,
+                label: TranslationService.t('voice_btn', widget.lang),
+                color: const Color(0xFF8B5CF6),
+                onTap: widget.onVoiceOffer,
+              ),
+            ),
           ] else ...[
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                color: _getStatusColor(status).withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: _getStatusColor(status).withValues(alpha: 0.25), width: 1),
+                color: _getStatusColor(status).withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: _getStatusColor(status).withValues(alpha: 0.2), width: 1.2),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(_getStatusIcon(status), color: _getStatusColor(status), size: 16),
-                  const SizedBox(width: 6),
-                  Text(_getStatusText(status), style: TextStyle(color: _getStatusColor(status), fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
+                  Icon(_getStatusIcon(status), color: _getStatusColor(status), size: 18),
+                  const SizedBox(width: 8),
+                  Text(
+                    _getStatusText(status).toUpperCase(), 
+                    style: TextStyle(color: _getStatusColor(status), fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 0.5)
+                  ),
                 ],
               ),
             ),
@@ -322,24 +334,25 @@ class _ChatBubbleState extends State<ChatBubble> {
   }) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(20),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.06),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFFE2E8F0), width: 1.2),
         ),
         child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: color, size: 15),
-            const SizedBox(width: 4),
+            Icon(icon, color: color, size: 18),
+            const SizedBox(width: 6),
             Text(
               label,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.9),
-                fontSize: 10,
+              style: const TextStyle(
+                color: Color(0xFF334155),
+                fontSize: 13,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -352,7 +365,7 @@ class _ChatBubbleState extends State<ChatBubble> {
   Color _getStatusColor(String status) {
     switch (status) {
       case 'accepted': return const Color(0xFF10B981);
-      case 'rejected': return Colors.redAccent;
+      case 'rejected': return const Color(0xFFEF4444);
       default: return Colors.orange;
     }
   }
@@ -399,14 +412,25 @@ class _AudioPlayerWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // P2 FIX: treat empty string as uploading (mediaUrl must be a non-empty URL)
     final bool isUploading = msg.mediaUrl == null || msg.mediaUrl!.isEmpty;
-    
     return Row(mainAxisSize: MainAxisSize.min, children: [
-      IconButton(
-        padding: EdgeInsets.zero, constraints: const BoxConstraints(),
-        icon: Icon(isPlaying ? Icons.pause_circle_filled_rounded : Icons.play_circle_fill_rounded, color: color, size: 32),
-        onPressed: isUploading ? null : () => onPlay(msg.id, msg.mediaUrl!),
+      GestureDetector(
+        onTap: isUploading ? null : () => onPlay(msg.id, msg.mediaUrl!),
+        child: Container(
+          width: 36,
+          height: 36,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+          ),
+          child: Center(
+            child: Icon(
+              isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+              color: const Color(0xFF3B82F6),
+              size: 22,
+            ),
+          ),
+        ),
       ),
       const SizedBox(width: 8),
       Flexible(

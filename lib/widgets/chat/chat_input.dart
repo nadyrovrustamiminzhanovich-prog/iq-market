@@ -44,23 +44,25 @@ class ChatInput extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          padding: const EdgeInsets.fromLTRB(8, 8, 8, 20),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Colors.transparent, Colors.black.withValues(alpha: 0.4)],
-            ),
-          ),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          color: const Color(0xFFF1F5F9), // Light background to blend with chat background
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Expanded(
                 child: Container(
+                  height: 52,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1C242F),
-                    borderRadius: BorderRadius.circular(25),
-                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 10)],
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(26),
+                    border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.03),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      )
+                    ],
                   ),
                   child: AnimatedSwitcher(
                     duration: const Duration(milliseconds: 200),
@@ -68,9 +70,11 @@ class ChatInput extends StatelessWidget {
                       ? _RecordingBar(seconds: recordSeconds, cancelText: recordCancelText)
                       : Row(
                           children: [
+                            const SizedBox(width: 4),
+                            // Plus button on the left of input (as in screenshot)
                             IconButton(
-                              icon: Icon(showEmoji ? Icons.keyboard_rounded : Icons.emoji_emotions_outlined, color: showEmoji ? const Color(0xFF4A80F0) : Colors.white60, size: 24),
-                              onPressed: onToggleEmoji, 
+                              icon: const Icon(Icons.add_circle_outline_rounded, color: Color(0xFF3B82F6), size: 26),
+                              onPressed: onAttach,
                             ),
                             Expanded(
                               child: TextField(
@@ -79,42 +83,53 @@ class ChatInput extends StatelessWidget {
                                 maxLines: 5,
                                 minLines: 1,
                                 onChanged: onTextChanged,
-                                style: const TextStyle(color: Colors.white, fontSize: 16),
+                                style: const TextStyle(color: Color(0xFF0F172A), fontSize: 16),
                                 decoration: InputDecoration(
                                   hintText: hintText,
-                                  hintStyle: const TextStyle(color: Colors.white38),
+                                  hintStyle: const TextStyle(color: Color(0xFF94A3B8)),
                                   border: InputBorder.none,
                                   contentPadding: const EdgeInsets.symmetric(vertical: 10),
                                 ),
                               ),
                             ),
                             IconButton(
-                              icon: const Icon(Icons.attach_file_rounded, color: Colors.white60, size: 24),
-                              onPressed: onAttach,
+                              icon: Icon(
+                                showEmoji ? Icons.keyboard_rounded : Icons.sentiment_satisfied_alt_rounded,
+                                color: const Color(0xFF64748B),
+                                size: 24,
+                              ),
+                              onPressed: onToggleEmoji, 
                             ),
+                            const SizedBox(width: 8),
                           ],
                         ),
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 10),
               GestureDetector(
                 onTap: isTyping ? onSend : null,
                 onLongPressStart: (_) => onLongPressStart(),
                 onLongPressEnd: (_) => onLongPressEnd(),
-                onLongPressCancel: () => onLongPressEnd(), // Если палец сместили — останавливаем запись
+                onLongPressCancel: () => onLongPressEnd(),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
-                  width: 50, height: 50,
+                  width: 52, height: 52,
                   decoration: BoxDecoration(
-                    color: isRecording ? Colors.redAccent : const Color(0xFF4A80F0), 
+                    color: isRecording ? Colors.redAccent : const Color(0xFF3B82F6), 
                     shape: BoxShape.circle,
-                    boxShadow: [BoxShadow(color: (isRecording ? Colors.redAccent : const Color(0xFF4A80F0)).withValues(alpha: 0.3), blurRadius: 10, spreadRadius: 2)],
+                    boxShadow: [
+                      BoxShadow(
+                        color: (isRecording ? Colors.redAccent : const Color(0xFF3B82F6)).withValues(alpha: 0.2),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3),
+                      )
+                    ],
                   ),
                   child: Icon(
                     isTyping ? Icons.send_rounded : (isRecording ? Icons.stop_rounded : Icons.mic_rounded), 
                     color: Colors.white, 
-                    size: 24
+                    size: 22
                   ),
                 ),
               ),
@@ -135,16 +150,16 @@ class _RecordingBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
           const Icon(Icons.mic, color: Colors.redAccent, size: 20),
           const SizedBox(width: 12),
-          Text(_formatTime(seconds), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          Text(_formatTime(seconds), style: const TextStyle(color: Color(0xFF0F172A), fontWeight: FontWeight.bold)),
           const Spacer(),
-          Text(cancelText, style: const TextStyle(color: Colors.white54, fontSize: 12)),
+          Text(cancelText, style: const TextStyle(color: Color(0xFF64748B), fontSize: 12)),
           const SizedBox(width: 8),
-          const Icon(Icons.arrow_back_ios_new_rounded, size: 12, color: Colors.white38),
+          const Icon(Icons.arrow_back_ios_new_rounded, size: 12, color: Color(0xFF94A3B8)),
         ],
       ),
     );
@@ -167,7 +182,7 @@ class _EmojiPicker extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: 250,
-      color: const Color(0xFF17212B),
+      color: const Color(0xFFF1F5F9), // Light background for emoji picker
       child: GridView.builder(
         padding: const EdgeInsets.all(12),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 8, mainAxisSpacing: 8, crossAxisSpacing: 8),

@@ -534,15 +534,15 @@ class _ChatScreenState extends State<ChatScreen> {
     final config = Provider.of<AppConfigProvider>(context);
     final lang = config.language;
     final isBlocked = config.isUserBlocked(widget.ad.userId);
-    const chatBg = Color(0xFF0E1621); 
-    const myBubbleColor = Color(0xFF2B5278);
-    const otherBubbleColor = Color(0xFF182533);
+    const chatBg = Color(0xFFF1F5F9); 
+    const myBubbleColor = Color(0xFF3B82F6);
+    const otherBubbleColor = Colors.white;
 
     return Scaffold(
       backgroundColor: chatBg,
       body: Stack(
         children: [
-          Positioned.fill(child: Opacity(opacity: 0.2, child: CustomPaint(painter: ChatBackgroundPainter()))),
+          Positioned.fill(child: CustomPaint(painter: ChatBackgroundPainter())),
           Column(children: [
             SizedBox(height: MediaQuery.of(context).padding.top + 120),
             Expanded(
