@@ -141,6 +141,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     }
     String? selectedType;
     final TextEditingController commentCtrl = TextEditingController();
+    bool isLoading = false;
 
     showModalBottomSheet(
       context: context,
@@ -162,20 +163,24 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                   const SizedBox(height: 8),
                   Text(TranslationService.t('report_ad_select_reason', widget.lang), style: GoogleFonts.inter(color: Colors.grey[600], fontSize: 14)),
                   const SizedBox(height: 20),
-                  Wrap(
-                    spacing: 8, runSpacing: 8,
-                    children: [
-                      _reportChip(TranslationService.t('report_reason_fraud', widget.lang), 'fraud', selectedType, (v) => setModalState(() => selectedType = v)),
-                      _reportChip(TranslationService.t('report_reason_price', widget.lang), 'wrong_price', selectedType, (v) => setModalState(() => selectedType = v)),
-                      _reportChip(TranslationService.t('report_reason_sold', widget.lang), 'sold', selectedType, (v) => setModalState(() => selectedType = v)),
-                      _reportChip(TranslationService.t('report_reason_prohibited', widget.lang), 'prohibited', selectedType, (v) => setModalState(() => selectedType = v)),
-                      _reportChip(TranslationService.t('report_reason_other', widget.lang), 'other', selectedType, (v) => setModalState(() => selectedType = v)),
-                    ],
+                  AbsorbPointer(
+                    absorbing: isLoading,
+                    child: Wrap(
+                      spacing: 8, runSpacing: 8,
+                      children: [
+                        _reportChip(TranslationService.t('report_reason_fraud', widget.lang), 'fraud', selectedType, (v) => setModalState(() => selectedType = v)),
+                        _reportChip(TranslationService.t('report_reason_price', widget.lang), 'wrong_price', selectedType, (v) => setModalState(() => selectedType = v)),
+                        _reportChip(TranslationService.t('report_reason_sold', widget.lang), 'sold', selectedType, (v) => setModalState(() => selectedType = v)),
+                        _reportChip(TranslationService.t('report_reason_prohibited', widget.lang), 'prohibited', selectedType, (v) => setModalState(() => selectedType = v)),
+                        _reportChip(TranslationService.t('report_reason_other', widget.lang), 'other', selectedType, (v) => setModalState(() => selectedType = v)),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 20),
                   TextField(
                     controller: commentCtrl,
                     maxLines: 3,
+                    enabled: !isLoading,
                     decoration: InputDecoration(
                       hintText: TranslationService.t('report_comment_hint', widget.lang),
                       filled: true, fillColor: const Color(0xFFF1F5F9),
@@ -186,29 +191,65 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: selectedType == null ? null : () async {
-                        final reporterId = FirebaseAuth.instance.currentUser?.uid;
-                        await FirebaseFirestore.instance.collection('reports').add({
-                          'adId': widget.ad.id,
-                          'adTitle': widget.ad.title,
-                          'reportedUserId': widget.ad.userId,
-                          'reporterUserId': reporterId ?? 'anonymous',
-                          'type': selectedType,
-                          'comment': commentCtrl.text.trim(),
-                          'timestamp': FieldValue.serverTimestamp(),
+                      onPressed: selectedType == null || isLoading ? null : () async {
+                        setModalState(() {
+                          isLoading = true;
                         });
-                        if (mounted) {
-                          Navigator.pop(modalContext);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(TranslationService.t('report_sent_success', widget.lang)),
-                              backgroundColor: const Color(0xFF10B981),
-                            ),
-                          );
+                        try {
+                          final reporterId = FirebaseAuth.instance.currentUser?.uid;
+                          await FirebaseFirestore.instance.collection('reports').add({
+                            'adId': widget.ad.id,
+                            'adTitle': widget.ad.title,
+                            'reportedUserId': widget.ad.userId,
+                            'reporterUserId': reporterId ?? 'anonymous',
+                            'type': selectedType,
+                            'comment': commentCtrl.text.trim(),
+                            'timestamp': FieldValue.serverTimestamp(),
+                          });
+                          
+                          if (modalContext.mounted) {
+                            Navigator.pop(modalContext);
+                          }
+                          
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(TranslationService.t('report_sent_success', widget.lang)),
+                                backgroundColor: const Color(0xFF10B981),
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (builderContext.mounted) {
+                            setModalState(() {
+                              isLoading = false;
+                            });
+                          }
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Ошибка отправки: $e'),
+                                backgroundColor: Colors.redAccent,
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                              ),
+                            );
+                          }
                         }
                       },
                       style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4A80F0), foregroundColor: Colors.white, disabledBackgroundColor: Colors.grey[300], padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), elevation: 0),
-                      child: Text(TranslationService.t('report_submit_btn', widget.lang), style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 16)),
+                      child: isLoading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : Text(TranslationService.t('report_submit_btn', widget.lang), style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 16)),
                     ),
                   ),
                 ],
@@ -971,7 +1012,23 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                 return;
               }
               final uri = Uri.parse('tel:${widget.ad.userPhone}');
-              if (await canLaunchUrl(uri)) await launchUrl(uri);
+              try {
+                if (await canLaunchUrl(uri)) {
+                  await launchUrl(uri);
+                } else {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Не удалось запустить приложение для звонков'), backgroundColor: Colors.redAccent),
+                    );
+                  }
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Ошибка вызова: $e'), backgroundColor: Colors.redAccent),
+                  );
+                }
+              }
             },
             child: Container(
               height: 56,

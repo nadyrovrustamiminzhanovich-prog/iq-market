@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:iqmarket/models/notification_model.dart';
 import 'package:iqmarket/services/user_service.dart';
 import 'package:iqmarket/services/storage_service.dart';
@@ -211,37 +212,39 @@ class NotificationService {
     Map<String, dynamic>? data,
     String? uid, // Добавили опциональный UID
   }) async {
-    final targetUid = uid ?? UserService.currentUid;
-    if (targetUid == null) return;
+    try {
+      final targetUid = uid ?? UserService.currentUid;
+      if (targetUid == null) return;
 
-    // ✅ Для чат-уведомлений используем upsert по chatId
-    // чтобы НЕ создавать новый документ при каждом сообщении (спам счётчика)
-    final chatId = data?['chatId'];
-    if (type == 'chat' && chatId != null) {
-      // Обновляем или создаём один документ на чат
-      final docId = 'chat_$chatId';
-      await _db.collection('users').doc(targetUid).collection('notifications').doc(docId).set({
+      // ✅ Для чат-уведомлений используем upsert по chatId
+      // чтобы НЕ создавать новый документ при каждом сообщении (спам счётчика)
+      final chatId = data?['chatId'];
+      if (type == 'chat' && chatId != null) {
+        // Обновляем или создаём один документ на чат
+        final docId = 'chat_$chatId';
+        await _db.collection('users').doc(targetUid).collection('notifications').doc(docId).set({
+          'title': title,
+          'body': body,
+          'timestamp': FieldValue.serverTimestamp(),
+          'type': type,
+          'isRead': false,
+          'data': data,
+        }, SetOptions(merge: false)); // merge:false чтобы обновить весь документ
+        return;
+      }
+
+      // Все остальные типы уведомлений отправляем через Cloud Function
+      final callable = FirebaseFunctions.instance.httpsCallable('sendSystemNotification');
+      await callable.call({
+        'targetUid': targetUid,
         'title': title,
         'body': body,
-        'timestamp': FieldValue.serverTimestamp(),
         'type': type,
-        'isRead': false,
-        'data': data,
-      }, SetOptions(merge: false)); // merge:false чтобы обновить весь документ
-      return;
+        'payload': data,
+      });
+    } catch (e) {
+      debugPrint('[NotificationService] Error saving notification: $e');
     }
-
-    // Для системных, верификации и других — создаём новый документ
-    final notif = NotificationModel(
-      id: '',
-      title: title,
-      body: body,
-      timestamp: DateTime.now(),
-      type: type,
-      data: data,
-    );
-
-    await _db.collection('users').doc(targetUid).collection('notifications').add(notif.toMap());
   }
 
   static Stream<List<NotificationModel>> getNotificationsStream() {

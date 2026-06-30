@@ -66,11 +66,19 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
   }
 
   void _enableProtection() async {
-    await ScreenProtector.preventScreenshotOn();
+    try {
+      await ScreenProtector.preventScreenshotOn();
+    } catch (e) {
+      debugPrint('ScreenProtector preventScreenshotOn error: $e');
+    }
   }
 
   void _disableProtection() async {
-    await ScreenProtector.preventScreenshotOff();
+    try {
+      await ScreenProtector.preventScreenshotOff();
+    } catch (e) {
+      debugPrint('ScreenProtector preventScreenshotOff error: $e');
+    }
   }
 
   Future<void> _loadUserProfileData() async {
@@ -783,7 +791,23 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
                 return;
               }
               final url = Uri.parse('tel:$phoneToCall');
-              if (await canLaunchUrl(url)) await launchUrl(url);
+              try {
+                if (await canLaunchUrl(url)) {
+                  await launchUrl(url);
+                } else {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Не удалось запустить приложение для звонков'), backgroundColor: Colors.redAccent),
+                    );
+                  }
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Ошибка вызова: $e'), backgroundColor: Colors.redAccent),
+                  );
+                }
+              }
             }
           ),
         ),

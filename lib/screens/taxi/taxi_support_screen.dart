@@ -515,10 +515,21 @@ class _TaxiSupportScreenState extends State<TaxiSupportScreen> {
             final fallbackUri = Uri.parse(fallbackUrl);
             if (await canLaunchUrl(fallbackUri)) {
               await launchUrl(fallbackUri, mode: LaunchMode.externalApplication);
+            } else {
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Приложение не установлено'), backgroundColor: Colors.redAccent),
+                );
+              }
             }
           }
         } catch (e) {
           debugPrint('Error launching support messenger: $e');
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Приложение не установлено'), backgroundColor: Colors.redAccent),
+            );
+          }
         }
       },
       child: Container(

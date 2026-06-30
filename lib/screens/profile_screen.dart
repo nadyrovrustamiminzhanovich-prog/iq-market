@@ -114,10 +114,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_timerSeconds == 0) {
-        setState(() => _isTimerRunning = false);
+        if (mounted) setState(() => _isTimerRunning = false);
         timer.cancel();
       } else {
-        setState(() => _timerSeconds--);
+        if (mounted) setState(() => _timerSeconds--);
       }
     });
   }
@@ -270,6 +270,45 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       displayName,
                       style: GoogleFonts.inter(fontSize: 28, fontWeight: FontWeight.w900, color: _txtColor),
                     ),
+                    if (!_isGuest && user != null) ...[
+                      const SizedBox(height: 8),
+                      GestureDetector(
+                        onTap: () {
+                          Clipboard.setData(ClipboardData(text: user.uid));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('ID скопирован в буфер обмена: ${user.uid}'),
+                              behavior: SnackBarBehavior.floating,
+                              duration: const Duration(seconds: 2),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            ),
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: _isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: _isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'ID: ${user.uid.length > 8 ? user.uid.substring(0, 8) : user.uid}',
+                                style: GoogleFonts.firaCode(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: const Color(0xFF4A80F0),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              const Icon(Icons.copy_rounded, size: 14, color: Color(0xFF4A80F0)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                     if (_isVerified) ...[
                       const SizedBox(height: 8),
                       Row(

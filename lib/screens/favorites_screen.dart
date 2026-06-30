@@ -91,7 +91,9 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                     onTap: () => widget.onShowDetails(ad),
                     onToggleFavorite: () {
                       context.read<AppConfigProvider>().toggleFavorite(ad.id);
-                      setState(() {}); // Refresh future
+                      if (mounted) {
+                        setState(() {}); // Refresh future
+                      }
                     },
                     isFavorite: true,
                   );

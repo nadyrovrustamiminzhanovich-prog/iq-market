@@ -138,7 +138,22 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           itemBuilder: (context) => [
             PopupMenuItem(
-              onTap: () => UserService.toggleUserAdmin(user.uid, !isAdmin),
+              onTap: () async {
+                try {
+                  await UserService.toggleUserAdmin(user.uid, !isAdmin);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(isAdmin ? 'Администратор снят' : 'Администратор назначен'), behavior: SnackBarBehavior.floating),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Ошибка изменения роли: $e'), backgroundColor: Colors.redAccent, behavior: SnackBarBehavior.floating),
+                    );
+                  }
+                }
+              },
               child: Row(children: [
                 Icon(isAdmin ? PhosphorIcons.userMinus() : PhosphorIcons.userPlus(), size: 20),
                 const SizedBox(width: 12),
@@ -146,7 +161,22 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
               ]),
             ),
             PopupMenuItem(
-              onTap: () => UserService.toggleUserVerification(user.uid, !user.isVerified),
+              onTap: () async {
+                try {
+                  await UserService.toggleUserVerification(user.uid, !user.isVerified);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(user.isVerified ? 'Верификация снята' : 'Пользователь верифицирован'), behavior: SnackBarBehavior.floating),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Ошибка верификации: $e'), backgroundColor: Colors.redAccent, behavior: SnackBarBehavior.floating),
+                    );
+                  }
+                }
+              },
               child: Row(children: [
                 Icon(PhosphorIcons.sealCheck(), size: 20, color: Colors.blue),
                 const SizedBox(width: 12),

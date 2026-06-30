@@ -53,6 +53,7 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _isCancelled = false;
   int _recordSeconds = 0;
   Timer? _recordTimer;
+  Timer? _typingTimer;
   
   late final AudioRecorder _recorder;
   late final AudioPlayer _audioPlayer;
@@ -155,6 +156,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void dispose() {
     _recordTimer?.cancel();
+    _typingTimer?.cancel();
     _presenceSubscription?.cancel();
     // ✅ Явная отмена AudioPlayer-стримов — предотвращает утечку памяти
     _audioPositionSub?.cancel();
@@ -176,12 +178,34 @@ class _ChatScreenState extends State<ChatScreen> {
     super.dispose();
   }
 
+  void _updateMyTyping(bool isTyping) {
+    _typingTimer?.cancel();
+    if (isTyping) {
+      if (!_isTyping) {
+        ChatService.updateTypingStatus(widget.ad.userId, true);
+        setState(() => _isTyping = true);
+      }
+      _typingTimer = Timer(const Duration(milliseconds: 2500), () {
+        if (mounted && _isTyping) {
+          ChatService.updateTypingStatus(widget.ad.userId, false);
+          setState(() => _isTyping = false);
+        }
+      });
+    } else {
+      if (_isTyping) {
+        ChatService.updateTypingStatus(widget.ad.userId, false);
+        setState(() => _isTyping = false);
+      }
+    }
+  }
+
   Future<void> _sendMessage() async {
     if (Provider.of<AppConfigProvider>(context, listen: false).isUserBlocked(widget.ad.userId)) return;
     final text = _msgController.text.trim();
     if (text.isEmpty) return;
     
     final backupText = _msgController.text;
+    _typingTimer?.cancel();
     _msgController.clear();
     ChatService.updateTypingStatus(widget.ad.userId, false);
     setState(() => _isTyping = false);
@@ -590,13 +614,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 hintText: TranslationService.t('chat_input_hint', lang),
                 recordCancelText: TranslationService.t('record_cancel_hint', lang),
                 onToggleEmoji: () => setState(() => _showEmoji = !_showEmoji),
-                onTextChanged: (v) {
-                  final isNowTyping = v.isNotEmpty;
-                  if (_isTyping != isNowTyping) {
-                    ChatService.updateTypingStatus(widget.ad.userId, isNowTyping);
-                    setState(() => _isTyping = isNowTyping);
-                  }
-                },
+                onTextChanged: (v) => _updateMyTyping(v.isNotEmpty),
                 onAttach: () => _pickMedia(ImageSource.gallery),
                 onSend: _sendMessage,
                 onLongPressStart: _startRecording,
@@ -609,7 +627,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     text: newText,
                     selection: TextSelection.collapsed(offset: newText.length),
                   );
-                  setState(() => _isTyping = true);
+                  _updateMyTyping(true);
                 },
                 emojis: _emojis,
               ),
@@ -713,7 +731,23 @@ class _ChatScreenState extends State<ChatScreen> {
             final phoneNum = _otherUserPhone ?? widget.ad.userPhone ?? '';
             if (phoneNum.isNotEmpty) {
               final url = Uri.parse('tel:$phoneNum');
-              if (await canLaunchUrl(url)) await launchUrl(url);
+              try {
+                if (await canLaunchUrl(url)) {
+                  await launchUrl(url);
+                } else {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Не удалось открыть приложение для звонков'), backgroundColor: Colors.redAccent),
+                    );
+                  }
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Ошибка при попытке вызова: $e'), backgroundColor: Colors.redAccent),
+                  );
+                }
+              }
             } else {
               NotificationService.notify(context, TranslationService.t('error_title', lang), TranslationService.t('no_phone_error', lang), isSuccess: false);
             }
@@ -795,10 +829,20 @@ class _ChatScreenState extends State<ChatScreen> {
 
   void _showFullScreenImage(String url) {
     final lang = Provider.of<AppConfigProvider>(context, listen: false).language;
-    Navigator.push(context, MaterialPageRoute(builder: (_) => Scaffold(backgroundColor: Colors.black, appBar: AppBar(backgroundColor: Colors.black, foregroundColor: Colors.white, actions: [IconButton(icon: const Icon(Icons.download_rounded), onPressed: () async {
-      final response = await http.get(Uri.parse(url));
-      await Gal.putImageBytes(response.bodyBytes);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(TranslationService.t('saved_to_gallery', lang))));
+    Navigator.push(context, MaterialPageRoute(builder: (innerCtx) => Scaffold(backgroundColor: Colors.black, appBar: AppBar(backgroundColor: Colors.black, foregroundColor: Colors.white, actions: [IconButton(icon: const Icon(Icons.download_rounded), onPressed: () async {
+      try {
+        final response = await http.get(Uri.parse(url));
+        await Gal.putImageBytes(response.bodyBytes);
+        if (innerCtx.mounted) {
+          ScaffoldMessenger.of(innerCtx).showSnackBar(SnackBar(content: Text(TranslationService.t('saved_to_gallery', lang))));
+        }
+      } catch (e) {
+        if (innerCtx.mounted) {
+          ScaffoldMessenger.of(innerCtx).showSnackBar(
+            SnackBar(content: Text('Не удалось сохранить фото: $e'), backgroundColor: Colors.redAccent),
+          );
+        }
+      }
     })]), body: Center(child: InteractiveViewer(child: (url.isNotEmpty && url.startsWith('http')) 
       ? CachedNetworkImage(
           imageUrl: url,
@@ -807,7 +851,6 @@ class _ChatScreenState extends State<ChatScreen> {
         )
       : const Icon(Icons.broken_image_rounded, color: Colors.white, size: 40)
     )))));
-
   }
 
   void _navigateToSellerProfile() async {

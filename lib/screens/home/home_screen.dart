@@ -138,6 +138,8 @@ class _IQMarketHomeState extends State<IQMarketHome> {
             _isAdmin = user.accountType == 'admin';
           });
         }
+        // Update user's lastActive status globally on app startup
+        UserService.updateUserProfile({'lastActive': FieldValue.serverTimestamp()});
         // Save the fresh profile details back to the local cache
         await StorageService.saveProfile(
           user.name,

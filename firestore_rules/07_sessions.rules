@@ -1,7 +1,8 @@
     // Правила для Telegram Auth Сессий (X10 Security)
     match /tg_auth_sessions/{sessionId} {
       allow create: if request.resource.data.keys().hasOnly(['created_at', 'verified', 'chat_id', 'otp', 'phone', 'customToken']) && request.resource.data.verified == false && request.resource.data.otp == null;
-      allow get: if true; 
+      allow get: if resource.data.verified == false; 
       allow list: if false; 
-      allow update, delete: if false; 
+      allow update: if false; 
+      allow delete: if isSignedIn();
     }

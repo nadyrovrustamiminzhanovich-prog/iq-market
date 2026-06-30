@@ -26,9 +26,17 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
   bool _isUploading = false;
 
   Future<void> _pickImage() async {
-    final picked = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 70);
-    if (picked != null && mounted) {
-      setState(() => _images.add(File(picked.path)));
+    try {
+      final picked = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 70);
+      if (picked != null && mounted) {
+        setState(() => _images.add(File(picked.path)));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Не удалось выбрать фото: $e'), backgroundColor: Colors.redAccent),
+        );
+      }
     }
   }
 

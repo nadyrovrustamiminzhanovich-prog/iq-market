@@ -269,9 +269,17 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
                     Container(
                       margin: const EdgeInsets.only(right: 8),
                       child: TextButton.icon(
-                        onPressed: () {
-                          AdService.extendAd(ad.id);
-                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Объявление продлено на 30 дней', style: GoogleFonts.inter()), backgroundColor: Colors.green));
+                        onPressed: () async {
+                          try {
+                            await AdService.extendAd(ad.id);
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Объявление продлено на 30 дней', style: GoogleFonts.inter()), backgroundColor: Colors.green));
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ошибка при продлении: $e'), backgroundColor: Colors.redAccent));
+                            }
+                          }
                         },
                         icon: const Icon(Icons.update_rounded, size: 18, color: Colors.green),
                         label: Text(_t('extend'), style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
@@ -345,9 +353,19 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
         content: Text(_t('delete_confirm')),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: Text(_t('cancel'))),
-          TextButton(onPressed: () {
-            AdService.deleteAd(id);
-            Navigator.pop(ctx);
+          TextButton(onPressed: () async {
+            try {
+              await AdService.deleteAd(id);
+              if (ctx.mounted) {
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Объявление успешно удалено'), backgroundColor: Colors.green));
+              }
+            } catch (e) {
+              if (ctx.mounted) {
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ошибка удаления: $e'), backgroundColor: Colors.redAccent));
+              }
+            }
           }, child: Text(_t('delete'), style: const TextStyle(color: Colors.red))),
         ],
       ),

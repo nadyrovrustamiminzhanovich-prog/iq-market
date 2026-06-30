@@ -5,14 +5,24 @@
       // Пользователь может обновить свой профиль, но не может изменить роль/рейтинг
       allow update: if isAdmin() || (isOwner(userId) && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['accountType', 'rating', 'reviewsCount', 'status'])));
 
-      // Уведомления: любой авторизованный может создать (отправить уведомление другому),
-      // но читать и удалять — только сам владелец.
       match /notifications/{notifId} {
-        allow create: if isSignedIn() && request.resource.data.keys().hasAll(['title', 'body', 'type', 'timestamp']);
+        allow create: if isSignedIn() 
+          && request.resource.data.keys().hasAll(['title', 'body', 'type', 'timestamp', 'senderId'])
+          && request.resource.data.senderId == request.auth.uid
+          && (
+            isOwner(userId) ||
+            isAdmin() ||
+            (
+              notifId.size() > 5 && 
+              notifId[0:5] == 'chat_' && 
+              request.auth.uid in get(/databases/$(database)/documents/chats/$(notifId[5:])).data.users &&
+              userId in get(/databases/$(database)/documents/chats/$(notifId[5:])).data.users
+            )
+          );
         allow read, delete: if isOwner(userId);
         allow update: if isSignedIn() && (
           isOwner(userId) || 
-          (resource.data.type == 'chat' && request.resource.data.type == 'chat' && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['type']))
+          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']))
         );
       }
     }

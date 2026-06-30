@@ -283,14 +283,22 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
   }
 
   Future<void> _pickMedia() async {
-    final XFile? photo = await _picker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 60,
-      maxWidth: 1024,
-      maxHeight: 1024,
-    );
-    if (photo != null && mounted) {
-      setState(() => _selectedFiles.add(File(photo.path)));
+    try {
+      final XFile? photo = await _picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 60,
+        maxWidth: 1024,
+        maxHeight: 1024,
+      );
+      if (photo != null && mounted) {
+        setState(() => _selectedFiles.add(File(photo.path)));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Не удалось выбрать фото: $e'), backgroundColor: Colors.redAccent),
+        );
+      }
     }
   }
 

@@ -252,17 +252,41 @@ class _IqSupportScreenState extends State<IqSupportScreen>
     final msg = Uri.encodeComponent(_t('wa_msg'));
     final wa = Uri.parse('whatsapp://send?phone=77089007030&text=$msg');
     final waWeb = Uri.parse('https://wa.me/77089007030?text=$msg');
-    if (await canLaunchUrl(wa)) {
-      await launchUrl(wa, mode: LaunchMode.externalApplication);
-    } else {
-      await launchUrl(waWeb, mode: LaunchMode.externalApplication);
+    try {
+      if (await canLaunchUrl(wa)) {
+        await launchUrl(wa, mode: LaunchMode.externalApplication);
+      } else {
+        await launchUrl(waWeb, mode: LaunchMode.externalApplication);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Приложение WhatsApp не установлено или ссылка заблокирована'), backgroundColor: Colors.redAccent),
+        );
+      }
     }
   }
 
   Future<void> _openTelegram() async {
     final msg = Uri.encodeComponent(_t('wa_msg'));
     final tg = Uri.parse('https://t.me/+77089007030?text=$msg');
-    await launchUrl(tg, mode: LaunchMode.externalApplication);
+    try {
+      if (await canLaunchUrl(tg)) {
+        await launchUrl(tg, mode: LaunchMode.externalApplication);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Приложение Telegram не установлено'), backgroundColor: Colors.redAccent),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Приложение Telegram не установлено'), backgroundColor: Colors.redAccent),
+        );
+      }
+    }
   }
 
   @override

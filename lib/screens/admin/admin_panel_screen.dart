@@ -1,9 +1,13 @@
 import 'dart:async';
+import 'dart:io';
+import 'dart:math' as math;
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:path_provider/path_provider.dart';
 
 import 'package:iqmarket/screens/admin/admin_ads_screen.dart';
 import 'package:iqmarket/screens/admin/admin_users_screen.dart';
@@ -40,11 +44,30 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
   bool _showBanner = false;
   Timer? _bannerTimer;
 
+  void _initAudio() async {
+    try {
+      await _audioPlayer.setAudioContext(AudioContext(
+        android: AudioContextAndroid(
+          isSpeakerphoneOn: true,
+          stayAwake: false,
+          contentType: AndroidContentType.sonification,
+          usageType: AndroidUsageType.assistanceSonification,
+        ),
+        iOS: AudioContextIOS(
+          category: AVAudioSessionCategory.playback,
+        ),
+      ));
+    } catch (e) {
+      debugPrint('Error setting audio context: $e');
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     // Глобальная чистка архива (раз в месяц), если зашел админ
     AdService.runGlobalCleanupIfNeeded();
+    _initAudio();
     _setupRealtimeListeners();
   }
 
@@ -63,9 +86,60 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
     required String body,
     required VoidCallback onTap,
   }) async {
-    // Play sweet bubble notification sound
+    // Play sweet bubble notification sound (offline generated WAV)
     try {
-      await _audioPlayer.play(UrlSource('https://assets.mixkit.co/active_storage/sfx/2568/2568-600.wav'));
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/admin_alert.wav');
+      if (!await file.exists()) {
+        final sampleRate = 22050;
+        final durationMs = 250;
+        final totalSamples = (sampleRate * durationMs / 1000).toInt();
+        final bytesPerSample = 2;
+        final subChunk2Size = totalSamples * bytesPerSample;
+        final chunkSize = 36 + subChunk2Size;
+
+        final header = ByteData(44);
+        header.setUint8(0, 0x52); header.setUint8(1, 0x49); header.setUint8(2, 0x46); header.setUint8(3, 0x46); // "RIFF"
+        header.setUint32(4, chunkSize, Endian.little);
+        header.setUint8(8, 0x57); header.setUint8(9, 0x41); header.setUint8(10, 0x56); header.setUint8(11, 0x45); // "WAVE"
+        header.setUint8(12, 0x66); header.setUint8(13, 0x6d); header.setUint8(14, 0x74); header.setUint8(15, 0x20); // "fmt "
+        header.setUint32(16, 16, Endian.little);
+        header.setUint16(20, 1, Endian.little);
+        header.setUint16(22, 1, Endian.little);
+        header.setUint32(24, sampleRate, Endian.little);
+        header.setUint32(28, sampleRate * bytesPerSample, Endian.little);
+        header.setUint16(32, bytesPerSample, Endian.little);
+        header.setUint16(34, 16, Endian.little);
+        header.setUint8(36, 0x64); header.setUint8(37, 0x61); header.setUint8(38, 0x74); header.setUint8(39, 0x61); // "data"
+        header.setUint32(40, subChunk2Size, Endian.little);
+
+        final data = Int16List(totalSamples);
+        final firstBeepEnd = (sampleRate * 80 / 1000).toInt();
+        final pauseEnd = (sampleRate * 110 / 1000).toInt();
+
+        for (int i = 0; i < totalSamples; i++) {
+          if (i < firstBeepEnd) {
+            final t = i / sampleRate;
+            final envelope = math.pow((firstBeepEnd - i) / firstBeepEnd, 1.5);
+            data[i] = (math.sin(2 * math.pi * 987.77 * t) * 32767 * 0.25 * envelope).toInt();
+          } else if (i < pauseEnd) {
+            data[i] = 0;
+          } else {
+            final t = (i - pauseEnd) / sampleRate;
+            final secondBeepLen = totalSamples - pauseEnd;
+            final envelope = math.pow((totalSamples - i) / secondBeepLen, 2.0);
+            data[i] = (math.sin(2 * math.pi * 1318.51 * t) * 32767 * 0.25 * envelope).toInt();
+          }
+        }
+
+        final buffer = BytesBuilder();
+        buffer.add(header.buffer.asUint8List());
+        buffer.add(data.buffer.asUint8List());
+        await file.writeAsBytes(buffer.toBytes());
+      }
+
+      await _audioPlayer.stop();
+      await _audioPlayer.play(DeviceFileSource(file.path));
     } catch (e) {
       debugPrint('Audio play error: $e');
     }
@@ -125,6 +199,8 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
       setState(() {
         _reportsCount = totalReports;
       });
+    }, onError: (err) {
+      debugPrint('Admin reports sub error: $err');
     });
 
     // 2. Listen to Pending Ads
@@ -254,21 +330,21 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
           ),
 
           // Slide-down Top Alert Banner
-          if (_showBanner && _bannerTitle != null)
-            AnimatedPositioned(
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOut,
-              top: 16,
-              left: 16,
-              right: 16,
-              child: _buildBannerWidget(),
-            ),
+          AnimatedPositioned(
+            duration: const Duration(milliseconds: 350),
+            curve: Curves.easeOutBack,
+            top: _showBanner ? 16 : -120,
+            left: 16,
+            right: 16,
+            child: _buildBannerWidget(),
+          ),
         ],
       ),
     );
   }
 
   Widget _buildBannerWidget() {
+    if (_bannerTitle == null) return const SizedBox.shrink();
     return GestureDetector(
       onTap: () {
         setState(() => _showBanner = false);

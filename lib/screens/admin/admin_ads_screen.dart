@@ -320,11 +320,22 @@ class _AdminAdsScreenState extends State<AdminAdsScreen> with SingleTickerProvid
 
     if (confirm == true) {
       showDialog(context: context, barrierDismissible: false, builder: (context) => const Center(child: CircularProgressIndicator()));
-      for (var id in _selectedAdIds) { await AdService.rejectAd(id); }
-      if (mounted) {
-        Navigator.pop(context); // Close progress dialog
-        setState(() { _selectedAdIds.clear(); _isSelectionMode = false; });
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Объявления удалены')));
+      try {
+        for (var id in _selectedAdIds) { 
+          await AdService.rejectAd(id); 
+        }
+        if (mounted) {
+          setState(() { _selectedAdIds.clear(); _isSelectionMode = false; });
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Объявления удалены')));
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ошибка удаления: $e'), backgroundColor: Colors.redAccent));
+        }
+      } finally {
+        if (mounted) {
+          Navigator.pop(context); // Close progress dialog
+        }
       }
     }
   }

@@ -155,7 +155,26 @@ class LegalInfoScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 30),
                     ElevatedButton.icon(
-                      onPressed: () => launchUrl(Uri.parse('https://sites.google.com/view/iqmarket-kz/$webPath'), mode: LaunchMode.externalApplication),
+                      onPressed: () async {
+                        final uri = Uri.parse('https://sites.google.com/view/iqmarket-kz/$webPath');
+                        try {
+                          if (await canLaunchUrl(uri)) {
+                            await launchUrl(uri, mode: LaunchMode.externalApplication);
+                          } else {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Не удалось открыть браузер'), backgroundColor: Colors.redAccent),
+                              );
+                            }
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Ошибка при открытии ссылки: $e'), backgroundColor: Colors.redAccent),
+                            );
+                          }
+                        }
+                      },
                       icon: const Icon(Icons.open_in_browser_rounded, color: Colors.white),
                       label: Text(_t('visit_web'), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                       style: ElevatedButton.styleFrom(

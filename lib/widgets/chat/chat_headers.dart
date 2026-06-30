@@ -1,14 +1,13 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:iqmarket/models/ad_model.dart';
-import 'package:iqmarket/models/user_model.dart';
 import 'package:iqmarket/providers/app_config_provider.dart';
 import 'package:iqmarket/services/chat_service.dart';
-import 'package:iqmarket/services/user_service.dart';
 import 'package:iqmarket/services/translation_service.dart';
 import 'package:iqmarket/screens/product_details_screen.dart';
 import 'package:iqmarket/widgets/report_user_sheet.dart';
@@ -71,33 +70,36 @@ class ChatGlassHeader extends StatelessWidget {
                           if (isOnline) {
                             return Text(TranslationService.t('online', lang), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold));
                           }
-                          return FutureBuilder<UserModel?>(
-                            future: UserService.getUserById(ad.userId),
+                          return StreamBuilder<DocumentSnapshot>(
+                            stream: FirebaseFirestore.instance.collection('users').doc(ad.userId).snapshots(),
                             builder: (context, userSnap) {
-                              if (userSnap.hasData && userSnap.data != null) {
-                                final date = userSnap.data!.lastActive.toLocal();
-                                final now = DateTime.now();
-                                final today = DateTime(now.year, now.month, now.day);
-                                final yesterday = today.subtract(const Duration(days: 1));
-                                final activeDay = DateTime(date.year, date.month, date.day);
+                              if (userSnap.hasData && userSnap.data!.exists) {
+                                final data = userSnap.data!.data() as Map<String, dynamic>? ?? {};
+                                final lastActiveStamp = data['lastActive'] as Timestamp?;
+                                if (lastActiveStamp != null) {
+                                  final date = lastActiveStamp.toDate().toLocal();
+                                  final now = DateTime.now();
+                                  final today = DateTime(now.year, now.month, now.day);
+                                  final yesterday = today.subtract(const Duration(days: 1));
+                                  final activeDay = DateTime(date.year, date.month, date.day);
 
-                                String timeStr;
-                                if (activeDay == today) {
-                                  timeStr = TranslationService.t('today_at', lang).replaceAll('{time}', DateFormat('HH:mm').format(date));
-                                } else if (activeDay == yesterday) {
-                                  timeStr = TranslationService.t('yesterday_at', lang).replaceAll('{time}', DateFormat('HH:mm').format(date));
-                                } else {
-                                  timeStr = '${DateFormat('dd.MM.yyyy').format(date)} ${TranslationService.t('at_time', lang)} ${DateFormat('HH:mm').format(date)}';
-                                }
+                                  String timeStr;
+                                  if (activeDay == today) {
+                                    timeStr = TranslationService.t('today_at', lang).replaceAll('{time}', DateFormat('HH:mm').format(date));
+                                  } else if (activeDay == yesterday) {
+                                    timeStr = TranslationService.t('yesterday_at', lang).replaceAll('{time}', DateFormat('HH:mm').format(date));
+                                  } else {
+                                    timeStr = '${DateFormat('dd.MM.yyyy').format(date)} ${TranslationService.t('at_time', lang)} ${DateFormat('HH:mm').format(date)}';
+                                  }
 
-                                String finalStr;
-                                if (lang == 'Русский') {
-                                  finalStr = '${TranslationService.t('was_online', lang)} $timeStr';
-                                } else {
-                                  // For Kazakh and Uighur, the status (verb) comes at the end
-                                  finalStr = '$timeStr ${TranslationService.t('was_online', lang)}';
+                                  String finalStr;
+                                  if (lang == 'Русский') {
+                                    finalStr = '${TranslationService.t('was_online', lang)} $timeStr';
+                                  } else {
+                                    finalStr = '$timeStr ${TranslationService.t('was_online', lang)}';
+                                  }
+                                  return Text(finalStr, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Color(0xFF64748B), fontSize: 11));
                                 }
-                                return Text(finalStr, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Color(0xFF64748B), fontSize: 11));
                               }
                               return Text(TranslationService.t('offline', lang), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Color(0xFF64748B), fontSize: 11));
                             }

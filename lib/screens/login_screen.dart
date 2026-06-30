@@ -378,6 +378,13 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
           _generatedCode = otp;
           _showOtpDialog(chatId, customToken);
         }
+      }, onError: (err) {
+        debugPrint('watchTelegramSession error: $err');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Ошибка сессии авторизации: $err'), backgroundColor: Colors.redAccent),
+          );
+        }
       });
 
     } on TimeoutException {
@@ -467,7 +474,24 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
 
   Future<void> _openTelegramBot() async {
     if (_tgBotUrl == null) return;
-    await launchUrl(Uri.parse(_tgBotUrl!), mode: LaunchMode.externalApplication);
+    try {
+      final uri = Uri.parse(_tgBotUrl!);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Приложение Telegram не установлено'), backgroundColor: Colors.redAccent),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Приложение Telegram не установлено'), backgroundColor: Colors.redAccent),
+        );
+      }
+    }
   }
 
   Widget _tgWaitingSheet(BuildContext ctx) {

@@ -22,6 +22,7 @@ class ReportUserSheet {
 
     String? selectedType;
     final TextEditingController commentCtrl = TextEditingController();
+    bool isLoading = false;
 
     showModalBottomSheet(
       context: context,
@@ -66,40 +67,44 @@ class ReportUserSheet {
                     style: GoogleFonts.inter(color: Colors.grey[600], fontSize: 14),
                   ),
                   const SizedBox(height: 20),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      _reportChip(
-                        TranslationService.t('report_reason_spam', lang),
-                        'spam',
-                        selectedType,
-                        (v) => setModalState(() => selectedType = v),
-                      ),
-                      _reportChip(
-                        TranslationService.t('report_reason_insult', lang),
-                        'insult',
-                        selectedType,
-                        (v) => setModalState(() => selectedType = v),
-                      ),
-                      _reportChip(
-                        TranslationService.t('report_reason_fraud', lang),
-                        'fraud',
-                        selectedType,
-                        (v) => setModalState(() => selectedType = v),
-                      ),
-                      _reportChip(
-                        TranslationService.t('report_reason_other', lang),
-                        'other',
-                        selectedType,
-                        (v) => setModalState(() => selectedType = v),
-                      ),
-                    ],
+                  AbsorbPointer(
+                    absorbing: isLoading,
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _reportChip(
+                          TranslationService.t('report_reason_spam', lang),
+                          'spam',
+                          selectedType,
+                          (v) => setModalState(() => selectedType = v),
+                        ),
+                        _reportChip(
+                          TranslationService.t('report_reason_insult', lang),
+                          'insult',
+                          selectedType,
+                          (v) => setModalState(() => selectedType = v),
+                        ),
+                        _reportChip(
+                          TranslationService.t('report_reason_fraud', lang),
+                          'fraud',
+                          selectedType,
+                          (v) => setModalState(() => selectedType = v),
+                        ),
+                        _reportChip(
+                          TranslationService.t('report_reason_other', lang),
+                          'other',
+                          selectedType,
+                          (v) => setModalState(() => selectedType = v),
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 20),
                   TextField(
                     controller: commentCtrl,
                     maxLines: 3,
+                    enabled: !isLoading,
                     style: GoogleFonts.inter(fontSize: 15),
                     decoration: InputDecoration(
                       hintText: TranslationService.t('report_comment_hint', lang),
@@ -115,28 +120,56 @@ class ReportUserSheet {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: selectedType == null
+                      onPressed: selectedType == null || isLoading
                           ? null
                           : () async {
-                              final reporterId = FirebaseAuth.instance.currentUser?.uid;
-                              await FirebaseFirestore.instance.collection('reports').add({
-                                'reportedUserId': reportedUserId,
-                                'reportedUserName': reportedUserName,
-                                'reporterUserId': reporterId ?? 'anonymous',
-                                'type': selectedType,
-                                'comment': commentCtrl.text.trim(),
-                                'timestamp': FieldValue.serverTimestamp(),
+                              setModalState(() {
+                                isLoading = true;
                               });
-                              // Use the outer context passed to the static method
-                              Navigator.pop(modalCtx);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    TranslationService.t('report_sent_success', lang),
-                                  ),
-                                  backgroundColor: const Color(0xFF10B981),
-                                ),
-                              );
+                              try {
+                                final reporterId = FirebaseAuth.instance.currentUser?.uid;
+                                await FirebaseFirestore.instance.collection('reports').add({
+                                  'reportedUserId': reportedUserId,
+                                  'reportedUserName': reportedUserName,
+                                  'reporterUserId': reporterId ?? 'anonymous',
+                                  'type': selectedType,
+                                  'comment': commentCtrl.text.trim(),
+                                  'timestamp': FieldValue.serverTimestamp(),
+                                });
+
+                                if (modalCtx.mounted) {
+                                  Navigator.pop(modalCtx);
+                                }
+
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        TranslationService.t('report_sent_success', lang),
+                                      ),
+                                      backgroundColor: const Color(0xFF10B981),
+                                      behavior: SnackBarBehavior.floating,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                    ),
+                                  );
+                                }
+                              } catch (e) {
+                                if (builderCtx.mounted) {
+                                  setModalState(() {
+                                    isLoading = false;
+                                  });
+                                }
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Ошибка отправки: $e'),
+                                      backgroundColor: Colors.redAccent,
+                                      behavior: SnackBarBehavior.floating,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                    ),
+                                  );
+                                }
+                              }
                             },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF4A80F0),
@@ -148,10 +181,19 @@ class ReportUserSheet {
                         ),
                         elevation: 0,
                       ),
-                      child: Text(
-                        TranslationService.t('report_submit_btn', lang),
-                        style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 16),
-                      ),
+                      child: isLoading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : Text(
+                              TranslationService.t('report_submit_btn', lang),
+                              style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 16),
+                            ),
                     ),
                   ),
                 ],

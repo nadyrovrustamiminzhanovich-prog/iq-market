@@ -330,11 +330,19 @@ class _AdminTaxiScreenState extends State<AdminTaxiScreen> with SingleTickerProv
 
     if (confirm == true) {
       final collection = isOrder ? 'taxi_orders' : 'taxi_rides';
-      await FirebaseFirestore.instance.collection(collection).doc(id).delete();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Запись успешно удалена из базы данных! 🗑️'), behavior: SnackBarBehavior.floating),
-        );
+      try {
+        await FirebaseFirestore.instance.collection(collection).doc(id).delete();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Запись успешно удалена из базы данных! 🗑️'), behavior: SnackBarBehavior.floating),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Ошибка при удалении: $e'), backgroundColor: Colors.redAccent, behavior: SnackBarBehavior.floating),
+          );
+        }
       }
     }
   }

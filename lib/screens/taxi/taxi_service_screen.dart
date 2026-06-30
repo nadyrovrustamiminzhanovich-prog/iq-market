@@ -731,7 +731,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen>
     TaxiTheme t,
     Map<String, dynamic> d, {
     required bool isCall,
-  }) {
+  }) async {
     if (!provider.isLoggedIn) {
       _navigateToLogin(provider, isCall ? 'auth_call_prompt' : 'auth_chat_prompt');
       return;
@@ -749,7 +749,24 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen>
       _pendingCallTarget = d;
       _pendingCallTargetType = 'drive';
       _callDialogPending = true;
-      launchUrl(Uri.parse('tel:${d['phone'] ?? d['driverPhone'] ?? ''}'));
+      final uri = Uri.parse('tel:${d['phone'] ?? d['driverPhone'] ?? ''}');
+      try {
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri);
+        } else {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Не удалось запустить приложение для звонков'), backgroundColor: Colors.redAccent),
+            );
+          }
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Ошибка вызова: $e'), backgroundColor: Colors.redAccent),
+          );
+        }
+      }
     } else {
       Navigator.push(
         context,
@@ -806,7 +823,24 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen>
         _pendingCallTarget = o;
         _pendingCallTargetType = 'order';
         _callDialogPending = true;
-        await launchUrl(Uri.parse('tel:$passengerPhone'));
+        final uri = Uri.parse('tel:$passengerPhone');
+        try {
+          if (await canLaunchUrl(uri)) {
+            await launchUrl(uri);
+          } else {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Не удалось запустить приложение для звонков'), backgroundColor: Colors.redAccent),
+              );
+            }
+          }
+        } catch (e) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Ошибка вызова: $e'), backgroundColor: Colors.redAccent),
+            );
+          }
+        }
       } else {
         NotificationService.notify(context, 'Нет номера',
             'Телефон пассажира недоступен',

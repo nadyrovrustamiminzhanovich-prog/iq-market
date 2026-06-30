@@ -728,7 +728,23 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
           InkWell(
             onTap: () async {
               final uri = Uri.parse('tel:${widget.seller.userPhone ?? '+77000000000'}');
-              if (await canLaunchUrl(uri)) await launchUrl(uri);
+              try {
+                if (await canLaunchUrl(uri)) {
+                  await launchUrl(uri);
+                } else {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Не удалось запустить приложение для звонков'), backgroundColor: Colors.redAccent),
+                    );
+                  }
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Ошибка вызова: $e'), backgroundColor: Colors.redAccent),
+                  );
+                }
+              }
             },
             child: Container(
               height: 56, width: 56,

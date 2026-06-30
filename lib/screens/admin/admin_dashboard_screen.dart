@@ -98,7 +98,7 @@ class AdminDashboardScreen extends StatelessWidget {
           
           Map<String, int> counts = {};
           for (var doc in snapshot.data!.docs) {
-            String cat = doc['category'] ?? 'Другое';
+            String cat = (doc.data() as Map<String, dynamic>?)?['category'] ?? 'Другое';
             counts[cat] = (counts[cat] ?? 0) + 1;
           }
           

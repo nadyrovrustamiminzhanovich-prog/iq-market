@@ -168,7 +168,17 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
             return Dismissible(
               key: Key(notif.id),
               direction: DismissDirection.endToStart,
-              onDismissed: (direction) => NotificationService.deleteNotification(notif.id),
+              onDismissed: (direction) async {
+                try {
+                  await NotificationService.deleteNotification(notif.id);
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Не удалось удалить уведомление: $e'), backgroundColor: Colors.redAccent),
+                    );
+                  }
+                }
+              },
               background: Container(
                 alignment: Alignment.centerRight,
                 padding: const EdgeInsets.only(right: 20),

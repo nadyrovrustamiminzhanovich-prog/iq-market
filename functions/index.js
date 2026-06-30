@@ -264,3 +264,35 @@ exports.onNewNotification = functions.firestore.document('users/{userId}/notific
     }
   }
 );
+
+// ─── HTTPS CALLABLE: sendSystemNotification ──────────────────────────────────
+exports.sendSystemNotification = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Пользователь должен быть авторизован');
+  }
+
+  const targetUid = data.targetUid;
+  const title = data.title;
+  const body = data.body;
+  const type = data.type || 'system';
+  const payload = data.payload || null;
+
+  if (!targetUid || !title || !body) {
+    throw new functions.https.HttpsError('invalid-argument', 'Неполные параметры уведомления');
+  }
+
+  await db.collection('users')
+    .doc(targetUid)
+    .collection('notifications')
+    .add({
+      title: title,
+      body: body,
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      type: type,
+      senderId: context.auth.uid,
+      isRead: false,
+      data: payload
+    });
+
+  return { success: true };
+});
