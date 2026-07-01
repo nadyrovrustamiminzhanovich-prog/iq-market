@@ -113,12 +113,12 @@ class _ProductCardState extends State<ProductCard> with SingleTickerProviderStat
                                       color: const Color(0xFF4A80F0),
                                       borderRadius: BorderRadius.circular(6),
                                     ),
-                                    child: const Row(
+                                    child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Icon(Icons.videocam_rounded, color: Colors.white, size: 12),
-                                        SizedBox(width: 4),
-                                        Text('ВИДЕО', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w900)),
+                                        const Icon(Icons.videocam_rounded, color: Colors.white, size: 12),
+                                        const SizedBox(width: 4),
+                                        Text(TranslationService.t('videoBadge', lang), style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w900)),
                                       ],
                                     ),
                                   ),

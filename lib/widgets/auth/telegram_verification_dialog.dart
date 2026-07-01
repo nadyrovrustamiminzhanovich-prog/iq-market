@@ -1,4 +1,7 @@
 import 'dart:async';
+import 'package:iqmarket/services/translation_service.dart';
+import 'package:iqmarket/providers/app_config_provider.dart';
+import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -358,13 +361,13 @@ class _TelegramVerificationDialogState extends State<TelegramVerificationDialog>
             ),
             child: _isWaitingForBot 
               ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-              : Text('ОТКРЫТЬ TELEGRAM', style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 15)),
+              : Text(TranslationService.t('openTelegramBtn', Provider.of<AppConfigProvider>(context, listen: false).language), style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 15)),
           ),
         ),
         const SizedBox(height: 12),
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: Text('ОТМЕНА', style: GoogleFonts.inter(color: t.sub, fontWeight: FontWeight.bold)),
+          child: Text(TranslationService.t('cancel', Provider.of<AppConfigProvider>(context, listen: false).language), style: GoogleFonts.inter(color: t.sub, fontWeight: FontWeight.bold)),
         ),
       ],
     );
@@ -477,7 +480,7 @@ class _TelegramVerificationDialogState extends State<TelegramVerificationDialog>
             onPressed: () {
               setState(() => _step = 0);
             },
-            child: const Text('Запросить код заново', style: TextStyle(color: Color(0xFF0088CC), fontWeight: FontWeight.bold)),
+            child: Text(TranslationService.t('requestVerificationCodeAgain', Provider.of<AppConfigProvider>(context, listen: false).language), style: const TextStyle(color: Color(0xFF0088CC), fontWeight: FontWeight.bold)),
           ),
         
         const SizedBox(height: 16),
@@ -492,7 +495,7 @@ class _TelegramVerificationDialogState extends State<TelegramVerificationDialog>
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               elevation: 0,
             ),
-            child: Text('ПОДТВЕРДИТЬ', style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 15)),
+            child: Text(TranslationService.t('confirmBtnCap', Provider.of<AppConfigProvider>(context, listen: false).language), style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 15)),
           ),
         ),
       ],

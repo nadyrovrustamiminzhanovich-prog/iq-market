@@ -210,7 +210,7 @@ class _TaxiAssignedDriverViewState extends State<TaxiAssignedDriverView> {
                     if (driverPhone.isNotEmpty) {
                       launchUrl(Uri.parse('tel:$driverPhone'));
                     } else {
-                      NotificationService.notify(context, 'Ошибка', 'Номер телефона не указан водителем', isSuccess: false);
+                      NotificationService.notify(context, provider.translate('errorTitle'), provider.translate('errNoDriverPhone'), isSuccess: false);
                     }
                   },
                   child: Container(
@@ -303,7 +303,7 @@ class _TaxiAssignedDriverViewState extends State<TaxiAssignedDriverView> {
               HapticFeedback.heavyImpact();
               await provider.completeOrder(orderId);
               if (mounted) {
-                NotificationService.notify(context, 'Поездка завершена', 'Благодарим вас за выбор нашего сервиса!', isSuccess: true);
+                NotificationService.notify(context, provider.translate('rideCompletedTitle'), provider.translate('thanksForChoosingMsg'), isSuccess: true);
                 TaxiDialogsController.showFeedbackDialog(context, provider, t, driverId, driverName, 'driver');
               }
             },

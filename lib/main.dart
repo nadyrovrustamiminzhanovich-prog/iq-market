@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:iqmarket/services/translation_service.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -64,7 +65,7 @@ class MainApp extends StatelessWidget {
                       backgroundColor: const Color(0xFF4A80F0),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    child: const Text('Вернуться на главную', style: TextStyle(color: Colors.white)),
+                    child: Text(TranslationService.t('returnToHome', Provider.of<AppConfigProvider>(context, listen: false).language), style: const TextStyle(color: Colors.white)),
                   ),
                 ],
               ),
@@ -111,7 +112,7 @@ class ErrorApp extends StatelessWidget {
                 const SizedBox(height: 24),
                 Text(message, textAlign: TextAlign.center, style: const TextStyle(fontSize: 16)),
                 const SizedBox(height: 24),
-                ElevatedButton(onPressed: onRetry, child: const Text('Повторить'))
+                ElevatedButton(onPressed: onRetry, child: Text(TranslationService.t('retryBtn', Provider.of<AppConfigProvider>(context, listen: false).language)))
               ],
             ),
           ),
@@ -119,4 +120,4 @@ class ErrorApp extends StatelessWidget {
       ),
     );
   }
-}
+}

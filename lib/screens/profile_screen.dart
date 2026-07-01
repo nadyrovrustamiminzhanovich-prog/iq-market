@@ -277,7 +277,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           Clipboard.setData(ClipboardData(text: user.uid));
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text('ID скопирован в буфер обмена: ${user.uid}'),
+                              content: Text(_t('idCopiedMsg').replaceAll('{uid}', user.uid)),
                               behavior: SnackBarBehavior.floating,
                               duration: const Duration(seconds: 2),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -1449,7 +1449,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     style: ElevatedButton.styleFrom(backgroundColor: _primaryColor, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
                     child: isLoading 
                       ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : const Text('ОБНОВИТЬ ПАРОЛЬ', style: TextStyle(fontWeight: FontWeight.w900, color: Colors.white)),
+                      : Text(_t('updatePasswordBtn'), style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.white)),
                   ),
                 ),
                 const SizedBox(height: 15),

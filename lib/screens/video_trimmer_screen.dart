@@ -1,4 +1,7 @@
 import 'dart:io';
+import 'package:iqmarket/services/translation_service.dart';
+import 'package:iqmarket/providers/app_config_provider.dart';
+import 'package:provider/provider.dart';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
@@ -66,7 +69,7 @@ class _VideoTrimmerScreenState extends State<VideoTrimmerScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Ошибка воспроизведения видео ⚠️'),
+            content: Text(TranslationService.t('errPlayVideo', Provider.of<AppConfigProvider>(context, listen: false).language)),
             backgroundColor: Colors.redAccent,
           ),
         );
@@ -183,7 +186,7 @@ class _VideoTrimmerScreenState extends State<VideoTrimmerScreen> {
       child: Scaffold(
         backgroundColor: Colors.black,
         appBar: AppBar(
-          title: Text('Обрезать видео', style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16)),
+          title: Text(TranslationService.t('trimVideoTitle', Provider.of<AppConfigProvider>(context, listen: false).language), style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16)),
           backgroundColor: Colors.black,
           foregroundColor: Colors.white,
           elevation: 0,
@@ -198,7 +201,7 @@ class _VideoTrimmerScreenState extends State<VideoTrimmerScreen> {
             if (_isLoaded && !_isSaving)
               TextButton(
                 onPressed: _saveVideo,
-                child: Text('ГОТОВО', style: GoogleFonts.inter(color: const Color(0xFF4A80F0), fontWeight: FontWeight.w900)),
+                child: Text(TranslationService.t('doneBtnCap', Provider.of<AppConfigProvider>(context, listen: false).language), style: GoogleFonts.inter(color: const Color(0xFF4A80F0), fontWeight: FontWeight.w900)),
               )
             else if (_isSaving)
               const Center(

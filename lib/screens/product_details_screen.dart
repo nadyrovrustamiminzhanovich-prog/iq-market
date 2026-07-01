@@ -230,7 +230,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text('Ошибка отправки: $e'),
+                                content: Text(TranslationService.t('errSendReport', widget.lang).replaceAll('{error}', e.toString())),
                                 backgroundColor: Colors.redAccent,
                                 behavior: SnackBarBehavior.floating,
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -1018,14 +1018,14 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                 } else {
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Не удалось запустить приложение для звонков'), backgroundColor: Colors.redAccent),
+                      SnackBar(content: Text(TranslationService.t('errNoPhoneCallApp', widget.lang)), backgroundColor: Colors.redAccent),
                     );
                   }
                 }
               } catch (e) {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Ошибка вызова: $e'), backgroundColor: Colors.redAccent),
+                    SnackBar(content: Text(TranslationService.t('errCall', widget.lang).replaceAll('{error}', e.toString())), backgroundColor: Colors.redAccent),
                   );
                 }
               }

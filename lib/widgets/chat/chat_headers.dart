@@ -234,6 +234,7 @@ class ChatAdInfoBar extends StatelessWidget {
   }
 
   void _showTaxiDetails(BuildContext context) {
+    final lang = Provider.of<AppConfigProvider>(context, listen: false).language;
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -265,7 +266,7 @@ class ChatAdInfoBar extends StatelessWidget {
               child: ElevatedButton(
                 onPressed: () => Navigator.pop(context),
                 style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4A80F0), foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), elevation: 0),
-                child: Text('Закрыть', style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16)),
+                child: Text(TranslationService.t('closeBtnCap', lang), style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16)),
               ),
             ),
           ],

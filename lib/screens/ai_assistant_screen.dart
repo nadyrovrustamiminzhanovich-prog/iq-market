@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:iqmarket/services/translation_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
@@ -35,6 +36,11 @@ class AiAssistantScreen extends StatefulWidget {
 }
 
 class _AiAssistantScreenState extends State<AiAssistantScreen> {
+  String _getTranslationLang() {
+    if (_currentLang == 'KZ') return 'Қазақша';
+    if (_currentLang == 'UG') return 'Уйғурчә';
+    return 'Русский';
+  }
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final List<Map<String, dynamic>> _messages = [];
@@ -125,7 +131,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
         } else {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Голосовой ввод недоступен на этом устройстве')),
+              SnackBar(content: Text(TranslationService.t('voiceInputUnavailable', _getTranslationLang()))),
             );
           }
         }
@@ -296,7 +302,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Не удалось выбрать фото: $e'), backgroundColor: Colors.redAccent),
+          SnackBar(content: Text(TranslationService.t('errChoosePhoto', _getTranslationLang()).replaceAll('{error}', e.toString())), backgroundColor: Colors.redAccent),
         );
       }
     }
@@ -774,7 +780,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
           GestureDetector(
             onLongPress: () {
               Clipboard.setData(ClipboardData(text: msg['text']));
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Текст скопирован')));
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(TranslationService.t('textCopiedMsg', _getTranslationLang()))));
             },
             child: Container(
               padding: const EdgeInsets.all(16),
@@ -837,7 +843,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                         GestureDetector(
                           onTap: () {
                             Clipboard.setData(ClipboardData(text: msg['text']));
-                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Скопировано')));
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(TranslationService.t('copiedMsg', _getTranslationLang()))));
                           },
                           child: Container(
                             padding: const EdgeInsets.all(6),

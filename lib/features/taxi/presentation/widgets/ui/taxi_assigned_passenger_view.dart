@@ -179,7 +179,7 @@ class _TaxiAssignedPassengerViewState extends State<TaxiAssignedPassengerView> {
                     if (passengerPhone.isNotEmpty) {
                       launchUrl(Uri.parse('tel:$passengerPhone'));
                     } else {
-                      NotificationService.notify(context, 'Ошибка', 'Номер телефона не указан пассажиром', isSuccess: false);
+                      NotificationService.notify(context, provider.translate('errorTitle'), provider.translate('errNoPassengerPhone'), isSuccess: false);
                     }
                   },
                   child: Container(
@@ -276,7 +276,7 @@ class _TaxiAssignedPassengerViewState extends State<TaxiAssignedPassengerView> {
                 await provider.completeRide(docId);
               }
               if (mounted) {
-                NotificationService.notify(context, 'Поездка завершена', 'Благодарим вас за работу!', isSuccess: true);
+                NotificationService.notify(context, provider.translate('rideCompletedTitle'), provider.translate('thanksForWorkMsg'), isSuccess: true);
                 TaxiDialogsController.showFeedbackDialog(context, provider, t, passengerId, passengerName, 'passenger');
               }
             },
@@ -311,13 +311,13 @@ class _TaxiAssignedPassengerViewState extends State<TaxiAssignedPassengerView> {
                 builder: (ctx) => AlertDialog(
                   backgroundColor: t.bg,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-                  title: Text('Отменить поездку?', style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: t.text)),
-                  content: Text('Вы действительно хотите отменить текущую поездку? Это действие отменит связь с пассажиром.', style: GoogleFonts.inter(color: t.sub, fontSize: 13)),
+                  title: Text(provider.translate('cancelRideTitle'), style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: t.text)),
+                  content: Text(provider.translate('cancelCurrentRideDesc'), style: GoogleFonts.inter(color: t.sub, fontSize: 13)),
                   actions: [
-                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text('Нет', style: GoogleFonts.inter(color: t.sub, fontWeight: FontWeight.bold))),
+                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(provider.translate('noBtn'), style: GoogleFonts.inter(color: t.sub, fontWeight: FontWeight.bold))),
                     TextButton(
                       onPressed: () => Navigator.pop(ctx, true),
-                      child: Text('Да, отменить', style: GoogleFonts.inter(color: Colors.red, fontWeight: FontWeight.w900)),
+                      child: Text(provider.translate('yesCancelBtn'), style: GoogleFonts.inter(color: Colors.red, fontWeight: FontWeight.w900)),
                     ),
                   ],
                 ),
@@ -330,7 +330,7 @@ class _TaxiAssignedPassengerViewState extends State<TaxiAssignedPassengerView> {
                   await provider.cancelRide(docId);
                 }
                 if (mounted) {
-                  NotificationService.notify(context, 'Поездка отменена', 'Связь успешно отменена', isSuccess: false);
+                  NotificationService.notify(context, provider.translate('rideCanceledTitle'), provider.translate('connectionCanceledMsg'), isSuccess: false);
                 }
               }
             },

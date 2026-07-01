@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:iqmarket/services/translation_service.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
@@ -261,7 +262,7 @@ class _IqSupportScreenState extends State<IqSupportScreen>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Приложение WhatsApp не установлено или ссылка заблокирована'), backgroundColor: Colors.redAccent),
+          SnackBar(content: Text(TranslationService.t('errWhatsappUnavailable', widget.lang)), backgroundColor: Colors.redAccent),
         );
       }
     }
@@ -276,14 +277,14 @@ class _IqSupportScreenState extends State<IqSupportScreen>
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Приложение Telegram не установлено'), backgroundColor: Colors.redAccent),
+            SnackBar(content: Text(TranslationService.t('errTelegramUnavailable', widget.lang)), backgroundColor: Colors.redAccent),
           );
         }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Приложение Telegram не установлено'), backgroundColor: Colors.redAccent),
+          SnackBar(content: Text(TranslationService.t('errTelegramUnavailable', widget.lang)), backgroundColor: Colors.redAccent),
         );
       }
     }

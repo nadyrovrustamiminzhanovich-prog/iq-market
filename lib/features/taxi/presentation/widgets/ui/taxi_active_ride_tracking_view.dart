@@ -236,11 +236,11 @@ class _TaxiActiveRideTrackingViewState extends State<TaxiActiveRideTrackingView>
                         builder: (ctx) => AlertDialog(
                           backgroundColor: t.bg,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                          title: Text('Отменить поездку?', style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: t.text)),
-                          content: Text('Вы действительно хотите удалить ваш активный рейс?', style: GoogleFonts.inter(color: t.sub)),
+                          title: Text(provider.translate('cancelRideTitle'), style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: t.text)),
+                          content: Text(provider.translate('cancelActiveRideDesc'), style: GoogleFonts.inter(color: t.sub)),
                           actions: [
-                            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text('Нет', style: GoogleFonts.inter(color: t.sub))),
-                            TextButton(onPressed: () => Navigator.pop(ctx, true), child: Text('Да, отменить', style: GoogleFonts.inter(color: Colors.red))),
+                            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(provider.translate('noBtn'), style: GoogleFonts.inter(color: t.sub))),
+                            TextButton(onPressed: () => Navigator.pop(ctx, true), child: Text(provider.translate('yesCancelBtn'), style: GoogleFonts.inter(color: Colors.red))),
                           ],
                         ),
                       );

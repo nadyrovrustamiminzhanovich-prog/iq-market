@@ -142,7 +142,7 @@ void showTaxiHistoryRatingSheet(
               maxLines: 3,
               style: GoogleFonts.inter(color: t.text),
               decoration: InputDecoration(
-                hintText: 'Напишите ваш комментарий...',
+                hintText: provider.translate('writeCommentHint'),
                 hintStyle: GoogleFonts.inter(color: t.sub),
                 filled: true,
                 fillColor: t.card,

@@ -200,6 +200,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _sendMessage() async {
+    final lang = Provider.of<AppConfigProvider>(context, listen: false).language;
     if (Provider.of<AppConfigProvider>(context, listen: false).isUserBlocked(widget.ad.userId)) return;
     final text = _msgController.text.trim();
     if (text.isEmpty) return;
@@ -221,8 +222,8 @@ class _ChatScreenState extends State<ChatScreen> {
       if (mounted) {
         _msgController.text = backupText;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Ошибка отправки сообщения. Проверьте интернет.'),
+          SnackBar(
+            content: Text(TranslationService.t('errSendMsgInternet', lang)),
             backgroundColor: Colors.redAccent,
             behavior: SnackBarBehavior.floating,
           ),
@@ -264,6 +265,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _stopRecording() async {
+    final lang = Provider.of<AppConfigProvider>(context, listen: false).language;
     if (!_isRecording) return;
     _recordTimer?.cancel();
     await Future.delayed(const Duration(milliseconds: 200));
@@ -311,8 +313,8 @@ class _ChatScreenState extends State<ChatScreen> {
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Ошибка отправки голосового сообщения.'),
+            SnackBar(
+              content: Text(TranslationService.t('errSendVoiceMsg', lang)),
               backgroundColor: Colors.redAccent,
               behavior: SnackBarBehavior.floating,
             ),
@@ -443,6 +445,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _playVoice(String id, String url) async {
+    final lang = Provider.of<AppConfigProvider>(context, listen: false).language;
     try {
       debugPrint('Playing voice: id=$id, url=$url');
       if (_currentPlayingId == id) {
@@ -504,13 +507,14 @@ class _ChatScreenState extends State<ChatScreen> {
           _currentPlayingId = null;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка воспроизведения: $e'), backgroundColor: Colors.redAccent),
+          SnackBar(content: Text(TranslationService.t('errPlayback', lang).replaceAll('{error}', e.toString())), backgroundColor: Colors.redAccent),
         );
       }
     }
   }
 
   void _pickMedia(ImageSource source) async {
+    final lang = Provider.of<AppConfigProvider>(context, listen: false).language;
     if (Provider.of<AppConfigProvider>(context, listen: false).isUserBlocked(widget.ad.userId)) return;
     final picker = ImagePicker();
     XFile? file;
@@ -520,7 +524,7 @@ class _ChatScreenState extends State<ChatScreen> {
       debugPrint("Error picking chat image: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Не удалось открыть галерею/камеру: $e'), backgroundColor: Colors.redAccent, behavior: SnackBarBehavior.floating),
+          SnackBar(content: Text(TranslationService.t('errOpenGalleryCamera', lang).replaceAll('{error}', e.toString())), backgroundColor: Colors.redAccent, behavior: SnackBarBehavior.floating),
         );
       }
       return;
@@ -534,19 +538,19 @@ class _ChatScreenState extends State<ChatScreen> {
           final msgId = await ChatService.sendMessage(ad: widget.ad, text: 'Фото', type: 'image', mediaUrl: url, senderName: _currentUserName);
           if (msgId == null && mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Ошибка отправки фото'), backgroundColor: Colors.redAccent, behavior: SnackBarBehavior.floating),
+              SnackBar(content: Text(TranslationService.t('errSendPhoto', lang)), backgroundColor: Colors.redAccent, behavior: SnackBarBehavior.floating),
             );
           }
           _scrollToBottom();
         } else if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Ошибка загрузки фото'), backgroundColor: Colors.redAccent, behavior: SnackBarBehavior.floating),
+            SnackBar(content: Text(TranslationService.t('errLoadPhoto', lang)), backgroundColor: Colors.redAccent, behavior: SnackBarBehavior.floating),
           );
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Ошибка: $e'), backgroundColor: Colors.redAccent, behavior: SnackBarBehavior.floating),
+            SnackBar(content: Text(TranslationService.t('errPrefix', lang).replaceAll('{error}', e.toString())), backgroundColor: Colors.redAccent, behavior: SnackBarBehavior.floating),
           );
         }
       }
@@ -737,14 +741,14 @@ class _ChatScreenState extends State<ChatScreen> {
                 } else {
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Не удалось открыть приложение для звонков'), backgroundColor: Colors.redAccent),
+                      SnackBar(content: Text(TranslationService.t('errNoPhoneCallApp', lang)), backgroundColor: Colors.redAccent),
                     );
                   }
                 }
               } catch (e) {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Ошибка при попытке вызова: $e'), backgroundColor: Colors.redAccent),
+                    SnackBar(content: Text(TranslationService.t('errCall', lang).replaceAll('{error}', e.toString())), backgroundColor: Colors.redAccent),
                   );
                 }
               }
@@ -815,7 +819,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   final count = await ChatService.deleteMessages(widget.ad.userId, [msg.id]); 
                   if (count == 0 && mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Не удалось удалить сообщение'), backgroundColor: Colors.redAccent, behavior: SnackBarBehavior.floating),
+                      SnackBar(content: Text(TranslationService.t('errDeleteMsg', lang)), backgroundColor: Colors.redAccent, behavior: SnackBarBehavior.floating),
                     );
                   }
                 }
@@ -839,7 +843,7 @@ class _ChatScreenState extends State<ChatScreen> {
       } catch (e) {
         if (innerCtx.mounted) {
           ScaffoldMessenger.of(innerCtx).showSnackBar(
-            SnackBar(content: Text('Не удалось сохранить фото: $e'), backgroundColor: Colors.redAccent),
+            SnackBar(content: Text(TranslationService.t('errSavePhoto', lang).replaceAll('{error}', e.toString())), backgroundColor: Colors.redAccent),
           );
         }
       }

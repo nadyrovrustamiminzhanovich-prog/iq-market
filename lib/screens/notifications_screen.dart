@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:iqmarket/services/translation_service.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:iqmarket/screens/chat_screen.dart';
 import 'package:iqmarket/screens/product_details_screen.dart';
@@ -174,7 +175,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
                 } catch (e) {
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Не удалось удалить уведомление: $e'), backgroundColor: Colors.redAccent),
+                      SnackBar(content: Text(TranslationService.t('errDeleteNotif', widget.lang).replaceAll('{error}', e.toString())), backgroundColor: Colors.redAccent),
                     );
                   }
                 }

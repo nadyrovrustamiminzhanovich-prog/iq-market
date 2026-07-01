@@ -541,7 +541,7 @@ class _PostAdScreenState extends State<PostAdScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Не удалось выбрать фото или видео: $e'),
+            content: Text(TranslationService.t('errSelectMedia', widget.lang).replaceAll('{error}', e.toString())),
             backgroundColor: Colors.redAccent,
           ),
         );

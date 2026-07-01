@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:iqmarket/services/translation_service.dart';
+import 'package:iqmarket/providers/app_config_provider.dart';
+import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class SearchBarHome extends StatelessWidget {
@@ -45,7 +48,7 @@ class SearchBarHome extends StatelessWidget {
               style: GoogleFonts.inter(fontSize: 14, color: const Color(0xFF1E293B)),
               textInputAction: TextInputAction.search,
               decoration: InputDecoration(
-                hintText: 'Поиск товаров, услуг и объявлений',
+                hintText: TranslationService.t('searchGlobalHint', Provider.of<AppConfigProvider>(context, listen: false).language),
                 hintStyle: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 13),
                 border: InputBorder.none,
                 isDense: true,

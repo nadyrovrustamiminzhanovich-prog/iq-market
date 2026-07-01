@@ -155,18 +155,18 @@ class _BidRowState extends State<_BidRow> {
           )
         else
           Row(children: [
-            _actionBtn('Принять', const Color(0xFF84CC16), Colors.white, () async {
+            _actionBtn(widget.provider.translate('accept_btn'), const Color(0xFF84CC16), Colors.white, () async {
               if (isProcessing) return;
               HapticFeedback.mediumImpact();
               setState(() => isProcessing = true);
               try {
                 await widget.provider.acceptBid(bidId);
                 if (mounted) {
-                  NotificationService.notify(context, 'Принято', 'Вы согласились на предложение за $price ₸', isSuccess: true);
+                  NotificationService.notify(context, widget.provider.translate('acceptedTitle'), widget.provider.translate('agreedToPriceMsg').replaceAll('{price}', price.toString()), isSuccess: true);
                 }
               } catch (e) {
                 if (mounted) {
-                  NotificationService.notify(context, 'Ошибка', 'Не удалось принять предложение', isSuccess: false);
+                  NotificationService.notify(context, widget.provider.translate('errorTitle'), widget.provider.translate('errAcceptOffer'), isSuccess: false);
                 }
               } finally {
                 if (mounted) {
@@ -175,18 +175,18 @@ class _BidRowState extends State<_BidRow> {
               }
             }),
             const SizedBox(width: 8),
-            _actionBtn('Отклонить', Colors.red.withValues(alpha: 0.1), Colors.red, () async {
+            _actionBtn(widget.provider.translate('decline_btn'), Colors.red.withValues(alpha: 0.1), Colors.red, () async {
               if (isProcessing) return;
               HapticFeedback.lightImpact();
               setState(() => isProcessing = true);
               try {
                 await widget.provider.rejectBid(bidId);
                 if (mounted) {
-                  NotificationService.notify(context, 'Отклонено', 'Вы отклонили предложение', isSuccess: false);
+                  NotificationService.notify(context, widget.provider.translate('declinedTitle'), widget.provider.translate('declinedOfferMsg'), isSuccess: false);
                 }
               } catch (e) {
                 if (mounted) {
-                  NotificationService.notify(context, 'Ошибка', 'Не удалось отклонить предложение', isSuccess: false);
+                  NotificationService.notify(context, widget.provider.translate('errorTitle'), widget.provider.translate('errDeclineOffer'), isSuccess: false);
                 }
               } finally {
                 if (mounted) {

@@ -450,7 +450,7 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
     builder: (context, snapshot) {
       if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
       final reviews = snapshot.data!;
-      if (reviews.isEmpty) return Center(child: Padding(padding: const EdgeInsets.all(32), child: Text('Пока нет отзывов', style: GoogleFonts.inter(color: Colors.grey))));
+      if (reviews.isEmpty) return Center(child: Padding(padding: const EdgeInsets.all(32), child: Text(TranslationService.t('noReviewsYet', widget.lang), style: GoogleFonts.inter(color: Colors.grey))));
       
       return Column(
         children: reviews.map((r) => _reviewItem(r)).toList(),
@@ -734,14 +734,14 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
                 } else {
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Не удалось запустить приложение для звонков'), backgroundColor: Colors.redAccent),
+                      SnackBar(content: Text(TranslationService.t('errNoPhoneCallApp', widget.lang)), backgroundColor: Colors.redAccent),
                     );
                   }
                 }
               } catch (e) {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Ошибка вызова: $e'), backgroundColor: Colors.redAccent),
+                    SnackBar(content: Text(TranslationService.t('errCall', widget.lang).replaceAll('{error}', e.toString())), backgroundColor: Colors.redAccent),
                   );
                 }
               }

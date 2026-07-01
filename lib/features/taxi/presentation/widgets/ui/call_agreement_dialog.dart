@@ -118,7 +118,7 @@ class _CallAgreementSheetState extends State<_CallAgreementSheet>
       final msg = e.toString().contains('завершена')
           ? 'Эта поездка уже была записана ранее'
           : 'Не удалось записать поездку. Попробуйте снова.';
-      NotificationService.notify(context, 'Ошибка', msg, isSuccess: false);
+      NotificationService.notify(context, widget.provider.translate('errorTitle'), msg, isSuccess: false);
     } finally {
       if (mounted) setState(() => _isProcessing = false);
     }
@@ -254,7 +254,7 @@ class _CallAgreementSheetState extends State<_CallAgreementSheet>
                   // Поле цены (только если согласились)
                   if (_agreed == true) ...[
                     const SizedBox(height: 20),
-                    Text('ЦЕНА ПОЕЗДКИ:', style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w800, color: t.sub, letterSpacing: 0.8)),
+                    Text(widget.provider.translate('ridePriceLabel'), style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w800, color: t.sub, letterSpacing: 0.8)),
                     const SizedBox(height: 10),
                     Container(
                       decoration: BoxDecoration(
@@ -347,7 +347,7 @@ class _CallAgreementSheetState extends State<_CallAgreementSheet>
                             children: [
                               Icon(Icons.search_rounded, color: t.sub, size: 20),
                               const SizedBox(width: 8),
-                              Text('Нет, продолжить поиск',
+                              Text(widget.provider.translate('continueSearchBtn'),
                                   style: GoogleFonts.inter(color: t.sub, fontWeight: FontWeight.w700, fontSize: 14)),
                             ],
                           ),
@@ -358,7 +358,7 @@ class _CallAgreementSheetState extends State<_CallAgreementSheet>
                     const SizedBox(height: 8),
                     TextButton(
                       onPressed: () { HapticFeedback.lightImpact(); setState(() => _agreed = null); },
-                      child: Text('Назад', style: GoogleFonts.inter(color: t.sub, fontWeight: FontWeight.w600, fontSize: 13)),
+                      child: Text(widget.provider.translate('backBtn'), style: GoogleFonts.inter(color: t.sub, fontWeight: FontWeight.w600, fontSize: 13)),
                     ),
                   ],
                 ],

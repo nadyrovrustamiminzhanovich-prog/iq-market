@@ -740,7 +740,7 @@ class _TaxiDriverRideConfirmationSheetContentState
                     padding: const EdgeInsets.all(24),
                     children: [
                       _buildSelectorRow(
-                        title: 'Марка авто',
+                        title: widget.provider.translate('carBrandLabel'),
                         value: tempBrand.isNotEmpty ? tempBrand : 'Выберите марку',
                         icon: Icons.directions_car_rounded,
                         onTap: () => _showBrandSelectionList(setSheetState, (brand) {
@@ -753,7 +753,7 @@ class _TaxiDriverRideConfirmationSheetContentState
                       const SizedBox(height: 16),
 
                       _buildSelectorRow(
-                        title: 'Модель авто',
+                        title: widget.provider.translate('carModelLabel'),
                         value: tempModel.isNotEmpty ? tempModel : 'Выберите модель',
                         icon: Icons.format_list_bulleted_rounded,
                         disabled: tempBrand.isEmpty,
@@ -766,7 +766,7 @@ class _TaxiDriverRideConfirmationSheetContentState
                       const SizedBox(height: 16),
 
                       _buildSelectorRow(
-                        title: 'Год выпуска',
+                        title: widget.provider.translate('carYearLabel'),
                         value: '$tempYear г.',
                         icon: Icons.calendar_month_rounded,
                         onTap: () => _showYearSelectionList(setSheetState, (year) {
@@ -964,7 +964,7 @@ class _TaxiDriverRideConfirmationSheetContentState
                 ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Text('Выбор марки', style: GoogleFonts.inter(color: widget.t.text, fontWeight: FontWeight.w900, fontSize: 16)),
+                  child: Text(widget.provider.translate('selectBrandTitle'), style: GoogleFonts.inter(color: widget.t.text, fontWeight: FontWeight.w900, fontSize: 16)),
                 ),
                 const SizedBox(height: 16),
                 Padding(
@@ -973,7 +973,7 @@ class _TaxiDriverRideConfirmationSheetContentState
                     onChanged: (v) => setLocalState(() => q = v),
                     style: GoogleFonts.inter(color: widget.t.text, fontWeight: FontWeight.bold),
                     decoration: InputDecoration(
-                      hintText: 'Поиск марки...',
+                      hintText: widget.provider.translate('searchBrandHint'),
                       prefixIcon: const Icon(Icons.search, color: Color(0xFF4A80F0)),
                       filled: true,
                       fillColor: widget.t.card,
@@ -1016,15 +1016,15 @@ class _TaxiDriverRideConfirmationSheetContentState
         context: context,
         builder: (ctx) => AlertDialog(
           backgroundColor: widget.t.bg,
-          title: Text('Введите модель', style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: widget.t.text)),
+          title: Text(widget.provider.translate('enterModelTitle'), style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: widget.t.text)),
           content: TextField(
             controller: controller,
             autofocus: true,
             style: GoogleFonts.inter(color: widget.t.text, fontWeight: FontWeight.bold),
-            decoration: const InputDecoration(hintText: 'Например, Logan'),
+            decoration: InputDecoration(hintText: widget.provider.translate('exampleLoganHint')),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('ОТМЕНА')),
+            TextButton(onPressed: () => Navigator.pop(ctx), child: Text(widget.provider.translate('cancelBtnCap'))),
             TextButton(
               onPressed: () {
                 if (controller.text.trim().isNotEmpty) {
@@ -1032,7 +1032,7 @@ class _TaxiDriverRideConfirmationSheetContentState
                 }
                 Navigator.pop(ctx);
               },
-              child: const Text('ОК'),
+              child: Text(widget.provider.translate('okBtnCap')),
             ),
           ],
         ),
@@ -1067,7 +1067,7 @@ class _TaxiDriverRideConfirmationSheetContentState
                 ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Text('Выбор модели $brand', style: GoogleFonts.inter(color: widget.t.text, fontWeight: FontWeight.w900, fontSize: 16)),
+                  child: Text(widget.provider.translate('selectModelTitle').replaceAll('{brand}', brand), style: GoogleFonts.inter(color: widget.t.text, fontWeight: FontWeight.w900, fontSize: 16)),
                 ),
                 const SizedBox(height: 16),
                 Padding(
@@ -1076,7 +1076,7 @@ class _TaxiDriverRideConfirmationSheetContentState
                     onChanged: (v) => setLocalState(() => q = v),
                     style: GoogleFonts.inter(color: widget.t.text, fontWeight: FontWeight.bold),
                     decoration: InputDecoration(
-                      hintText: 'Поиск модели...',
+                      hintText: widget.provider.translate('searchModelHint'),
                       prefixIcon: const Icon(Icons.search, color: Color(0xFF4A80F0)),
                       filled: true,
                       fillColor: widget.t.card,
@@ -1130,7 +1130,7 @@ class _TaxiDriverRideConfirmationSheetContentState
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Text('Выбор года выпуска', style: GoogleFonts.inter(color: widget.t.text, fontWeight: FontWeight.w900, fontSize: 16)),
+              child: Text(widget.provider.translate('selectYearTitle'), style: GoogleFonts.inter(color: widget.t.text, fontWeight: FontWeight.w900, fontSize: 16)),
             ),
             const SizedBox(height: 12),
             Expanded(
@@ -1143,7 +1143,7 @@ class _TaxiDriverRideConfirmationSheetContentState
                       onSelected(y);
                       Navigator.pop(ctx);
                     },
-                    title: Text('$y г.', textAlign: TextAlign.center, style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: widget.t.text)),
+                    title: Text(widget.provider.translate('yearLabelFormat').replaceAll('{year}', y.toString()), textAlign: TextAlign.center, style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: widget.t.text)),
                   );
                 },
               ),

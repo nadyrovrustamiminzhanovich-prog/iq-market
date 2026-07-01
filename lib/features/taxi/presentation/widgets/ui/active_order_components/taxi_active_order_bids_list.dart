@@ -118,7 +118,7 @@ class _TaxiActiveOrderBidsListState extends State<TaxiActiveOrderBidsList> {
 
     return Column(
       children: [
-        TaxiSectionHeader(title: 'Предложения от водителей (${bids.length})', t: t),
+        TaxiSectionHeader(title: widget.provider.translate('offersFromDrivers').replaceAll('{count}', bids.length.toString()), t: t),
         const SizedBox(height: 12),
         Column(
           children: bids.map((bid) {
@@ -242,14 +242,14 @@ class _TaxiActiveOrderBidsListState extends State<TaxiActiveOrderBidsList> {
                                   try {
                                     await provider.rejectBid(bidId);
                                     if (context.mounted) {
-                                      NotificationService.notify(context, 'Отклонено',
-                                          'Вы отклонили предложение',
+                                      NotificationService.notify(context, provider.translate('declinedTitle'),
+                                          provider.translate('declinedOfferMsg'),
                                           isSuccess: false);
                                     }
                                   } catch (e) {
                                     if (context.mounted) {
-                                      NotificationService.notify(context, 'Ошибка',
-                                          'Не удалось отклонить предложение',
+                                      NotificationService.notify(context, provider.translate('errorTitle'),
+                                          provider.translate('errDeclineOffer'),
                                           isSuccess: false);
                                     }
                                   } finally {

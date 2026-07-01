@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'package:iqmarket/services/translation_service.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:iqmarket/data/legal_texts.dart';
@@ -109,7 +110,7 @@ class LegalInfoScreen extends StatelessWidget {
                 children: [
                   Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF1A1D1E))),
                   const SizedBox(height: 4),
-                  Text('Нажмите, чтобы прочитать полностью', style: TextStyle(fontSize: 12, color: Colors.grey.shade500, fontWeight: FontWeight.w500)),
+                  Text(TranslationService.t('clickToReadFully', lang), style: TextStyle(fontSize: 12, color: Colors.grey.shade500, fontWeight: FontWeight.w500)),
                 ],
               ),
             ),
@@ -163,14 +164,14 @@ class LegalInfoScreen extends StatelessWidget {
                           } else {
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Не удалось открыть браузер'), backgroundColor: Colors.redAccent),
+                                SnackBar(content: Text(TranslationService.t('errOpenBrowser', lang)), backgroundColor: Colors.redAccent),
                               );
                             }
                           }
                         } catch (e) {
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Ошибка при открытии ссылки: $e'), backgroundColor: Colors.redAccent),
+                              SnackBar(content: Text(TranslationService.t('errOpenLink', lang).replaceAll('{error}', e.toString())), backgroundColor: Colors.redAccent),
                             );
                           }
                         }

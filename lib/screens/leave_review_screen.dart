@@ -26,6 +26,7 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
   bool _isUploading = false;
 
   Future<void> _pickImage() async {
+    final lang = Provider.of<AppConfigProvider>(context, listen: false).language;
     try {
       final picked = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 70);
       if (picked != null && mounted) {
@@ -34,7 +35,7 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Не удалось выбрать фото: $e'), backgroundColor: Colors.redAccent),
+          SnackBar(content: Text(TranslationService.t('errChoosePhoto', lang).replaceAll('{error}', e.toString())), backgroundColor: Colors.redAccent),
         );
       }
     }
@@ -103,7 +104,7 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
     } catch (e) {
       debugPrint('Error publishing review: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ошибка при публикации: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(TranslationService.t('errPublish', lang).replaceAll('{error}', e.toString()))));
       }
     } finally {
       if (mounted) setState(() => _isUploading = false);

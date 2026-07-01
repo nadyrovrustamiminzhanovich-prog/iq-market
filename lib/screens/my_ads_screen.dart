@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:iqmarket/services/translation_service.dart';
 import 'package:iqmarket/screens/post_ad_screen.dart';
 import 'package:iqmarket/screens/product_details_screen.dart';
 import 'package:iqmarket/services/ad_service.dart';
@@ -211,7 +212,7 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(color: Colors.amber, borderRadius: BorderRadius.circular(6)),
-                              child: Text('ПРОВЕРКА', style: GoogleFonts.inter(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
+                              child: Text(TranslationService.t('badgeUnderReview', widget.lang), style: GoogleFonts.inter(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
                             ),
                           ),
                         if (isArchived)
@@ -220,7 +221,7 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(color: Colors.grey, borderRadius: BorderRadius.circular(6)),
-                              child: Text('АРХИВ', style: GoogleFonts.inter(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
+                              child: Text(TranslationService.t('badgeArchive', widget.lang), style: GoogleFonts.inter(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
                             ),
                           ),
                       ],
@@ -273,11 +274,11 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
                           try {
                             await AdService.extendAd(ad.id);
                             if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Объявление продлено на 30 дней', style: GoogleFonts.inter()), backgroundColor: Colors.green));
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(TranslationService.t('adExtendedSuccessMsg', widget.lang), style: GoogleFonts.inter()), backgroundColor: Colors.green));
                             }
                           } catch (e) {
                             if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ошибка при продлении: $e'), backgroundColor: Colors.redAccent));
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(TranslationService.t('errExtendAd', widget.lang).replaceAll('{error}', e.toString())), backgroundColor: Colors.redAccent));
                             }
                           }
                         },
@@ -289,7 +290,7 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
                     onPressed: () => _editAd(ad),
                     style: TextButton.styleFrom(foregroundColor: const Color(0xFF4A80F0)),
                     icon: const Icon(Icons.edit_outlined, size: 18),
-                    label: Text('Редакт.', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+                    label: Text(TranslationService.t('actionEditShort', widget.lang), style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
                   ),
                   const SizedBox(width: 8),
                   if (ad.active)
@@ -297,14 +298,14 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
                       onPressed: () => AdService.toggleAdStatus(ad.id, false),
                       style: TextButton.styleFrom(foregroundColor: const Color(0xFF64748B)),
                       icon: const Icon(Icons.archive_outlined, size: 18),
-                      label: Text('В архив', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+                      label: Text(TranslationService.t('actionToArchive', widget.lang), style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
                     )
                   else if (!isExpired)
                     TextButton.icon(
                       onPressed: () => AdService.toggleAdStatus(ad.id, true),
                       style: TextButton.styleFrom(foregroundColor: const Color(0xFF64748B)),
                       icon: const Icon(Icons.unarchive_outlined, size: 18),
-                      label: Text('Активир.', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+                      label: Text(TranslationService.t('actionActivate', widget.lang), style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
                     ),
                   const Spacer(),
                   IconButton(
@@ -358,12 +359,12 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
               await AdService.deleteAd(id);
               if (ctx.mounted) {
                 Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Объявление успешно удалено'), backgroundColor: Colors.green));
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(TranslationService.t('adDeletedSuccessMsg', widget.lang)), backgroundColor: Colors.green));
               }
             } catch (e) {
               if (ctx.mounted) {
                 Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ошибка удаления: $e'), backgroundColor: Colors.redAccent));
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(TranslationService.t('errDeleteAd', widget.lang).replaceAll('{error}', e.toString())), backgroundColor: Colors.redAccent));
               }
             }
           }, child: Text(_t('delete'), style: const TextStyle(color: Colors.red))),

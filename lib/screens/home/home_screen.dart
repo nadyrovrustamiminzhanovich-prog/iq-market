@@ -509,7 +509,7 @@ class _IQMarketHomeState extends State<IQMarketHome> {
                     textInputAction: TextInputAction.search,
                     style: GoogleFonts.inter(color: txtColor, fontWeight: FontWeight.w500),
                     decoration: InputDecoration(
-                      hintText: 'Введите название города...',
+                      hintText: TranslationService.t('enterCityHint', config.language),
                       hintStyle: GoogleFonts.inter(color: subtxtColor.withValues(alpha: 0.6), fontWeight: FontWeight.w500),
                       prefixIcon: Icon(Icons.search_rounded, color: primaryColor),
                       filled: true,
@@ -569,7 +569,7 @@ class _IQMarketHomeState extends State<IQMarketHome> {
             children: [
               Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(10)))),
               const SizedBox(height: 24),
-              Text('Выберите язык', style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w900, color: sheetTheme.colorScheme.onSurface)),
+              Text(TranslationService.t('chooseLangTitle', config.language), style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w900, color: sheetTheme.colorScheme.onSurface)),
               const SizedBox(height: 20),
               ...['Русский', 'Қазақша', 'Уйғурчә'].map((l) => Padding(
                 padding: const EdgeInsets.only(bottom: 12),

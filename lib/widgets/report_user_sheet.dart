@@ -162,7 +162,7 @@ class ReportUserSheet {
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
-                                      content: Text('Ошибка отправки: $e'),
+                                      content: Text(TranslationService.t('errSendReport', lang).replaceAll('{error}', e.toString())),
                                       backgroundColor: Colors.redAccent,
                                       behavior: SnackBarBehavior.floating,
                                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),

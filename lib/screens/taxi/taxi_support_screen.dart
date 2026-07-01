@@ -505,6 +505,7 @@ class _TaxiSupportScreenState extends State<TaxiSupportScreen> {
   }
 
   Widget _contactItem(String title, LinearGradient gradient, Color shadowColor, String url, String fallbackUrl, IconData icon) {
+    final provider = Provider.of<TaxiProvider>(context, listen: false);
     return GestureDetector(
       onTap: () async {
         try {
@@ -518,7 +519,7 @@ class _TaxiSupportScreenState extends State<TaxiSupportScreen> {
             } else {
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Приложение не установлено'), backgroundColor: Colors.redAccent),
+                  SnackBar(content: Text(provider.translate('appNotInstalled')), backgroundColor: Colors.redAccent),
                 );
               }
             }
@@ -527,7 +528,7 @@ class _TaxiSupportScreenState extends State<TaxiSupportScreen> {
           debugPrint('Error launching support messenger: $e');
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Приложение не установлено'), backgroundColor: Colors.redAccent),
+              SnackBar(content: Text(provider.translate('appNotInstalled')), backgroundColor: Colors.redAccent),
             );
           }
         }

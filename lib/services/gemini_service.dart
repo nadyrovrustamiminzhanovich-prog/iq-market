@@ -63,7 +63,7 @@ class GeminiService {
     _model = GenerativeModel(
       model: 'gemini-2.5-flash',
       apiKey: 'moderation',
-      systemInstruction: Content.system(AiPrompts.moderationPrompt),
+      systemInstruction: Content.system(AiPrompts.getModerationPrompt(lang)),
       httpClient: secureClient,
     );
     

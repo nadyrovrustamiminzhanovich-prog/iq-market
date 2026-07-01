@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:iqmarket/services/translation_service.dart';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
@@ -57,7 +58,7 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Ошибка воспроизведения видео ⚠️'),
+            content: Text(TranslationService.t('errPlayVideo', widget.lang)),
             backgroundColor: Colors.redAccent,
           ),
         );

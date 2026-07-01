@@ -66,7 +66,7 @@ void showTaxiCommentDialog(
                 borderRadius: BorderRadius.circular(16),
                 borderSide: BorderSide.none,
               ),
-              hintText: 'Введите текст...',
+              hintText: provider.translate('enterTextHint'),
               hintStyle: GoogleFonts.inter(
                   color: t.sub.withValues(alpha: 0.5)),
             ),

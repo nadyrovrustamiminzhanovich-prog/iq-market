@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:iqmarket/services/translation_service.dart';
+import 'package:iqmarket/providers/app_config_provider.dart';
+import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class MapPickerScreen extends StatelessWidget {
@@ -8,7 +11,7 @@ class MapPickerScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Выбор на карте')),
+      appBar: AppBar(title: Text(TranslationService.t('mapSelectionTitle', Provider.of<AppConfigProvider>(context, listen: false).language))),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -23,7 +26,7 @@ class MapPickerScreen extends StatelessWidget {
             const SizedBox(height: 24),
             ElevatedButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Назад к списку'),
+              child: Text(TranslationService.t('backToList', Provider.of<AppConfigProvider>(context, listen: false).language)),
             )
           ],
         ),

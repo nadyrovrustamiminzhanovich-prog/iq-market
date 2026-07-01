@@ -23,7 +23,7 @@ void showTaxiTripCompletionDialog(
       builder: (c, ss) => AlertDialog(
         backgroundColor: t.bg,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
-        title: Text('ЗАВЕРШЕНИЕ ПОЕЗДКИ', style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: t.text)),
+        title: Text(provider.translate('completeRideTitle'), style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: t.text)),
         content: isProcessing
             ? const SizedBox(
                 height: 100,
@@ -38,7 +38,7 @@ void showTaxiTripCompletionDialog(
             : [
                 TextButton(
                   onPressed: () => Navigator.pop(c),
-                  child: Text('НЕТ, ЕЩЕ ЕДЕМ', style: GoogleFonts.inter(color: t.sub, fontWeight: FontWeight.bold)),
+                  child: Text(provider.translate('noStillDrivingBtn'), style: GoogleFonts.inter(color: t.sub, fontWeight: FontWeight.bold)),
                 ),
                 TextButton(
                   onPressed: () async {
@@ -48,12 +48,12 @@ void showTaxiTripCompletionDialog(
                       if (isOrder) {
                         await provider.completeOrder(docId);
                         if (context.mounted) {
-                          NotificationService.notify(context, 'Успешно', 'Заказ успешно завершен!', isSuccess: true);
+                          NotificationService.notify(context, provider.translate('successTitle'), provider.translate('orderCompletedMsg'), isSuccess: true);
                         }
                       } else {
                         await provider.completeRide(docId);
                         if (context.mounted) {
-                          NotificationService.notify(context, 'Успешно', 'Рейс успешно завершен!', isSuccess: true);
+                          NotificationService.notify(context, provider.translate('successTitle'), provider.translate('rideCompletedMsg'), isSuccess: true);
                         }
                       }
                       if (c.mounted) {
@@ -77,7 +77,7 @@ void showTaxiTripCompletionDialog(
                       }
                     }
                   },
-                  child: Text('ДА, ЗАВЕРШИТЬ', style: GoogleFonts.inter(color: t.accent, fontWeight: FontWeight.bold)),
+                  child: Text(provider.translate('yesCompleteBtn'), style: GoogleFonts.inter(color: t.accent, fontWeight: FontWeight.bold)),
                 ),
               ],
       ),

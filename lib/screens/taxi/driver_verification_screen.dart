@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:iqmarket/services/translation_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -6,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:iqmarket/providers/taxi_provider.dart';
+import 'package:iqmarket/providers/app_config_provider.dart';
 import 'package:iqmarket/services/telegram_bot_service.dart';
 import 'package:iqmarket/theme/taxi_theme.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
@@ -236,7 +238,7 @@ class _DriverVerificationScreenState extends State<DriverVerificationScreen>
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Не удалось запустить камеру: $innerErr'),
+              content: Text(TranslationService.t('errStartCamera', Provider.of<AppConfigProvider>(context, listen: false).language).replaceAll('{error}', innerErr.toString())),
               backgroundColor: Colors.redAccent,
               behavior: SnackBarBehavior.floating,
             ),

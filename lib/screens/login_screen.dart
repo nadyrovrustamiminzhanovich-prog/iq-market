@@ -382,7 +382,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
         debugPrint('watchTelegramSession error: $err');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Ошибка сессии авторизации: $err'), backgroundColor: Colors.redAccent),
+            SnackBar(content: Text(_t('errAuthSession').replaceAll('{error}', err.toString())), backgroundColor: Colors.redAccent),
           );
         }
       });
@@ -481,14 +481,14 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Приложение Telegram не установлено'), backgroundColor: Colors.redAccent),
+            SnackBar(content: Text(_t('errTelegramNotInstalled')), backgroundColor: Colors.redAccent),
           );
         }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Приложение Telegram не установлено'), backgroundColor: Colors.redAccent),
+          SnackBar(content: Text(_t('errTelegramNotInstalled')), backgroundColor: Colors.redAccent),
         );
       }
     }
@@ -1184,7 +1184,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
           // --- Premium Social Buttons ---
           /*
           AuthSocialLongButton(
-            label: 'Продолжить с Mail.ru',
+            label: _t('authMailru'),
             icon: Container(
               width: 28, height: 28,
               decoration: const BoxDecoration(color: Color(0xFF005FF9), shape: BoxShape.circle),
@@ -1198,7 +1198,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
           */
  
           AuthSocialLongButton(
-            label: 'Продолжить с Google',
+            label: _t('authGoogle'),
             icon: Image.network(
               'https://img.icons8.com/color/96/google-logo.png',
               width: 26,
@@ -1210,14 +1210,14 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
 
           if (Platform.isIOS)
             AuthSocialLongButton(
-              label: 'Продолжить с Apple',
+              label: _t('authApple'),
               icon: const Icon(Icons.apple, color: Colors.white, size: 28),
               onTap: _handleAppleSignIn,
               isDark: true,
             ),
 
           AuthSocialLongButton(
-            label: 'Продолжить с Telegram',
+            label: _t('authTelegram'),
             icon: const Icon(Icons.telegram_rounded, color: Colors.white, size: 30),
             onTap: _handleTelegramLogin,
             color: const Color(0xFF0088CC),
