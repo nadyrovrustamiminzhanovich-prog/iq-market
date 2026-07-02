@@ -10,8 +10,15 @@ import 'package:iqmarket/screens/product_details_screen.dart';
 import 'package:iqmarket/services/ad_service.dart';
 import 'package:iqmarket/services/user_service.dart';
 
-class AdminReportsScreen extends StatelessWidget {
+class AdminReportsScreen extends StatefulWidget {
   const AdminReportsScreen({super.key});
+
+  @override
+  State<AdminReportsScreen> createState() => _AdminReportsScreenState();
+}
+
+class _AdminReportsScreenState extends State<AdminReportsScreen> {
+  bool _isProcessing = false;
 
   @override
   Widget build(BuildContext context) {
@@ -70,7 +77,7 @@ class AdminReportsScreen extends StatelessWidget {
                 elevation: 0,
                 color: Colors.white,
                 child: InkWell(
-                  onTap: () => _showReportDetails(context, doc, data),
+                  onTap: _isProcessing ? null : () => _showReportDetails(context, doc, data),
                   borderRadius: BorderRadius.circular(20),
                   child: Padding(
                     padding: const EdgeInsets.all(16),
@@ -178,22 +185,25 @@ class AdminReportsScreen extends StatelessWidget {
     );
   }
 
-  void _showReportDetails(BuildContext context, QueryDocumentSnapshot doc, Map<String, dynamic> data) {
-    final timestamp = (data['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now();
-    final type = data['type'] ?? 'other';
-    final adId = data['adId'];
-    final adTitle = data['adTitle'];
-    final reportedUserId = data['reportedUserId'];
-    final reportedUserName = data['reportedUserName'];
-    final reporterUserId = data['reporterUserId'];
-    final comment = data['comment'] ?? '';
+  void _showReportDetails(BuildContext context, QueryDocumentSnapshot doc, Map<String, dynamic> data) async {
+    if (_isProcessing) return;
+    setState(() => _isProcessing = true);
+    try {
+      final timestamp = (data['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now();
+      final type = data['type'] ?? 'other';
+      final adId = data['adId'];
+      final adTitle = data['adTitle'];
+      final reportedUserId = data['reportedUserId'];
+      final reportedUserName = data['reportedUserName'];
+      final reporterUserId = data['reporterUserId'];
+      final comment = data['comment'] ?? '';
 
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
-      builder: (context) {
+      await showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.white,
+        isScrollControlled: true,
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
+        builder: (context) {
         return DraggableScrollableSheet(
           initialChildSize: 0.75,
           minChildSize: 0.5,
@@ -452,6 +462,9 @@ class AdminReportsScreen extends StatelessWidget {
         );
       },
     );
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
+    }
   }
 
   void _confirmDeleteAd(BuildContext context, String adId, String reportId) {

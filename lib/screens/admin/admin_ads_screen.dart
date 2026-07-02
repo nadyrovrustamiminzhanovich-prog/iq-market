@@ -25,6 +25,7 @@ class _AdminAdsScreenState extends State<AdminAdsScreen> with SingleTickerProvid
   String? _selectedCity;
   final Set<String> _selectedAdIds = {};
   bool _isSelectionMode = false;
+  bool _isProcessing = false;
 
   @override
   void initState() {
@@ -119,12 +120,14 @@ class _AdminAdsScreenState extends State<AdminAdsScreen> with SingleTickerProvid
           Text('ВЫБРАНО: ${_selectedAdIds.length}', style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: const Color(0xFF0F172A))),
           const Spacer(),
           TextButton(
-            onPressed: () => _handleBulkDelete(),
-            child: Text('УДАЛИТЬ', style: GoogleFonts.inter(color: Colors.redAccent, fontWeight: FontWeight.w800)),
+            onPressed: _isProcessing ? null : () => _handleBulkDelete(),
+            child: _isProcessing
+                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.redAccent))
+                : Text('УДАЛИТЬ', style: GoogleFonts.inter(color: Colors.redAccent, fontWeight: FontWeight.w800)),
           ),
           const SizedBox(width: 12),
           ElevatedButton(
-            onPressed: () => _handleBulkApprove(),
+            onPressed: _isProcessing ? null : () => _handleBulkApprove(),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF6366F1),
               foregroundColor: Colors.white,
@@ -132,7 +135,9 @@ class _AdminAdsScreenState extends State<AdminAdsScreen> with SingleTickerProvid
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               elevation: 0,
             ),
-            child: Text('ОДОБРИТЬ', style: GoogleFonts.inter(fontWeight: FontWeight.w900)),
+            child: _isProcessing
+                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : Text('ОДОБРИТЬ', style: GoogleFonts.inter(fontWeight: FontWeight.w900)),
           ),
         ],
       ),
@@ -296,47 +301,59 @@ class _AdminAdsScreenState extends State<AdminAdsScreen> with SingleTickerProvid
   }
 
   void _handleBulkApprove() async {
-    for (var id in _selectedAdIds) { await AdService.approveAd(id); }
-    if (mounted) {
-      setState(() { _selectedAdIds.clear(); _isSelectionMode = false; });
+    if (_isProcessing) return;
+    setState(() => _isProcessing = true);
+    try {
+      for (var id in _selectedAdIds) { await AdService.approveAd(id); }
+      if (mounted) {
+        setState(() { _selectedAdIds.clear(); _isSelectionMode = false; });
+      }
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
     }
   }
 
   void _handleBulkDelete() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('УДАЛИТЬ ${_selectedAdIds.length} ОБЪЯВЛЕНИЙ?', style: GoogleFonts.inter(fontWeight: FontWeight.w900)),
-        content: const Text('Это действие нельзя будет отменить.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('ОТМЕНА')),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('УДАЛИТЬ', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-    );
+    if (_isProcessing) return;
+    setState(() => _isProcessing = true);
+    try {
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text('УДАЛИТЬ ${_selectedAdIds.length} ОБЪЯВЛЕНИЙ?', style: GoogleFonts.inter(fontWeight: FontWeight.w900)),
+          content: const Text('Это действие нельзя будет отменить.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('ОТМЕНА')),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('УДАЛИТЬ', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      );
 
-    if (confirm == true) {
-      showDialog(context: context, barrierDismissible: false, builder: (context) => const Center(child: CircularProgressIndicator()));
-      try {
-        for (var id in _selectedAdIds) { 
-          await AdService.rejectAd(id); 
-        }
-        if (mounted) {
-          setState(() { _selectedAdIds.clear(); _isSelectionMode = false; });
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Объявления удалены')));
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ошибка удаления: $e'), backgroundColor: Colors.redAccent));
-        }
-      } finally {
-        if (mounted) {
-          Navigator.pop(context); // Close progress dialog
+      if (confirm == true) {
+        showDialog(context: context, barrierDismissible: false, builder: (context) => const Center(child: CircularProgressIndicator()));
+        try {
+          for (var id in _selectedAdIds) { 
+            await AdService.rejectAd(id); 
+          }
+          if (mounted) {
+            setState(() { _selectedAdIds.clear(); _isSelectionMode = false; });
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Объявления удалены')));
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ошибка удаления: $e'), backgroundColor: Colors.redAccent));
+          }
+        } finally {
+          if (mounted) {
+            Navigator.pop(context); // Close progress dialog
+          }
         }
       }
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
     }
   }
 

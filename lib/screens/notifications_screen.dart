@@ -22,6 +22,8 @@ class NotificationsScreen extends StatefulWidget {
 
 class _NotificationsScreenState extends State<NotificationsScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  bool _isProcessing = false;
+  int _retryCounter = 0;
 
   @override
   void initState() {
@@ -154,8 +156,46 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
 
   Widget _buildNotificationsTab() {
     return StreamBuilder<List<NotificationModel>>(
+      key: ValueKey('notif_$_retryCounter'),
       stream: NotificationService.getNotificationsStream(),
       builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.cloud_off_rounded, size: 64, color: Colors.redAccent),
+                  const SizedBox(height: 16),
+                  Text(
+                    TranslationService.t('errLoadingData', widget.lang),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      setState(() {
+                        _retryCounter++;
+                      });
+                    },
+                    icon: const Icon(Icons.refresh_rounded, color: Colors.white),
+                    label: Text(
+                      TranslationService.t('retryBtn', widget.lang),
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF4A80F0),
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
         if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
         final notifications = snapshot.data ?? [];
         if (notifications.isEmpty) return _buildEmptyState(Icons.notifications_none_rounded, _t('no_notifications'));
@@ -214,7 +254,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
-          onTap: () => _handleNotificationTap(notif),
+          onTap: _isProcessing ? null : () => _handleNotificationTap(notif),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Row(
@@ -264,48 +304,54 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
   }
 
   void _handleNotificationTap(NotificationModel notif) async {
-    await NotificationService.markAsRead(notif.id);
-    
-    if (notif.type == 'ad_rejected') {
-      final String reason = notif.data?['reason'] ?? 'Нарушение правил размещения';
-      String adTitle = 'Ваше объявление';
-      if (notif.body.contains('"')) {
-        final parts = notif.body.split('"');
-        if (parts.length > 1) {
-          adTitle = '"${parts[1]}"';
+    if (_isProcessing) return;
+    setState(() => _isProcessing = true);
+    try {
+      await NotificationService.markAsRead(notif.id);
+      
+      if (notif.type == 'ad_rejected') {
+        final String reason = notif.data?['reason'] ?? 'Нарушение правил размещения';
+        String adTitle = 'Ваше объявление';
+        if (notif.body.contains('"')) {
+          final parts = notif.body.split('"');
+          if (parts.length > 1) {
+            adTitle = '"${parts[1]}"';
+          }
         }
+        _showRejectionDetailsDialog(adTitle, reason);
+        return;
       }
-      _showRejectionDetailsDialog(adTitle, reason);
-      return;
-    }
-    
-    if (notif.type == 'chat' && notif.data != null) {
-      final String adId = notif.data!['adId'] ?? '';
-      final String adTitle = notif.data!['adTitle'] ?? 'Объявление';
-      final String adImage = notif.data!['adImage'] ?? '';
-      final String senderId = notif.data!['senderId'] ?? '';
-      final String senderName = notif.data!['senderName'] ?? 'Пользователь';
+      
+      if (notif.type == 'chat' && notif.data != null) {
+        final String adId = notif.data!['adId'] ?? '';
+        final String adTitle = notif.data!['adTitle'] ?? 'Объявление';
+        final String adImage = notif.data!['adImage'] ?? '';
+        final String senderId = notif.data!['senderId'] ?? '';
+        final String senderName = notif.data!['senderName'] ?? 'Пользователь';
 
-      if (senderId.isNotEmpty && mounted) {
-        final ad = AdModel(
-          id: adId, title: adTitle, description: '', price: 0.0, category: '',
-          images: adImage.isNotEmpty ? [adImage] : [], userId: senderId, userName: senderName,
-          userEmail: '', timestamp: DateTime.now(), location: '',
-        );
-        Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(ad: ad)));
-      }
-    } else if (notif.data != null && notif.data!['adId'] != null && mounted) {
-      // Поддержка других типов (review, price_drop и т.д.)
-      final adId = notif.data!['adId'];
-      try {
-        final adDoc = await FirebaseFirestore.instance.collection('ads').doc(adId).get();
-        if (adDoc.exists && mounted) {
-          final ad = AdModel.fromMap(adDoc.data() as Map<String, dynamic>, adDoc.id);
-          Navigator.push(context, MaterialPageRoute(builder: (_) => ProductDetailsScreen(ad: ad, onReport: (_){}, lang: widget.lang)));
+        if (senderId.isNotEmpty && mounted) {
+          final ad = AdModel(
+            id: adId, title: adTitle, description: '', price: 0.0, category: '',
+            images: adImage.isNotEmpty ? [adImage] : [], userId: senderId, userName: senderName,
+            userEmail: '', timestamp: DateTime.now(), location: '',
+          );
+          Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(ad: ad)));
         }
-      } catch (e) {
-        debugPrint('Error loading ad from notification: $e');
+      } else if (notif.data != null && notif.data!['adId'] != null && mounted) {
+        // Поддержка других типов (review, price_drop и т.д.)
+        final adId = notif.data!['adId'];
+        try {
+          final adDoc = await FirebaseFirestore.instance.collection('ads').doc(adId).get();
+          if (adDoc.exists && mounted) {
+            final ad = AdModel.fromMap(adDoc.data() as Map<String, dynamic>, adDoc.id);
+            Navigator.push(context, MaterialPageRoute(builder: (_) => ProductDetailsScreen(ad: ad, onReport: (_){}, lang: widget.lang)));
+          }
+        } catch (e) {
+          debugPrint('Error loading ad from notification: $e');
+        }
       }
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
     }
   }
 
@@ -386,8 +432,46 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
   Widget _buildChatsTab() {
     final uid = UserService.currentUid;
     return StreamBuilder<List<Map<String, dynamic>>>(
+      key: ValueKey('chats_$_retryCounter'),
       stream: ChatService.getChatListStream(),
       builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.cloud_off_rounded, size: 64, color: Colors.redAccent),
+                  const SizedBox(height: 16),
+                  Text(
+                    TranslationService.t('errLoadingData', widget.lang),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      setState(() {
+                        _retryCounter++;
+                      });
+                    },
+                    icon: const Icon(Icons.refresh_rounded, color: Colors.white),
+                    label: Text(
+                      TranslationService.t('retryBtn', widget.lang),
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF4A80F0),
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
         if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
         final chats = snapshot.data ?? [];
         if (chats.isEmpty) return _buildEmptyState(Icons.chat_bubble_outline_rounded, _t('no_chats'));

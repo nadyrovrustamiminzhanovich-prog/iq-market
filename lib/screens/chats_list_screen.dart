@@ -10,16 +10,21 @@ import 'package:iqmarket/providers/app_config_provider.dart';
 import 'package:iqmarket/services/translation_service.dart';
 import 'package:iqmarket/screens/login_screen.dart';
 
-class ChatsListScreen extends StatelessWidget {
+class ChatsListScreen extends StatefulWidget {
   const ChatsListScreen({super.key});
+
+  @override
+  State<ChatsListScreen> createState() => _ChatsListScreenState();
+}
+
+class _ChatsListScreenState extends State<ChatsListScreen> {
+  int _retryCounter = 0;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final uid = UserService.currentUid;
     final lang = Provider.of<AppConfigProvider>(context).language;
-    // Показываем кнопку «назад» только если есть куда возвращаться
-    // (экран открыт через push), а не встроен как вкладка BottomNavBar.
     final canPop = Navigator.canPop(context);
     if (uid == null) {
       return Scaffold(
@@ -140,8 +145,46 @@ class ChatsListScreen extends StatelessWidget {
         ],
       ),
       body: StreamBuilder<List<Map<String, dynamic>>>(
+        key: ValueKey(_retryCounter),
         stream: ChatService.getChatListStream(),
         builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.cloud_off_rounded, size: 64, color: Colors.redAccent),
+                    const SizedBox(height: 16),
+                    Text(
+                      TranslationService.t('errLoadingData', lang),
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 24),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _retryCounter++;
+                        });
+                      },
+                      icon: const Icon(Icons.refresh_rounded, color: Colors.white),
+                      label: Text(
+                        TranslationService.t('retryBtn', lang),
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF4A80F0),
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }

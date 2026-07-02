@@ -393,7 +393,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                   _buildAvatarSection(),
                   const SizedBox(height: 24),
                   _buildSectionTitle(_t('personal')),
-                  _buildTextField(_t('name_label'), _nameController, Icons.person_rounded),
+                  _buildTextField(_t('name_label'), _nameController, Icons.person_rounded, maxLength: 50),
                   _buildTextField(_t('phone_label'), _phoneController, Icons.phone_android_rounded, formatters: [_phoneMask]),
                   if (_userEmail.isNotEmpty)
                     _buildDisplayField(
@@ -815,11 +815,12 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
 
   Widget _buildDivider() => Divider(height: 1, color: _subtxtColor.withValues(alpha: 0.1), indent: 70, endIndent: 20);
 
-  Widget _buildTextField(String label, TextEditingController controller, IconData icon, {List<TextInputFormatter>? formatters}) => _PremiumTextField(
+  Widget _buildTextField(String label, TextEditingController controller, IconData icon, {List<TextInputFormatter>? formatters, int? maxLength}) => _PremiumTextField(
     label: label,
     controller: controller,
     icon: icon,
     formatters: formatters,
+    maxLength: maxLength,
     primaryColor: _primaryColor,
     secondaryColor: _secondaryColor,
     surfaceColor: _surfaceColor,
@@ -1162,86 +1163,103 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   void _showDeleteConfirmation() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: _surfaceColor,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-        title: Text(_t('delete_title'), style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: _txtColor)),
-        content: Text(_t('delete_desc'), style: GoogleFonts.inter(fontWeight: FontWeight.w500, fontSize: 14, color: _subtxtColor, height: 1.5)),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: Text(_t('cancel'), style: GoogleFonts.inter(color: _subtxtColor, fontWeight: FontWeight.w900))),
-          TextButton(
-            onPressed: () async {
-              try {
-                final user = FirebaseAuth.instance.currentUser;
-                if (user != null) {
-                  // 1. Delete all Firestore listings, active orders, and data first
-                  await UserService.deleteUserData();
-
-                  // 2. Delete profile image from Storage if it exists
-                  if (widget.profileImagePath != null &&
-                      widget.profileImagePath!.isNotEmpty &&
-                      widget.profileImagePath!.startsWith('http')) {
+      builder: (context) {
+        bool isDeleting = false;
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return AlertDialog(
+              backgroundColor: _surfaceColor,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+              title: Text(_t('delete_title'), style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: _txtColor)),
+              content: Text(_t('delete_desc'), style: GoogleFonts.inter(fontWeight: FontWeight.w500, fontSize: 14, color: _subtxtColor, height: 1.5)),
+              actions: [
+                TextButton(
+                  onPressed: isDeleting ? null : () => Navigator.pop(context), 
+                  child: Text(_t('cancel'), style: GoogleFonts.inter(color: _subtxtColor, fontWeight: FontWeight.w900)),
+                ),
+                TextButton(
+                  onPressed: isDeleting ? null : () async {
+                    setModalState(() => isDeleting = true);
                     try {
-                      await FileService.deleteFile(widget.profileImagePath!);
-                    } catch (e) {
-                      debugPrint('Error deleting profile image from storage: $e');
-                    }
-                  }
+                      final user = FirebaseAuth.instance.currentUser;
+                      if (user != null) {
+                        // 1. Delete all Firestore listings, active orders, and data first
+                        await UserService.deleteUserData();
 
-                  // 3. Delete Authentication user
-                  await user.delete();
-                }
-                await StorageService.clearAll();
-                if (mounted) {
-                  Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
-                }
-              } on FirebaseAuthException catch (e) {
-                if (e.code == 'requires-recent-login') {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(_selectedLanguage == 'Қазақша'
-                            ? 'Қауіпсіздік үшін жүйеге қайта кіру қажет. Қайта кіріп әрекетті қайталаңыз.'
-                            : (_selectedLanguage == 'Уйғурчә'
-                                ? 'Хәвпсизлик үшін қайта кириш зөрүр. Қайта кирип синап көрүң.'
-                                : 'Для безопасности требуется свежий вход. Войдите заново и повторите удаление аккаунта.')),
-                        backgroundColor: Colors.orangeAccent,
-                        behavior: SnackBarBehavior.floating,
-                        duration: const Duration(seconds: 3),
-                      ),
-                    );
-                    
-                    // Close the delete confirmation dialog
-                    Navigator.pop(context);
-                    
-                    // Wait for the SnackBar message to be readable
-                    await Future.delayed(const Duration(seconds: 3));
-                    
-                    // Log out user and clean local storage
-                    await AuthService.signOut();
-                    await StorageService.clearAll();
-                    
-                    if (mounted) {
-                      Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+                        // 2. Delete profile image from Storage if it exists
+                        if (widget.profileImagePath != null &&
+                            widget.profileImagePath!.isNotEmpty &&
+                            widget.profileImagePath!.startsWith('http')) {
+                          try {
+                            await FileService.deleteFile(widget.profileImagePath!);
+                          } catch (e) {
+                            debugPrint('Error deleting profile image from storage: $e');
+                          }
+                        }
+
+                        // 3. Delete Authentication user
+                        await user.delete();
+                      }
+                      await StorageService.clearAll();
+                      if (mounted) {
+                        Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+                      }
+                    } on FirebaseAuthException catch (e) {
+                      if (e.code == 'requires-recent-login') {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(_selectedLanguage == 'Қазақша'
+                                  ? 'Қауіпсіздік үшін жүйеге қайта кіру қажет. Қайта кіріп әрекетті қайталаңыз.'
+                                  : (_selectedLanguage == 'Уйғурчә'
+                                      ? 'Хәвпсизлик үшін қайта кириш зөрүр. Қайта кирип синап көрүң.'
+                                      : 'Для безопасности требуется свежий вход. Войдите заново и повторите удаление аккаунта.')),
+                              backgroundColor: Colors.orangeAccent,
+                              behavior: SnackBarBehavior.floating,
+                              duration: const Duration(seconds: 3),
+                            ),
+                          );
+                          
+                          // Close the delete confirmation dialog
+                          Navigator.pop(context);
+                          
+                          // Wait for the SnackBar message to be readable
+                          await Future.delayed(const Duration(seconds: 3));
+                          
+                          // Log out user and clean local storage
+                          await AuthService.signOut();
+                          await StorageService.clearAll();
+                          
+                          if (mounted) {
+                            Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+                          }
+                        }
+                      } else {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${_t('error_deleting_msg')}: $e')));
+                          Navigator.pop(context);
+                        }
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${_t('error_deleting_msg')}: $e')));
+                        Navigator.pop(context);
+                      }
+                    } finally {
+                      if (context.mounted) {
+                        setModalState(() => isDeleting = false);
+                      }
                     }
-                  }
-                } else {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${_t('error_deleting_msg')}: $e')));
-                    Navigator.pop(context);
-                  }
-                }
-              } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${_t('error_deleting_msg')}: $e')));
-                  Navigator.pop(context);
-                }
-              }
-            },
-            child: Text(_t('delete_confirm'), style: GoogleFonts.inter(color: const Color(0xFFEF4444), fontWeight: FontWeight.w900)),
-          ),
-        ],
-      ),
+                  },
+                  child: isDeleting
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.red))
+                      : Text(_t('delete_confirm'), style: GoogleFonts.inter(color: const Color(0xFFEF4444), fontWeight: FontWeight.w900)),
+                ),
+              ],
+            );
+          }
+        );
+      }
     );
   }
 
@@ -1805,6 +1823,7 @@ class _PremiumTextField extends StatefulWidget {
   final TextEditingController controller;
   final IconData icon;
   final List<TextInputFormatter>? formatters;
+  final int? maxLength;
   final Color primaryColor;
   final Color secondaryColor;
   final Color surfaceColor;
@@ -1817,6 +1836,7 @@ class _PremiumTextField extends StatefulWidget {
     required this.controller,
     required this.icon,
     this.formatters,
+    this.maxLength,
     required this.primaryColor,
     required this.secondaryColor,
     required this.surfaceColor,
@@ -1918,6 +1938,7 @@ class _PremiumTextFieldState extends State<_PremiumTextField> {
                   controller: widget.controller,
                   focusNode: _focusNode,
                   inputFormatters: widget.formatters,
+                  maxLength: widget.maxLength,
                   style: GoogleFonts.inter(
                     color: widget.txtColor,
                     fontWeight: FontWeight.w800,
@@ -1927,6 +1948,7 @@ class _PremiumTextFieldState extends State<_PremiumTextField> {
                     border: InputBorder.none,
                     isDense: true,
                     contentPadding: EdgeInsets.zero,
+                    counterText: '',
                   ),
                 ),
               ],

@@ -142,6 +142,7 @@ class _VideoTrimmerScreenState extends State<VideoTrimmerScreen> {
   }
 
   Future<void> _saveVideo() async {
+    if (_isSaving) return;
     setState(() => _isSaving = true);
     await _controller?.pause();
     

@@ -219,8 +219,8 @@ class _PostAdScreenState extends State<PostAdScreen> {
                     imageFiles: _imageFiles,
                     existingImageUrls: _existingImageUrls,
                     videoFile: _videoFile,
-                    onPickImages: () => _pickMedia(false),
-                    onPickVideo: () => _pickMedia(true),
+                    onPickImages: _isLoading ? () {} : () => _pickMedia(false),
+                    onPickVideo: _isLoading ? () {} : () => _pickMedia(true),
                     onRemoveImage: (i) => setState(() { _imageFiles.removeAt(i); _saveDraft(); }),
                     onRemoveExistingImage: (i) => setState(() { _existingImageUrls.removeAt(i); }),
                     onRemoveVideo: () => setState(() { _videoFile = null; _saveDraft(); }),
@@ -508,6 +508,8 @@ class _PostAdScreenState extends State<PostAdScreen> {
   // --- Logic Methods ---
 
   Future<void> _pickMedia(bool isVideo) async {
+    if (_isLoading) return;
+    setState(() => _isLoading = true);
     try {
       if (isVideo) {
         final XFile? file = await _picker.pickVideo(source: ImageSource.gallery);
@@ -546,6 +548,8 @@ class _PostAdScreenState extends State<PostAdScreen> {
           ),
         );
       }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 

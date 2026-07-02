@@ -26,11 +26,12 @@ import 'package:iqmarket/screens/profile_screen.dart';
 import 'package:iqmarket/screens/taxi/taxi_service_screen.dart';
 import 'package:iqmarket/screens/admin/admin_panel_screen.dart';
 import 'package:iqmarket/theme/app_theme.dart';
+import 'package:iqmarket/screens/login_screen.dart';
+import 'package:iqmarket/services/auth_service.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:iqmarket/services/translation_service.dart';
-import 'package:iqmarket/services/auth_service.dart';
 import 'package:iqmarket/services/storage_service.dart';
 
 class IQMarketHome extends StatefulWidget {
@@ -60,6 +61,7 @@ class _IQMarketHomeState extends State<IQMarketHome> {
   UserModel? _cachedUser;
   bool _isAdmin = false;
   StreamSubscription? _authSubscription;
+  bool _wasAuthenticated = false;
 
   static const _pageSize = 20;
   Set<String>? _lastBlockedUserIds;
@@ -81,8 +83,42 @@ class _IQMarketHomeState extends State<IQMarketHome> {
       _fetchPage(pageKey);
     });
     
+    _wasAuthenticated = AuthService.currentUser != null;
     // Subscribe to authentication changes reactively to catch session recovery instantly
-    _authSubscription = AuthService.authStateChanges.listen((_) {
+    _authSubscription = AuthService.authStateChanges.listen((user) {
+      if (user == null && _wasAuthenticated) {
+        _wasAuthenticated = false;
+        WidgetsBinding.instance.addPostFrameCallback((_) async {
+          if (mounted) {
+            final config = Provider.of<AppConfigProvider>(context, listen: false);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  config.language == 'Қазақша'
+                      ? 'Сессия аяқталды. Жүйеге қайта кіріңіз.'
+                      : (config.language == 'Уйғурчә'
+                          ? 'Сессия аяқталди. Қайта кириң.'
+                          : 'Сессия истекла. Войдите заново.'),
+                ),
+                backgroundColor: Colors.orangeAccent,
+                behavior: SnackBarBehavior.floating,
+                duration: const Duration(seconds: 3),
+              ),
+            );
+
+            await Future.delayed(const Duration(milliseconds: 800));
+
+            if (mounted) {
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => LoginScreen(lang: config.language)),
+                (route) => false,
+              );
+            }
+          }
+        });
+      } else if (user != null) {
+        _wasAuthenticated = true;
+      }
       _loadCachedUser();
     });
     

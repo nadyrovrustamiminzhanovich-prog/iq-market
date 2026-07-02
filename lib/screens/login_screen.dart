@@ -225,11 +225,15 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _handleResetPassword(String email) async {
+    if (_isLoading) return;
+    setState(() => _isLoading = true);
     try {
       await AuthService.resetPassword(email.trim());
       _showSuccess(_t('success_reset'));
     } on FirebaseAuthException catch (e) {
       _showError(_firebaseError(e));
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -254,14 +258,16 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
             AuthField(hint: _t('email_hint'), icon: Icons.email_outlined, controller: resetEmailC, keyboardType: TextInputType.emailAddress),
             const SizedBox(height: 25),
             SizedBox(width: double.infinity, height: 56, child: ElevatedButton(
-              onPressed: () {
+              onPressed: _isLoading ? null : () {
                 if (resetEmailC.text.contains('@')) {
                   Navigator.pop(context);
                   _handleResetPassword(resetEmailC.text);
                 }
               },
               style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4A80F0), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
-              child: Text(_t('forgot_send'), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Colors.white)),
+              child: _isLoading 
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                : Text(_t('forgot_send'), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Colors.white)),
             )),
             const SizedBox(height: 15),
           ]),

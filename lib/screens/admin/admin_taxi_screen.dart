@@ -15,6 +15,7 @@ class _AdminTaxiScreenState extends State<AdminTaxiScreen> with SingleTickerProv
   late TabController _tabController;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  bool _isProcessing = false;
 
   @override
   void initState() {
@@ -291,14 +292,16 @@ class _AdminTaxiScreenState extends State<AdminTaxiScreen> with SingleTickerProv
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: () => _handleDelete(id, isOrder, name),
+                    onPressed: _isProcessing ? null : () => _handleDelete(id, isOrder, name),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.redAccent,
                       side: BorderSide(color: Colors.redAccent.withValues(alpha: 0.4)),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
-                    child: Text('УДАЛИТЬ ЗАПИСЬ', style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 11, letterSpacing: 0.5)),
+                    child: _isProcessing
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.redAccent))
+                        : Text('УДАЛИТЬ ЗАПИСЬ', style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 11, letterSpacing: 0.5)),
                   ),
                 ),
               ],
@@ -310,40 +313,46 @@ class _AdminTaxiScreenState extends State<AdminTaxiScreen> with SingleTickerProv
   }
 
   void _handleDelete(String id, bool isOrder, String name) async {
-    HapticFeedback.heavyImpact();
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: Text('УДАЛИТЬ ЗАПИСЬ?', style: GoogleFonts.inter(fontWeight: FontWeight.w900)),
-        content: Text('Вы действительно хотите навсегда удалить эту поездку/заказ пользователя "$name" из системы?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('ОТМЕНА')),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-            child: const Text('УДАЛИТЬ'),
-          ),
-        ],
-      ),
-    );
+    if (_isProcessing) return;
+    setState(() => _isProcessing = true);
+    try {
+      HapticFeedback.heavyImpact();
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          title: Text('УДАЛИТЬ ЗАПИСЬ?', style: GoogleFonts.inter(fontWeight: FontWeight.w900)),
+          content: Text('Вы действительно хотите навсегда удалить эту поездку/заказ пользователя "$name" из системы?'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('ОТМЕНА')),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+              child: const Text('УДАЛИТЬ'),
+            ),
+          ],
+        ),
+      );
 
-    if (confirm == true) {
-      final collection = isOrder ? 'taxi_orders' : 'taxi_rides';
-      try {
-        await FirebaseFirestore.instance.collection(collection).doc(id).delete();
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Запись успешно удалена из базы данных! 🗑️'), behavior: SnackBarBehavior.floating),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Ошибка при удалении: $e'), backgroundColor: Colors.redAccent, behavior: SnackBarBehavior.floating),
-          );
+      if (confirm == true) {
+        final collection = isOrder ? 'taxi_orders' : 'taxi_rides';
+        try {
+          await FirebaseFirestore.instance.collection(collection).doc(id).delete();
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Запись успешно удалена из базы данных! 🗑️'), behavior: SnackBarBehavior.floating),
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Ошибка при удалении: $e'), backgroundColor: Colors.redAccent, behavior: SnackBarBehavior.floating),
+            );
+          }
         }
       }
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
     }
   }
 

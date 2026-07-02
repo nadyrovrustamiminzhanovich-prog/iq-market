@@ -213,28 +213,47 @@ class _IqSupportScreenState extends State<IqSupportScreen>
         .take(10)
         .toList();
 
-    final reply = await SupportBotService.processMessage(
-      userMessage: text,
-      mode: _mode,
-      lang: _lang,
-      chatHistory: history,
-    );
+    try {
+      final reply = await SupportBotService.processMessage(
+        userMessage: text,
+        mode: _mode,
+        lang: _lang,
+        chatHistory: history,
+      );
 
-    if (!mounted) return;
-    setState(() {
-      _isLoading = false;
-      // Replace placeholder
-      _messages.last = {
-        'isMe': false,
-        'text': reply.text,
-        'time': now,
-        'loading': false,
-        'type': reply.type.name,
-        'isOffline': reply.isOffline,
-        'showContact': reply.showContact,
-      };
-    });
-    _scrollToBottom();
+      if (!mounted) return;
+      setState(() {
+        // Replace placeholder
+        _messages.last = {
+          'isMe': false,
+          'text': reply.text,
+          'time': now,
+          'loading': false,
+          'type': reply.type.name,
+          'isOffline': reply.isOffline,
+          'showContact': reply.showContact,
+        };
+      });
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _messages.last = {
+            'isMe': false,
+            'text': 'Ошибка: $e',
+            'time': now,
+            'loading': false,
+            'type': 'text',
+          };
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+      _scrollToBottom();
+    }
   }
 
   void _scrollToBottom() {
@@ -747,7 +766,7 @@ class _IqSupportScreenState extends State<IqSupportScreen>
               itemBuilder: (ctx, i) {
                 final t = _templates[i];
                 return GestureDetector(
-                  onTap: () => _sendMessage(override: t['text']),
+                  onTap: _isLoading ? null : () => _sendMessage(override: t['text']),
                   child: Container(
                     margin: const EdgeInsets.only(right: 8),
                     padding: const EdgeInsets.symmetric(

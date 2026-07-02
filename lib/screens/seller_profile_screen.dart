@@ -33,6 +33,7 @@ class SellerProfileScreen extends StatefulWidget {
 
 class _SellerProfileScreenState extends State<SellerProfileScreen> {
   final GlobalKey _reviewsKey = GlobalKey();
+  bool _isProcessing = false;
 
   void _scrollToReviews() {
     final context = _reviewsKey.currentContext;
@@ -526,7 +527,8 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
                     const SizedBox(height: 24),
                     if (r.adTitle.isNotEmpty) ...[
                       InkWell(
-                        onTap: () async {
+                        onTap: _isProcessing ? null : () async {
+                          setState(() => _isProcessing = true);
                           try {
                             final ad = await AdService.getAdById(r.adId);
                             if (ad != null && context.mounted) {
@@ -553,6 +555,8 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
                             }
                           } catch (e) {
                             debugPrint('Error getting ad by id: $e');
+                          } finally {
+                            if (mounted) setState(() => _isProcessing = false);
                           }
                         },
                         borderRadius: BorderRadius.circular(16),

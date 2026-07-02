@@ -667,8 +667,15 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       Row(children: [
         const Icon(Icons.location_on_rounded, size: 16, color: Color(0xFF4A80F0)),
         const SizedBox(width: 4),
-        Text(widget.ad.location, style: GoogleFonts.inter(fontSize: 14, color: const Color(0xFF1E293B), fontWeight: FontWeight.w700)),
-        const Spacer(),
+        Expanded(
+          child: Text(
+            widget.ad.location,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.inter(fontSize: 14, color: const Color(0xFF1E293B), fontWeight: FontWeight.w700),
+          ),
+        ),
+        const SizedBox(width: 8),
         Text(_formatFullDate(widget.ad.timestamp), style: GoogleFonts.inter(fontSize: 14, color: const Color(0xFF94A3B8))),
       ]),
     ]),
@@ -1087,79 +1094,100 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(context).viewInsets.bottom + 24),
-        decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(32))),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(TranslationService.t('bargain_propose', widget.lang), style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A))),
-            const SizedBox(height: 12),
-            Text(TranslationService.t('bargain_enter_sum', widget.lang), 
-              style: TextStyle(color: Colors.grey[600], fontSize: 14, height: 1.5)),
-            const SizedBox(height: 24),
-            TextField(
-              controller: controller,
-              keyboardType: TextInputType.number,
-              autofocus: true,
-              style: GoogleFonts.inter(fontSize: 28, fontWeight: FontWeight.w900, color: const Color(0xFF4A80F0)),
-              inputFormatters: [
-                TextInputFormatter.withFunction((oldValue, newValue) {
-                  if (newValue.text.isEmpty) return newValue;
-                  final cleanText = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
-                  if (cleanText.isEmpty) return newValue.copyWith(text: '');
-                  final double price = double.tryParse(cleanText) ?? 0;
-                  final String formattedText = NumberFormat.decimalPattern('ru').format(price.toInt()).replaceAll(',', ' ');
-                  return newValue.copyWith(
-                    text: formattedText,
-                    selection: TextSelection.collapsed(offset: formattedText.length),
-                  );
-                }),
-              ],
-              decoration: InputDecoration(
-                prefixText: '₸ ',
-                hintText: '0',
-                filled: true, fillColor: const Color(0xFFF1F5F9),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+      builder: (context) {
+        bool isSending = false;
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Container(
+              padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(context).viewInsets.bottom + 24),
+              decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(32))),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(TranslationService.t('bargain_propose', widget.lang), style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A))),
+                  const SizedBox(height: 12),
+                  Text(TranslationService.t('bargain_enter_sum', widget.lang), 
+                    style: TextStyle(color: Colors.grey[600], fontSize: 14, height: 1.5)),
+                  const SizedBox(height: 24),
+                  TextField(
+                    controller: controller,
+                    keyboardType: TextInputType.number,
+                    autofocus: true,
+                    enabled: !isSending,
+                    style: GoogleFonts.inter(fontSize: 28, fontWeight: FontWeight.w900, color: const Color(0xFF4A80F0)),
+                    inputFormatters: [
+                      TextInputFormatter.withFunction((oldValue, newValue) {
+                        if (newValue.text.isEmpty) return newValue;
+                        final cleanText = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
+                        if (cleanText.isEmpty) return newValue.copyWith(text: '');
+                        final double price = double.tryParse(cleanText) ?? 0;
+                        final String formattedText = NumberFormat.decimalPattern('ru').format(price.toInt()).replaceAll(',', ' ');
+                        return newValue.copyWith(
+                          text: formattedText,
+                          selection: TextSelection.collapsed(offset: formattedText.length),
+                        );
+                      }),
+                    ],
+                    decoration: InputDecoration(
+                      prefixText: '₸ ',
+                      hintText: '0',
+                      filled: true, fillColor: const Color(0xFFF1F5F9),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Icon(Icons.info_outline_rounded, size: 14, color: Colors.grey[400]),
+                      const SizedBox(width: 6),
+                      Text('${TranslationService.t('min_price', widget.lang)} ${_formatPrice(currentPrice * 0.7)}', 
+                        style: TextStyle(color: Colors.grey[400], fontSize: 12)),
+                    ],
+                  ),
+                  const SizedBox(height: 32),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: isSending ? null : () async {
+                        final cleanStr = controller.text.replaceAll(RegExp(r'[^0-9]'), '');
+                        final offeredPrice = double.tryParse(cleanStr) ?? 0;
+                        if (offeredPrice < currentPrice * 0.7) {
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(TranslationService.t('price_too_low', widget.lang))));
+                          return;
+                        }
+                        
+                        setModalState(() => isSending = true);
+                        try {
+                          await ChatService.sendOffer(ad: widget.ad, price: offeredPrice);
+                          if (context.mounted) {
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(TranslationService.t('offer_sent_check_chat', widget.lang))));
+                            Navigator.push(context, MaterialPageRoute(builder: (context) => ChatScreen(ad: widget.ad)));
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ошибка: $e'), backgroundColor: Colors.redAccent));
+                          }
+                        } finally {
+                          if (context.mounted) {
+                            setModalState(() => isSending = false);
+                          }
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4A80F0), foregroundColor: Colors.white, minimumSize: const Size(0, 64), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), elevation: 0),
+                      child: isSending
+                          ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                          : Text(TranslationService.t('send_to_seller', widget.lang), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+                    ),
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Icon(Icons.info_outline_rounded, size: 14, color: Colors.grey[400]),
-                const SizedBox(width: 6),
-                Text('${TranslationService.t('min_price', widget.lang)} ${_formatPrice(currentPrice * 0.7)}', 
-                  style: TextStyle(color: Colors.grey[400], fontSize: 12)),
-              ],
-            ),
-            const SizedBox(height: 32),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () async {
-                  final cleanStr = controller.text.replaceAll(RegExp(r'[^0-9]'), '');
-                  final offeredPrice = double.tryParse(cleanStr) ?? 0;
-                  if (offeredPrice < currentPrice * 0.7) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(TranslationService.t('price_too_low', widget.lang))));
-                    return;
-                  }
-                  
-                  Navigator.pop(context);
-                  await ChatService.sendOffer(ad: widget.ad, price: offeredPrice);
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(TranslationService.t('offer_sent_check_chat', widget.lang))));
-                    Navigator.push(context, MaterialPageRoute(builder: (context) => ChatScreen(ad: widget.ad)));
-                  }
-                },
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4A80F0), foregroundColor: Colors.white, minimumSize: const Size(0, 64), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), elevation: 0),
-                child: Text(TranslationService.t('send_to_seller', widget.lang), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
-              ),
-            ),
-          ],
-        ),
-      ),
+            );
+          }
+        );
+      }
     );
   }
   Widget _backButton() => Padding(padding: const EdgeInsets.all(8.0), child: _circleButton(Icons.arrow_back_ios_new_rounded, () => Navigator.of(context).maybePop()));

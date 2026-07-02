@@ -270,6 +270,7 @@ class _DriverVerificationScreenState extends State<DriverVerificationScreen>
   }
 
   Future<void> _runAnalysis() async {
+    if (_analyzing) return;
     final provider = Provider.of<TaxiProvider>(context, listen: false);
     final uid = FirebaseAuth.instance.currentUser?.uid ?? 'unknown';
     final prefs = await SharedPreferences.getInstance();

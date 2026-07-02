@@ -268,6 +268,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     const SizedBox(height: 15),
                     Text(
                       displayName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.inter(fontSize: 28, fontWeight: FontWeight.w900, color: _txtColor),
                     ),
                     if (!_isGuest && user != null) ...[
@@ -674,6 +676,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _sheetError = null;
     _isWaitingForBot = false;
     _codeCtrl.clear();
+    bool isVerifying = false;
 
     // Pre-fill phone if available from FirebaseAuth or local storage
     final user = FirebaseAuth.instance.currentUser;
@@ -1087,8 +1090,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       width: double.infinity,
                       height: 54,
                       child: ElevatedButton(
-                        onPressed: () async {
+                        onPressed: isVerifying ? null : () async {
                           if (_codeCtrl.text.trim() == _tgCode) {
+                            setModalState(() => isVerifying = true);
                             try {
                               await UserService.updateUserProfile({
                                 'isVerified': true,
@@ -1120,6 +1124,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               setModalState(() {
                                 _sheetError = '${_t('error')}: $e';
                               });
+                            } finally {
+                              setModalState(() => isVerifying = false);
                             }
                           } else {
                             setModalState(() {
@@ -1133,7 +1139,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                           elevation: 0,
                         ),
-                        child: Text(_t('confirm_code'), style: const TextStyle(fontWeight: FontWeight.w900)),
+                        child: isVerifying
+                            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                            : Text(_t('confirm_code'), style: const TextStyle(fontWeight: FontWeight.w900)),
                       ),
                     ),
                   ] else ...[

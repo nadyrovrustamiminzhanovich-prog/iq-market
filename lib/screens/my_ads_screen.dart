@@ -349,27 +349,45 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
   void _confirmDelete(String id) {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(_t('delete')),
-        content: Text(_t('delete_confirm')),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(_t('cancel'))),
-          TextButton(onPressed: () async {
-            try {
-              await AdService.deleteAd(id);
-              if (ctx.mounted) {
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(TranslationService.t('adDeletedSuccessMsg', widget.lang)), backgroundColor: Colors.green));
-              }
-            } catch (e) {
-              if (ctx.mounted) {
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(TranslationService.t('errDeleteAd', widget.lang).replaceAll('{error}', e.toString())), backgroundColor: Colors.redAccent));
-              }
-            }
-          }, child: Text(_t('delete'), style: const TextStyle(color: Colors.red))),
-        ],
-      ),
+      builder: (ctx) {
+        bool isDeleting = false;
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Text(_t('delete')),
+              content: Text(_t('delete_confirm')),
+              actions: [
+                TextButton(
+                  onPressed: isDeleting ? null : () => Navigator.pop(ctx), 
+                  child: Text(_t('cancel')),
+                ),
+                TextButton(
+                  onPressed: isDeleting ? null : () async {
+                    setDialogState(() => isDeleting = true);
+                    try {
+                      await AdService.deleteAd(id);
+                      if (ctx.mounted) {
+                        Navigator.pop(ctx);
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(TranslationService.t('adDeletedSuccessMsg', widget.lang)), backgroundColor: Colors.green));
+                      }
+                    } catch (e) {
+                      if (ctx.mounted) {
+                        Navigator.pop(ctx);
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(TranslationService.t('errDeleteAd', widget.lang).replaceAll('{error}', e.toString())), backgroundColor: Colors.redAccent));
+                      }
+                    } finally {
+                      if (ctx.mounted) setDialogState(() => isDeleting = false);
+                    }
+                  }, 
+                  child: isDeleting
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.red))
+                      : Text(_t('delete'), style: const TextStyle(color: Colors.red)),
+                ),
+              ],
+            );
+          }
+        );
+      },
     );
   }
 }

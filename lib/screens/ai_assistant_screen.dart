@@ -313,6 +313,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
 
 
   void _sendMessage() async {
+    if (_isLoading) return;
     String text = _controller.text.trim();
     if (text.isEmpty && _selectedFiles.isEmpty) return;
 
@@ -340,27 +341,45 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     }
     _scrollToBottom();
 
-    final reply = await SupportBotService.processMessage(
-      userMessage: text,
-      mode: 'market',
-      lang: _currentLang,
-      chatHistory: [],
-    );
+    try {
+      final reply = await SupportBotService.processMessage(
+        userMessage: text,
+        mode: 'market',
+        lang: _currentLang,
+        chatHistory: [],
+      );
 
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-        _messages.last = {
-          'isMe': false,
-          'text': reply.text,
-          'time': timeStr,
-          'loading': false,
-          'showContact': reply.showContact,
-          'isOffline': reply.isOffline,
-        };
-      });
+      if (mounted) {
+        setState(() {
+          _messages.last = {
+            'isMe': false,
+            'text': reply.text,
+            'time': timeStr,
+            'loading': false,
+            'showContact': reply.showContact,
+            'isOffline': reply.isOffline,
+          };
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _messages.last = {
+            'isMe': false,
+            'text': 'Ошибка: $e',
+            'time': timeStr,
+            'loading': false,
+          };
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+      _scrollToBottom();
     }
-    _scrollToBottom();
   }
 
   void _scrollToBottom() {
@@ -620,7 +639,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
         itemBuilder: (context, i) => Padding(
           padding: const EdgeInsets.only(right: 12),
           child: GestureDetector(
-            onTap: () {
+            onTap: _isLoading ? null : () {
               _controller.text = suggestions[i]['title']! + " " + (suggestions[i]['desc'] ?? "");
               _sendMessage();
             },

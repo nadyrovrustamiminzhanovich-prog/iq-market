@@ -19,6 +19,7 @@ class TaxiSupportScreen extends StatefulWidget {
 class _TaxiSupportScreenState extends State<TaxiSupportScreen> {
   String _query = '';
   int _selectedCat = 0;
+  bool _isProcessing = false;
 
   String _t(TaxiProvider provider, String key) {
     // Custom localized overrides for the support section
@@ -507,7 +508,8 @@ class _TaxiSupportScreenState extends State<TaxiSupportScreen> {
   Widget _contactItem(String title, LinearGradient gradient, Color shadowColor, String url, String fallbackUrl, IconData icon) {
     final provider = Provider.of<TaxiProvider>(context, listen: false);
     return GestureDetector(
-      onTap: () async {
+      onTap: _isProcessing ? null : () async {
+        setState(() => _isProcessing = true);
         try {
           final primaryUri = Uri.parse(url);
           if (await canLaunchUrl(primaryUri)) {
@@ -531,6 +533,8 @@ class _TaxiSupportScreenState extends State<TaxiSupportScreen> {
               SnackBar(content: Text(provider.translate('appNotInstalled')), backgroundColor: Colors.redAccent),
             );
           }
+        } finally {
+          if (mounted) setState(() => _isProcessing = false);
         }
       },
       child: Container(

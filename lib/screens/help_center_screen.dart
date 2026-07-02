@@ -14,6 +14,7 @@ class HelpCenterScreen extends StatefulWidget {
 class _HelpCenterScreenState extends State<HelpCenterScreen> {
   String _query = '';
   int _selectedCat = 0;
+  bool _isProcessing = false;
 
   String _t(String key) {
     final ru = {
@@ -548,7 +549,8 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
 
   Widget _contactItem(String title, LinearGradient gradient, Color shadowColor, String url, String fallbackUrl, IconData icon) {
     return GestureDetector(
-      onTap: () async {
+      onTap: _isProcessing ? null : () async {
+        setState(() => _isProcessing = true);
         try {
           final primaryUri = Uri.parse(url);
           if (await canLaunchUrl(primaryUri)) {
@@ -561,6 +563,8 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
           }
         } catch (e) {
           debugPrint('Error launching support messenger: $e');
+        } finally {
+          if (mounted) setState(() => _isProcessing = false);
         }
       },
       child: Container(

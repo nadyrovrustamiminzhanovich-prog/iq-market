@@ -131,6 +131,7 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
   }
 
   void _saveVideo() async {
+    if (_isSaving) return;
     setState(() => _isSaving = true);
     await _controller?.pause();
     
