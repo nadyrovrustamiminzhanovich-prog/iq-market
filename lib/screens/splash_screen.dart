@@ -16,6 +16,8 @@ import '../services/notification_service.dart';
 import '../services/storage_service.dart';
 import '../providers/taxi_provider.dart';
 import '../providers/app_config_provider.dart';
+import '../services/version_service.dart';
+import 'force_update_screen.dart';
 
 /// AppBootstrap manages the background initialization of Firebase, App Check,
 /// FCM notifications, and auth services. It displays a premium loader and 
@@ -29,6 +31,7 @@ class AppBootstrap extends StatefulWidget {
 class _AppBootstrapState extends State<AppBootstrap> {
   bool _initialized = false;
   String? _error;
+  String? _updateStoreUrl;
   late TaxiProvider _taxiProvider;
   late AppConfigProvider _appConfigProvider;
 
@@ -52,6 +55,9 @@ class _AppBootstrapState extends State<AppBootstrap> {
         cacheSizeBytes: 104857600, // 100 MB cache limit
       );
 
+      // Check if update is required from Firestore config
+      final updateUrl = await VersionService.checkUpdateRequired();
+
       // Initialize lightweight providers only after dependencies are ready
       _taxiProvider = TaxiProvider();
       _appConfigProvider = AppConfigProvider();
@@ -67,6 +73,16 @@ class _AppBootstrapState extends State<AppBootstrap> {
 
       // 3. Configure the already instantiated providers with language / locale
       _appConfigProvider.setLocale(initialLocale);
+
+      if (updateUrl != null) {
+        if (mounted) {
+          setState(() {
+            _updateStoreUrl = updateUrl;
+            _initialized = true;
+          });
+        }
+        return; // Stop further initialization and display ForceUpdateScreen
+      }
 
       // 4. Bind language synchronization events
       _appConfigProvider.onLanguageChanged = (lang) {
@@ -155,9 +171,11 @@ class _AppBootstrapState extends State<AppBootstrap> {
         ChangeNotifierProvider.value(value: _taxiProvider),
         ChangeNotifierProvider.value(value: _appConfigProvider),
       ],
-      child: MainApp(
-        home: const IQMarketHome(),
-      ),
+      child: _updateStoreUrl != null
+          ? ForceUpdateScreen(storeUrl: _updateStoreUrl!)
+          : MainApp(
+              home: const IQMarketHome(),
+            ),
     );
   }
 }
