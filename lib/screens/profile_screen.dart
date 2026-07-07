@@ -18,6 +18,7 @@ import 'package:iqmarket/screens/legal_info_screen.dart';
 import 'package:iqmarket/screens/home/home_screen.dart';
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:iqmarket/screens/admin/admin_panel_screen.dart';
 import 'package:iqmarket/translations/profile_strings.dart';
 import 'package:iqmarket/services/auth_service.dart';
@@ -1091,13 +1092,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       height: 54,
                       child: ElevatedButton(
                         onPressed: isVerifying ? null : () async {
-                          if (_codeCtrl.text.trim() == _tgCode) {
-                            setModalState(() => isVerifying = true);
-                            try {
-                              await UserService.updateUserProfile({
-                                'isVerified': true,
-                                'phone': _phoneCtrl.text,
-                              });
+                          setModalState(() => isVerifying = true);
+                          try {
+                            final callable = FirebaseFunctions.instance.httpsCallable('verifyTelegramOtp');
+                            final result = await callable.call({
+                              'otp': _codeCtrl.text.trim(),
+                              'phone': _phoneCtrl.text,
+                              'sessionToken': _tgSessionToken,
+                            });
+
+                            if (result.data['success'] == true) {
                               setState(() => _isVerified = true);
                               
                               // Sync to local storage
@@ -1120,17 +1124,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   ),
                                 );
                               }
-                            } catch (e) {
-                              setModalState(() {
-                                _sheetError = '${_t('error')}: $e';
-                              });
-                            } finally {
-                              setModalState(() => isVerifying = false);
+                            } else {
+                              throw Exception('Ошибка проверки кода');
                             }
-                          } else {
+                          } catch (e) {
                             setModalState(() {
-                              _sheetError = _t('invalid_code_error');
+                              _sheetError = '${_t('error')}: $e';
                             });
+                          } finally {
+                            setModalState(() => isVerifying = false);
                           }
                         },
                         style: ElevatedButton.styleFrom(

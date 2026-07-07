@@ -18,7 +18,7 @@ beforeAll(async () => {
     projectId: "iq-market-3dc07",
     firestore: {
       rules: fs.readFileSync("firestore.rules", "utf8"),
-      host: "127.0.0.1",
+      host: "localhost",
       port: 8080,
     },
   });
@@ -254,6 +254,35 @@ describe("users", () => {
     await assertFails(
       updateDoc(doc(userDb(otherId), "users", userId), {
         displayName: "Hacked",
+      })
+    );
+  });
+
+  test("пользователь НЕ может изменить свой isVerified на true", async () => {
+    await assertFails(
+      updateDoc(doc(userDb(userId), "users", userId), {
+        isVerified: true,
+      })
+    );
+  });
+
+  test("пользователь НЕ может создать документ с isVerified: true если UID не начинается с telegram_", async () => {
+    await assertFails(
+      setDoc(doc(userDb(userId), "users", userId), {
+        uid: userId,
+        displayName: "Test User",
+        isVerified: true,
+      })
+    );
+  });
+
+  test("пользователь может создать документ с isVerified: true если UID начинается с telegram_", async () => {
+    const telegramUid = "telegram_123456";
+    await assertSucceeds(
+      setDoc(doc(userDb(telegramUid), "users", telegramUid), {
+        uid: telegramUid,
+        displayName: "Telegram User",
+        isVerified: true,
       })
     );
   });

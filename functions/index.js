@@ -296,3 +296,65 @@ exports.sendSystemNotification = functions.https.onCall(async (data, context) =>
 
   return { success: true };
 });
+
+// ─── HTTPS CALLABLE: verifyTelegramOtp ────────────────────────────────────────
+exports.verifyTelegramOtp = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Пользователь должен быть авторизован');
+  }
+
+  const otp = data.otp;
+  const phone = data.phone;
+  const sessionToken = data.sessionToken;
+
+  if (!otp || !phone || !sessionToken) {
+    throw new functions.https.HttpsError('invalid-argument', 'Неполные параметры запроса (otp, phone, sessionToken)');
+  }
+
+  try {
+    const sessionRef = db.collection('tg_auth_sessions').doc(sessionToken);
+    const sessionSnap = await sessionRef.get();
+
+    if (!sessionSnap.exists) {
+      throw new functions.https.HttpsError('not-found', 'Сессия верификации не найдена или устарела');
+    }
+
+    const sessionData = sessionSnap.data();
+    
+    // Проверка на уязвимость подмены токена (initiatorUid должен совпадать с текущим UID)
+    if (sessionData.initiatorUid && sessionData.initiatorUid !== context.auth.uid) {
+      throw new functions.https.HttpsError('permission-denied', 'Попытка верификации чужой сессии');
+    }
+    
+    // Проверяем статус верификации сессии и OTP-код
+    if (sessionData.otp !== otp || sessionData.verified !== true) {
+      throw new functions.https.HttpsError('failed-precondition', 'Неверный код подтверждения');
+    }
+
+    // Дополнительная валидация номера телефона (сравнение последних 10 цифр)
+    const sessionPhoneRaw = sessionData.phone || '';
+    const cleanSession = sessionPhoneRaw.replace(/\D/g, '').slice(-10);
+    const cleanInput = phone.replace(/\D/g, '').slice(-10);
+
+    if (cleanSession !== cleanInput) {
+      throw new functions.https.HttpsError('failed-precondition', 'Номер телефона не совпадает с подтвержденным в Telegram');
+    }
+
+    const userUid = context.auth.uid;
+    const userRef = db.collection('users').doc(userUid);
+    
+    await userRef.update({
+      isVerified: true,
+      phone: phone,
+      telegramChatId: sessionData.chat_id || ''
+    });
+
+    console.log(`[verifyTelegramOtp] User ${userUid} successfully verified via Telegram.`);
+    
+    return { success: true };
+  } catch (error) {
+    console.error('[verifyTelegramOtp] Error:', error);
+    if (error instanceof functions.https.HttpsError) throw error;
+    throw new functions.https.HttpsError('internal', error.message || 'Внутренняя ошибка сервера');
+  }
+});

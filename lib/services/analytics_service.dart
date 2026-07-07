@@ -135,4 +135,65 @@ class AnalyticsService {
       );
     }
   }
+
+  // ─── MODERATION MONITORING ────────────────────────────────────────────────
+
+  /// Non-fatal Crashlytics + Analytics event при сбое ИИ-модератора.
+  /// Параметры намеренно совпадают с chat/push-контекстом: ad_id, user_id, timestamp.
+  static void logModerationAiFailure({
+    required Object error,
+    required StackTrace stack,
+    required String errorType,   // 'timeout' | 'network' | 'parse' | 'quota' | 'unknown'
+    required String adId,        // ID объявления (может быть '' до сохранения)
+    required String userId,
+    required String verdict,     // итоговый вердикт после обработки
+    required bool retrySucceeded, // признак успешного ретрая
+  }) {
+    // 1. Non-fatal в Crashlytics с контекстом
+    FirebaseCrashlytics.instance.recordError(
+      error,
+      stack,
+      reason: 'moderation_ai_failure [$errorType] (retry_succeeded: $retrySucceeded)',
+      fatal: false,
+      information: [
+        'error_type: $errorType',
+        'ad_id: $adId',
+        'user_id: $userId',
+        'verdict_applied: $verdict',
+        'retry_succeeded: $retrySucceeded',
+        'timestamp: ${DateTime.now().toUtc().toIso8601String()}',
+      ],
+    );
+
+    // 2. Analytics-событие для дашборда
+    logEvent(
+      name: 'moderation_ai_failure',
+      parameters: {
+        'error_type': errorType,
+        'ad_id': adId.isNotEmpty ? adId : 'unknown',
+        'user_id': userId.isNotEmpty ? userId : 'anonymous',
+        'verdict_applied': verdict,
+        'retry_succeeded': retrySucceeded ? 'true' : 'false',
+        'timestamp_utc': DateTime.now().millisecondsSinceEpoch,
+      },
+    );
+  }
+
+  /// Analytics-событие при полном отказе сервиса Gemini (квота, 5xx).
+  /// Позволяет настроить алерт в Firebase Console → Analytics → BigQuery.
+  static void logModerationServiceDown({
+    required String reason,   // 'quota_exceeded' | 'service_unavailable' | 'auth_error'
+    required String adId,
+    required String userId,
+  }) {
+    logEvent(
+      name: 'moderation_service_down',
+      parameters: {
+        'reason': reason,
+        'ad_id': adId.isNotEmpty ? adId : 'unknown',
+        'user_id': userId.isNotEmpty ? userId : 'anonymous',
+        'timestamp_utc': DateTime.now().millisecondsSinceEpoch,
+      },
+    );
+  }
 }

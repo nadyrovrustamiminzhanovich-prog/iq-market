@@ -44,6 +44,7 @@ class TelegramBotService {
   static Future<String> startAuthSession({String? phone}) async {
     try {
       final token = _randomAlnum(24);
+      final currentUser = FirebaseAuth.instance.currentUser;
       await FirebaseFirestore.instance
           .collection('tg_auth_sessions')
           .doc(token)
@@ -53,6 +54,7 @@ class TelegramBotService {
         'chat_id': null,
         'otp': null,
         if (phone != null) 'phone': phone,
+        if (currentUser != null) 'initiatorUid': currentUser.uid,
       });
       // Brief pause to ensure Firestore is synced before the bot reads it
       await Future.delayed(const Duration(milliseconds: 800));

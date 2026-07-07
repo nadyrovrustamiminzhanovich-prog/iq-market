@@ -3,6 +3,7 @@ import 'package:iqmarket/services/translation_service.dart';
 import 'package:iqmarket/providers/app_config_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -181,18 +182,18 @@ class _TelegramVerificationDialogState extends State<TelegramVerificationDialog>
   }
 
   Future<void> _verifyOtp() async {
-    if (_codeCtrl.text.trim() == _tgCode) {
-      try {
-        final user = FirebaseAuth.instance.currentUser;
-        if (user != null) {
-          // 1. Update Firestore user doc
-          await UserService.updateUserProfile({
-            'isVerified': true,
-            'phone': _phoneCtrl.text,
-            'telegramChatId': _chatId,
-          });
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        final callable = FirebaseFunctions.instance.httpsCallable('verifyTelegramOtp');
+        final result = await callable.call({
+          'otp': _codeCtrl.text.trim(),
+          'phone': _phoneCtrl.text,
+          'sessionToken': _tgSessionToken,
+        });
 
-          // 2. Sync to local storage
+        if (result.data['success'] == true) {
+          // Sync to local storage
           StorageService.saveProfile(
             widget.provider.firstName + " " + widget.provider.lastName,
             null,
@@ -202,20 +203,20 @@ class _TelegramVerificationDialogState extends State<TelegramVerificationDialog>
           );
           await StorageService.setString('user_phone', _phoneCtrl.text);
 
-          // 3. Update Provider state
+          // Update Provider state
           if (_chatId != null) {
             widget.provider.setTelegramAuth(_chatId!);
             widget.provider.updateProfile(widget.provider.firstName, widget.provider.lastName, _phoneCtrl.text);
           }
+          
+          if (mounted) {
+            Navigator.pop(context, true);
+          }
+        } else {
+          throw Exception('Ошибка проверки кода');
         }
-        
-        if (mounted) {
-          Navigator.pop(context, true);
-        }
-      } catch (e) {
-        setState(() => _errorText = 'Ошибка сохранения: $e');
       }
-    } else {
+    } catch (e) {
       setState(() {
         _codeCtrl.clear();
         _errorText = 'Неверный код! Проверьте и попробуйте еще раз. ❌';

@@ -1,18 +1,22 @@
 import 'dart:io';
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:video_compress/video_compress.dart';
 import 'package:iqmarket/models/ad_model.dart';
+import 'package:iqmarket/services/analytics_service.dart';
 import 'package:iqmarket/services/file_service.dart';
 import 'package:iqmarket/services/notification_service.dart';
 import 'package:iqmarket/services/gemini_service.dart';
 import 'package:iqmarket/services/user_service.dart';
 import 'package:iqmarket/services/network_service.dart';
 import 'package:iqmarket/services/telegram_bot_service.dart';
+import 'package:iqmarket/services/fallback_moderation_keywords.dart';
 import 'package:iqmarket/utils/fuzzy_matcher.dart';
 class AdService {
   static final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -67,39 +71,130 @@ class AdService {
       }
     }
 
-    // 2. ИИ Модерация на сжатых фото!
+    // ─────────────────────────────────────────────────────────────
+    // 2. ИИ-Модерация (уже на сжатых фото)
+    // Архитектура обработки ошибок:
+    //   • Таймаут / сеть  → retry раз → APPROVED (fail-open) + Crashlytics non-fatal
+    //   • Парсинг (нестандартный ответ) → MANUAL_REVIEW + Crashlytics non-fatal
+    //   • Квота / сервис недоступен    → MANUAL_REVIEW + Analytics moderation_service_down
+    //   • Перед любым fail-open  → offline-фильтр стоп-слов
+    // ─────────────────────────────────────────────────────────────
     if (onStatusUpdate != null) onStatusUpdate('Проверка модерации ИИ...');
-    String moderationVerdict = 'MANUAL_REVIEW';
+
+    final _userId = user.uid;
+    String moderationVerdict = 'APPROVED'; // дефолт fail-open
+
     try {
       final gemini = GeminiService();
       gemini.init(lang);
-      // Передаем УЖЕ сжатые фотографии! Это ускоряет загрузку в 30 раз!
-      final result = await gemini.checkContent(title, description, compressedImages);
-      final upperResult = result.toUpperCase().trim();
-      if (upperResult.contains('APPROVED')) {
-        moderationVerdict = 'APPROVED';
-      } else if (upperResult.contains('REJECTED')) {
-        final rejectIdx = upperResult.indexOf('REJECTED');
-        String reason = '';
-        if (rejectIdx != -1) {
-          final afterReject = result.substring(rejectIdx + 8).trim();
-          if (afterReject.startsWith(':')) {
-            reason = afterReject.substring(1).trim();
-          } else {
-            reason = afterReject;
-          }
-        }
-        moderationVerdict = reason.isNotEmpty ? 'REJECTED: $reason' : 'REJECTED';
-      } else {
-        moderationVerdict = 'MANUAL_REVIEW';
+
+      // Первая попытка — с таймаутом 20с
+      final result = await gemini
+          .checkContent(title, description, compressedImages)
+          .timeout(const Duration(seconds: 20));
+
+      moderationVerdict = _parseModerationResult(result);
+
+    } on TimeoutException catch (e, stack) {
+      // ─── ТАЙМАУТ: ретрай один раз, затем fail-open ───
+      debugPrint('[AdService] Gemini timeout (attempt 1), retrying...');
+      try {
+        final gemini2 = GeminiService();
+        gemini2.init(lang);
+        final retryResult = await gemini2
+            .checkContent(title, description, compressedImages)
+            .timeout(const Duration(seconds: 25));
+        moderationVerdict = _parseModerationResult(retryResult);
+        debugPrint('[AdService] Retry succeeded: $moderationVerdict');
+        
+        // Ретрай успешен -> логируем первую ошибку с retrySucceeded: true
+        AnalyticsService.logModerationAiFailure(
+          error: e,
+          stack: stack,
+          errorType: 'timeout',
+          adId: initialAdId ?? '',
+          userId: _userId,
+          verdict: moderationVerdict,
+          retrySucceeded: true,
+        );
+      } on TimeoutException catch (e2, stack2) {
+        // Оба попытки истекли — offline-фильтр + fail-open
+        moderationVerdict = _offlineFallbackVerdict(title, description);
+        AnalyticsService.logModerationAiFailure(
+          error: e2,
+          stack: stack2,
+          errorType: 'timeout',
+          adId: initialAdId ?? '',
+          userId: _userId,
+          verdict: moderationVerdict,
+          retrySucceeded: false,
+        );
+      } catch (e2, stack2) {
+        // Ретрай вернул другую ошибку — обрабатываем как сетевую
+        moderationVerdict = _offlineFallbackVerdict(title, description);
+        AnalyticsService.logModerationAiFailure(
+          error: e2,
+          stack: stack2,
+          errorType: _classifyNetworkError(e2),
+          adId: initialAdId ?? '',
+          userId: _userId,
+          verdict: moderationVerdict,
+          retrySucceeded: false,
+        );
       }
-    } catch (e) {
-      debugPrint('[AdService] Gemini failed: $e');
-      // If AI fails, we allow manual review instead of blocking
+
+    } catch (e, stack) {
+      // ─── ОСТАЛЬНЫЕ ОШИБКИ: классифицируем ───
+      final errorType = _classifyNetworkError(e);
+
+      if (errorType == 'quota' || errorType == 'service_unavailable') {
+        // Полный отказ сервиса — запрос админа в Analytics
+        moderationVerdict = _offlineFallbackVerdict(title, description);
+        // Если offline-фильтр не поймал — всё равно отправляем на ручную
+        if (moderationVerdict == 'APPROVED') moderationVerdict = 'MANUAL_REVIEW';
+        AnalyticsService.logModerationServiceDown(
+          reason: errorType,
+          adId: initialAdId ?? '',
+          userId: _userId,
+        );
+      } else if (errorType == 'parse_error') {
+        // Нестандартный ответ Gemini — подозрительно, может быть prompt injection
+        moderationVerdict = 'MANUAL_REVIEW';
+      } else {
+        // Сетевая / неизвестная — offline-фильтр + fail-open
+        moderationVerdict = _offlineFallbackVerdict(title, description);
+      }
+
+      AnalyticsService.logModerationAiFailure(
+        error: e,
+        stack: stack,
+        errorType: errorType,
+        adId: initialAdId ?? '',
+        userId: _userId,
+        verdict: moderationVerdict,
+        retrySucceeded: false,
+      );
     }
 
     if (moderationVerdict.startsWith('REJECTED')) {
       final reason = moderationVerdict.replaceFirst('REJECTED:', '').trim();
+      
+      // Отправляем уведомление админу в Телеграм о попытке публикации запрещенного контента
+      try {
+        final authorName = user.displayName ?? 'Пользователь';
+        await TelegramBotService.notifyAdminNewAd(
+          adId: initialAdId ?? 'rejected_by_ai',
+          title: title,
+          price: price,
+          category: category,
+          userName: authorName,
+          reason: '🚫 ЗАБЛОКИРОВАНО ИИ: ${reason.isEmpty ? "Нарушение политики контента" : reason}\n📝 Описание: $description',
+          imageUrls: const [],
+        );
+      } catch (tgEx) {
+        debugPrint('[AdService] Failed to notify admin of rejected ad: $tgEx');
+      }
+
       throw Exception('Объявление отклонено ИИ за нарушение правил.\nПричина: ${reason.isEmpty ? "Нарушение политики контента" : reason}');
     }
 
@@ -219,14 +314,15 @@ class AdService {
       savedAdId = id ?? '';
     }
 
-    // 📣 X10 NOTIFICATION: Отправляем уведомление админу в Телеграм для всех новых объявлений
-    if (initialAdId == null && savedAdId.isNotEmpty) {
+    // 📣 X10 NOTIFICATION: Отправляем уведомление админу в Телеграм для всех новых и обновленных объявлений
+    if (savedAdId.isNotEmpty) {
       try {
+        final displayTitle = initialAdId != null ? '🔄 [ОБНОВЛЕНО] $title' : title;
         if (isApproved) {
           // Если одобрено ИИ — отправляем информационное уведомление с кнопкой "Отклонить"
           await TelegramBotService.notifyAdminAdAutoApproved(
             adId: savedAdId,
-            title: title,
+            title: displayTitle,
             price: price,
             category: category,
             userName: adModel.userName,
@@ -236,11 +332,11 @@ class AdService {
           // Если требует ручной модерации — отправляем алерт на ручную проверку (кнопки "Одобрить"/"Отклонить")
           await TelegramBotService.notifyAdminNewAd(
             adId: savedAdId,
-            title: title,
+            title: displayTitle,
             price: price,
             category: category,
             userName: adModel.userName,
-            reason: '🤖 ИИ запросил ручную проверку (MANUAL_REVIEW).',
+            reason: '🤖 ИИ или правила запросили ручную проверку (MANUAL_REVIEW).',
             imageUrls: adModel.images,
           );
         }
@@ -753,5 +849,111 @@ class AdService {
     } catch (e) {
       debugPrint('Error deleting user ads: $e');
     }
+  }
+
+  // ─── MODERATION HELPERS (private, extracted for testability) ──────────────
+
+  /// Парсит строку ответа Gemini → вердикт.
+  /// Чистая функция без побочных эффектов — легко тестировать изолированно.
+  ///
+  /// SECURITY: использует startsWith(), а не contains(), чтобы исключить
+  /// prompt injection через текст объявления, который Gemini может эхоировать
+  /// в своём ответе (например, "Текст содержит 'APPROVED' в описании").
+  static String _parseModerationResult(String result) {
+    final trimmed = result.trim();
+    final upper  = trimmed.toUpperCase();
+
+    if (upper.startsWith('APPROVED')) return 'APPROVED';
+
+    if (upper.startsWith('REJECTED')) {
+      final afterReject = trimmed.substring('REJECTED'.length).trim();
+      final reason = afterReject.startsWith(':')
+          ? afterReject.substring(1).trim()
+          : afterReject;
+      return reason.isNotEmpty ? 'REJECTED: $reason' : 'REJECTED';
+    }
+
+    if (upper.startsWith('MANUAL_REVIEW')) return 'MANUAL_REVIEW';
+
+    // Нераспознанный / многословный ответ — подозрительно.
+    // Может означать prompt injection или нестабильность модели.
+    // Не fail-open: MANUAL_REVIEW безопаснее.
+    debugPrint('[AdService] Gemini unrecognised verdict (possible injection): "${trimmed.length > 80 ? trimmed.substring(0, 80) : trimmed}" → MANUAL_REVIEW');
+    return 'MANUAL_REVIEW';
+  }
+
+  /// Классифицирует тип исключения для Analytics / Crashlytics.
+  /// Возвращает одну из строк: 'timeout' | 'network' | 'quota' |
+  ///   'service_unavailable' | 'auth_error' | 'parse_error' | 'unknown'
+  static String _classifyNetworkError(Object e) {
+    if (e is TimeoutException) return 'timeout';
+
+    final msg = e.toString().toLowerCase();
+
+    // Квота Gemini API (429 / RESOURCE_EXHAUSTED)
+    if (msg.contains('429') ||
+        msg.contains('quota') ||
+        msg.contains('resource_exhausted') ||
+        msg.contains('resourceexhausted')) {
+      return 'quota';
+    }
+    // Сервис недоступен (500 / 503)
+    if (msg.contains('503') ||
+        msg.contains('502') ||
+        msg.contains('500') ||
+        msg.contains('service unavailable') ||
+        msg.contains('internal server')) {
+      return 'service_unavailable';
+    }
+    // Ошибка аутентификации прокси (401 / 403)
+    if (msg.contains('401') ||
+        msg.contains('403') ||
+        msg.contains('unauthorized') ||
+        msg.contains('unauthenticated')) {
+      return 'auth_error';
+    }
+    // Сетевые ошибки (DNS, socket)
+    if (msg.contains('socketexception') ||
+        msg.contains('network') ||
+        msg.contains('connection') ||
+        msg.contains('host lookup') ||
+        msg.contains('errno')) {
+      return 'network';
+    }
+    // Ошибки парсинга JSON / неожиданный формат ответа
+    if (msg.contains('formatexception') ||
+        msg.contains('jsondecodeerror') ||
+        msg.contains('unexpected character') ||
+        msg.contains('invalid json')) {
+      return 'parse_error';
+    }
+    return 'unknown';
+  }
+
+  /// Offline-подстраховка: проверяет заголовок + описание на список
+  /// стоп-слов из [FallbackModerationKeywords.all].
+  ///
+  /// Перед сравнением текст нормализуется через [ModerationNormalizer.normalize]:
+  ///   - leet-speak (0→о, 1→и, 3→з, 4→ч, 6→б)
+  ///   - разделители между буквами ("о-р-у-ж-и-е" → "оружие")
+  ///
+  /// Возвращает 'MANUAL_REVIEW' при совпадении, иначе 'APPROVED'.
+  /// НЕ заменяет ИИ-модерацию — только закрывает worst-case.
+  static String _offlineFallbackVerdict(String title, String description) {
+    // Нормализуем входной текст: leet + разделители
+    final rawText = '$title $description';
+    final normalizedText = ModerationNormalizer.normalize(rawText);
+
+    for (final word in FallbackModerationKeywords.all) {
+      if (normalizedText.contains(word)) {
+        debugPrint(
+          '[AdService] Offline stopword match: "$word" '
+          '(normalized input: "${normalizedText.length > 60 ? normalizedText.substring(0, 60) : normalizedText}") '
+          '→ MANUAL_REVIEW',
+        );
+        return 'MANUAL_REVIEW';
+      }
+    }
+    return 'APPROVED';
   }
 }
