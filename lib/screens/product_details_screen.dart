@@ -1153,13 +1153,37 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                       onPressed: isSending ? null : () async {
                         final cleanStr = controller.text.replaceAll(RegExp(r'[^0-9]'), '');
                         final offeredPrice = double.tryParse(cleanStr) ?? 0;
-                        if (offeredPrice < currentPrice * 0.7) {
+
+                        if (offeredPrice <= 0) {
                           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(TranslationService.t('price_too_low', widget.lang))));
                           return;
                         }
-                        
+
                         setModalState(() => isSending = true);
                         try {
+                          // FIX: Re-fetch the current ad price from Firestore to
+                          // prevent the stale-price bypass (price may change after dialog open).
+                          // Firestore rule also enforces this server-side.
+                          double livePrice = currentPrice;
+                          try {
+                            final adDoc = await FirebaseFirestore.instance
+                                .collection('ads')
+                                .doc(widget.ad.id)
+                                .get();
+                            if (adDoc.exists) {
+                              livePrice = (adDoc.data()?['price'] as num?)?.toDouble() ?? currentPrice;
+                            }
+                          } catch (_) {
+                            // Fallback to local price — Firestore rule will catch bypass
+                          }
+
+                          if (offeredPrice < livePrice * 0.7) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(TranslationService.t('price_too_low', widget.lang))));
+                            }
+                            return;
+                          }
+
                           await ChatService.sendOffer(ad: widget.ad, price: offeredPrice);
                           if (context.mounted) {
                             Navigator.pop(context);

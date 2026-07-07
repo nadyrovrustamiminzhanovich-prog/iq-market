@@ -28,12 +28,32 @@ class _VoiceSearchBottomSheetState extends State<VoiceSearchBottomSheet> {
   double _minLevel = 0.0;
   double _maxLevel = 10.0; // Typical Android speech_to_text max level is around 10
 
+  /// FIX: Guard flag — ensures Navigator.pop is called AT MOST ONCE.
+  /// Previously, onResult(finalResult) + onStatus('done') both scheduled a pop
+  /// within ~600ms of each other → double/triple pop → black screen crash.
+  bool _hasPopped = false;
+
   double getNormalizedLevel(double level) {
     if (level < _minLevel) _minLevel = level;
     if (level > _maxLevel) _maxLevel = level;
     final range = _maxLevel - _minLevel;
     if (range <= 0) return 0.0;
     return ((level - _minLevel) / range).clamp(0.0, 1.0);
+  }
+
+  /// Safe pop helper: atomically checks _hasPopped then pops exactly once.
+  void _safePopWithResult([String? result]) {
+    if (_hasPopped) {
+      debugPrint('[VoiceSearch] _safePopWithResult blocked — already popped (result="$result")');
+      return;
+    }
+    if (!mounted) {
+      debugPrint('[VoiceSearch] _safePopWithResult blocked — widget not mounted (result="$result")');
+      return;
+    }
+    _hasPopped = true;
+    debugPrint('[VoiceSearch] Navigator.pop → result="$result"');
+    Navigator.pop(context, result);
   }
 
   @override
@@ -52,52 +72,68 @@ class _VoiceSearchBottomSheetState extends State<VoiceSearchBottomSheet> {
   }
 
   Future<void> _startListening() async {
+    debugPrint('[VoiceSearch] _startListening called');
     try {
       bool available = await widget.speech.initialize(
         onStatus: (status) {
+          debugPrint('[VoiceSearch] onStatus → "$status", _hasPopped=$_hasPopped, text="$_recognizedText"');
           if (status == 'done' || status == 'notListening') {
             if (mounted) {
               setState(() => _isListening = false);
-              // If we have recognized text and it stopped, return it
+              // FIX: Use _safePopWithResult — onResult(finalResult) may have
+              // already scheduled a pop 600ms ago. Without the guard, this
+              // second pop would crash with a black screen.
               if (_recognizedText.trim().isNotEmpty) {
                 Future.delayed(const Duration(milliseconds: 600), () {
-                  if (mounted) {
-                    Navigator.pop(context, _recognizedText);
-                  }
+                  debugPrint('[VoiceSearch] onStatus delayed pop firing');
+                  _safePopWithResult(_recognizedText);
                 });
               }
             }
           }
         },
         onError: (errorNotification) {
-          if (mounted) {
-            setState(() => _isListening = false);
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(TranslationService.t('mic_unavailable', widget.lang)))
-            );
-            Navigator.pop(context);
-          }
+          debugPrint('[VoiceSearch] onError → $errorNotification');
+          // FIX: Pop FIRST, then show snackbar via rootScaffold to avoid
+          // using a context that belongs to the already-dismissed sheet.
+          _safePopWithResult(null);
+          // Show snackbar after pop using a short delay so root scaffold is active.
+          Future.delayed(const Duration(milliseconds: 100), () {
+            final rootContext = Navigator.of(context, rootNavigator: true).context;
+            if (rootContext.mounted) {
+              ScaffoldMessenger.of(rootContext).showSnackBar(
+                SnackBar(content: Text(TranslationService.t('mic_unavailable', widget.lang)))
+              );
+            }
+          });
+          if (mounted) setState(() => _isListening = false);
         },
       );
 
+      debugPrint('[VoiceSearch] speech.initialize → available=$available');
+
       if (available) {
-        setState(() {
-          _isListening = true;
-          _recognizedText = '';
-          _soundLevel = 0.0;
-        });
+        if (mounted) {
+          setState(() {
+            _isListening = true;
+            _recognizedText = '';
+            _soundLevel = 0.0;
+          });
+        }
 
         await widget.speech.listen(
           onResult: (result) {
+            debugPrint('[VoiceSearch] onResult → words="${result.recognizedWords}" final=${result.finalResult}');
             if (mounted) {
               setState(() {
                 _recognizedText = result.recognizedWords;
               });
+              // FIX: Use _safePopWithResult — onStatus('done') fires almost
+              // simultaneously and would call a second pop without the guard.
               if (result.finalResult && _recognizedText.trim().isNotEmpty) {
                 Future.delayed(const Duration(milliseconds: 600), () {
-                  if (mounted) {
-                    Navigator.pop(context, _recognizedText);
-                  }
+                  debugPrint('[VoiceSearch] onResult delayed pop firing');
+                  _safePopWithResult(_recognizedText);
                 });
               }
             }
@@ -112,31 +148,39 @@ class _VoiceSearchBottomSheetState extends State<VoiceSearchBottomSheet> {
           localeId: widget.lang == 'Қазақша' ? 'kk_KZ' : 'ru_RU',
         );
       } else {
+        debugPrint('[VoiceSearch] speech not available — popping without result');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(TranslationService.t('mic_unavailable', widget.lang)))
           );
-          Navigator.pop(context);
         }
+        _safePopWithResult(null);
       }
-    } catch (e) {
-      debugPrint('Error starting speech: $e');
-      if (mounted) Navigator.pop(context);
+    } catch (e, st) {
+      debugPrint('[VoiceSearch] EXCEPTION in _startListening: $e\n$st');
+      _safePopWithResult(null);
     }
   }
 
   void _stopListening() {
+    debugPrint('[VoiceSearch] _stopListening called, isListening=${widget.speech.isListening}');
     if (widget.speech.isListening) {
       widget.speech.stop();
+      // NOTE: speech.stop() triggers onStatus('done') asynchronously.
+      // _safePopWithResult in _toggleListening will fire first (synchronously),
+      // so the onStatus-triggered pop will be blocked by _hasPopped.
     }
   }
 
   void _toggleListening() {
+    debugPrint('[VoiceSearch] _toggleListening, _isListening=$_isListening, text="$_recognizedText"');
     if (_isListening) {
       _stopListening();
-      setState(() => _isListening = false);
+      if (mounted) setState(() => _isListening = false);
+      // FIX: Use _safePopWithResult — _stopListening() causes onStatus('done')
+      // to fire, which would also try to pop. The guard ensures only one fires.
       if (_recognizedText.trim().isNotEmpty) {
-        Navigator.pop(context, _recognizedText);
+        _safePopWithResult(_recognizedText);
       }
     } else {
       _startListening();

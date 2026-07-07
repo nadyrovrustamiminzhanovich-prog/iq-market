@@ -8,7 +8,10 @@
     "test": "test"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "test:firestore": "npx jest rules.test.js --forceExit",
+    "test:storage": "npx jest admin.storage.rules.test.js storage.rules.test.js --runInBand --forceExit",
+    "test:all": "npx jest rules.test.js admin.storage.rules.test.js storage.rules.test.js --runInBand --forceExit"
   },
   "repository": {
     "type": "git",

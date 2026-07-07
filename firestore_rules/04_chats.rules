@@ -6,12 +6,53 @@
       
       match /messages/{messageId} {
         allow read: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.users;
-        allow create: if isSignedIn() && (request.resource.data.senderId == request.auth.uid) && (request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.users);
+
+        // ─── CREATE ────────────────────────────────────────────────────────────
+        allow create: if isSignedIn()
+          && request.resource.data.senderId == request.auth.uid
+          && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.users
+          && (
+            request.resource.data.type != 'offer'
+            ||
+            (
+              request.resource.data.type == 'offer'
+              && request.resource.data.offerPrice is number
+              && request.resource.data.offerPrice > 0
+              && request.resource.data.adId is string
+              && request.resource.data.adId.size() > 0
+              && request.auth.uid != get(/databases/$(database)/documents/ads/$(request.resource.data.adId)).data.userId
+              && request.resource.data.offerPrice >= get(/databases/$(database)/documents/ads/$(request.resource.data.adId)).data.price * 0.7
+            )
+          );
+
+        // ─── UPDATE ────────────────────────────────────────────────────────────
         allow update: if isSignedIn() && (request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.users) && (
-          (request.auth.uid == resource.data.senderId && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['senderId', 'timestamp', 'type'])) || 
+          // 1. Sender editing own NON-OFFER messages
+          (
+            request.auth.uid == resource.data.senderId 
+            && resource.data.type != 'offer' 
+            && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['senderId', 'timestamp', 'type'])
+          ) || 
+          // 2. Sender cancelling own PENDING OFFER message (deduplication)
+          (
+            request.auth.uid == resource.data.senderId
+            && resource.data.type == 'offer'
+            && resource.data.offerStatus == 'pending'
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['offerStatus'])
+            && request.resource.data.offerStatus == 'cancelled'
+          ) ||
+          // 3. Anyone in chat marking messages as read
           (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead'])) ||
-          (resource.data.type == 'offer' && request.auth.uid != resource.data.senderId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['offerStatus']) && request.resource.data.offerStatus in ['accepted', 'rejected'])
+          // 4. Only the RECEIVER of an offer can change its status (accept/reject) while pending
+          (
+            resource.data.type == 'offer'
+            && request.auth.uid != resource.data.senderId
+            && resource.data.offerStatus == 'pending'
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['offerStatus'])
+            && request.resource.data.offerStatus in ['accepted', 'rejected']
+          )
         );
+
         allow delete: if isSignedIn() && request.auth.uid == resource.data.senderId;
       }
     }

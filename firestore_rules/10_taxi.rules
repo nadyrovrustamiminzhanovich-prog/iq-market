@@ -43,7 +43,10 @@
         && request.resource.data.offeredPrice is number
         && request.resource.data.offeredPrice >= 0
         && request.resource.data.status in ['pending', 'accepted', 'rejected'];
-      allow read: if isSignedIn();
+      allow read: if isSignedIn() && (
+        request.auth.uid == resource.data.senderId || 
+        request.auth.uid == resource.data.receiverId
+      );
       allow update: if isSignedIn() && (
         request.auth.uid == resource.data.senderId || 
         request.auth.uid == resource.data.receiverId

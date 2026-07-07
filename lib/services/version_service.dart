@@ -17,7 +17,15 @@ class VersionService {
 
       if (doc.exists && doc.data() != null) {
         final data = doc.data()!;
-        final minVersionCode = data['min_version_code'] as int?;
+        final minVersionCodeRaw = data['min_version_code'];
+        int? minVersionCode;
+        if (minVersionCodeRaw is int) {
+          minVersionCode = minVersionCodeRaw;
+        } else if (minVersionCodeRaw is double) {
+          minVersionCode = minVersionCodeRaw.toInt();
+        } else if (minVersionCodeRaw is String) {
+          minVersionCode = int.tryParse(minVersionCodeRaw);
+        }
         final storeUrl = data['store_url'] as String?;
 
         if (minVersionCode != null && currentVersionCode < minVersionCode) {

@@ -1,7 +1,7 @@
 module.exports = {
   testMatch: ["**/*.test.js"],
   testPathIgnorePatterns: [
-    "/node_modules/",
+    "node_modules",
     "/build/",
     "/android/",
     "/ios/",

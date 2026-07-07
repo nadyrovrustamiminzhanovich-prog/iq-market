@@ -15,7 +15,7 @@ let testEnv;
 // ──────────────────────────────────────────
 beforeAll(async () => {
   testEnv = await initializeTestEnvironment({
-    projectId: "demo-project",
+    projectId: "iq-market-3dc07",
     firestore: {
       rules: fs.readFileSync("firestore.rules", "utf8"),
       host: "127.0.0.1",
@@ -145,8 +145,8 @@ describe("taxi_bids", () => {
   });
 
   // ── UPDATE ──
-  test("sender может обновить offeredPrice", async () => {
-    await assertSucceeds(
+  test("sender НЕ может обновить offeredPrice (защита от изменения цен)", async () => {
+    await assertFails(
       updateDoc(doc(userDb(senderId), "taxi_bids", bidId), {
         offeredPrice: 600,
       })
@@ -218,8 +218,12 @@ describe("users", () => {
     });
   });
 
-  test("любой может читать профиль пользователя", async () => {
-    await assertSucceeds(getDoc(doc(anonDb(), "users", userId)));
+  test("любой вошедший пользователь может читать профиль пользователя", async () => {
+    await assertSucceeds(getDoc(doc(userDb("any_user"), "users", userId)));
+  });
+
+  test("анонимный пользователь НЕ может читать профиль пользователя", async () => {
+    await assertFails(getDoc(doc(anonDb(), "users", userId)));
   });
 
   test("пользователь может обновить своё имя", async () => {
@@ -291,6 +295,7 @@ describe("chats/messages", () => {
         senderId: user1,
         text: "Новое сообщение",
         isRead: false,
+        type: "text",
       })
     );
   });
@@ -301,6 +306,7 @@ describe("chats/messages", () => {
         senderId: user1, // не совпадает с auth.uid
         text: "Подделка",
         isRead: false,
+        type: "text",
       })
     );
   });
@@ -333,6 +339,22 @@ describe("chats/messages", () => {
     await assertFails(
       deleteDoc(doc(userDb(outsider), `chats/${chatId}/messages`, "msg_001"))
     );
+  });
+
+  test("Сценарий А: посторонний НЕ может прочитать сам документ чата", async () => {
+    await assertFails(getDoc(doc(userDb(outsider), "chats", chatId)));
+  });
+
+  test("Сценарий Б: участник может прочитать документ чата", async () => {
+    await assertSucceeds(getDoc(doc(userDb(user1), "chats", chatId)));
+  });
+
+  test("Сценарий В: попытка чтения несуществующего chatId завершается Permission Denied", async () => {
+    await assertFails(getDoc(doc(userDb(user1), "chats", "non_existent_chat")));
+  });
+
+  test("Сценарий В: попытка чтения сообщений несуществующего chatId завершается Permission Denied", async () => {
+    await assertFails(getDoc(doc(userDb(user1), `chats/non_existent_chat/messages`, "msg_any")));
   });
 });
 
@@ -380,3 +402,59 @@ describe("driver_verifications", () => {
     );
   });
 });
+
+// ──────────────────────────────────────────
+// ТЕСТЫ: app_config
+// ──────────────────────────────────────────
+describe("app_config", () => {
+  const docId = "version_info";
+  const userId = "user_001";
+  const adminId = "admin_001";
+
+  beforeEach(async () => {
+    // Создаем пользователя admin с accountType: admin
+    await adminSet("users/admin_001", {
+      accountType: "admin"
+    });
+    // И обычного пользователя
+    await adminSet("users/user_001", {
+      accountType: "user"
+    });
+    // Создаем тестовый конфиг
+    await adminSet(`app_config/${docId}`, {
+      min_version_code: "2",
+      store_url: "https://play.google.com/store/apps/details?id=com.iqmarket.app"
+    });
+  });
+
+  test("анонимный пользователь может читать конфиг версий", async () => {
+    await assertSucceeds(
+      getDoc(doc(anonDb(), "app_config", docId))
+    );
+  });
+
+  test("обычный пользователь может читать конфиг версий", async () => {
+    await assertSucceeds(
+      getDoc(doc(userDb(userId), "app_config", docId))
+    );
+  });
+
+  test("обычный пользователь НЕ может изменять конфиг версий", async () => {
+    await assertFails(
+      setDoc(doc(userDb(userId), "app_config", docId), {
+        min_version_code: "3"
+      })
+    );
+  });
+
+  test("администратор может изменять конфиг версий", async () => {
+    await assertSucceeds(
+      setDoc(doc(userDb(adminId), "app_config", docId), {
+        min_version_code: "3",
+        store_url: "https://play.google.com/store/apps/details?id=com.iqmarket.app"
+      })
+    );
+  });
+});
+
+

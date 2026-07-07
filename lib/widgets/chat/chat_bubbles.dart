@@ -364,25 +364,28 @@ class _ChatBubbleState extends State<ChatBubble> {
 
   Color _getStatusColor(String status) {
     switch (status) {
-      case 'accepted': return const Color(0xFF10B981);
-      case 'rejected': return const Color(0xFFEF4444);
-      default: return Colors.orange;
+      case 'accepted':  return const Color(0xFF10B981);
+      case 'rejected':  return const Color(0xFFEF4444);
+      case 'cancelled': return const Color(0xFF94A3B8); // grey — buyer cancelled/replaced
+      default:          return Colors.orange;
     }
   }
 
   IconData _getStatusIcon(String status) {
     switch (status) {
-      case 'accepted': return Icons.check_circle_rounded;
-      case 'rejected': return Icons.cancel_rounded;
-      default: return Icons.access_time_filled_rounded;
+      case 'accepted':  return Icons.check_circle_rounded;
+      case 'rejected':  return Icons.cancel_rounded;
+      case 'cancelled': return Icons.remove_circle_outline_rounded;
+      default:          return Icons.access_time_filled_rounded;
     }
   }
 
   String _getStatusText(String status) {
     switch (status) {
-      case 'accepted': return TranslationService.t('offer_accepted', widget.lang);
-      case 'rejected': return TranslationService.t('offer_rejected', widget.lang);
-      default: return TranslationService.t('offer_pending', widget.lang);
+      case 'accepted':  return TranslationService.t('offer_accepted', widget.lang);
+      case 'rejected':  return TranslationService.t('offer_rejected', widget.lang);
+      case 'cancelled': return TranslationService.t('offer_cancelled', widget.lang);
+      default:          return TranslationService.t('offer_pending', widget.lang);
     }
   }
 }
