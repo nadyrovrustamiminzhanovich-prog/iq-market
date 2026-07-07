@@ -8,8 +8,14 @@ service firebase.storage {
     }
 
     function isAdmin() {
+      let userDoc = firestore.get(/databases/(default)/documents/users/$(request.auth.uid));
       return ('admin' in request.auth.token && request.auth.token.admin == true) || 
-             firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.accountType == 'admin';
+             (userDoc != null && 'accountType' in userDoc.data && userDoc.data.accountType == 'admin');
+    }
+
+    function isChatParticipant(chatId) {
+      let chatDoc = firestore.get(/databases/(default)/documents/chats/$(chatId));
+      return chatDoc != null && 'users' in chatDoc.data && request.auth.uid in chatDoc.data.users;
     }
 
     // Медиафайлы объявлений (ads/images, ads/videos)
@@ -56,10 +62,17 @@ service firebase.storage {
                    && request.resource.contentType.matches('image/.*');
     }
     match /avatars/{userId}/{allPaths=**} {
-      allow read: if true;
+      allow read: if isSignedIn();
       allow write: if isSignedIn() && request.auth.uid == userId
                    && request.resource.size < 5 * 1024 * 1024
                    && request.resource.contentType.matches('image/.*');
+    }
+
+    // Вложения чатов (chats)
+    match /chats/{chatId}/{allPaths=**} {
+      allow read: if isSignedIn() && (isChatParticipant(chatId) || isAdmin());
+      allow write: if isSignedIn() && isChatParticipant(chatId)
+                    && (request.resource == null || request.resource.size < 20 * 1024 * 1024);
     }
 
     // Резервное правило для остальных загрузок

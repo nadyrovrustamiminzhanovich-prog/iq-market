@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:iqmarket/services/analytics_service.dart';
 
 class FileService {
   static final FirebaseStorage _storage = FirebaseStorage.instance;
@@ -76,8 +78,9 @@ class FileService {
         final url = await snapshot.ref.getDownloadURL();
         debugPrint('FileService: Upload success (attempt $attempt): $url');
         return url;
-      } catch (e) {
+      } catch (e, stack) {
         debugPrint('FileService: Upload attempt $attempt failed: $e');
+        AnalyticsService.logStoragePermissionError(e, stack, folder);
         if (attempt < maxRetries) {
           // Exponential backoff: 2s, 4s, 8s
           final delay = Duration(seconds: 2 * attempt);

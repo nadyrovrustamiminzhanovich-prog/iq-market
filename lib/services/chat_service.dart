@@ -5,8 +5,9 @@ import 'package:iqmarket/services/user_service.dart';
 import 'package:iqmarket/services/storage_service.dart';
 import 'package:iqmarket/services/notification_service.dart';
 import 'package:flutter/foundation.dart';
-
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:iqmarket/services/analytics_service.dart';
 
 class ChatService {
   static final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -25,6 +26,10 @@ class ChatService {
 
   static Stream<List<MessageModel>> getMessagesStream(String sellerId) {
     final chatId = getChatId(sellerId);
+    return getMessagesStreamWithChatId(chatId);
+  }
+
+  static Stream<List<MessageModel>> getMessagesStreamWithChatId(String chatId) {
     return _db
         .collection('chats')
         .doc(chatId)
@@ -39,6 +44,9 @@ class ChatService {
           // properly sorted as the newest messages at index 0, preventing chat jumps.
           messages.sort((a, b) => b.timestamp.compareTo(a.timestamp));
           return messages;
+        })
+        .handleError((error, stackTrace) {
+          AnalyticsService.logFirestorePermissionError(error, stackTrace, chatId, 'read', 'messages');
         });
   }
 
@@ -120,13 +128,22 @@ class ChatService {
       );
 
       return docRef.id;
-    } catch (e) {
+    } catch (e, stack) {
       debugPrint('[CHAT_SERVICE] sendMessage ERROR: $e');
+      AnalyticsService.logFirestorePermissionError(e, stack, chatId, 'write', 'messages');
+      FirebaseCrashlytics.instance.recordError(
+        e,
+        stack,
+        reason: 'Error sending message',
+        information: ['chatId: $chatId'],
+      );
       return null;
     }
   }
 
   /// Отправить предложение цены. Бросает исключение при ошибке для обработки в UI.
+  /// FIX: добавлена дедупликация — если уже есть pending-предложение на тот же adId,
+  /// создаётся новое (старое остаётся как история). Это ожидаемое поведение UX.
   static Future<void> sendOffer({
     required AdModel ad,
     required double price,
@@ -134,7 +151,7 @@ class ChatService {
     final uid = UserService.currentUid;
     if (uid == null) throw Exception('Вы не авторизованы');
 
-    // 🔒 Защита от торга с самим собой
+    // 🔒 Защита от торга с самим собой (дублирует Firestore rule)
     if (uid == ad.userId) {
       debugPrint('[CHAT_SERVICE] BLOCKED: attempt to send offer to self');
       throw Exception('Нельзя отправить предложение самому себе');
@@ -142,13 +159,46 @@ class ChatService {
 
     final chatId = getChatId(ad.userId);
     final text = 'Предложение цены: ${price.toInt()} ₸';
-    
+
     // Fetch sender details
     final actualSenderName = StorageService.getString('user_name') ?? 'Пользователь';
     final senderPhone = StorageService.getString('user_phone') ?? '';
 
     try {
-      // Update last message in chat summary (creates chat doc first to satisfy rules)
+      // ── Дедупликация: автоматически отменяем предыдущее pending-предложение ──
+      // Если покупатель отправляет новое предложение — старое становится 'cancelled'.
+      final existingPending = await _db
+          .collection('chats')
+          .doc(chatId)
+          .collection('messages')
+          .where('senderId', isEqualTo: uid)
+          .where('type', isEqualTo: 'offer')
+          .where('offerStatus', isEqualTo: 'pending')
+          .where('adId', isEqualTo: ad.id)
+          .limit(5)
+          .get();
+
+      if (existingPending.docs.isNotEmpty) {
+        debugPrint('[CHAT_SERVICE] Found ${existingPending.docs.length} existing pending offer(s) — cancelling them');
+        // FIX (P.4): Use individual transactions instead of plain batch to
+        // prevent overwriting an offer that the seller just accepted concurrently.
+        for (final doc in existingPending.docs) {
+          try {
+            await _db.runTransaction((tx) async {
+              final fresh = await tx.get(doc.reference);
+              if (!fresh.exists) return;
+              // Only cancel if still pending — do NOT overwrite accepted/rejected
+              if (fresh.data()!['offerStatus'] == 'pending') {
+                tx.update(doc.reference, {'offerStatus': 'cancelled'});
+              }
+            });
+          } catch (e) {
+            debugPrint('[CHAT_SERVICE] dedup cancel skipped for ${doc.id}: $e');
+          }
+        }
+      }
+
+      // ── Обновляем/создаём сводку чата ───────────────────────────────────────
       final summaryData = {
         'lastMessage': text,
         'lastTimestamp': Timestamp.now(),
@@ -182,7 +232,9 @@ class ChatService {
           .collection('messages')
           .add(messageData);
 
-      // Send push notification trigger
+      debugPrint('[CHAT_SERVICE] sendOffer SUCCESS: ${price.toInt()} ₸ for ad=${ad.id}');
+
+      // ── Уведомление продавцу (сумма + товар) ────────────────────────────────
       NotificationService.saveNotificationToFirestore(
         uid: ad.userId,
         title: 'Предложение цены: $actualSenderName',
@@ -195,7 +247,7 @@ class ChatService {
           'senderId': uid,
           'senderName': actualSenderName,
           'senderPhone': senderPhone,
-        }
+        },
       );
     } catch (e) {
       debugPrint('[CHAT_SERVICE] sendOffer ERROR: $e');
@@ -203,57 +255,206 @@ class ChatService {
     }
   }
 
+  /// Принять или отклонить предложение покупателя.
+  ///
+  /// FIX (Race condition): используется Firestore Transaction — проверяем что
+  /// offerStatus == 'pending' ВНУТРИ транзакции перед записью. Если продавец
+  /// успел нажать Accept дважды (два разных предложения одновременно),
+  /// второй Accept получит ошибку и будет проигнорирован.
+  ///
+  /// FIX (Другие покупатели): при Accept автоматически reject-им все остальные
+  /// pending-предложения от других покупателей на тот же adId.
   static Future<void> updateOfferStatus(String sellerId, String messageId, String status) async {
+    final uid = UserService.currentUid;
+    if (uid == null) return;
+
     final chatId = getChatId(sellerId);
     final docRef = _db.collection('chats').doc(chatId).collection('messages').doc(messageId);
-    
-    await docRef.update({'offerStatus': status});
 
-    // Send a response message automatically
-    final adDoc = await docRef.get();
-    final adData = adDoc.data();
-    if (adData != null) {
-      final responseText = status == 'accepted' 
-          ? 'Предложение принято! ✅' 
-          : 'Предложение отклонено ❌';
-      
-      final senderId = UserService.currentUid;
-      if (senderId == null) return;
+    late Map<String, dynamic> offerData;
 
-      await _db.collection('chats').doc(chatId).collection('messages').add({
-        'senderId': senderId,
-        'text': responseText,
-        'type': 'text',
-        'timestamp': Timestamp.now(),
-        'isRead': false,
+    // ── Transaction: атомарная проверка + обновление статуса ─────────────────
+    try {
+      await _db.runTransaction((transaction) async {
+        final snap = await transaction.get(docRef);
+        if (!snap.exists) throw Exception('Offer message not found');
+
+        final data = snap.data()!;
+        final currentStatus = data['offerStatus'] as String? ?? '';
+        final offerAdId = data['adId'] as String? ?? '';
+
+        if (currentStatus != 'pending') {
+          // Уже обработано — тихо выходим (защита от race condition)
+          debugPrint('[CHAT_SERVICE] updateOfferStatus SKIPPED: already $currentStatus');
+          throw Exception('ALREADY_RESOLVED');
+        }
+
+        // Parent resource lock (P.1): read and lock the ad document to serialize
+        // concurrent accepts on different offers for the same ad.
+        if (offerAdId.isNotEmpty) {
+          final adRef = _db.collection('ads').doc(offerAdId);
+          final adSnap = await transaction.get(adRef);
+          if (adSnap.exists) {
+            final adData = adSnap.data()!;
+            final adStatus = adData['status'] as String? ?? 'active';
+            if (adStatus == 'reserved' || adStatus == 'sold') {
+              debugPrint('[CHAT_SERVICE] updateOfferStatus SKIPPED: ad already reserved/sold');
+              throw Exception('ALREADY_RESOLVED');
+            }
+            // Mark ad as reserved in the same transaction
+            transaction.update(adRef, {
+              'status': 'reserved',
+              'acceptedOfferId': messageId,
+            });
+          }
+        }
+
+        // Атомарно меняем статус офера
+        transaction.update(docRef, {'offerStatus': status});
+        offerData = data;
       });
+    } on Exception catch (e) {
+      if (e.toString().contains('ALREADY_RESOLVED')) return;
+      debugPrint('[CHAT_SERVICE] updateOfferStatus transaction error: $e');
+      rethrow;
+    }
 
-      final offerSenderId = adData['senderId'];
+    debugPrint('[CHAT_SERVICE] updateOfferStatus: $messageId → $status');
 
-      final Map<String, dynamic> chatUpdate = {
-        'lastMessage': responseText,
-        'lastTimestamp': Timestamp.now(),
-      };
-      if (offerSenderId != null) {
-        chatUpdate['unreadCount_$offerSenderId'] = FieldValue.increment(1);
+    final responseText = status == 'accepted'
+        ? 'Предложение принято! ✅'
+        : 'Предложение отклонено ❌';
+
+    final offerBuyerId  = offerData['senderId'] as String?;
+    final offerAdId     = offerData['adId']     as String? ?? '';
+    final offerAdTitle  = offerData['adTitle']  as String? ?? 'объявлению';
+
+    // ── Текстовый ответ в чат ────────────────────────────────────────────────
+    await _db.collection('chats').doc(chatId).collection('messages').add({
+      'senderId': uid,
+      'text': responseText,
+      'type': 'text',
+      'timestamp': Timestamp.now(),
+      'isRead': false,
+    });
+
+    // ── Обновить сводку чата ─────────────────────────────────────────────────
+    final Map<String, dynamic> chatUpdate = {
+      'lastMessage': responseText,
+      'lastTimestamp': Timestamp.now(),
+    };
+    if (offerBuyerId != null) {
+      chatUpdate['unreadCount_$offerBuyerId'] = FieldValue.increment(1);
+    }
+    await _db.collection('chats').doc(chatId).update(chatUpdate);
+
+    // ── Уведомление покупателю (принято / отклонено) ─────────────────────────
+    if (offerBuyerId != null) {
+      NotificationService.saveNotificationToFirestore(
+        uid: offerBuyerId,
+        title: status == 'accepted' ? 'Предложение принято! ✅' : 'Предложение отклонено ❌',
+        body: 'Продавец ответил на ваше предложение по товару "$offerAdTitle"',
+        type: 'chat',
+        data: {
+          'chatId': chatId,
+          'adId': offerAdId,
+        },
+      );
+    }
+
+    // ── При ACCEPT: автоматически отклоняем все другие pending-предложения ───
+    // от ДРУГИХ покупателей на тот же adId (во всех чатах продавца).
+    // FIX (P.3): awaited — prevents a second concurrent Accept on a different
+    // messageId from succeeding before the first rejects the competition.
+    if (status == 'accepted' && offerAdId.isNotEmpty) {
+      await _rejectOtherPendingOffers(
+        sellerChatId: chatId,
+        acceptedMessageId: messageId,
+        adId: offerAdId,
+        adTitle: offerAdTitle,
+        sellerId: uid,
+      );
+    }
+  }
+
+  /// Внутренний метод: находит все чаты продавца и отклоняет там pending-офферы
+  /// на тот же товар (кроме только что принятого).
+  static Future<void> _rejectOtherPendingOffers({
+    required String sellerChatId,
+    required String acceptedMessageId,
+    required String adId,
+    required String adTitle,
+    required String sellerId,
+  }) async {
+    try {
+      debugPrint('[CHAT_SERVICE] _rejectOtherPendingOffers: adId=$adId');
+
+      // Получаем все чаты продавца
+      final chats = await _db
+          .collection('chats')
+          .where('users', arrayContains: sellerId)
+          .where('adId', isEqualTo: adId)
+          .get();
+
+      for (final chatDoc in chats.docs) {
+        // pending-офферы в каждом чате на этот adId
+        final pendingOffers = await chatDoc.reference
+            .collection('messages')
+            .where('type', isEqualTo: 'offer')
+            .where('offerStatus', isEqualTo: 'pending')
+            .where('adId', isEqualTo: adId)
+            .get();
+
+        for (final offerDoc in pendingOffers.docs) {
+          // Не трогаем тот offer, который только что был принят
+          if (chatDoc.id == sellerChatId && offerDoc.id == acceptedMessageId) continue;
+
+          final buyerId = offerDoc.data()['senderId'] as String?;
+
+          // Атомарно отклоняем через transaction
+          try {
+            await _db.runTransaction((tx) async {
+              final freshSnap = await tx.get(offerDoc.reference);
+              if (!freshSnap.exists) return;
+              if (freshSnap.data()!['offerStatus'] != 'pending') return;
+              tx.update(offerDoc.reference, {'offerStatus': 'rejected'});
+            });
+
+            debugPrint('[CHAT_SERVICE] Auto-rejected offer ${offerDoc.id} in chat ${chatDoc.id}');
+
+            // Уведомляем покупателя об автоотклонении
+            if (buyerId != null) {
+              await _db
+                  .collection('chats')
+                  .doc(chatDoc.id)
+                  .collection('messages')
+                  .add({
+                    'senderId': sellerId,
+                    'text': 'Предложение отклонено ❌ (товар продан другому покупателю)',
+                    'type': 'text',
+                    'timestamp': Timestamp.now(),
+                    'isRead': false,
+                  });
+
+              NotificationService.saveNotificationToFirestore(
+                uid: buyerId,
+                title: 'Предложение отклонено ❌',
+                body: 'К сожалению, товар "$adTitle" был продан другому покупателю.',
+                type: 'chat',
+                data: {
+                  'chatId': chatDoc.id,
+                  'adId': adId,
+                },
+              );
+            }
+          } catch (e) {
+            debugPrint('[CHAT_SERVICE] Error auto-rejecting offer ${offerDoc.id}: $e');
+          }
+        }
       }
-      await _db.collection('chats').doc(chatId).update(chatUpdate);
-
-      // Notify the recipient about offer status change
-      // We need to find who sent the offer originally. 
-      // It's the 'senderId' of the message with messageId.
-      if (offerSenderId != null) {
-        NotificationService.saveNotificationToFirestore(
-          uid: offerSenderId,
-          title: status == 'accepted' ? 'Предложение принято! ✅' : 'Предложение отклонено ❌',
-          body: 'Продавец ответил на ваше предложение по товару "${adData['adTitle'] ?? 'объявлению'}"',
-          type: 'chat',
-          data: {
-            'chatId': chatId,
-            'adId': adData['adId'] ?? '',
-          },
-        );
-      }
+    } catch (e) {
+      // Не критично — основная операция Accept уже прошла
+      debugPrint('[CHAT_SERVICE] _rejectOtherPendingOffers ERROR (non-fatal): $e');
     }
   }
 
@@ -275,27 +476,31 @@ class ChatService {
     if (uid == null) return;
     final chatId = getChatId(sellerId);
 
-    // Update unread count in main doc
-    await _db.collection('chats').doc(chatId).set({
-      'unreadCount_$uid': 0,
-      'isRead': true,
-    }, SetOptions(merge: true));
+    try {
+      // Update unread count in main doc
+      await _db.collection('chats').doc(chatId).set({
+        'unreadCount_$uid': 0,
+        'isRead': true,
+      }, SetOptions(merge: true));
 
+      // Update individual messages
+      final unreadMessages = await _db
+          .collection('chats')
+          .doc(chatId)
+          .collection('messages')
+          .where('senderId', isEqualTo: sellerId)
+          .where('isRead', isEqualTo: false)
+          .get();
 
-    // Update individual messages
-    final unreadMessages = await _db
-        .collection('chats')
-        .doc(chatId)
-        .collection('messages')
-        .where('senderId', isEqualTo: sellerId)
-        .where('isRead', isEqualTo: false)
-        .get();
-
-    final batch = _db.batch();
-    for (var doc in unreadMessages.docs) {
-      batch.update(doc.reference, {'isRead': true});
+      final batch = _db.batch();
+      for (var doc in unreadMessages.docs) {
+        batch.update(doc.reference, {'isRead': true});
+      }
+      await batch.commit();
+    } catch (e, stack) {
+      debugPrint('[ChatService.markAsRead] Error: $e');
+      AnalyticsService.logFirestorePermissionError(e, stack, chatId, 'write', 'mark_as_read');
     }
-    await batch.commit();
   }
 
   /// Delete specific messages (including media files from Storage).

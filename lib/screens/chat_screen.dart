@@ -26,6 +26,9 @@ import 'package:iqmarket/services/notification_service.dart';
 import 'package:iqmarket/screens/seller_profile_screen.dart';
 
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:iqmarket/services/analytics_service.dart';
 
 import 'package:gal/gal.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -38,7 +41,8 @@ import '../widgets/chat/chat_input.dart';
 
 class ChatScreen extends StatefulWidget {
   final AdModel ad;
-  const ChatScreen({super.key, required this.ad});
+  final String? chatId;
+  const ChatScreen({super.key, required this.ad, this.chatId});
   @override
   State<ChatScreen> createState() => _ChatScreenState();
 }
@@ -76,6 +80,9 @@ class _ChatScreenState extends State<ChatScreen> {
   StreamSubscription? _audioDurationSub;
   StreamSubscription? _audioCompleteSub;
 
+  bool _isChatValidating = false;
+  bool _isAccessDenied = false;
+
   final List<String> _emojis = [
     '😀','😃','😄','😁','😆','😅','😂','🤣','😊','😇','🙂','🙃','😉','😌','😍','🥰','😘','😗','😙','😚','😋','😛','😝','😜','🤪','🤨','🧐','🤓','😎','🤩','🥳','😏','😒','😞','😔','😟','😕','🙁','☹️','😣','😖','😫','😩','🥺','😢','😭','😤','😠','😡','🤬','🤯','😳','🥵','🥶','😱','😨','😰','😥','😓','🤗','🤔','🤭','🤫','🤥','😶','😐','😑','😬','🙄','😯','😦','😧','😮','😲','🥱','😴','🤤','😪','😵','🤐','🥴','🤢','🤮','🤧','😷','🤒','🤕','🤑','🤠','😈','👿','👹','👺','🤡','💩','👻','💀','☠️','👽','👾','🤖','🎃','😺','😸','😹','😻','😼','😽','🙀','😿','😾','🔥','✨','🌟','💯','👍','👎','❤️','💔','✔️','❌'
   ];
@@ -95,15 +102,13 @@ class _ChatScreenState extends State<ChatScreen> {
         audioFocus: AndroidAudioFocus.gain,
       ),
       iOS: AudioContextIOS(
-        // defaultToSpeaker разрешён только с playAndRecord — убираем его.
-        // playback сам по себе воспроизводит через основной динамик.
         category: AVAudioSessionCategory.playback,
         options: {},
       ),
     ));
     
     final otherId = widget.ad.userId;
-    _messagesStream = ChatService.getMessagesStream(otherId);
+    final explicitChatId = widget.chatId;
 
     _audioPositionSub = _audioPlayer.onPositionChanged.listen((p) {
       if (mounted) setState(() => _currentPos = p);
@@ -115,15 +120,28 @@ class _ChatScreenState extends State<ChatScreen> {
       if (mounted) setState(() => _currentPlayingId = null);
     });
     
-    ChatService.activeChatId = ChatService.getChatId(otherId);
-    if (UserService.currentUid != null) {
-      ChatService.markAsRead(otherId);
-      ChatService.updateOnlineStatus(otherId, true);
-    }
+    _isChatValidating = true;
+    _validateChatId(explicitChatId != null && explicitChatId.isNotEmpty
+        ? explicitChatId
+        : ChatService.getChatId(otherId));
     _loadUserNames();
+  }
 
-    // Listen for online/typing presence of the other user
-    final chatId = ChatService.getChatId(otherId);
+  void _loadUserNames() async {
+    final me = await UserService.getUserById(UserService.currentUid ?? '');
+    if (me != null && mounted) setState(() => _currentUserName = me.name);
+
+    final seller = await UserService.getUserById(widget.ad.userId);
+    if (seller != null && mounted) {
+      setState(() {
+        _sellerAvatarUrl = seller.photoUrl;
+        _otherUserPhone = seller.phone;
+      });
+    }
+  }
+
+  void _subscribeToPresence(String chatId) {
+    final otherId = widget.ad.userId;
     _presenceSubscription = FirebaseFirestore.instance
         .collection('chats')
         .doc(chatId)
@@ -140,16 +158,115 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
-  void _loadUserNames() async {
-    final me = await UserService.getUserById(UserService.currentUid ?? '');
-    if (me != null && mounted) setState(() => _currentUserName = me.name);
+  void _validateChatId(String chatId) async {
+    final uid = UserService.currentUid;
+    if (uid == null) {
+      if (mounted) setState(() { _isChatValidating = false; _isAccessDenied = true; });
+      return;
+    }
 
-    final seller = await UserService.getUserById(widget.ad.userId);
-    if (seller != null && mounted) {
-      setState(() {
-        _sellerAvatarUrl = seller.photoUrl;
-        _otherUserPhone = seller.phone;
-      });
+    try {
+      final docSnap = await FirebaseFirestore.instance.collection('chats').doc(chatId).get();
+      if (!docSnap.exists) {
+        debugPrint('[CHAT_SECURITY] Chat $chatId not found. Falling back to default chatId.');
+        if (mounted) {
+          setState(() {
+            _isChatValidating = false;
+            _messagesStream = ChatService.getMessagesStream(widget.ad.userId);
+            ChatService.activeChatId = ChatService.getChatId(widget.ad.userId);
+          });
+          _subscribeToPresence(ChatService.activeChatId!);
+          
+          AnalyticsService.logPushNavigation('chat_fallback_triggered', extra: {
+            'attempted_chat_id': chatId,
+            'fallback_chat_id': ChatService.activeChatId ?? '',
+            'is_from_push': widget.chatId != null ? 'true' : 'false'
+          });
+          AnalyticsService.logPushNavigation('chat_opened', extra: {
+            'chat_id': ChatService.activeChatId ?? '',
+            'mode': 'fallback',
+            'is_from_push': widget.chatId != null ? 'true' : 'false'
+          });
+
+          // ✅ Fallback на стандартный chatId (собственный детерминированный ID).
+          // markAsRead вызывается ТОЛЬКО здесь — после безопасного fallback.
+          // Fallback не может привести в чужой чат: getChatId(otherId) детерминирован
+          // через sorted([currentUid, otherId]).join('_'), клиент не контролирует результат.
+          if (UserService.currentUid != null) {
+            ChatService.markAsRead(widget.ad.userId);
+            ChatService.updateOnlineStatus(widget.ad.userId, true);
+          }
+        }
+        return;
+      }
+
+      final List<dynamic> users = docSnap.data()?['users'] ?? [];
+      if (!users.contains(uid)) {
+        debugPrint('[CHAT_SECURITY] SECURITY WARNING: User $uid tried to access chat $chatId but is not a participant!');
+        
+        AnalyticsService.logPushNavigation('chat_access_denied', extra: {
+          'chat_id': chatId,
+          'uid': uid,
+          'is_from_push': widget.chatId != null ? 'true' : 'false'
+        });
+
+        if (mounted) {
+          setState(() {
+            _isChatValidating = false;
+            _isAccessDenied = true;
+          });
+          // ✅ НЕ вызываем markAsRead — пользователь не является участником
+        }
+        return;
+      }
+
+      // Valid participant! Load stream and presence sync
+      if (mounted) {
+        setState(() {
+          _isChatValidating = false;
+          _messagesStream = ChatService.getMessagesStreamWithChatId(chatId);
+          ChatService.activeChatId = chatId;
+        });
+        _subscribeToPresence(chatId);
+
+        AnalyticsService.logPushNavigation('chat_validated_success', extra: {'chat_id': chatId});
+        AnalyticsService.logPushNavigation('chat_opened', extra: {
+          'chat_id': chatId,
+          'mode': 'validated',
+          'is_from_push': widget.chatId != null ? 'true' : 'false'
+        });
+
+        // ✅ markAsRead / updateOnlineStatus — только после подтверждения участия
+        if (UserService.currentUid != null) {
+          ChatService.markAsRead(widget.ad.userId);
+          ChatService.updateOnlineStatus(widget.ad.userId, true);
+        }
+      }
+    } catch (e, stack) {
+      debugPrint('[CHAT_SECURITY] Error validating chatId: $e');
+      if (e is FirebaseException && e.code == 'permission-denied') {
+        AnalyticsService.logPermissionDenied(
+          chatId: chatId,
+          operation: 'read',
+          type: 'chat_doc',
+        );
+      }
+      FirebaseCrashlytics.instance.recordError(
+        e,
+        stack,
+        reason: 'Error validating chatId',
+        information: [
+          'chatId: $chatId',
+          'otherId: ${widget.ad.userId}',
+          'isFromPush: ${widget.chatId != null ? "true" : "false"}',
+        ],
+      );
+      if (mounted) {
+        setState(() {
+          _isChatValidating = false;
+          _isAccessDenied = true;
+        });
+      }
     }
   }
 
@@ -171,7 +288,8 @@ class _ChatScreenState extends State<ChatScreen> {
     _scrollController.dispose();
     _msgFocusNode.dispose();
     ChatService.updateTypingStatus(widget.ad.userId, false);
-    if (ChatService.activeChatId == ChatService.getChatId(widget.ad.userId)) {
+    final expectedChatId = widget.chatId ?? ChatService.getChatId(widget.ad.userId);
+    if (ChatService.activeChatId == expectedChatId) {
       ChatService.activeChatId = null;
       ChatService.updateOnlineStatus(widget.ad.userId, false);
     }
@@ -284,7 +402,9 @@ class _ChatScreenState extends State<ChatScreen> {
           final url = await snapshot.ref.getDownloadURL();
           ChatService.updateMessage(widget.ad.userId, msgId, {'mediaUrl': url});
           if (mounted) setState(() { _activeUploads.remove(msgId); });
-        }).catchError((e) {
+        }).catchError((e, stack) {
+          final String cid = ChatService.getChatId(widget.ad.userId);
+          AnalyticsService.logStoragePermissionError(e, stack, 'voice_messages/$cid');
           if (mounted) {
             setState(() { _activeUploads.remove(msgId); });
             // P8 FIX: inform user that voice upload failed so they can retry
@@ -547,7 +667,15 @@ class _ChatScreenState extends State<ChatScreen> {
             SnackBar(content: Text(TranslationService.t('errLoadPhoto', lang)), backgroundColor: Colors.redAccent, behavior: SnackBarBehavior.floating),
           );
         }
-      } catch (e) {
+      } catch (e, stack) {
+        final String cid = ChatService.getChatId(widget.ad.userId);
+        AnalyticsService.logStoragePermissionError(e, stack, 'chat_media/$cid');
+        FirebaseCrashlytics.instance.recordError(
+          e,
+          stack,
+          reason: 'Error sending photo in chat',
+          information: ['chatId: $cid'],
+        );
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(TranslationService.t('errPrefix', lang).replaceAll('{error}', e.toString())), backgroundColor: Colors.redAccent, behavior: SnackBarBehavior.floating),
@@ -561,6 +689,53 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget build(BuildContext context) {
     final config = Provider.of<AppConfigProvider>(context);
     final lang = config.language;
+
+    if (_isChatValidating) {
+      return const Scaffold(
+        backgroundColor: Color(0xFFF1F5F9),
+        body: Center(
+          child: CircularProgressIndicator(color: Color(0xFF4A80F0)),
+        ),
+      );
+    }
+
+    if (_isAccessDenied) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF1F5F9),
+        appBar: AppBar(
+          title: Text(TranslationService.t('chat', lang)),
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.black87),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.lock_outline_rounded, size: 64, color: Colors.redAccent),
+                const SizedBox(height: 16),
+                Text(
+                  'Чат недоступен',
+                  style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.redAccent),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'У вас нет доступа к этому чату или он был удален.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.inter(fontSize: 14, color: Colors.grey[600]),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     final isBlocked = config.isUserBlocked(widget.ad.userId);
     const chatBg = Color(0xFFF1F5F9); 
     const myBubbleColor = Color(0xFF3B82F6);

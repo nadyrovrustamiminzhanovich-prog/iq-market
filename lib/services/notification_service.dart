@@ -3,11 +3,13 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:iqmarket/models/notification_model.dart';
 import 'package:iqmarket/services/user_service.dart';
 import 'package:iqmarket/services/storage_service.dart';
 import 'package:iqmarket/services/chat_service.dart';
 import 'package:iqmarket/services/ad_service.dart';
+import 'package:iqmarket/services/analytics_service.dart';
 import 'package:iqmarket/models/ad_model.dart';
 import 'package:iqmarket/screens/chat_screen.dart';
 import 'package:iqmarket/screens/taxi/taxi_service_screen.dart';
@@ -53,9 +55,20 @@ class NotificationService {
             final Map<String, dynamic> data = Map<String, dynamic>.from(
               Uri.splitQueryString(response.payload!)
             );
+            AnalyticsService.logPushNavigation('push_tapped', extra: {
+              'source': 'local_notification',
+              'chat_id': data['chatId'] ?? '',
+              'sender_id': data['senderId'] ?? ''
+            });
             _navigateToChat(data);
-          } catch (e) {
+          } catch (e, stack) {
             debugPrint('Error parsing notification payload: $e');
+            FirebaseCrashlytics.instance.recordError(
+              e,
+              stack,
+              reason: 'Error parsing local notification payload',
+              information: ['payload: ${response.payload}'],
+            );
           }
         }
       },
@@ -66,7 +79,11 @@ class NotificationService {
 
     FirebaseMessaging.onMessageOpenedApp.listen((message) {
       debugPrint('Notification opened from background: ${message.notification?.title}');
-      // Navigator is always ready here (app was backgrounded, not terminated)
+      AnalyticsService.logPushNavigation('push_tapped', extra: {
+        'source': 'background_tap',
+        'chat_id': message.data['chatId'] ?? '',
+        'sender_id': message.data['senderId'] ?? ''
+      });
       _navigateToChat(message.data);
     });
 
@@ -77,6 +94,11 @@ class NotificationService {
     final RemoteMessage? initialMessage = await _messaging.getInitialMessage();
     if (initialMessage != null) {
       debugPrint('[FCM] Terminated-state launch detected');
+      AnalyticsService.logPushNavigation('push_tapped', extra: {
+        'source': 'terminated_tap',
+        'chat_id': initialMessage.data['chatId'] ?? '',
+        'sender_id': initialMessage.data['senderId'] ?? ''
+      });
       if (navigatorKey.currentState != null) {
         debugPrint('[FCM] Navigator is ready, navigating directly');
         _navigateToChat(initialMessage.data);
@@ -172,8 +194,9 @@ class NotificationService {
     final senderId = data['senderId'] ?? '';
     final senderName = data['senderName'] ?? 'Пользователь';
     final senderPhone = data['senderPhone'] ?? '';
+    final chatId = data['chatId'] ?? '';
 
-    debugPrint('Navigating to chat with senderId: $senderId, adId: $adId');
+    debugPrint('Navigating to chat with senderId: $senderId, adId: $adId, chatId: $chatId');
 
     if (senderId.isEmpty) {
       debugPrint('Warning: senderId is empty, cannot navigate to chat');
@@ -201,7 +224,7 @@ class NotificationService {
     }
 
     navigatorKey.currentState?.push(
-      MaterialPageRoute(builder: (_) => ChatScreen(ad: ad)),
+      MaterialPageRoute(builder: (_) => ChatScreen(ad: ad, chatId: chatId.isNotEmpty ? chatId : null)),
     );
   }
 
@@ -242,8 +265,18 @@ class NotificationService {
         'type': type,
         'payload': data,
       });
-    } catch (e) {
+    } catch (e, stack) {
       debugPrint('[NotificationService] Error saving notification: $e');
+      FirebaseCrashlytics.instance.recordError(
+        e,
+        stack,
+        reason: 'Error saving notification to Firestore',
+        information: [
+          'title: $title',
+          'type: $type',
+          'targetUid: $targetUid'
+        ],
+      );
     }
   }
 
@@ -345,6 +378,12 @@ class NotificationService {
   }
 
   static Future<void> _onForegroundMessage(RemoteMessage message) async {
+    AnalyticsService.logPushNavigation('push_received', extra: {
+      'message_id': message.messageId ?? '',
+      'type': message.data['type'] ?? '',
+      'state': 'foreground'
+    });
+
     await _handleDataMessage(message);
 
     final RemoteNotification? notification = message.notification;
@@ -441,4 +480,9 @@ class NotificationService {
 
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   debugPrint('Handling background message: ${message.messageId}');
+  AnalyticsService.logPushNavigation('push_received', extra: {
+    'message_id': message.messageId ?? '',
+    'type': message.data['type'] ?? '',
+    'state': 'background'
+  });
 }

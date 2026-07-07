@@ -28,7 +28,7 @@ const IMAGE_META = { contentType: "image/jpeg" };
 
 beforeAll(async () => {
   testEnv = await initializeTestEnvironment({
-    projectId: "demo-project",
+    projectId: "iq-market-3dc07",
     firestore: {
       rules: fs.readFileSync("firestore.rules", "utf8"),
       host: "127.0.0.1",
