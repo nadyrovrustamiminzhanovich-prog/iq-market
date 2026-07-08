@@ -4,6 +4,7 @@
 
 const functions = require('firebase-functions/v1');
 const admin     = require('firebase-admin');
+const crypto    = require('crypto');
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -358,3 +359,205 @@ exports.verifyTelegramOtp = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError('internal', error.message || 'Внутренняя ошибка сервера');
   }
 });
+
+// ─── HELPER: isAdActive ──────────────────────────────────────────────────────
+function isAdActive(adData) {
+  if (!adData) return false;
+  const status = (adData.status || '').toLowerCase();
+  
+  if (status === 'rejected' || status === 'sold' || status === 'reserved' || status === 'inactive') {
+    return false;
+  }
+  if (adData.isDeleted === true || adData.deleted === true) {
+    return false;
+  }
+  if (adData.isSold === true || adData.sold === true) {
+    return false;
+  }
+  return true;
+}
+
+// ─── HELPER: Parse Storage path from URL ─────────────────────────────────────
+function getStoragePathFromUrl(urlOrPath) {
+  if (!urlOrPath) return null;
+  if (!urlOrPath.startsWith('http')) {
+    return urlOrPath; // Already a relative path
+  }
+  try {
+    const u = new URL(urlOrPath);
+    const pathname = u.pathname;
+    const parts = pathname.split('/o/');
+    if (parts.length > 1) {
+      return decodeURIComponent(parts[1]);
+    }
+  } catch (e) {
+    console.error('[checkAdFingerprint] Failed to parse URL:', urlOrPath, e);
+  }
+  return null;
+}
+
+// ─── HTTPS CALLABLE: checkAdFingerprint ──────────────────────────────────────
+exports.checkAdFingerprint = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Пользователь должен быть авторизован');
+  }
+
+  const { title, description, imagePaths, adId } = data;
+  if (!title || !description || !adId) {
+    throw new functions.https.HttpsError('invalid-argument', 'Неполные параметры запроса (title, description, adId)');
+  }
+
+  const userId = context.auth.uid;
+
+  // 1. Нормализация текста и генерация SHA-256 (Unicode-безопасно)
+  const normalized = (title + ' ' + description)
+    .toLowerCase()
+    .replace(/[\s\p{P}\p{S}\p{C}]+/gu, '')
+    .replace(/[^\p{L}\p{N}]/gu, '');
+  const textHash = crypto.createHash('sha256').update(normalized).digest('hex');
+
+  // 2. Скачивание изображений и генерация MD5 на сервере
+  const imageHashes = [];
+  const bucket = admin.storage().bucket();
+  const paths = imagePaths || [];
+
+  for (const pathOrUrl of paths) {
+    const storagePath = getStoragePathFromUrl(pathOrUrl);
+    if (!storagePath) continue;
+
+    try {
+      const file = bucket.file(storagePath);
+      const [contents] = await file.download();
+      const hash = crypto.createHash('md5').update(contents).digest('hex');
+      imageHashes.push(hash);
+    } catch (err) {
+      console.warn(`[checkAdFingerprint] Skipping image ${storagePath} due to error:`, err.message);
+    }
+  }
+
+  let verdict = 'CLEAN';
+  let reason = '';
+
+  try {
+    const result = await db.runTransaction(async (transaction) => {
+      // ─── A) READ PHASE ───
+      
+      // Читаем textFingerprints/{textHash}
+      const textFingerprintRef = db.collection('textFingerprints').doc(textHash);
+      const textFingerprintSnap = await transaction.get(textFingerprintRef);
+
+      let existingTextAd = null;
+      let textDuplicateAdId = null;
+      let textDuplicateUserId = null;
+
+      if (textFingerprintSnap.exists) {
+        const textFingerprintData = textFingerprintSnap.data();
+        textDuplicateAdId = textFingerprintData.adId;
+        textDuplicateUserId = textFingerprintData.userId;
+
+        // Делаем проверку только если совпадение НЕ с текущим редактируемым объявлением
+        if (textDuplicateAdId !== adId) {
+          const adRef = db.collection('ads').doc(textDuplicateAdId);
+          const adSnap = await transaction.get(adRef);
+          if (adSnap.exists) {
+            const adData = adSnap.data();
+            if (isAdActive(adData)) {
+              existingTextAd = adData;
+            }
+          }
+        }
+      }
+
+      // Читаем ВСЕ imageFingerprints/{hash}
+      const imageFingerprintSnaps = [];
+      for (const hash of imageHashes) {
+        const imageFingerprintRef = db.collection('imageFingerprints').doc(hash);
+        const imageFingerprintSnap = await transaction.get(imageFingerprintRef);
+        imageFingerprintSnaps.push({ hash, snap: imageFingerprintSnap });
+      }
+
+      const activeImageDuplicates = [];
+      for (const item of imageFingerprintSnaps) {
+        if (item.snap.exists) {
+          const imageFingerprintData = item.snap.data();
+          const imgAdId = imageFingerprintData.adId;
+          const imgUserId = imageFingerprintData.userId;
+
+          if (imgAdId !== adId) {
+            const adRef = db.collection('ads').doc(imgAdId);
+            const adSnap = await transaction.get(adRef);
+            if (adSnap.exists) {
+              const adData = adSnap.data();
+              if (isAdActive(adData)) {
+                activeImageDuplicates.push({ adId: imgAdId, userId: imgUserId, hash: item.hash });
+              }
+            }
+          }
+        }
+      }
+
+      // ─── B) VERDICT CALCULATION ───
+      let localVerdict = 'CLEAN';
+      let localReason = '';
+
+      if (existingTextAd) {
+        if (textDuplicateUserId === userId) {
+          // Возвращаем специальный вердикт без throw, чтобы избежать повторных попыток транзакции
+          return { verdict: 'DUPLICATE_SELF', reason: 'Вы уже опубликовали объявление с таким текстом' };
+        } else {
+          localVerdict = 'MANUAL_REVIEW';
+          localReason = 'Найден дубликат текста у другого пользователя';
+        }
+      }
+
+      if (activeImageDuplicates.length > 0) {
+        localVerdict = 'MANUAL_REVIEW';
+        localReason = `Найдено ${activeImageDuplicates.length} дубликатов изображений`;
+      }
+
+      // ─── C) WRITE PHASE ───
+      if (localVerdict !== 'DUPLICATE_SELF') {
+        const serverTimestamp = admin.firestore.FieldValue.serverTimestamp();
+        
+        // Записываем текстовый отпечаток, если его еще нет
+        if (!textFingerprintSnap.exists) {
+          transaction.set(textFingerprintRef, {
+            adId,
+            userId,
+            createdAt: serverTimestamp
+            // TODO: При удалении/продаже решить: помечать ли неактивным (согласовать позже)
+          });
+        }
+
+        // Записываем новые отпечатки изображений
+        for (const item of imageFingerprintSnaps) {
+          if (!item.snap.exists) {
+            const ref = db.collection('imageFingerprints').doc(item.hash);
+            transaction.set(ref, {
+              adId,
+              userId,
+              createdAt: serverTimestamp
+              // TODO: При удалении/продаже решить: помечать ли неактивным (согласовать позже)
+            });
+          }
+        }
+      }
+
+      return { verdict: localVerdict, reason: localReason };
+    });
+
+    verdict = result.verdict;
+    reason = result.reason;
+  } catch (error) {
+    console.error('[checkAdFingerprint] Transaction failed:', error);
+    throw new functions.https.HttpsError('internal', error.message || 'Ошибка транзакции базы данных');
+  }
+
+  // Выбрасываем ошибку DUPLICATE_SELF клиенту СНАРУЖИ транзакции
+  if (verdict === 'DUPLICATE_SELF') {
+    throw new functions.https.HttpsError('already-exists', 'Вы уже опубликовали точно такое же объявление');
+  }
+
+  return { verdict, reason };
+});
+

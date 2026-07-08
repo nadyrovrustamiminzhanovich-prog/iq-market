@@ -198,7 +198,16 @@ describe("storage: chat_media/{chatId}/", () => {
   const chatId = "aaaa_bbbb";
 
   beforeEach(async () => {
-    await adminUpload(`chat_media/${chatId}/image.jpg`);
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), `chats/${chatId}`), {
+        users: [uid1, uid2],
+      });
+      await uploadBytes(
+        ref(ctx.storage(), `chat_media/${chatId}/image.jpg`),
+        SMALL_IMAGE,
+        IMAGE_META
+      );
+    });
   });
 
   test("первый участник (uid в начале chatId) может читать медиа", async () => {
@@ -260,7 +269,16 @@ describe("storage: voice_messages/{chatId}/", () => {
   const chatId = "aaaa_bbbb";
 
   beforeEach(async () => {
-    await adminUpload(`voice_messages/${chatId}/voice.ogg`);
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), `chats/${chatId}`), {
+        users: [uid1, uid2],
+      });
+      await uploadBytes(
+        ref(ctx.storage(), `voice_messages/${chatId}/voice.ogg`),
+        SMALL_IMAGE,
+        { contentType: "audio/ogg" }
+      );
+    });
   });
 
   test("первый участник может читать голосовое сообщение", async () => {

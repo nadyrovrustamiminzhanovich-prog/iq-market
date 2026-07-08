@@ -50,6 +50,39 @@ class ChatService {
         });
   }
 
+  static Future<void> createChatIfNeeded(AdModel ad) async {
+    final sellerId = ad.userId;
+    final uid = UserService.currentUid;
+    if (uid == null) return;
+    final chatId = getChatId(sellerId);
+
+    try {
+      await _db.runTransaction((transaction) async {
+        final docRef = _db.collection('chats').doc(chatId);
+        final docSnap = await transaction.get(docRef);
+        if (!docSnap.exists) {
+          String actualSenderName = StorageService.getString('user_name') ?? 'Пользователь';
+          final summaryData = {
+            'lastMessage': '',
+            'lastTimestamp': Timestamp.now(),
+            'lastSenderId': '',
+            'isRead': false,
+            'users': [uid, sellerId],
+            'name_$uid': actualSenderName,
+            'name_$sellerId': ad.userName,
+            'adId': ad.id,
+            'adTitle': ad.title,
+            'adImage': ad.images.isNotEmpty ? ad.images.first : '',
+          };
+          transaction.set(docRef, summaryData);
+          debugPrint('[CHAT_SERVICE] createChatIfNeeded: Chat document created via transaction for $chatId');
+        }
+      });
+    } catch (e) {
+      debugPrint('[CHAT_SERVICE] createChatIfNeeded transaction ERROR: $e');
+    }
+  }
+
   /// Отправить текстовое/медиа/голосовое сообщение.
   /// Возвращает ID документа или null при ошибке.
   static Future<String?> sendMessage({

@@ -653,6 +653,7 @@ class _ChatScreenState extends State<ChatScreen> {
     if (file != null) {
       try {
         final chatId = ChatService.getChatId(widget.ad.userId);
+        await ChatService.createChatIfNeeded(widget.ad);
         final url = await FileService.uploadFile(File(file.path), 'chat_media/$chatId');
         if (url != null) {
           final msgId = await ChatService.sendMessage(ad: widget.ad, text: 'Фото', type: 'image', mediaUrl: url, senderName: _currentUserName);

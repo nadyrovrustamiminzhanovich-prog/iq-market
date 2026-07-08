@@ -196,4 +196,36 @@ class AnalyticsService {
       },
     );
   }
+
+  /// Log duplicate check failures (non-fatal Crashlytics and Analytics event)
+  static void logFingerprintCheckFailure({
+    required Object error,
+    required StackTrace stack,
+    required String adId,
+    required String userId,
+    String? errorCode,
+  }) {
+    FirebaseCrashlytics.instance.recordError(
+      error,
+      stack,
+      reason: 'fingerprint_check_failed',
+      fatal: false,
+      information: [
+        'ad_id: $adId',
+        'user_id: $userId',
+        'error_code: ${errorCode ?? 'unknown'}',
+        'timestamp: ${DateTime.now().toUtc().toIso8601String()}',
+      ],
+    );
+
+    logEvent(
+      name: 'fingerprint_check_failed',
+      parameters: {
+        'ad_id': adId.isNotEmpty ? adId : 'unknown',
+        'user_id': userId.isNotEmpty ? userId : 'anonymous',
+        'error_code': errorCode ?? 'unknown',
+        'timestamp_utc': DateTime.now().millisecondsSinceEpoch,
+      },
+    );
+  }
 }

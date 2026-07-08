@@ -18,7 +18,7 @@ beforeAll(async () => {
     projectId: "iq-market-3dc07",
     firestore: {
       rules: fs.readFileSync("firestore.rules", "utf8"),
-      host: "localhost",
+      host: "127.0.0.1",
       port: 8080,
     },
   });
@@ -481,6 +481,57 @@ describe("app_config", () => {
       setDoc(doc(userDb(adminId), "app_config", docId), {
         min_version_code: "3",
         store_url: "https://play.google.com/store/apps/details?id=com.iqmarket.app"
+      })
+    );
+  });
+});
+
+// ──────────────────────────────────────────
+// ТЕСТЫ: fingerprints (text and image)
+// ──────────────────────────────────────────
+describe("fingerprints (text and image)", () => {
+  const textHash = "test_text_hash_123";
+  const imageHash = "test_image_hash_456";
+  const userId = "user_test";
+
+  test("обычный пользователь НЕ может прочитать textFingerprints", async () => {
+    await assertFails(getDoc(doc(userDb(userId), "textFingerprints", textHash)));
+  });
+
+  test("обычный пользователь НЕ может записать в textFingerprints", async () => {
+    await assertFails(
+      setDoc(doc(userDb(userId), "textFingerprints", textHash), {
+        adId: "ad_123",
+        userId: userId,
+        createdAt: new Date(),
+      })
+    );
+  });
+
+  test("обычный пользователь НЕ может прочитать imageFingerprints", async () => {
+    await assertFails(getDoc(doc(userDb(userId), "imageFingerprints", imageHash)));
+  });
+
+  test("обычный пользователь НЕ может записать в imageFingerprints", async () => {
+    await assertFails(
+      setDoc(doc(userDb(userId), "imageFingerprints", imageHash), {
+        adId: "ad_123",
+        userId: userId,
+        createdAt: new Date(),
+      })
+    );
+  });
+
+  test("анонимный пользователь НЕ может прочитать textFingerprints", async () => {
+    await assertFails(getDoc(doc(anonDb(), "textFingerprints", textHash)));
+  });
+
+  test("анонимный пользователь НЕ может записать в textFingerprints", async () => {
+    await assertFails(
+      setDoc(doc(anonDb(), "textFingerprints", textHash), {
+        adId: "ad_123",
+        userId: "some_user",
+        createdAt: new Date(),
       })
     );
   });

@@ -8,14 +8,16 @@ service firebase.storage {
     }
 
     function isAdmin() {
-      let userDoc = firestore.get(/databases/(default)/documents/users/$(request.auth.uid));
       return ('admin' in request.auth.token && request.auth.token.admin == true) || 
-             (userDoc != null && 'accountType' in userDoc.data && userDoc.data.accountType == 'admin');
+             (firestore.get(/databases/(default)/documents/users/$(request.auth.uid)) != null && 
+              'accountType' in firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data && 
+              firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.accountType == 'admin');
     }
 
     function isChatParticipant(chatId) {
-      let chatDoc = firestore.get(/databases/(default)/documents/chats/$(chatId));
-      return chatDoc != null && 'users' in chatDoc.data && request.auth.uid in chatDoc.data.users;
+      return firestore.get(/databases/(default)/documents/chats/$(chatId)) != null && 
+             'users' in firestore.get(/databases/(default)/documents/chats/$(chatId)).data && 
+             request.auth.uid in firestore.get(/databases/(default)/documents/chats/$(chatId)).data.users;
     }
 
     // Медиафайлы объявлений (ads/images, ads/videos)
@@ -30,19 +32,15 @@ service firebase.storage {
 
     // Личные голосовые сообщения вне chats
     match /voice_messages/{chatId}/{allPaths=**} {
-      allow read: if isSignedIn() 
-                   && (chatId.matches('^' + request.auth.uid + '_.*') || chatId.matches('.*_' + request.auth.uid + '$'));
-      allow write: if isSignedIn() 
-                   && (chatId.matches('^' + request.auth.uid + '_.*') || chatId.matches('.*_' + request.auth.uid + '$'))
+      allow read: if isSignedIn() && (isChatParticipant(chatId) || isAdmin());
+      allow write: if isSignedIn() && isChatParticipant(chatId)
                    && (request.resource == null || request.resource.size < 15 * 1024 * 1024);
     }
 
     // Чат медиа (если сохраняются вне chats)
     match /chat_media/{chatId}/{allPaths=**} {
-      allow read: if isSignedIn() 
-                   && (chatId.matches('^' + request.auth.uid + '_.*') || chatId.matches('.*_' + request.auth.uid + '$'));
-      allow write: if isSignedIn() 
-                   && (chatId.matches('^' + request.auth.uid + '_.*') || chatId.matches('.*_' + request.auth.uid + '$'))
+      allow read: if isSignedIn() && (isChatParticipant(chatId) || isAdmin());
+      allow write: if isSignedIn() && isChatParticipant(chatId)
                    && (request.resource == null || request.resource.size < 20 * 1024 * 1024);
     }
 

@@ -1,0 +1,9 @@
+    // Отпечатки текстов объявлений для защиты от дубликатов
+    match /textFingerprints/{docId} {
+      allow read, write: if false;
+    }
+
+    // Отпечатки картинок объявлений для защиты от дубликатов
+    match /imageFingerprints/{docId} {
+      allow read, write: if false;
+    }

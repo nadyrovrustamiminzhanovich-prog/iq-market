@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
@@ -241,10 +242,64 @@ class AdService {
       }
     }
 
-    // 4. Подготовка данных
+    // 4. Подготовка данных и вызов Серверной верификации отпечатков
+    final String savedAdId = initialAdId ?? _adsCollection.doc().id;
     final userData = await UserService.getUserById(user.uid);
     final isAdmin = userData?.accountType == 'admin';
-    final isApproved = moderationVerdict == 'APPROVED' || isAdmin;
+
+    // Исходная активность и статус на основе ИИ-модерации
+    bool finalActive = moderationVerdict == 'APPROVED' || isAdmin;
+    String finalStatus = finalActive ? 'active' : 'pending';
+
+    // Если ИИ одобрил объявление (и пользователь не админ), проверяем на дубликаты
+    if (finalActive && !isAdmin) {
+      if (onStatusUpdate != null) onStatusUpdate('Проверка на дубликаты...');
+      try {
+        final callable = FirebaseFunctions.instance.httpsCallable('checkAdFingerprint');
+        final allImages = [...(existingImages ?? []), ...imageUrls];
+
+        final response = await callable.call({
+          'title': title,
+          'description': description,
+          'imagePaths': allImages,
+          'adId': savedAdId,
+        });
+
+        final String serverVerdict = response.data['verdict'] ?? 'CLEAN';
+        if (serverVerdict == 'MANUAL_REVIEW') {
+          // Если найден дубль у другого пользователя — отправляем на ручную проверку
+          finalActive = false;
+          finalStatus = 'pending';
+          debugPrint('[AdService] Ad fingerprint marked as MANUAL_REVIEW by server.');
+        }
+      } on FirebaseFunctionsException catch (e, stack) {
+        if (e.code == 'already-exists') {
+          throw Exception('Вы уже опубликовали точно такое же объявление');
+        }
+        // Fail-open логирование сбоя проверки на дубликаты
+        AnalyticsService.logFingerprintCheckFailure(
+          error: e,
+          stack: stack,
+          adId: savedAdId,
+          userId: _userId,
+          errorCode: e.code,
+        );
+        debugPrint('[AdService] checkAdFingerprint error (fail-open): ${e.message}');
+      } catch (e, stack) {
+        if (e.toString().contains('Вы уже опубликовали точно такое же объявление')) {
+          rethrow;
+        }
+        // Fail-open логирование общего сбоя
+        AnalyticsService.logFingerprintCheckFailure(
+          error: e,
+          stack: stack,
+          adId: savedAdId,
+          userId: _userId,
+          errorCode: 'unknown_exception',
+        );
+        debugPrint('[AdService] checkAdFingerprint general error (fail-open): $e');
+      }
+    }
 
     // Get original ad owner if editing (to prevent changing userId and failing firestore rules)
     String finalUserId = user.uid;
@@ -280,7 +335,7 @@ class AdService {
     }
 
     final adModel = AdModel(
-      id: initialAdId ?? '',
+      id: savedAdId,
       title: title,
       description: description,
       price: double.tryParse(price.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0.0,
@@ -297,21 +352,18 @@ class AdService {
       isBargainAllowed: bargain,
       canExchange: exchange,
       hasDelivery: delivery,
-      active: isApproved,
-      status: isApproved ? 'active' : 'pending',
+      active: finalActive,
+      status: finalStatus,
       extraFields: extraFields,
       expiresAt: DateTime.now().add(const Duration(days: 30)),
     );
 
     // 5. Сохранение
     if (onStatusUpdate != null) onStatusUpdate('Сохранение...');
-    final String savedAdId;
     if (initialAdId != null) {
       await updateAd(initialAdId, adModel.toMap());
-      savedAdId = initialAdId;
     } else {
-      final id = await createAd(adModel);
-      savedAdId = id ?? '';
+      await createAd(adModel, customId: savedAdId);
     }
 
     // 📣 X10 NOTIFICATION: Отправляем уведомление админу в Телеграм для всех новых и обновленных объявлений
@@ -366,13 +418,14 @@ class AdService {
   }
 
 
-  /// Create a new advertisement in Firestore
-  static Future<String?> createAd(AdModel ad) async {
+  /// Create a new advertisement in Firestore (supports optional customId)
+  static Future<String?> createAd(AdModel ad, {String? customId}) async {
     final user = _auth.currentUser;
     if (user == null) return null;
 
     try {
-      final docRef = await _adsCollection.add(ad.toMap());
+      final docRef = customId != null ? _adsCollection.doc(customId) : _adsCollection.doc();
+      await docRef.set(ad.toMap());
       return docRef.id;
     } catch (e) {
       debugPrint('Error creating ad: $e');
