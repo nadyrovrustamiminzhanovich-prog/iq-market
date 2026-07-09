@@ -37,6 +37,7 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   bool _isLogin = true;
+  bool _showEmailForm = false;
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -1120,120 +1121,315 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   }
 
   // ===================== BUILD =====================
+  // ===================== BUILD =====================
+  Widget _buildChoiceScreen() {
+    return Column(
+      key: const ValueKey('choiceScreen'),
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        const SizedBox(height: 20),
+        Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Image.asset(
+                'assets/logo.png',
+                width: 90,
+                height: 90,
+                fit: BoxFit.contain,
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'MARKET',
+                style: GoogleFonts.inter(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                  color: const Color(0xFF007AFF),
+                  letterSpacing: 1.5,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 35),
+        Text(
+          _t('welcome'),
+          style: GoogleFonts.inter(
+            fontSize: 32,
+            fontWeight: FontWeight.w900,
+            color: const Color(0xFF1A1D1E),
+            letterSpacing: -0.5,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          _t('login_in_seconds'),
+          style: GoogleFonts.inter(
+            fontSize: 16,
+            color: Colors.black54,
+            fontWeight: FontWeight.w600,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 40),
+
+        AuthSocialLongButton(
+          label: _t('authTelegram'),
+          icon: const Icon(Icons.telegram_rounded, color: Colors.white, size: 30),
+          onTap: _handleTelegramLogin,
+          color: const Color(0xFF0088CC),
+          textColor: Colors.white,
+        ),
+
+        AuthSocialLongButton(
+          label: _t('authGoogle'),
+          icon: Image.network(
+            'https://img.icons8.com/color/96/google-logo.png',
+            width: 26,
+            height: 26,
+            errorBuilder: (context, error, stackTrace) => const Icon(Icons.g_mobiledata_rounded, color: Color(0xFF4285F4), size: 26),
+          ),
+          onTap: _handleGoogleSignIn,
+        ),
+
+        if (Platform.isIOS)
+          AuthSocialLongButton(
+            label: _t('authApple'),
+            icon: const Icon(Icons.apple, color: Colors.white, size: 28),
+            onTap: _handleAppleSignIn,
+            isDark: true,
+          ),
+
+        AuthSocialLongButton(
+          label: _t('authEmail'),
+          icon: const Icon(Icons.mail_outline_rounded, color: Color(0xFF4A80F0), size: 26),
+          onTap: () {
+            setState(() {
+              _showEmailForm = true;
+              _isLogin = true;
+            });
+          },
+        ),
+
+        const SizedBox(height: 25),
+        Row(
+          children: [
+            Expanded(child: Divider(color: Colors.grey[200], thickness: 1.5)),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text(
+                _t('or'),
+                style: const TextStyle(
+                  color: Colors.black54,
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            Expanded(child: Divider(color: Colors.grey[200], thickness: 1.5)),
+          ],
+        ),
+        const SizedBox(height: 25),
+
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              _t('no_acc'),
+              style: GoogleFonts.inter(
+                color: Colors.black54,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            GestureDetector(
+              onTap: () {
+                setState(() {
+                  _showEmailForm = true;
+                  _isLogin = false;
+                });
+              },
+              child: Text(
+                _t('reg_tab'),
+                style: GoogleFonts.inter(
+                  color: const Color(0xFF4A80F0),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 30),
+      ],
+    );
+  }
+
+  Widget _buildEmailForm() {
+    return Column(
+      key: const ValueKey('emailForm'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 10),
+        Text(
+          _isLogin ? _t('welcome') : _t('reg_tab'),
+          style: const TextStyle(
+            fontSize: 32,
+            fontWeight: FontWeight.w900,
+            color: Color(0xFF1A1D1E),
+            letterSpacing: -0.5,
+          ),
+        ),
+        const SizedBox(height: 8),
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 200),
+          child: Text(
+            _isLogin ? _t('sub_login') : _t('sub_reg'),
+            key: ValueKey(_isLogin),
+            maxLines: 1,
+            softWrap: false,
+            style: const TextStyle(
+              fontSize: 16,
+              color: Colors.black54,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        const SizedBox(height: 35),
+
+        _buildToggle(),
+        const SizedBox(height: 35),
+
+        AnimatedCrossFade(
+          duration: const Duration(milliseconds: 300),
+          crossFadeState: _isLogin ? CrossFadeState.showFirst : CrossFadeState.showSecond,
+          firstChild: const SizedBox.shrink(),
+          secondChild: SingleChildScrollView(
+            physics: const NeverScrollableScrollPhysics(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _label(_t('name_label')),
+                const SizedBox(height: 8),
+                AuthField(hint: _t('name_hint'), icon: Icons.person_outline_rounded, controller: _nameController),
+                const SizedBox(height: 20),
+              ],
+            ),
+          ),
+        ),
+
+        _label(_t('email_label')),
+        const SizedBox(height: 8),
+        AuthField(hint: _t('email_hint'), icon: Icons.email_outlined, controller: _emailController, keyboardType: TextInputType.emailAddress),
+        const SizedBox(height: 20),
+
+        _label(_t('pwd_label')),
+        const SizedBox(height: 8),
+        AuthField(hint: _t('pwd_hint'), icon: Icons.lock_outline_rounded, controller: _passwordController, isPassword: true, showToggle: true, isVisible: _showPassword, onToggle: () => setState(() => _showPassword = !_showPassword)),
+
+        AnimatedCrossFade(
+          duration: const Duration(milliseconds: 300),
+          crossFadeState: _isLogin ? CrossFadeState.showFirst : CrossFadeState.showSecond,
+          firstChild: const SizedBox.shrink(),
+          secondChild: SingleChildScrollView(
+            physics: const NeverScrollableScrollPhysics(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 20),
+                _label(_t('confirm_label')),
+                const SizedBox(height: 8),
+                AuthField(hint: _t('confirm_hint'), icon: Icons.lock_outline_rounded, controller: _confirmPasswordController, isPassword: true, showToggle: true, isVisible: _showConfirmPassword, onToggle: () => setState(() => _showConfirmPassword = !_showConfirmPassword)),
+              ],
+            ),
+          ),
+        ),
+
+        if (_isLogin) Align(alignment: Alignment.centerRight, child: TextButton(onPressed: _onForgotPassword, child: Text(_t('forgot_pwd'), style: const TextStyle(color: Color(0xFF4A80F0), fontWeight: FontWeight.w800, fontSize: 14)))),
+        const SizedBox(height: 25),
+
+        AuthMainButton(label: _isLogin ? _t('login_btn') : _t('reg_btn'), onPressed: _isLogin ? _handleLogin : _handleRegister),
+
+        if (!_isLogin) Padding(padding: const EdgeInsets.only(top: 20), child: Text.rich(TextSpan(text: _t('tos_text'), style: const TextStyle(color: Colors.black54, fontSize: 11, fontWeight: FontWeight.w500, height: 1.4), children: [
+          TextSpan(text: _t('tos_link'), style: const TextStyle(color: Color(0xFF4A80F0), fontWeight: FontWeight.w600), recognizer: _tosRecognizer),
+          TextSpan(text: _t('tos_and')),
+          TextSpan(text: _t('privacy_link'), style: const TextStyle(color: Color(0xFF4A80F0), fontWeight: FontWeight.w600), recognizer: _privacyRecognizer),
+        ]), textAlign: TextAlign.center)),
+        const SizedBox(height: 25),
+
+        Center(
+          child: TextButton.icon(
+            onPressed: () => setState(() => _showEmailForm = false),
+            icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF4A80F0)),
+            label: Text(
+              _t('other_methods'),
+              style: GoogleFonts.inter(
+                color: const Color(0xFF4A80F0),
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 30),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: true,
+      canPop: !_showEmailForm,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
-        Navigator.of(context).pop();
+        setState(() => _showEmailForm = false);
       },
-      child: Scaffold(
-        backgroundColor: const Color(0xFFF8F9FB),
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.black87),
-            onPressed: () => Navigator.of(context).maybePop(),
+      child: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFEFF6FF), Color(0xFFF8F9FB)],
           ),
         ),
-        body: Stack(children: [
-        SafeArea(child: SingleChildScrollView(physics: const BouncingScrollPhysics(), padding: const EdgeInsets.symmetric(horizontal: 24), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const SizedBox(height: 10),
-          Text(_t('welcome'), style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: Color(0xFF1A1D1E), letterSpacing: -0.5)),
-          const SizedBox(height: 8),
-          AnimatedSwitcher(duration: const Duration(milliseconds: 200), child: Text(_isLogin ? _t('sub_login') : _t('sub_reg'), key: ValueKey(_isLogin), maxLines: 1, softWrap: false, style: const TextStyle(fontSize: 16, color: Colors.black54, fontWeight: FontWeight.w600))),
-          const SizedBox(height: 35),
-
-          _buildToggle(),
-          const SizedBox(height: 35),
-
-          AnimatedCrossFade(duration: const Duration(milliseconds: 300), crossFadeState: _isLogin ? CrossFadeState.showFirst : CrossFadeState.showSecond, firstChild: const SizedBox.shrink(), secondChild: SingleChildScrollView(physics: const NeverScrollableScrollPhysics(), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            _label(_t('name_label')), const SizedBox(height: 8),
-            AuthField(hint: _t('name_hint'), icon: Icons.person_outline_rounded, controller: _nameController),
-            const SizedBox(height: 20),
-          ]))),
-
-          _label(_t('email_label')), const SizedBox(height: 8),
-          AuthField(hint: _t('email_hint'), icon: Icons.email_outlined, controller: _emailController, keyboardType: TextInputType.emailAddress),
-          const SizedBox(height: 20),
-
-          _label(_t('pwd_label')), const SizedBox(height: 8),
-          AuthField(hint: _t('pwd_hint'), icon: Icons.lock_outline_rounded, controller: _passwordController, isPassword: true, showToggle: true, isVisible: _showPassword, onToggle: () => setState(() => _showPassword = !_showPassword)),
-
-          AnimatedCrossFade(duration: const Duration(milliseconds: 300), crossFadeState: _isLogin ? CrossFadeState.showFirst : CrossFadeState.showSecond, firstChild: const SizedBox.shrink(), secondChild: SingleChildScrollView(physics: const NeverScrollableScrollPhysics(), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const SizedBox(height: 20),
-            _label(_t('confirm_label')), const SizedBox(height: 8),
-            AuthField(hint: _t('confirm_hint'), icon: Icons.lock_outline_rounded, controller: _confirmPasswordController, isPassword: true, showToggle: true, isVisible: _showConfirmPassword, onToggle: () => setState(() => _showConfirmPassword = !_showConfirmPassword)),
-          ]))),
-
-          if (_isLogin) Align(alignment: Alignment.centerRight, child: TextButton(onPressed: _onForgotPassword, child: Text(_t('forgot_pwd'), style: const TextStyle(color: Color(0xFF4A80F0), fontWeight: FontWeight.w800, fontSize: 14)))),
-          const SizedBox(height: 25),
-
-          AuthMainButton(label: _isLogin ? _t('login_btn') : _t('reg_btn'), onPressed: _isLogin ? _handleLogin : _handleRegister),
-
-          if (!_isLogin) Padding(padding: const EdgeInsets.only(top: 20), child: Text.rich(TextSpan(text: _t('tos_text'), style: const TextStyle(color: Colors.black54, fontSize: 11, fontWeight: FontWeight.w500, height: 1.4), children: [
-            TextSpan(text: _t('tos_link'), style: const TextStyle(color: Color(0xFF4A80F0), fontWeight: FontWeight.w600), recognizer: _tosRecognizer),
-            TextSpan(text: _t('tos_and')),
-            TextSpan(text: _t('privacy_link'), style: const TextStyle(color: Color(0xFF4A80F0), fontWeight: FontWeight.w600), recognizer: _privacyRecognizer),
-          ]), textAlign: TextAlign.center)),
-          const SizedBox(height: 30),
-
-          Row(children: [
-            Expanded(child: Divider(color: Colors.grey[200], thickness: 1.5)),
-            Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Text(_t('or_with'), style: const TextStyle(color: Colors.black54, fontSize: 13, fontWeight: FontWeight.bold))),
-            Expanded(child: Divider(color: Colors.grey[200], thickness: 1.5))
-          ]),
-          const SizedBox(height: 25),
-
-          // --- Premium Social Buttons ---
-          /*
-          AuthSocialLongButton(
-            label: _t('authMailru'),
-            icon: Container(
-              width: 28, height: 28,
-              decoration: const BoxDecoration(color: Color(0xFF005FF9), shape: BoxShape.circle),
-              child: const Center(child: Text('@', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w900))),
-            ),
-            onTap: () {
-               // Scroll to top or focus email field? 
-               // For now, just keep the fields below.
-            },
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            automaticallyImplyLeading: false,
+            leading: _showEmailForm
+                ? IconButton(
+                    icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.black87),
+                    onPressed: () => setState(() => _showEmailForm = false),
+                  )
+                : null,
           ),
-          */
- 
-          AuthSocialLongButton(
-            label: _t('authGoogle'),
-            icon: Image.network(
-              'https://img.icons8.com/color/96/google-logo.png',
-              width: 26,
-              height: 26,
-              errorBuilder: (context, error, stackTrace) => const Icon(Icons.g_mobiledata_rounded, color: Color(0xFF4285F4), size: 26),
-            ),
-            onTap: _handleGoogleSignIn,
+          body: Stack(
+            children: [
+              SafeArea(
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 250),
+                    child: _showEmailForm ? _buildEmailForm() : _buildChoiceScreen(),
+                  ),
+                ),
+              ),
+              if (_isLoading)
+                Container(
+                  color: Colors.black.withValues(alpha: 0.3),
+                  child: const Center(
+                    child: CircularProgressIndicator(
+                      color: Color(0xFF4A80F0),
+                      strokeWidth: 3,
+                    ),
+                  ),
+                ),
+            ],
           ),
-
-          if (Platform.isIOS)
-            AuthSocialLongButton(
-              label: _t('authApple'),
-              icon: const Icon(Icons.apple, color: Colors.white, size: 28),
-              onTap: _handleAppleSignIn,
-              isDark: true,
-            ),
-
-          AuthSocialLongButton(
-            label: _t('authTelegram'),
-            icon: const Icon(Icons.telegram_rounded, color: Colors.white, size: 30),
-            onTap: _handleTelegramLogin,
-            color: const Color(0xFF0088CC),
-            textColor: Colors.white,
-          ),
-
-          const SizedBox(height: 30),
-        ]))),
-        if (_isLoading) Container(color: Colors.black.withValues(alpha: 0.3), child: const Center(child: CircularProgressIndicator(color: Color(0xFF4A80F0), strokeWidth: 3))),
-          ],
         ),
       ),
     );

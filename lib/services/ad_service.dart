@@ -370,7 +370,7 @@ class AdService {
     if (savedAdId.isNotEmpty) {
       try {
         final displayTitle = initialAdId != null ? '🔄 [ОБНОВЛЕНО] $title' : title;
-        if (isApproved) {
+        if (finalActive) {
           // Если одобрено ИИ — отправляем информационное уведомление с кнопкой "Отклонить"
           await TelegramBotService.notifyAdminAdAutoApproved(
             adId: savedAdId,

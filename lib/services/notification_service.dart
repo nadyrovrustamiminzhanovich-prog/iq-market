@@ -235,8 +235,8 @@ class NotificationService {
     Map<String, dynamic>? data,
     String? uid, // Добавили опциональный UID
   }) async {
+    final targetUid = uid ?? UserService.currentUid;
     try {
-      final targetUid = uid ?? UserService.currentUid;
       if (targetUid == null) return;
 
       // ✅ Для чат-уведомлений используем upsert по chatId
