@@ -10,7 +10,8 @@ import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:iqmarket/services/analytics_service.dart';
 
 class ChatService {
-  static final FirebaseFirestore _db = FirebaseFirestore.instance;
+  static FirebaseFirestore? dbOverride;
+  static FirebaseFirestore get _db => dbOverride ?? FirebaseFirestore.instance;
   static String? activeChatId;
 
   static String getChatId(String sellerId) {

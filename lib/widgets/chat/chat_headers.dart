@@ -20,6 +20,7 @@ class ChatGlassHeader extends StatelessWidget {
   final VoidCallback onBack;
   final VoidCallback onProfileTap;
   final VoidCallback onCall;
+  final FirebaseFirestore? firestore;
 
   const ChatGlassHeader({
     super.key,
@@ -30,6 +31,7 @@ class ChatGlassHeader extends StatelessWidget {
     required this.onBack,
     required this.onProfileTap,
     required this.onCall,
+    this.firestore,
   });
 
   @override
@@ -71,7 +73,7 @@ class ChatGlassHeader extends StatelessWidget {
                             return Text(TranslationService.t('online', lang), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold));
                           }
                           return StreamBuilder<DocumentSnapshot>(
-                            stream: FirebaseFirestore.instance.collection('users').doc(ad.userId).snapshots(),
+                            stream: (firestore ?? FirebaseFirestore.instance).collection('users').doc(ad.userId).snapshots(),
                             builder: (context, userSnap) {
                               if (userSnap.hasData && userSnap.data!.exists) {
                                 final data = userSnap.data!.data() as Map<String, dynamic>? ?? {};

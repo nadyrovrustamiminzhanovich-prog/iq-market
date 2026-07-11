@@ -9,12 +9,14 @@ class UserService {
   static final FirebaseFirestore _db = FirebaseFirestore.instance;
   static final FirebaseAuth _auth = FirebaseAuth.instance;
 
+  static String? mockUid;
+
   // Collection reference
   static CollectionReference get users => _db.collection('users');
 
   /// Check if the user is authenticated
   static bool get isLoggedIn => _auth.currentUser != null;
-  static String? get currentUid => _auth.currentUser?.uid;
+  static String? get currentUid => mockUid ?? _auth.currentUser?.uid;
 
   /// Creates or updates a user document in Firestore after login/registration
   static Future<bool> syncUserAfterLogin({

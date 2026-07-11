@@ -42,12 +42,14 @@ import '../widgets/chat/chat_input.dart';
 class ChatScreen extends StatefulWidget {
   final AdModel ad;
   final String? chatId;
-  const ChatScreen({super.key, required this.ad, this.chatId});
+  final AudioRecorder? recorder;
+  final FirebaseFirestore? firestore;
+  const ChatScreen({super.key, required this.ad, this.chatId, this.recorder, this.firestore});
   @override
   State<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> {
+class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   final TextEditingController _msgController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final FocusNode _msgFocusNode = FocusNode();
@@ -90,7 +92,8 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
-    _recorder = AudioRecorder();
+    WidgetsBinding.instance.addObserver(this);
+    _recorder = widget.recorder ?? AudioRecorder();
     _audioPlayer = AudioPlayer();
     _audioPlayer.setReleaseMode(ReleaseMode.release);
     _audioPlayer.setAudioContext(AudioContext(
@@ -120,11 +123,17 @@ class _ChatScreenState extends State<ChatScreen> {
       if (mounted) setState(() => _currentPlayingId = null);
     });
     
-    _isChatValidating = true;
-    _validateChatId(explicitChatId != null && explicitChatId.isNotEmpty
-        ? explicitChatId
-        : ChatService.getChatId(otherId));
-    _loadUserNames();
+    if (widget.recorder == null) {
+      _isChatValidating = true;
+      _validateChatId(explicitChatId != null && explicitChatId.isNotEmpty
+          ? explicitChatId
+          : ChatService.getChatId(otherId));
+      _loadUserNames();
+    } else {
+      _isChatValidating = false;
+      _isAccessDenied = false;
+      _messagesStream = const Stream.empty();
+    }
   }
 
   void _loadUserNames() async {
@@ -271,7 +280,17 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      if (_isRecording) {
+        _handleRecordingCancelled();
+      }
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _recordTimer?.cancel();
     _typingTimer?.cancel();
     _presenceSubscription?.cancel();
@@ -361,8 +380,34 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _startRecording() async {
+    _isCancelled = false;
     final hasPermission = await _recorder.hasPermission();
-    if (!hasPermission) return;
+    if (!hasPermission) {
+      if (mounted) {
+        final lang = Provider.of<AppConfigProvider>(context, listen: false).language;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.mic_off_rounded, color: Colors.white, size: 18),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    TranslationService.t('mic_permission_denied', lang),
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+      return;
+    }
     HapticFeedback.mediumImpact();
     final dir = await getTemporaryDirectory();
     final path = '${dir.path}/voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
@@ -382,6 +427,35 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
+  Future<void> _handleRecordingCancelled() async {
+    if (!_isRecording) return;
+    _isCancelled = true;
+    _recordTimer?.cancel();
+    final path = await _recorder.stop();
+    await _cancelRecording(path);
+  }
+
+  Future<void> _cancelRecording(String? path) async {
+    _recordTimer?.cancel();
+    if (mounted) {
+      setState(() {
+        _isRecording = false;
+        _recordSeconds = 0;
+      });
+    }
+    if (path != null) {
+      try {
+        final file = File(path);
+        if (await file.exists()) {
+          await file.delete();
+          debugPrint('Temporary voice recording file deleted: $path');
+        }
+      } catch (e) {
+        debugPrint('Error deleting temporary voice recording: $e');
+      }
+    }
+  }
+
   Future<void> _stopRecording() async {
     final lang = Provider.of<AppConfigProvider>(context, listen: false).language;
     if (!_isRecording) return;
@@ -389,7 +463,39 @@ class _ChatScreenState extends State<ChatScreen> {
     await Future.delayed(const Duration(milliseconds: 200));
     final path = await _recorder.stop();
     if (mounted) setState(() => _isRecording = false);
-    if (_isCancelled) return;
+    
+    if (_isCancelled) {
+      await _cancelRecording(path);
+      return;
+    }
+    
+    if (_recordSeconds < 1) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.info_outline_rounded, color: Colors.white, size: 18),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    TranslationService.t('record_too_short', lang),
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.orangeAccent,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+      await _cancelRecording(path);
+      return;
+    }
+    
     if (path != null) {
       final msgId = await ChatService.sendMessage(ad: widget.ad, text: 'Голосовое сообщение', type: 'audio', duration: _recordSeconds, senderName: _currentUserName);
       if (msgId != null) {
@@ -407,7 +513,6 @@ class _ChatScreenState extends State<ChatScreen> {
           AnalyticsService.logStoragePermissionError(e, stack, 'voice_messages/$cid');
           if (mounted) {
             setState(() { _activeUploads.remove(msgId); });
-            // P8 FIX: inform user that voice upload failed so they can retry
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: const Row(
@@ -799,6 +904,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 onSend: _sendMessage,
                 onLongPressStart: _startRecording,
                 onLongPressEnd: _stopRecording,
+                onRecordingCancelled: _handleRecordingCancelled,
                 onEmojiSelected: (emoji) {
                   // P10 FIX: preserve cursor at end, don't reset it to start
                   final text = _msgController.text;
@@ -822,6 +928,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   isTyping: _isOtherTyping,
                   onBack: () => Navigator.of(context).maybePop(),
                   onProfileTap: _navigateToSellerProfile,
+                  firestore: widget.firestore,
                   onCall: () async {
                     final phoneNum = _otherUserPhone ?? widget.ad.userPhone ?? '';
                     if (phoneNum.isNotEmpty) {
