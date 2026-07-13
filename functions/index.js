@@ -561,3 +561,510 @@ exports.checkAdFingerprint = functions.https.onCall(async (data, context) => {
   return { verdict, reason };
 });
 
+
+// ─── FIRESTORE TRIGGER: new report → Telegram notification ──────────────────
+exports.onNewReport = functions.firestore.document('reports/{reportId}').onCreate(async (snapshot, context) => {
+  const report = snapshot.data();
+  if (!report) return;
+
+  const reportId = context.params.reportId;
+  const isAdReport = !!report.adId;
+
+  // 1. Защита от спама (дедупликация) за последние 5 минут
+  const N_MINUTES = 5;
+  let isSpam = false;
+
+  try {
+    const cutoff = new Date(Date.now() - N_MINUTES * 60 * 1000);
+    const cutoffTimestamp = admin.firestore.Timestamp.fromDate(cutoff);
+
+    let duplicateQuery = db.collection('reports')
+      .where('timestamp', '>=', cutoffTimestamp);
+
+    if (isAdReport) {
+      duplicateQuery = duplicateQuery.where('adId', '==', report.adId);
+    } else {
+      duplicateQuery = duplicateQuery.where('reportedUserId', '==', report.reportedUserId);
+    }
+
+    const snap = await duplicateQuery.limit(5).get();
+    
+    snap.forEach(doc => {
+      if (doc.id === reportId) return; // Пропускаем саму себя
+      const data = doc.data();
+      
+      // Для жалоб на пользователя/профиль: если это жалоба на ОБЪЯВЛЕНИЕ от того же нарушителя,
+      // то adId будет заполнен. Нам нужно сравнивать только жалобы на ПРОФИЛЬ (без adId)
+      if (!isAdReport && data.adId) return;
+
+      isSpam = true;
+    });
+  } catch (err) {
+    console.error('[onNewReport] Error checking duplicates (fail-open):', err);
+  }
+
+  if (isSpam) {
+    console.log(`[onNewReport] Suppressing duplicate Telegram notification for target: ${isAdReport ? report.adId : report.reportedUserId}`);
+    return;
+  }
+
+  // 2. Определение adminChatId из настроек Firestore
+  let adminChatId = process.env.ADMIN_CHAT || '';
+  try {
+    const settingsSnap = await db.collection('settings').doc('telegram').get();
+    if (settingsSnap.exists) {
+      const settingsData = settingsSnap.data();
+      if (settingsData && settingsData.adminChatId) {
+        const idStr = String(settingsData.adminChatId).trim();
+        if (idStr.length > 0) adminChatId = idStr;
+      }
+    }
+  } catch (err) {
+    console.error('[onNewReport] Error fetching settings:', err);
+  }
+
+  if (!adminChatId) {
+    console.warn('[onNewReport] No adminChatId resolved — skipping Telegram notification');
+    return;
+  }
+
+  const time = report.timestamp 
+    ? report.timestamp.toDate().toLocaleString('ru-RU', { timeZone: 'Asia/Almaty' }) 
+    : new Date().toLocaleString('ru-RU', { timeZone: 'Asia/Almaty' });
+
+  // 3. Формирование контекстно-богатого сообщения
+  let text = '';
+  if (isAdReport) {
+    let adTitle = report.adTitle || 'Без названия';
+    let adPrice = 'N/A';
+    let adCategory = 'N/A';
+    let adOwner = report.reportedUserId || 'N/A';
+
+    try {
+      const adSnap = await db.collection('ads').doc(report.adId).get();
+      if (adSnap.exists) {
+        const adData = adSnap.data();
+        adTitle = adData.title || adTitle;
+        adPrice = adData.price !== undefined ? `${adData.price} ₸` : adPrice;
+        adCategory = adData.category || adCategory;
+        adOwner = adData.userId || adOwner;
+      }
+    } catch (err) {
+      console.error('[onNewReport] Error fetching ad context (falling back):', err);
+    }
+
+    text = `🚨 <b>Жалоба на объявление!</b>\n\n`
+         + `🆔 <b>ID Жалобы:</b> <code>${reportId}</code>\n`
+         + `🏷️ <b>Название:</b> <b>${adTitle}</b>\n`
+         + `💰 <b>Цена:</b> <b>${adPrice}</b>\n`
+         + `🗂️ <b>Категория:</b> <code>${adCategory}</code>\n`
+         + `🔗 <b>ID Объявления:</b> <code>${report.adId}</code>\n`
+         + `👤 <b>Владелец (UID):</b> <code>${adOwner}</code>\n`
+         + `⚠️ <b>Тип жалобы:</b> <b>${report.type || 'N/A'}</b>\n`
+         + `💬 <b>Комментарий отправителя:</b> <i>${report.comment || 'нет'}</i>\n\n`
+         + `👤 <b>Отправитель (UID):</b> <code>${report.reporterUserId || 'anonymous'}</code>\n`
+         + `📅 <b>Время (Almaty):</b> <code>${time}</code>`;
+  } else {
+    let reportedName = report.reportedUserName || 'Без имени';
+    let reportedPhone = 'N/A';
+    let reportedEmail = 'N/A';
+
+    try {
+      const userSnap = await db.collection('users').doc(report.reportedUserId).get();
+      if (userSnap.exists) {
+        const userData = userSnap.data();
+        reportedName = userData.displayName || userData.userName || reportedName;
+        reportedPhone = userData.phone || reportedPhone;
+        reportedEmail = userData.email || reportedEmail;
+      }
+    } catch (err) {
+      console.error('[onNewReport] Error fetching user context (falling back):', err);
+    }
+
+    text = `🚨 <b>Жалоба на пользователя / чат!</b>\n\n`
+         + `🆔 <b>ID Жалобы:</b> <code>${reportId}</code>\n`
+         + `👤 <b>Нарушитель (Имя):</b> <b>${reportedName}</b>\n`
+         + `📞 <b>Телефон:</b> <code>${reportedPhone}</code>\n`
+         + `📧 <b>Email:</b> <code>${reportedEmail}</code>\n`
+         + `🔗 <b>UID Нарушителя:</b> <code>${report.reportedUserId || 'N/A'}</code>\n`
+         + `⚠️ <b>Тип жалобы:</b> <b>${report.type || 'N/A'}</b>\n`
+         + `💬 <b>Комментарий отправителя:</b> <i>${report.comment || 'нет'}</i>\n\n`
+         + `👤 <b>Отправитель (UID):</b> <code>${report.reporterUserId || 'anonymous'}</code>\n`
+         + `📅 <b>Время (Almaty):</b> <code>${time}</code>`;
+  }
+
+  // 4. Безопасная отправка в Telegram
+  try {
+    await telegramBot.tgSend(adminChatId, text);
+    console.log(`[onNewReport] Telegram notification successfully sent for report ${reportId}`);
+  } catch (error) {
+    console.error('[onNewReport] Failed to send Telegram notification (fail-silent):', error);
+  }
+});
+
+// ─── HTTPS CALLABLE: getFullUserInfo ──────────────────────────────────────────
+exports.getFullUserInfo = functions.https.onCall(async (data, context) => {
+  // 1. Проверка авторизации
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Пользователь должен быть авторизован');
+  }
+
+  const requesterUid = context.auth.uid;
+  const targetUid = data.targetUid;
+
+  if (!targetUid) {
+    throw new functions.https.HttpsError('invalid-argument', 'Не указан targetUid');
+  }
+
+  try {
+    // 2. Проверка прав администратора (accountType == 'admin') в Firestore
+    const requesterSnap = await db.collection('users').doc(requesterUid).get();
+    if (!requesterSnap.exists || requesterSnap.data().accountType !== 'admin') {
+      throw new functions.https.HttpsError('permission-denied', 'Доступ разрешен только администраторам');
+    }
+
+    // 3. Запись в аудит-лог
+    await db.collection('audit_logs').add({
+      action: 'view_user_card',
+      adminUid: requesterUid,
+      targetUid: targetUid,
+      timestamp: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    // 4. Безопасное получение данных из Firebase Auth
+    let authData = null;
+    try {
+      const userRecord = await admin.auth().getUser(targetUid);
+      authData = {
+        uid: userRecord.uid,
+        email: userRecord.email || null,
+        emailVerified: userRecord.emailVerified || false,
+        phoneNumber: userRecord.phoneNumber || null,
+        displayName: userRecord.displayName || null,
+        photoURL: userRecord.photoURL || null,
+        disabled: userRecord.disabled || false,
+        customClaims: userRecord.customClaims || {},
+        creationTime: userRecord.metadata.creationTime || null,
+        lastSignInTime: userRecord.metadata.lastSignInTime || null,
+        lastRefreshTime: userRecord.metadata.lastRefreshTime || null,
+        providerData: (userRecord.providerData || []).map(p => ({
+          uid: p.uid,
+          providerId: p.providerId,
+          displayName: p.displayName || null,
+          email: p.email || null,
+          phoneNumber: p.phoneNumber || null,
+          photoURL: p.photoURL || null
+        }))
+      };
+    } catch (err) {
+      console.warn(`[getFullUserInfo] Auth record not found for targetUid: ${targetUid}`, err.message);
+    }
+
+    // 5. Параллельное чтение всех связанных коллекций с лимитом 50 записей
+    const [
+      userSnap,
+      adsSnap,
+      reportedSnap,
+      reporterSnap,
+      reviewsToSnap,
+      reviewsFromSnap,
+      chatsSnap,
+      bidsSentSnap,
+      bidsReceivedSnap,
+      passengerOrdersSnap,
+      driverOrdersSnap
+    ] = await Promise.all([
+      db.collection('users').doc(targetUid).get(),
+      db.collection('ads').where('userId', '==', targetUid).limit(50).get(),
+      db.collection('reports').where('reportedUserId', '==', targetUid).limit(50).get(),
+      db.collection('reports').where('reporterUserId', '==', targetUid).limit(50).get(),
+      db.collection('reviews').where('toUserId', '==', targetUid).limit(50).get(),
+      db.collection('reviews').where('fromUserId', '==', targetUid).limit(50).get(),
+      db.collection('chats').where('users', 'array-contains', targetUid).get(),
+      db.collection('taxi_bids').where('senderId', '==', targetUid).limit(50).get(),
+      db.collection('taxi_bids').where('receiverId', '==', targetUid).limit(50).get(),
+      db.collection('taxi_orders').where('passengerId', '==', targetUid).limit(50).get(),
+      db.collection('taxi_orders').where('driverId', '==', targetUid).limit(50).get()
+    ]);
+
+    // 6. Формирование структуры ответа
+    const profile = userSnap.exists ? userSnap.data() : null;
+
+    const ads = adsSnap.docs.map(doc => {
+      const adData = doc.data();
+      return {
+        id: doc.id,
+        title: adData.title || '',
+        price: adData.price || 0.0,
+        status: adData.status || 'pending',
+        createdAt: adData.timestamp ? adData.timestamp.toDate().toISOString() : null
+      };
+    });
+
+    const reportsAgainst = reportedSnap.docs.map(doc => {
+      const repData = doc.data();
+      return {
+        id: doc.id,
+        adId: repData.adId || null,
+        adTitle: repData.adTitle || null,
+        type: repData.type || '',
+        comment: repData.comment || '',
+        timestamp: repData.timestamp ? repData.timestamp.toDate().toISOString() : null,
+        reporterUserId: repData.reporterUserId || ''
+      };
+    });
+
+    const reportsSubmitted = reporterSnap.docs.map(doc => {
+      const repData = doc.data();
+      return {
+        id: doc.id,
+        adId: repData.adId || null,
+        reportedUserId: repData.reportedUserId || '',
+        reportedUserName: repData.reportedUserName || null,
+        type: repData.type || '',
+        comment: repData.comment || '',
+        timestamp: repData.timestamp ? repData.timestamp.toDate().toISOString() : null
+      };
+    });
+
+    // Расчет рейтинга с оптимизацией
+    let avgRating = profile ? (profile.rating || 0.0) : 0.0;
+    const reviewsCount = profile ? (profile.reviewsCount || 0) : 0;
+
+    // Вычисляем рейтинг на лету, если отзывов < 5, но они есть
+    if (reviewsCount > 0 && reviewsCount < 5 && reviewsToSnap.size > 0) {
+      let sum = 0;
+      reviewsToSnap.docs.forEach(doc => { sum += doc.data().rating || 0; });
+      avgRating = sum / reviewsToSnap.size;
+    }
+
+    const reviewsTo = reviewsToSnap.docs.map(doc => {
+      const revData = doc.data();
+      return {
+        id: doc.id,
+        fromUserId: revData.fromUserId || '',
+        fromUserName: revData.fromUserName || '',
+        rating: revData.rating || 0,
+        comment: revData.comment || '',
+        timestamp: revData.timestamp ? revData.timestamp.toDate().toISOString() : null
+      };
+    });
+
+    const reviewsFrom = reviewsFromSnap.docs.map(doc => {
+      const revData = doc.data();
+      return {
+        id: doc.id,
+        toUserId: revData.toUserId || '',
+        rating: revData.rating || 0,
+        comment: revData.comment || '',
+        timestamp: revData.timestamp ? revData.timestamp.toDate().toISOString() : null
+      };
+    });
+
+    const chats = {
+      count: chatsSnap.size,
+      chatIds: chatsSnap.docs.map(doc => doc.id)
+    };
+
+    const taxiBidsSent = bidsSentSnap.docs.map(doc => {
+      const bidData = doc.data();
+      return {
+        id: doc.id,
+        receiverId: bidData.receiverId || '',
+        targetId: bidData.targetId || '',
+        offeredPrice: bidData.offeredPrice || 0,
+        status: bidData.status || ''
+      };
+    });
+
+    const taxiBidsReceived = bidsReceivedSnap.docs.map(doc => {
+      const bidData = doc.data();
+      return {
+        id: doc.id,
+        senderId: bidData.senderId || '',
+        targetId: bidData.targetId || '',
+        offeredPrice: bidData.offeredPrice || 0,
+        status: bidData.status || ''
+      };
+    });
+
+    const taxiOrdersPassenger = passengerOrdersSnap.docs.map(doc => {
+      const ordData = doc.data();
+      return {
+        id: doc.id,
+        driverId: ordData.driverId || '',
+        status: ordData.status || '',
+        createdAt: ordData.createdAt ? ordData.createdAt.toDate().toISOString() : null
+      };
+    });
+
+    const taxiOrdersDriver = driverOrdersSnap.docs.map(doc => {
+      const ordData = doc.data();
+      return {
+        id: doc.id,
+        passengerId: ordData.passengerId || '',
+        status: ordData.status || '',
+        createdAt: ordData.createdAt ? ordData.createdAt.toDate().toISOString() : null
+      };
+    });
+
+    return {
+      auth: authData,
+      profile: profile,
+      ads: ads,
+      reportsAgainst: reportsAgainst,
+      reportsSubmitted: reportsSubmitted,
+      reviewsTo: reviewsTo,
+      reviewsFrom: reviewsFrom,
+      avgRating: avgRating,
+      reviewsCount: reviewsCount,
+      chats: chats,
+      taxiBidsSent: taxiBidsSent,
+      taxiBidsReceived: taxiBidsReceived,
+      taxiOrdersPassenger: taxiOrdersPassenger,
+      taxiOrdersDriver: taxiOrdersDriver
+    };
+  } catch (error) {
+    console.error('[getFullUserInfo] Error:', error);
+    if (error instanceof functions.https.HttpsError) throw error;
+    throw new functions.https.HttpsError('internal', error.message || 'Внутренняя ошибка сервера');
+  }
+});
+
+// ─── HELPER: Parse MP4/M4A duration from buffer (pure JS, no external deps) ───
+function parseMp4Duration(buffer) {
+  let offset = 0;
+  while (offset + 8 <= buffer.length) {
+    let size = buffer.readUInt32BE(offset);
+    const type = buffer.toString('ascii', offset + 4, offset + 8);
+    let headerSize = 8;
+    if (size === 1) {
+      if (offset + 16 > buffer.length) break;
+      const high = buffer.readUInt32BE(offset + 8);
+      const low = buffer.readUInt32BE(offset + 12);
+      size = high * 0x100000000 + low;
+      headerSize = 16;
+    }
+    
+    if (size < headerSize) {
+      break;
+    }
+    
+    if (type === 'moov') {
+      buffer = buffer.subarray(offset + headerSize, offset + size);
+      offset = 0;
+      continue;
+    }
+    
+    if (type === 'mvhd') {
+      const version = buffer.readUInt8(offset + headerSize);
+      let timescale, duration;
+      if (version === 0) {
+        timescale = buffer.readUInt32BE(offset + headerSize + 12);
+        duration = buffer.readUInt32BE(offset + headerSize + 16);
+      } else if (version === 1) {
+        timescale = buffer.readUInt32BE(offset + headerSize + 20);
+        const high = buffer.readUInt32BE(offset + headerSize + 24);
+        const low = buffer.readUInt32BE(offset + headerSize + 28);
+        duration = high * 0x100000000 + low;
+      } else {
+        throw new Error('Unsupported mvhd version: ' + version);
+      }
+      return duration / timescale;
+    }
+    
+    offset += size;
+  }
+  throw new Error('mvhd box not found');
+}
+
+// Helper: Delete Firestore doc with retry to prevent replication/race-condition lags
+async function deleteFirestoreDocWithRetry(db, chatId, msgId, retries = 3, delay = 1000) {
+  const docRef = db.collection('chats').doc(chatId).collection('messages').doc(msgId);
+  for (let i = 0; i < retries; i++) {
+    const doc = await docRef.get();
+    if (doc.exists) {
+      await docRef.delete();
+      console.log(`[onVoiceMessageUpload] Successfully deleted message doc ${msgId}`);
+      return;
+    }
+    if (i < retries - 1) {
+      console.log(`[onVoiceMessageUpload] Message doc ${msgId} not found, retrying in ${delay}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  await docRef.delete();
+}
+
+// ─── STORAGE TRIGGER: Validate voice message upload duration ─────────────────
+exports.onVoiceMessageUpload = functions.storage.object().onFinalize(async (object) => {
+  const filePath = object.name;
+  if (!filePath || !filePath.startsWith('voice_messages/')) {
+    return null;
+  }
+
+  const parts = filePath.split('/');
+  if (parts.length < 3) {
+    return null;
+  }
+
+  const chatId = parts[1];
+  const fileName = parts[2];
+  const dotIndex = fileName.lastIndexOf('.');
+  const msgId = dotIndex !== -1 ? fileName.substring(0, dotIndex) : fileName;
+
+  const bucket = admin.storage().bucket(object.bucket);
+  const file = bucket.file(filePath);
+  const db = admin.firestore();
+
+  let duration = null;
+  try {
+    const [buffer] = await file.download();
+    duration = parseMp4Duration(buffer);
+  } catch (err) {
+    console.warn(`[onVoiceMessageUpload] Failed to parse MP4 duration for ${filePath}: ${err.message}. Falling back to file size check.`);
+  }
+
+  const maxDuration = 190; // 3 min (180s) + 10s margin
+  const maxSizeBytes = 3 * 1024 * 1024; // 3 MB
+
+  if (duration !== null && !isNaN(duration) && duration > 0) {
+    if (duration > maxDuration) {
+      console.warn(`[onVoiceMessageUpload] Rejecting: duration is too long (${duration}s > ${maxDuration}s) for ${filePath}`);
+      try {
+        await file.delete();
+      } catch (e) {
+        console.error(`[onVoiceMessageUpload] Storage deletion failed for ${filePath}:`, e.message);
+      }
+      await deleteFirestoreDocWithRetry(db, chatId, msgId);
+      return null;
+    }
+    console.log(`[onVoiceMessageUpload] Approved: duration is ${duration}s for ${filePath}`);
+  } else {
+    // Fallback: check file size if duration parsing fails/zeroes
+    try {
+      const [metadata] = await file.getMetadata();
+      const fileSize = parseInt(metadata.size || '0', 10);
+      if (fileSize > maxSizeBytes) {
+        console.warn(`[onVoiceMessageUpload] Rejecting: unparseable file is too large (${fileSize} bytes) for ${filePath}`);
+        try {
+          await file.delete();
+        } catch (e) {
+          console.error(`[onVoiceMessageUpload] Storage deletion failed for ${filePath}:`, e.message);
+        }
+        await deleteFirestoreDocWithRetry(db, chatId, msgId);
+        return null;
+      }
+      console.log(`[onVoiceMessageUpload] Approved via size fallback: size is ${fileSize} bytes for ${filePath}`);
+    } catch (metaErr) {
+      console.error(`[onVoiceMessageUpload] Failed to fetch metadata or fallback size: ${metaErr.message}`);
+      try {
+        await file.delete();
+      } catch (e) {}
+      await deleteFirestoreDocWithRetry(db, chatId, msgId);
+    }
+  }
+
+  return null;
+});
+

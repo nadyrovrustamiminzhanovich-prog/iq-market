@@ -5,6 +5,7 @@ import 'package:iqmarket/models/user_model.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:iqmarket/screens/admin/admin_user_card_screen.dart';
 
 class AdminUsersScreen extends StatefulWidget {
   const AdminUsersScreen({super.key});
@@ -90,6 +91,12 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: ListTile(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => AdminUserCardScreen(uid: user.uid)),
+          );
+        },
         contentPadding: const EdgeInsets.all(16),
         leading: CircleAvatar(
           radius: 28,

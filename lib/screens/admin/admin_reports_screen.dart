@@ -9,6 +9,7 @@ import 'package:iqmarket/providers/app_config_provider.dart';
 import 'package:iqmarket/screens/product_details_screen.dart';
 import 'package:iqmarket/services/ad_service.dart';
 import 'package:iqmarket/services/user_service.dart';
+import 'package:iqmarket/screens/admin/admin_user_card_screen.dart';
 
 class AdminReportsScreen extends StatefulWidget {
   const AdminReportsScreen({super.key});
@@ -558,57 +559,65 @@ class UserInfoTile extends StatelessWidget {
       );
     }
 
-    return FutureBuilder<DocumentSnapshot>(
-      future: FirebaseFirestore.instance.collection('users').doc(userId).get(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return Row(
-            children: [
-              Text('$label ', style: TextStyle(fontSize: 11, color: labelColor, fontWeight: FontWeight.bold)),
-              const SizedBox(
-                width: 8,
-                height: 8,
-                child: CircularProgressIndicator(strokeWidth: 1, color: Colors.grey),
-              ),
-            ],
-          );
-        }
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => AdminUserCardScreen(uid: userId)),
+        );
+      },
+      child: FutureBuilder<DocumentSnapshot>(
+        future: FirebaseFirestore.instance.collection('users').doc(userId).get(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return Row(
+              children: [
+                Text('$label ', style: TextStyle(fontSize: 11, color: labelColor, fontWeight: FontWeight.bold)),
+                const SizedBox(
+                  width: 8,
+                  height: 8,
+                  child: CircularProgressIndicator(strokeWidth: 1, color: Colors.grey),
+                ),
+              ],
+            );
+          }
 
-        if (snapshot.hasError || !snapshot.hasData || !snapshot.data!.exists) {
+          if (snapshot.hasError || !snapshot.hasData || !snapshot.data!.exists) {
+            return Row(
+              children: [
+                Text('$label ', style: TextStyle(fontSize: 11, color: labelColor, fontWeight: FontWeight.bold)),
+                Expanded(
+                  child: Text(
+                    userId, 
+                    style: const TextStyle(fontSize: 11, color: Colors.grey, decoration: TextDecoration.underline), 
+                    maxLines: 1, 
+                    overflow: TextOverflow.ellipsis
+                  ),
+                ),
+              ],
+            );
+          }
+
+          final data = snapshot.data!.data() as Map<String, dynamic>?;
+          final name = data?['name'] ?? 'Пользователь';
+          final phone = data?['phone'] ?? '';
+          final display = phone.isNotEmpty ? '$name ($phone)' : name;
+
           return Row(
             children: [
               Text('$label ', style: TextStyle(fontSize: 11, color: labelColor, fontWeight: FontWeight.bold)),
               Expanded(
                 child: Text(
-                  userId, 
-                  style: const TextStyle(fontSize: 11, color: Colors.grey), 
-                  maxLines: 1, 
-                  overflow: TextOverflow.ellipsis
+                  display,
+                  style: const TextStyle(fontSize: 11, color: Color(0xFF1E293B), fontWeight: FontWeight.w600, decoration: TextDecoration.underline),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
           );
-        }
-
-        final data = snapshot.data!.data() as Map<String, dynamic>?;
-        final name = data?['name'] ?? 'Пользователь';
-        final phone = data?['phone'] ?? '';
-        final display = phone.isNotEmpty ? '$name ($phone)' : name;
-
-        return Row(
-          children: [
-            Text('$label ', style: TextStyle(fontSize: 11, color: labelColor, fontWeight: FontWeight.bold)),
-            Expanded(
-              child: Text(
-                display,
-                style: const TextStyle(fontSize: 11, color: Color(0xFF1E293B), fontWeight: FontWeight.w600),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        );
-      },
+        },
+      ),
     );
   }
 }
@@ -700,100 +709,108 @@ class UserDetailCard extends StatelessWidget {
         final status = data['status'] ?? 'active';
         final isBanned = status == 'banned';
 
-        return Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: isBanned ? const Color(0xFFFEF2F2) : const Color(0xFFF8FAFC),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: isBanned ? Colors.red.withValues(alpha: 0.15) : const Color(0xFFE2E8F0)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    roleLabel.toUpperCase(),
-                    style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w800, color: roleColor, letterSpacing: 1),
-                  ),
-                  if (isBanned)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Colors.red.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: const Text(
-                        'ЗАБЛОКИРОВАН',
-                        style: TextStyle(color: Colors.red, fontSize: 9, fontWeight: FontWeight.bold),
-                      ),
+        return GestureDetector(
+          onTap: () {
+            Navigator.push(
+              screenContext,
+              MaterialPageRoute(builder: (_) => AdminUserCardScreen(uid: userId)),
+            );
+          },
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: isBanned ? const Color(0xFFFEF2F2) : const Color(0xFFF8FAFC),
+              border: Border.all(color: isBanned ? Colors.red.withValues(alpha: 0.15) : const Color(0xFFE2E8F0)),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      roleLabel.toUpperCase(),
+                      style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w800, color: roleColor, letterSpacing: 1),
                     ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  CircleAvatar(
-                    radius: 22,
-                    backgroundColor: Colors.blue.shade50,
-                    backgroundImage: photoUrl.isNotEmpty ? NetworkImage(photoUrl) : null,
-                    child: photoUrl.isEmpty ? const Icon(Icons.person, color: Color(0xFF4A80F0)) : null,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          name,
-                          style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 15, color: const Color(0xFF0F172A)),
+                    if (isBanned)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(6),
                         ),
-                        const SizedBox(height: 2),
-                        SelectableText(
-                          phone,
-                          style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B), fontWeight: FontWeight.w500),
+                        child: const Text(
+                          'ЗАБЛОКИРОВАН',
+                          style: TextStyle(color: Colors.red, fontSize: 9, fontWeight: FontWeight.bold),
                         ),
-                      ],
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 22,
+                      backgroundColor: Colors.blue.shade50,
+                      backgroundImage: photoUrl.isNotEmpty ? NetworkImage(photoUrl) : null,
+                      child: photoUrl.isEmpty ? const Icon(Icons.person, color: Color(0xFF4A80F0)) : null,
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              const Divider(height: 1, color: Color(0xFFE2E8F0)),
-              const SizedBox(height: 10),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text(
-                      email,
-                      style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF64748B)),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            name,
+                            style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 15, color: const Color(0xFF0F172A)),
+                          ),
+                          const SizedBox(height: 2),
+                          SelectableText(
+                            phone,
+                            style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B), fontWeight: FontWeight.w500),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  TextButton.icon(
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      backgroundColor: const Color(0xFFE2E8F0),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        email,
+                        style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF64748B)),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                    onPressed: () {
-                      _showUserManagementDialog(screenContext, userId, name, phone, email, isBanned);
-                    },
-                    icon: const Icon(Icons.manage_accounts_outlined, size: 14, color: Color(0xFF1E293B)),
-                    label: Text(
-                      'Управлять',
-                      style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF1E293B)),
+                    const SizedBox(width: 8),
+                    TextButton.icon(
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        backgroundColor: const Color(0xFFE2E8F0),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      onPressed: () {
+                        _showUserManagementDialog(screenContext, userId, name, phone, email, isBanned);
+                      },
+                      icon: const Icon(Icons.manage_accounts_outlined, size: 14, color: Color(0xFF1E293B)),
+                      label: Text(
+                        'Управлять',
+                        style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF1E293B)),
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            ],
+                  ],
+                ),
+              ],
+            ),
           ),
         );
       },

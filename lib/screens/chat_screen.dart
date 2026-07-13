@@ -18,6 +18,7 @@ import 'package:iqmarket/providers/app_config_provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:iqmarket/services/translation_service.dart';
 
+import 'package:iqmarket/constants/voice_limits_config.dart';
 import 'package:iqmarket/services/chat_service.dart';
 import 'package:iqmarket/services/user_service.dart';
 import 'package:iqmarket/services/file_service.dart';
@@ -423,7 +424,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       setState(() { _isRecording = true; _recordSeconds = 0; _isCancelled = false; });
     }
     _recordTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() => _recordSeconds++);
+      if (mounted) {
+        setState(() {
+          _recordSeconds++;
+          if (_recordSeconds >= VoiceLimitsConfig.maxDurationSeconds) {
+            _recordTimer?.cancel();
+            _stopRecording();
+          }
+        });
+      }
     });
   }
 
@@ -457,9 +466,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _stopRecording() async {
+    _recordTimer?.cancel();
     final lang = Provider.of<AppConfigProvider>(context, listen: false).language;
     if (!_isRecording) return;
-    _recordTimer?.cancel();
     await Future.delayed(const Duration(milliseconds: 200));
     final path = await _recorder.stop();
     if (mounted) setState(() => _isRecording = false);
@@ -502,11 +511,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         _playSentSound();
         _localAudioPaths[msgId] = path;
         final chatId = ChatService.getChatId(widget.ad.userId);
-        final task = FileService.uploadFileWithTask(File(path), 'voice_messages/$chatId');
+        final task = FileService.uploadFileWithTask(
+          File(path),
+          'voice_messages/$chatId',
+          customFileName: '$msgId.m4a',
+        );
         if (mounted) setState(() { _activeUploads[msgId] = task; });
         task.then((snapshot) async {
           final url = await snapshot.ref.getDownloadURL();
-          ChatService.updateMessage(widget.ad.userId, msgId, {'mediaUrl': url});
+          await ChatService.updateMessage(widget.ad.userId, msgId, {'mediaUrl': url});
           if (mounted) setState(() { _activeUploads.remove(msgId); });
         }).catchError((e, stack) {
           final String cid = ChatService.getChatId(widget.ad.userId);
@@ -847,6 +860,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     const myBubbleColor = Color(0xFF3B82F6);
     const otherBubbleColor = Colors.white;
 
+    final secondsRemaining = VoiceLimitsConfig.maxDurationSeconds - _recordSeconds;
+    final isWarning = secondsRemaining <= VoiceLimitsConfig.warningThresholdSeconds;
+    final String cancelText = isWarning
+        ? TranslationService.t('voice_limit_warning', lang).replaceAll('{sec}', '$secondsRemaining')
+        : TranslationService.t('record_cancel_hint', lang);
+
     return Scaffold(
       backgroundColor: chatBg,
       body: Stack(
@@ -897,7 +916,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 recordSeconds: _recordSeconds,
                 showEmoji: _showEmoji,
                 hintText: TranslationService.t('chat_input_hint', lang),
-                recordCancelText: TranslationService.t('record_cancel_hint', lang),
+                recordCancelText: cancelText,
                 onToggleEmoji: () => setState(() => _showEmoji = !_showEmoji),
                 onTextChanged: (v) => _updateMyTyping(v.isNotEmpty),
                 onAttach: () => _pickMedia(ImageSource.gallery),

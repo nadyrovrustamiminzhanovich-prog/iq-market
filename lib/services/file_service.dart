@@ -14,9 +14,9 @@ class FileService {
   static const int _maxFileSizeBytes = 5 * 1024 * 1024;
 
   /// Upload a file to Firebase Storage and return the Task for cancellation support
-  static UploadTask uploadFileWithTask(File file, String folder) {
+  static UploadTask uploadFileWithTask(File file, String folder, {String? customFileName}) {
     final String extension = p.extension(file.path).toLowerCase();
-    final String fileName = '${DateTime.now().millisecondsSinceEpoch}$extension';
+    final String fileName = customFileName ?? '${DateTime.now().millisecondsSinceEpoch}$extension';
     final Reference ref = _storage.ref().child(folder).child(fileName);
     
     // 🔒 Set content-type metadata to prevent "application/octet-stream" playback failures
@@ -159,8 +159,14 @@ class FileService {
     }
   }
 
+  // Test hook to override upload results
+  static Future<List<String>> Function(List<File> files, String folder)? mockUploadMultipleFiles;
+
   /// Upload multiple files and return URLs
   static Future<List<String>> uploadMultipleFiles(List<File> files, String folder) async {
+    if (mockUploadMultipleFiles != null) {
+      return mockUploadMultipleFiles!(files, folder);
+    }
     List<String> urls = [];
     for (var file in files) {
       final url = await uploadFile(file, folder);

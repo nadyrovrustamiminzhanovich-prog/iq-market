@@ -541,3 +541,5 @@ exports.sendTelegramOtp = functions.https.onRequest(async (req, res) => {
     return res.status(500).send(error.toString());
   }
 });
+
+exports.tgSend = tgSend;

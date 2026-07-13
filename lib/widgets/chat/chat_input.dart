@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:iqmarket/constants/voice_limits_config.dart';
 
 class ChatInput extends StatefulWidget {
   final TextEditingController controller;
@@ -228,6 +229,8 @@ class _RecordingBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final opacity = (1.0 - dragProgress).clamp(0.0, 1.0);
+    final secondsRemaining = VoiceLimitsConfig.maxDurationSeconds - seconds;
+    final isWarning = secondsRemaining <= VoiceLimitsConfig.warningThresholdSeconds;
     final cancelColor = Color.lerp(
       const Color(0xFF64748B),
       Colors.redAccent,
@@ -240,7 +243,13 @@ class _RecordingBar extends StatelessWidget {
         children: [
           const Icon(Icons.mic, color: Colors.redAccent, size: 20),
           const SizedBox(width: 12),
-          Text(_formatTime(seconds), style: const TextStyle(color: Color(0xFF0F172A), fontWeight: FontWeight.bold)),
+          Text(
+            _formatTime(seconds),
+            style: TextStyle(
+              color: isWarning ? Colors.redAccent : const Color(0xFF0F172A),
+              fontWeight: FontWeight.bold,
+            ),
+          ),
           const SizedBox(width: 16),
           Expanded(
             child: Opacity(

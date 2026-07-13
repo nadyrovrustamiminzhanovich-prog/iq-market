@@ -306,6 +306,17 @@ describe("storage: voice_messages/{chatId}/", () => {
     await assertSucceeds(uploadBytes(storageRef, SMALL_IMAGE, { contentType: "audio/ogg" }));
   });
 
+  test("участник может загрузить голосовое сообщение <= 5MB", async () => {
+    const storageRef = ref(userStorage(uid1), `voice_messages/${chatId}/under_5mb.ogg`);
+    const size4mb = Buffer.alloc(4 * 1024 * 1024);
+    await assertSucceeds(uploadBytes(storageRef, size4mb, { contentType: "audio/ogg" }));
+  });
+
+  test("участник НЕ может загрузить голосовое сообщение > 5MB", async () => {
+    const storageRef = ref(userStorage(uid1), `voice_messages/${chatId}/over_5mb.ogg`);
+    await assertFails(uploadBytes(storageRef, LARGE_IMAGE, { contentType: "audio/ogg" }));
+  });
+
   test("посторонний НЕ может загрузить голосовое сообщение в чужой чат", async () => {
     const storageRef = ref(userStorage(outsider), `voice_messages/${chatId}/hacked.ogg`);
     await assertFails(uploadBytes(storageRef, SMALL_IMAGE, { contentType: "audio/ogg" }));

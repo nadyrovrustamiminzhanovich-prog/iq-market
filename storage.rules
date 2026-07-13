@@ -34,7 +34,7 @@ service firebase.storage {
     match /voice_messages/{chatId}/{allPaths=**} {
       allow read: if isSignedIn() && (isChatParticipant(chatId) || isAdmin());
       allow write: if isSignedIn() && isChatParticipant(chatId)
-                   && (request.resource == null || request.resource.size < 15 * 1024 * 1024);
+                   && (request.resource == null || request.resource.size < 5 * 1024 * 1024);
     }
 
     // Чат медиа (если сохраняются вне chats)
