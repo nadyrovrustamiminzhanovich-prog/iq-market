@@ -125,7 +125,12 @@ class HttpsError extends Error {
   }
 }
 
+const mockLoggerError = jest.fn();
+
 jest.mock('firebase-functions/v1', () => ({
+  logger: {
+    error: mockLoggerError
+  },
   firestore: {
     document: (path) => ({
       onCreate: (handler) => handler,
@@ -492,6 +497,77 @@ describe('onVoiceMessageUpload Cloud Function Storage Trigger Tests', () => {
 
     expect(mockFileDownload).toHaveBeenCalledTimes(1);
     expect(mockFileGetMetadata).toHaveBeenCalledTimes(1);
+    expect(mockFileDelete).toHaveBeenCalledTimes(1);
+    expect(mockDocDelete).toHaveBeenCalledTimes(1);
+  });
+
+  test('getMetadata падает 1 раз, потом успешен на retry -> approve по размеру (< 3MB)', async () => {
+    const mockObject = {
+      name: 'voice_messages/chat_abc/msg_123.m4a',
+      bucket: 'my-bucket'
+    };
+    const buffer = Buffer.from('corrupted data');
+    mockFileDownload.mockResolvedValueOnce([buffer]);
+    
+    // 1-я попытка: ошибка, 2-я попытка: успех
+    mockFileGetMetadata
+      .mockRejectedValueOnce(new Error('Temporary metadata fetch failure'))
+      .mockResolvedValueOnce([{ size: '2000000' }]);
+
+    await onVoiceMessageUpload(mockObject);
+
+    expect(mockFileDownload).toHaveBeenCalledTimes(1);
+    expect(mockFileGetMetadata).toHaveBeenCalledTimes(2); // Вызван дважды
+    expect(mockFileDelete).not.toHaveBeenCalled();
+    expect(mockDocDelete).not.toHaveBeenCalled();
+  });
+
+  test('getMetadata падает все 3 попытки -> файл и документ НЕ удаляются, логируется ошибка', async () => {
+    jest.useFakeTimers();
+
+    const mockObject = {
+      name: 'voice_messages/chat_abc/msg_123.m4a',
+      bucket: 'my-bucket'
+    };
+    const buffer = Buffer.from('corrupted data');
+    mockFileDownload.mockResolvedValueOnce([buffer]);
+    
+    // Все 3 попытки бросают ошибку
+    mockFileGetMetadata
+      .mockRejectedValueOnce(new Error('Metadata failure 1'))
+      .mockRejectedValueOnce(new Error('Metadata failure 2'))
+      .mockRejectedValueOnce(new Error('Metadata failure 3'));
+
+    const promise = onVoiceMessageUpload(mockObject);
+    
+    // Продвигаем таймеры, чтобы разрешить setTimeout промисы
+    await jest.runAllTimersAsync();
+    await promise;
+
+    expect(mockFileDownload).toHaveBeenCalledTimes(1);
+    expect(mockFileGetMetadata).toHaveBeenCalledTimes(3); // Ровно 3 попытки
+    expect(mockFileDelete).not.toHaveBeenCalled(); // НЕ удален
+    expect(mockDocDelete).not.toHaveBeenCalled(); // НЕ удален
+    expect(mockLoggerError).toHaveBeenCalledTimes(1); // Логируется в functions.logger.error
+    expect(mockLoggerError.mock.calls[0][0]).toContain('Failed to fetch metadata after retries');
+
+    jest.useRealTimers();
+  });
+
+  test('getMetadata сразу успешен (без retry) -> удаляет если размер >= 3MB', async () => {
+    const mockObject = {
+      name: 'voice_messages/chat_abc/msg_123.m4a',
+      bucket: 'my-bucket'
+    };
+    const buffer = Buffer.from('corrupted data');
+    mockFileDownload.mockResolvedValueOnce([buffer]);
+    mockFileGetMetadata.mockResolvedValueOnce([{ size: '3500000' }]);
+    mockDocGet.mockResolvedValueOnce({ exists: true });
+
+    await onVoiceMessageUpload(mockObject);
+
+    expect(mockFileDownload).toHaveBeenCalledTimes(1);
+    expect(mockFileGetMetadata).toHaveBeenCalledTimes(1); // Ровно 1 вызов
     expect(mockFileDelete).toHaveBeenCalledTimes(1);
     expect(mockDocDelete).toHaveBeenCalledTimes(1);
   });

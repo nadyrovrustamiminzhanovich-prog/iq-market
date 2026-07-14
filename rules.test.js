@@ -484,6 +484,14 @@ describe("app_config", () => {
       })
     );
   });
+
+  test("пользователь без документа в /users/ НЕ приводит к падению isAdmin() и возвращает false (доступ запрещен)", async () => {
+    await assertFails(
+      setDoc(doc(userDb("non_existent_user_doc"), "app_config", docId), {
+        min_version_code: "3"
+      })
+    );
+  });
 });
 
 // ──────────────────────────────────────────
@@ -532,6 +540,164 @@ describe("fingerprints (text and image)", () => {
         adId: "ad_123",
         userId: "some_user",
         createdAt: new Date(),
+      })
+    );
+  });
+});
+
+// ──────────────────────────────────────────
+// НОВЫЕ ТЕСТЫ ДЛЯ ЗАДАЧ 2 И 3
+// ──────────────────────────────────────────
+describe("notifications schema", () => {
+  const buyerId = "buyer_001";
+  const sellerId = "seller_001";
+  const notifId = "chat_chat_001";
+
+  beforeEach(async () => {
+    await adminSet("chats/chat_001", {
+      users: [buyerId, sellerId]
+    });
+  });
+
+  test("создание уведомления по старому формату (без senderId на верхнем уровне) отклоняется", async () => {
+    await assertFails(
+      setDoc(doc(userDb(buyerId), `users/${sellerId}/notifications`, notifId), {
+        title: "Тест",
+        body: "Тест тела",
+        type: "chat",
+        timestamp: new Date(),
+        data: {
+          chatId: "chat_001",
+          senderId: buyerId
+        }
+      })
+    );
+  });
+
+  test("создание уведомления по новому формату (с senderId на верхнем уровне) разрешается", async () => {
+    await assertSucceeds(
+      setDoc(doc(userDb(buyerId), `users/${sellerId}/notifications`, notifId), {
+        title: "Тест",
+        body: "Тест тела",
+        type: "chat",
+        timestamp: new Date(),
+        senderId: buyerId,
+        data: {
+          chatId: "chat_001",
+          senderId: buyerId
+        }
+      })
+    );
+  });
+});
+
+describe("chats users order comparison", () => {
+  const buyerId = "buyer_123";
+  const sellerId = "seller_456";
+  const chatId = "buyer_123_seller_456";
+
+  test("покупатель создает чат с порядком [buyer, seller], затем продавец отвечает/обновляет с порядком [seller, buyer], затем покупатель предлагает цену с порядком [buyer, seller] - все должно пройти", async () => {
+    // 1. Покупатель создает чат с users: [buyer, seller]
+    await assertSucceeds(
+      setDoc(doc(userDb(buyerId), "chats", chatId), {
+        users: [buyerId, sellerId],
+        lastMessage: "Привет",
+        lastTimestamp: new Date(),
+        lastSenderId: buyerId
+      })
+    );
+
+    // 2. Продавец отвечает (обновляет чат с users в другом порядке [seller, buyer])
+    await assertSucceeds(
+      setDoc(doc(userDb(sellerId), "chats", chatId), {
+        users: [sellerId, buyerId],
+        lastMessage: "Привет покупатель",
+        lastTimestamp: new Date(),
+        lastSenderId: sellerId
+      }, { merge: true })
+    );
+
+    // 3. Покупатель предлагает цену (обновляет чат с users в порядке [buyer, seller])
+    await assertSucceeds(
+      setDoc(doc(userDb(buyerId), "chats", chatId), {
+        users: [buyerId, sellerId],
+        lastMessage: "Предложение цены: 1000",
+        lastTimestamp: new Date(),
+        lastSenderId: buyerId
+      }, { merge: true })
+    );
+  });
+
+  test("продавец может принять/отклонить предложение цены покупателя, даже если порядок участников users в чате изменился", async () => {
+    // 1. Покупатель создает чат с users: [buyer, seller]
+    await assertSucceeds(
+      setDoc(doc(userDb(buyerId), "chats", chatId), {
+        users: [buyerId, sellerId],
+        lastMessage: "Предложение",
+        lastTimestamp: new Date(),
+        lastSenderId: buyerId
+      })
+    );
+
+    // 2. Создаем сообщение-предложение от покупателя
+    await adminSet(`chats/${chatId}/messages/offer_001`, {
+      senderId: buyerId,
+      text: "Предложение цены: 500",
+      type: "offer",
+      offerPrice: 500,
+      offerStatus: "pending",
+      timestamp: new Date(),
+      isRead: false,
+    });
+
+    // 3. Продавец обновляет чат, меняя порядок users на [seller, buyer]
+    await assertSucceeds(
+      setDoc(doc(userDb(sellerId), "chats", chatId), {
+        users: [sellerId, buyerId],
+      }, { merge: true })
+    );
+
+    // 4. Продавец (получатель оффера) принимает предложение — должно пройти успешно
+    await assertSucceeds(
+      updateDoc(doc(userDb(sellerId), `chats/${chatId}/messages`, "offer_001"), {
+        offerStatus: "accepted",
+      })
+    );
+  });
+
+  test("покупатель может отменить свое предложение цены, даже если порядок участников users в чате изменился", async () => {
+    // 1. Покупатель создает чат с users: [buyer, seller]
+    await assertSucceeds(
+      setDoc(doc(userDb(buyerId), "chats", chatId), {
+        users: [buyerId, sellerId],
+        lastMessage: "Предложение",
+        lastTimestamp: new Date(),
+        lastSenderId: buyerId
+      })
+    );
+
+    // 2. Создаем сообщение-предложение от покупателя (pending)
+    await adminSet(`chats/${chatId}/messages/offer_002`, {
+      senderId: buyerId,
+      text: "Предложение цены: 700",
+      type: "offer",
+      offerPrice: 700,
+      offerStatus: "pending",
+      timestamp: new Date(),
+      isRead: false,
+    });
+
+    // 3. Продавец обновляет чат, меняя порядок users на [seller, buyer]
+    await assertSucceeds(
+      setDoc(doc(userDb(sellerId), "chats", chatId), {
+        users: [sellerId, buyerId],
+      }, { merge: true })
+    );
+
+    // 4. Покупатель (отправитель оффера) отменяет предложение — должно пройти успешно
+    await assertSucceeds(
+      updateDoc(doc(userDb(buyerId), `chats/${chatId}/messages`, "offer_002"), {
+        offerStatus: "cancelled",
       })
     );
   });

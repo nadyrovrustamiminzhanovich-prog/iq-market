@@ -1018,10 +1018,12 @@ exports.onVoiceMessageUpload = functions.storage.object().onFinalize(async (obje
   const db = admin.firestore();
 
   let duration = null;
+  let parseError = null;
   try {
     const [buffer] = await file.download();
     duration = parseMp4Duration(buffer);
   } catch (err) {
+    parseError = err;
     console.warn(`[onVoiceMessageUpload] Failed to parse MP4 duration for ${filePath}: ${err.message}. Falling back to file size check.`);
   }
 
@@ -1042,8 +1044,26 @@ exports.onVoiceMessageUpload = functions.storage.object().onFinalize(async (obje
     console.log(`[onVoiceMessageUpload] Approved: duration is ${duration}s for ${filePath}`);
   } else {
     // Fallback: check file size if duration parsing fails/zeroes
-    try {
-      const [metadata] = await file.getMetadata();
+    let metadata = null;
+    let getMetaError = null;
+    const delays = [500, 1500];
+
+    for (let attempt = 0; attempt <= delays.length; attempt++) {
+      try {
+        [metadata] = await file.getMetadata();
+        getMetaError = null;
+        break;
+      } catch (err) {
+        getMetaError = err;
+        if (attempt < delays.length) {
+          const delay = delays[attempt];
+          console.warn(`[onVoiceMessageUpload] getMetadata attempt ${attempt + 1} failed: ${err.message}. Retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
+    }
+
+    if (metadata) {
       const fileSize = parseInt(metadata.size || '0', 10);
       if (fileSize > maxSizeBytes) {
         console.warn(`[onVoiceMessageUpload] Rejecting: unparseable file is too large (${fileSize} bytes) for ${filePath}`);
@@ -1056,12 +1076,8 @@ exports.onVoiceMessageUpload = functions.storage.object().onFinalize(async (obje
         return null;
       }
       console.log(`[onVoiceMessageUpload] Approved via size fallback: size is ${fileSize} bytes for ${filePath}`);
-    } catch (metaErr) {
-      console.error(`[onVoiceMessageUpload] Failed to fetch metadata or fallback size: ${metaErr.message}`);
-      try {
-        await file.delete();
-      } catch (e) {}
-      await deleteFirestoreDocWithRetry(db, chatId, msgId);
+    } else {
+      functions.logger.error(`[onVoiceMessageUpload] Failed to fetch metadata after retries for ${filePath}. chatId: ${chatId}, msgId: ${msgId}. Parse duration error: ${parseError ? parseError.message : 'none'}, getMetadata error: ${getMetaError ? getMetaError.message : 'unknown'}`);
     }
   }
 

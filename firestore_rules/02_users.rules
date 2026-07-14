@@ -17,8 +17,7 @@
             (
               notifId.size() > 5 && 
               notifId[0:5] == 'chat_' && 
-              request.auth.uid in get(/databases/$(database)/documents/chats/$(notifId[5:])).data.users &&
-              userId in get(/databases/$(database)/documents/chats/$(notifId[5:])).data.users
+              get(/databases/$(database)/documents/chats/$(notifId[5:])).data.users.hasAll([request.auth.uid, userId])
             )
           );
         allow read, delete: if isOwner(userId);

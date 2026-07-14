@@ -146,12 +146,14 @@ class TaxiRepository {
       transaction.set(db.collection('taxi_bids').doc(docId), newBid);
     });
 
-    await NotificationService.saveNotificationToFirestore(
+    NotificationService.saveNotificationToFirestore(
       title: 'Новое предложение по такси 🚕',
       body: 'Поступило предложение на $price ₸',
       type: 'taxi_bid',
       uid: receiverId,
-    );
+    ).catchError((e) {
+      debugPrint('[TAXI_REPOSITORY] Notification sending failed: $e');
+    });
   }
 
   Future<void> acceptBid(String bidId) async {
@@ -238,29 +240,35 @@ class TaxiRepository {
       // Notify winner AFTER batch is committed
       final targetType = bidData['targetType'];
       if (targetType == 'order') {
-        await NotificationService.saveNotificationToFirestore(
+        NotificationService.saveNotificationToFirestore(
           title: 'Предложение принято! 🎉',
           body: 'Пассажир принял вашу ставку на ${bidData['offeredPrice']} ₸. Свяжитесь для выезда!',
           type: 'taxi_bid_accepted',
           uid: bidData['senderId'],
-        );
+        ).catchError((e) {
+          debugPrint('[TAXI_REPOSITORY] Notification sending failed: $e');
+        });
       } else {
-        await NotificationService.saveNotificationToFirestore(
+        NotificationService.saveNotificationToFirestore(
           title: 'Поездка подтверждена! 🚙',
           body: 'Водитель принял вашу ставку на ${bidData['offeredPrice']} ₸. Свяжитесь для выезда!',
           type: 'taxi_bid_accepted',
           uid: bidData['senderId'],
-        );
+        ).catchError((e) {
+          debugPrint('[TAXI_REPOSITORY] Notification sending failed: $e');
+        });
       }
 
       // Notify other bid senders that their bids were rejected
       for (var bid in rejectedBidsData) {
-        await NotificationService.saveNotificationToFirestore(
+        NotificationService.saveNotificationToFirestore(
           title: 'Предложение отклонено ❌',
           body: 'Ваша ставка на ${bid['offeredPrice']} ₸ была отклонена, так как была выбрана другая.',
           type: 'taxi_bid_rejected',
           uid: bid['senderId'],
-        );
+        ).catchError((e) {
+          debugPrint('[TAXI_REPOSITORY] Notification sending failed: $e');
+        });
       }
 
     } catch (e) {
@@ -287,12 +295,14 @@ class TaxiRepository {
     });
 
     if (capturedBidData != null) {
-      await NotificationService.saveNotificationToFirestore(
+      NotificationService.saveNotificationToFirestore(
         title: 'Предложение отклонено ❌',
         body: 'Ваша ставка на ${capturedBidData!['offeredPrice']} ₸ была отклонена.',
         type: 'taxi_bid_rejected',
         uid: capturedBidData!['senderId'],
-      );
+      ).catchError((e) {
+        debugPrint('[TAXI_REPOSITORY] Notification sending failed: $e');
+      });
     }
   }
 
@@ -663,12 +673,14 @@ class TaxiRepository {
 
     // Push-уведомление контрагенту
     if (counterpartId.isNotEmpty) {
-      await NotificationService.saveNotificationToFirestore(
+      NotificationService.saveNotificationToFirestore(
         title: 'Поездка подтверждена 🚕',
         body: '$myName подтвердил(а) совместную поездку за $finalPrice ₸',
         type: 'taxi_trip_confirmed',
         uid: counterpartId,
-      );
+      ).catchError((e) {
+        debugPrint('[TAXI_REPOSITORY] Notification sending failed: $e');
+      });
     }
   }
 }

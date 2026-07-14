@@ -8,6 +8,9 @@
     
     function isAdmin() {
       // Поддержка как Custom Claims, так и роли в документе
-      return ('admin' in request.auth.token && request.auth.token.admin == true) || 
-             (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.accountType == 'admin');
+      return request.auth != null && (
+        ('admin' in request.auth.token && request.auth.token.admin == true) ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.accountType == 'admin')
+      );
     }

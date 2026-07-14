@@ -569,6 +569,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ],
                             const SizedBox(height: 10),
                             Text(r.comment, style: GoogleFonts.inter(fontSize: 13.5, color: _txtColor.withValues(alpha: 0.8), height: 1.5)),
+                            if (r.images.isNotEmpty) ...[
+                              const SizedBox(height: 12),
+                              SizedBox(
+                                height: 60,
+                                child: ListView.builder(
+                                  scrollDirection: Axis.horizontal,
+                                  itemCount: r.images.length.clamp(0, 4),
+                                  itemBuilder: (context, i) => GestureDetector(
+                                    onTap: () {
+                                      final url = r.images[i];
+                                      if (url.isNotEmpty && url.startsWith('http')) {
+                                        _showFullScreenPhoto(url);
+                                      }
+                                    },
+                                    child: Container(
+                                      width: 60,
+                                      margin: const EdgeInsets.only(right: 8),
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(10),
+                                        image: (r.images[i].isNotEmpty && r.images[i].startsWith('http'))
+                                            ? DecorationImage(image: NetworkImage(r.images[i]), fit: BoxFit.cover)
+                                            : null,
+                                        color: _isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey[200],
+                                      ),
+                                      child: (r.images[i].isEmpty || !r.images[i].startsWith('http'))
+                                          ? const Icon(Icons.broken_image_rounded, size: 20, color: Colors.grey)
+                                          : null,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       );

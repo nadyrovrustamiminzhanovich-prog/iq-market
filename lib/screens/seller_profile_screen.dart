@@ -697,8 +697,14 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
                   margin: const EdgeInsets.only(right: 8),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(10),
-                    image: DecorationImage(image: CachedNetworkImageProvider(r.images[i]), fit: BoxFit.cover),
+                    image: (r.images[i].isNotEmpty && r.images[i].startsWith('http'))
+                      ? DecorationImage(image: CachedNetworkImageProvider(r.images[i]), fit: BoxFit.cover)
+                      : null,
+                    color: Colors.grey[200],
                   ),
+                  child: (r.images[i].isEmpty || !r.images[i].startsWith('http'))
+                      ? const Icon(Icons.broken_image_rounded, size: 20, color: Colors.grey)
+                      : null,
                 ),
               ),
             ),

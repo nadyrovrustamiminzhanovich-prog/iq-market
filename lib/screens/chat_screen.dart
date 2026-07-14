@@ -24,7 +24,9 @@ import 'package:iqmarket/services/user_service.dart';
 import 'package:iqmarket/services/file_service.dart';
 import 'package:iqmarket/services/ad_service.dart';
 import 'package:iqmarket/services/notification_service.dart';
+import 'package:iqmarket/services/storage_service.dart';
 import 'package:iqmarket/screens/seller_profile_screen.dart';
+import 'package:iqmarket/screens/profile_settings_screen.dart';
 
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -85,6 +87,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   bool _isChatValidating = false;
   bool _isAccessDenied = false;
+  // true  → чат СУЩЕСТВУЕТ, но uid не в participants (или permission-denied при чтении).
+  // false → чат реально удалён / другая ошибка — показываем старый текст «Чат недоступен».
+  bool _isWrongAccount = false;
 
   final List<String> _emojis = [
     '😀','😃','😄','😁','😆','😅','😂','🤣','😊','😇','🙂','🙃','😉','😌','😍','🥰','😘','😗','😙','😚','😋','😛','😝','😜','🤪','🤨','🧐','🤓','😎','🤩','🥳','😏','😒','😞','😔','😟','😕','🙁','☹️','😣','😖','😫','😩','🥺','😢','😭','😤','😠','😡','🤬','🤯','😳','🥵','🥶','😱','😨','😰','😥','😓','🤗','🤔','🤭','🤫','🤥','😶','😐','😑','😬','🙄','😯','😦','😧','😮','😲','🥱','😴','🤤','😪','😵','🤐','🥴','🤢','🤮','🤧','😷','🤒','🤕','🤑','🤠','😈','👿','👹','👺','🤡','💩','👻','💀','☠️','👽','👾','🤖','🎃','😺','😸','😹','😻','😼','😽','🙀','😿','😾','🔥','✨','🌟','💯','👍','👎','❤️','💔','✔️','❌'
@@ -224,6 +229,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           setState(() {
             _isChatValidating = false;
             _isAccessDenied = true;
+            // Чат существует, но uid не в списке участников — вероятнее всего смена аккаунта.
+            _isWrongAccount = true;
           });
           // ✅ НЕ вызываем markAsRead — пользователь не является участником
         }
@@ -260,6 +267,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           operation: 'read',
           type: 'chat_doc',
         );
+        // permission-denied при чтении чата = uid скорее всего не в participants.
+        if (mounted) setState(() => _isWrongAccount = true);
       }
       FirebaseCrashlytics.instance.recordError(
         e,
@@ -836,18 +845,70 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.lock_outline_rounded, size: 64, color: Colors.redAccent),
+                Icon(
+                  _isWrongAccount
+                      ? Icons.manage_accounts_outlined
+                      : Icons.lock_outline_rounded,
+                  size: 64,
+                  color: _isWrongAccount ? const Color(0xFF4A80F0) : Colors.redAccent,
+                ),
                 const SizedBox(height: 16),
                 Text(
-                  'Чат недоступен',
-                  style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.redAccent),
+                  _isWrongAccount ? 'Другой аккаунт' : 'Чат недоступен',
+                  style: GoogleFonts.inter(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: _isWrongAccount ? const Color(0xFF4A80F0) : Colors.redAccent,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'У вас нет доступа к этому чату или он был удален.',
+                  _isWrongAccount
+                      ? 'Похоже, вы входили другим способом. Привяжите аккаунты в настройках, чтобы получить доступ к своим чатам.'
+                      : 'У вас нет доступа к этому чату или он был удален.',
                   textAlign: TextAlign.center,
                   style: GoogleFonts.inter(fontSize: 14, color: Colors.grey[600]),
                 ),
+                if (_isWrongAccount) ...[
+                  const SizedBox(height: 24),
+                  ElevatedButton.icon(
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ProfileSettingsScreen(
+                          // Читаем актуальные данные из SharedPreferences (уже инициализирован в main).
+                          currentName: StorageService.getString('user_name') ?? '',
+                          profileImagePath: StorageService.getString('user_image'),
+                          isBioEnabled: StorageService.getBool('is_bio_enabled'),
+                          accType: StorageService.getString('account_type') ?? 'user',
+                          lang: lang,
+                          // themes: const {} безопасно — ProfileSettingsScreen использует
+                          // fallback-цвета через ??, краша нет (строки 76–80 profile_settings_screen.dart).
+                          currentTheme: 'light',
+                          themes: const {},
+                          // onThemeChanged: no-op безопасен — тема применяется через
+                          // AppConfigProvider (строка 204 profile_settings_screen.dart),
+                          // колбэк нужен только для обновления локального state ProfileScreen.
+                          onThemeChanged: (_) {},
+                          // onSave: no-op безопасен — Firestore/Auth реально обновляются
+                          // внутри _saveProfile() (строки 208–229 profile_settings_screen.dart).
+                          // ProfileScreen подтянет новое имя из SharedPreferences при
+                          // следующем открытии через widget.currentName.
+                          onSave: (_, __, ___, ____, _____) {},
+                        ),
+                      ),
+                    ),
+                    icon: const Icon(Icons.link_rounded, size: 18),
+                    label: const Text('Привязать аккаунты'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF4A80F0),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      elevation: 0,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

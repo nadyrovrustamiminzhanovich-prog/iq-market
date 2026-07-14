@@ -1404,7 +1404,12 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                     icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.black87),
                     onPressed: () => setState(() => _showEmailForm = false),
                   )
-                : null,
+                : (Navigator.canPop(context)
+                    ? IconButton(
+                        icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.black87),
+                        onPressed: () => Navigator.of(context).pop(),
+                      )
+                    : null),
           ),
           body: Stack(
             children: [

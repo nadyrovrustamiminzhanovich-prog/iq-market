@@ -618,13 +618,15 @@ class AdService {
       for (var userDoc in usersSnapshot.docs) {
         final userId = userDoc.id;
         // Отправляем уведомление через наш NotificationService
-        await NotificationService.saveNotificationToFirestore(
+        NotificationService.saveNotificationToFirestore(
           uid: userId,
           title: 'Цена снижена! 🔥',
           body: 'Товар "$title" теперь стоит $newPrice. Самое время забрать его!',
           type: 'price_drop',
           data: {'adId': adId},
-        );
+        ).catchError((e) {
+          debugPrint('[AD_SERVICE] notifyPriceDrop failed for user $userId: $e');
+        });
       }
     } catch (e) {
       debugPrint('Error notifying price drop: $e');
@@ -697,13 +699,15 @@ class AdService {
       });
 
       // Отправляем уведомление владельцу
-      await NotificationService.saveNotificationToFirestore(
+      NotificationService.saveNotificationToFirestore(
         uid: ad.userId,
         title: 'Объявление одобрено! ✅',
         body: 'Ваше объявление "${ad.title}" прошло модерацию и теперь доступно всем пользователям.',
         type: 'ad_approved',
         data: {'adId': adId},
-      );
+      ).catchError((e) {
+        debugPrint('[AD_SERVICE] approveAd notification failed: $e');
+      });
     } catch (e) {
       debugPrint('Error approving ad: $e');
       rethrow;
@@ -718,13 +722,15 @@ class AdService {
       final ad = AdModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
 
       // Отправляем уведомление об отклонении
-      await NotificationService.saveNotificationToFirestore(
+      NotificationService.saveNotificationToFirestore(
         uid: ad.userId,
         title: 'Объявление отклонено ❌',
         body: 'Ваше объявление "${ad.title}" было отклонено модератором. Причина: $reason',
         type: 'ad_rejected',
         data: {'adId': adId, 'reason': reason},
-      );
+      ).catchError((e) {
+        debugPrint('[AD_SERVICE] rejectAd notification failed: $e');
+      });
 
       // Удаляем само объявление
       await deleteAd(adId);
@@ -768,13 +774,15 @@ class AdService {
       final ad = AdModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
       if (ad.expiresAt != null && ad.expiresAt!.isBefore(threeDaysFromNow)) {
         // Отправляем уведомление
-        await NotificationService.saveNotificationToFirestore(
+        NotificationService.saveNotificationToFirestore(
           uid: uid,
           title: 'Срок объявления истекает! ⏳',
           body: 'Ваше объявление "${ad.title}" скоро будет перенесено в архив. Продлите его, чтобы не потерять просмотры.',
           type: 'price_drop',
           data: {'adId': ad.id},
-        );
+        ).catchError((e) {
+          debugPrint('[AD_SERVICE] Expiry notification failed: $e');
+        });
         // Помечаем, что уведомили
         await doc.reference.update({'notifiedExpiry': true});
       }

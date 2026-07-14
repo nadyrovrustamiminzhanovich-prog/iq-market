@@ -13,6 +13,7 @@ import 'package:iqmarket/services/translation_service.dart';
 
 class LeaveReviewScreen extends StatefulWidget {
   final AdModel ad;
+  static dynamic mockUser;
   const LeaveReviewScreen({super.key, required this.ad});
 
   @override
@@ -42,6 +43,8 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
   }
 
   Future<void> _submit(String lang) async {
+    if (_isUploading) return;
+
     if (_commentCtrl.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(TranslationService.t('err_enter_comment', lang)))
@@ -52,7 +55,7 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
     setState(() => _isUploading = true);
 
     try {
-      final user = FirebaseAuth.instance.currentUser;
+      final user = LeaveReviewScreen.mockUser ?? FirebaseAuth.instance.currentUser;
       if (user == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -66,7 +69,6 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
       final hasReviewed = await ReviewService.hasUserReviewedAd(user.uid, widget.ad.id);
       if (hasReviewed) {
         if (mounted) {
-          setState(() => _isUploading = false);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(TranslationService.t('err_already_reviewed', lang)))
           );
@@ -107,7 +109,9 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(TranslationService.t('errPublish', lang).replaceAll('{error}', e.toString()))));
       }
     } finally {
-      if (mounted) setState(() => _isUploading = false);
+      if (mounted) {
+        setState(() => _isUploading = false);
+      }
     }
   }
 

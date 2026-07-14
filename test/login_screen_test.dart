@@ -85,5 +85,96 @@ void main() {
 
       expect(find.text('Продолжить с Email'), findsOneWidget);
     });
+
+    testWidgets('Renders choice screen with back button if navigator can pop, and tapping it pops the screen', (WidgetTester tester) async {
+      final key = GlobalKey<NavigatorState>();
+      await tester.pumpWidget(
+        MaterialApp(
+          navigatorKey: key,
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: ElevatedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const LoginScreen(lang: 'Русский'),
+                    ),
+                  );
+                },
+                child: const Text('Go to Login'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      // Tap Go to Login
+      await tester.tap(find.text('Go to Login'));
+      await tester.pumpAndSettle();
+
+      // We should be on the choice screen
+      expect(find.text('Продолжить с Email'), findsOneWidget);
+
+      // Verify the AppBar back button is visible since Navigator.canPop is true
+      final backButtonFinder = find.byIcon(Icons.arrow_back_ios_new_rounded);
+      expect(backButtonFinder, findsOneWidget);
+
+      // Tap the back button
+      await tester.tap(backButtonFinder);
+      await tester.pumpAndSettle();
+
+      // We should be back to the initial screen with "Go to Login"
+      expect(find.text('Go to Login'), findsOneWidget);
+      expect(find.text('Продолжить с Email'), findsNothing);
+    });
+
+    testWidgets('System back button flow: pops choice screen, but only transitions form to choice screen first', (WidgetTester tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const LoginScreen(lang: 'Русский')),
+                ),
+                child: const Text('Go to Login'),
+              ),
+            ),
+          ),
+        ),
+      );
+      
+      // Navigate to Login Screen
+      await tester.tap(find.text('Go to Login'));
+      await tester.pumpAndSettle();
+      
+      // Go to Email Form
+      final emailBtnFinder = find.text('Продолжить с Email');
+      await tester.ensureVisible(emailBtnFinder);
+      await tester.pumpAndSettle();
+      await tester.tap(emailBtnFinder);
+      await tester.pumpAndSettle();
+      
+      // Verify email form is shown
+      expect(find.text('Email адрес'), findsOneWidget);
+
+      // 1. Simulate system back button when showEmailForm == true
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      // Should be back on the choice screen
+      expect(find.text('Продолжить с Email'), findsOneWidget);
+      expect(find.text('Email адрес'), findsNothing);
+
+      // 2. Simulate system back button when showEmailForm == false
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      // Should have popped the entire LoginScreen
+      expect(find.text('Go to Login'), findsOneWidget);
+      expect(find.text('Продолжить с Email'), findsNothing);
+    });
   });
 }

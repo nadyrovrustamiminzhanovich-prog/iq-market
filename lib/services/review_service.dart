@@ -1,12 +1,21 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:iqmarket/models/review_model.dart';
 import 'package:iqmarket/services/notification_service.dart';
 
 class ReviewService {
   static final FirebaseFirestore _db = FirebaseFirestore.instance;
 
+  // Test hooks to override database operations
+  static Future<void> Function(ReviewModel review)? mockAddReview;
+  static Future<bool> Function(String userId, String adId)? mockHasUserReviewedAd;
+
   /// Add a new review
   static Future<void> addReview(ReviewModel review) async {
+    if (mockAddReview != null) {
+      await mockAddReview!(review);
+      return;
+    }
     await _db.collection('reviews').add(review.toMap());
     
     // Update user average rating
@@ -19,7 +28,9 @@ class ReviewService {
       body: '${review.fromUserName} оставил(а) отзыв на ваше объявление "${review.adTitle}"',
       type: 'review',
       data: {'adId': review.adId},
-    );
+    ).catchError((e) {
+      debugPrint('[REVIEW_SERVICE] addReview notification failed: $e');
+    });
   }
 
   /// Get reviews for a specific user (seller)
@@ -60,6 +71,9 @@ class ReviewService {
 
   /// Check if a user has already reviewed a specific ad
   static Future<bool> hasUserReviewedAd(String userId, String adId) async {
+    if (mockHasUserReviewedAd != null) {
+      return mockHasUserReviewedAd!(userId, adId);
+    }
     final snapshot = await _db
         .collection('reviews')
         .where('fromUserId', isEqualTo: userId)
@@ -78,7 +92,9 @@ class ReviewService {
         title: 'Отзыв удален 🗑️',
         body: 'Один из ваших отзывов был удален модератором. Причина: $reason',
         type: 'ad_rejected',
-      );
+      ).catchError((e) {
+        debugPrint('[REVIEW_SERVICE] deleteReview notification failed: $e');
+      });
     }
 
     // Пересчитываем рейтинг пользователя после удаления

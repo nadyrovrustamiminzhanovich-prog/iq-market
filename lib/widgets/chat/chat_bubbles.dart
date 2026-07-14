@@ -348,12 +348,16 @@ class _ChatBubbleState extends State<ChatBubble> {
           children: [
             Icon(icon, color: color, size: 18),
             const SizedBox(width: 6),
-            Text(
-              label,
-              style: const TextStyle(
-                color: Color(0xFF334155),
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
+            Flexible(
+              child: Text(
+                label,
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+                style: const TextStyle(
+                  color: Color(0xFF334155),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
           ],

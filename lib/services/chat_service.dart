@@ -68,7 +68,7 @@ class ChatService {
             'lastTimestamp': Timestamp.now(),
             'lastSenderId': '',
             'isRead': false,
-            'users': [uid, sellerId],
+            'users': [uid, sellerId]..sort(),
             'name_$uid': actualSenderName,
             'name_$sellerId': ad.userName,
             'adId': ad.id,
@@ -118,7 +118,7 @@ class ChatService {
         'lastTimestamp': Timestamp.now(),
         'lastSenderId': uid,
         'isRead': false,
-        'users': [uid, sellerId],
+        'users': [uid, sellerId]..sort(),
         'unreadCount_$sellerId': FieldValue.increment(1),
         'name_$uid': actualSenderName,
         'name_$sellerId': ad.userName,
@@ -159,7 +159,9 @@ class ChatService {
           'senderName': actualSenderName,
           'senderPhone': senderPhone,
         }
-      );
+      ).catchError((e) {
+        debugPrint('[CHAT_SERVICE] Notification sending failed (non-blocking): $e');
+      });
 
       return docRef.id;
     } catch (e, stack) {
@@ -238,7 +240,7 @@ class ChatService {
         'lastTimestamp': Timestamp.now(),
         'lastSenderId': uid,
         'isRead': false,
-        'users': [uid, ad.userId],
+        'users': [uid, ad.userId]..sort(),
         'unreadCount_${ad.userId}': FieldValue.increment(1),
         'name_$uid': actualSenderName,
         'name_${ad.userId}': ad.userName,
@@ -282,7 +284,9 @@ class ChatService {
           'senderName': actualSenderName,
           'senderPhone': senderPhone,
         },
-      );
+      ).catchError((e) {
+        debugPrint('[CHAT_SERVICE] Notification sending failed (non-blocking): $e');
+      });
     } catch (e) {
       debugPrint('[CHAT_SERVICE] sendOffer ERROR: $e');
       rethrow;
@@ -393,7 +397,9 @@ class ChatService {
           'chatId': chatId,
           'adId': offerAdId,
         },
-      );
+      ).catchError((e) {
+        debugPrint('[CHAT_SERVICE] Notification sending failed (non-blocking): $e');
+      });
     }
 
     // ── При ACCEPT: автоматически отклоняем все другие pending-предложения ───
@@ -479,7 +485,9 @@ class ChatService {
                   'chatId': chatDoc.id,
                   'adId': adId,
                 },
-              );
+              ).catchError((e) {
+                debugPrint('[CHAT_SERVICE] Notification sending failed (non-blocking): $e');
+              });
             }
           } catch (e) {
             debugPrint('[CHAT_SERVICE] Error auto-rejecting offer ${offerDoc.id}: $e');
@@ -788,7 +796,7 @@ class ChatService {
     await _db.collection('chats').doc(chatId).set({
       'lastMessage': 'Голосовое сообщение',
       'lastTimestamp': Timestamp.now(),
-      'users': [UserService.currentUid, otherUserId],
+      'users': [UserService.currentUid ?? '', otherUserId]..sort(),
       'unreadCount_${UserService.currentUid}': 3,
       'name_$otherUserId': 'Иван (Тест)',
       'adTitle': 'iPhone 13',

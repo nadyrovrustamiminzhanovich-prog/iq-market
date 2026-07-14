@@ -407,8 +407,10 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
             leading: _backButton(),
             actions: [
               _circleButton(Icons.share_rounded, _shareAd),
-              const SizedBox(width: 8),
-              _favoriteButton(),
+              if (_currentUser?.uid != ad.userId) ...[
+                const SizedBox(width: 8),
+                _favoriteButton(),
+              ],
               if (_currentUser?.accountType == 'admin' || ad.userId == _currentUser?.uid) ...[
 
                 const SizedBox(width: 8),
@@ -553,7 +555,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
             child: Column(
               children: [
                 _buildMainInfo(isFree),
-                if (_currentUser?.uid != widget.ad.userId) _buildBargainSection(),
+                if (_currentUser?.uid != ad.userId) _buildBargainSection(),
                 _buildTags(),
                 const SizedBox(height: 10),
                 if (widget.ad.extraFields != null && widget.ad.extraFields!.isNotEmpty) _buildSpecsSection(),
@@ -564,7 +566,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                 const SizedBox(height: 10),
                 _buildReviewsSection(), 
                 const SizedBox(height: 10),
-                _buildReportButton(),
+                if (_currentUser?.uid != ad.userId) _buildReportButton(),
                 const SizedBox(height: 70),
               ],
             ),
@@ -1004,6 +1006,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   Widget _tagChip({required String label}) => Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(10)), child: Text(label, style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: const Color(0xFF475569))));
   Widget _buildBottomBar() {
     if (_currentUser?.uid == widget.ad.userId) return const SizedBox.shrink();
+
     return Container(
       padding: EdgeInsets.fromLTRB(16, 8, 16, MediaQuery.of(context).padding.bottom > 0 ? MediaQuery.of(context).padding.bottom : 8),
       decoration: const BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 20, offset: Offset(0, -5))]),
@@ -1094,10 +1097,10 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) {
+      builder: (sheetContext) {
         bool isSending = false;
         return StatefulBuilder(
-          builder: (context, setModalState) {
+          builder: (modalContext, setModalState) {
             return Container(
               padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(context).viewInsets.bottom + 24),
               decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(32))),
@@ -1185,8 +1188,10 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                           }
 
                           await ChatService.sendOffer(ad: widget.ad, price: offeredPrice);
+                          if (modalContext.mounted) {
+                            Navigator.pop(modalContext);
+                          }
                           if (context.mounted) {
-                            Navigator.pop(context);
                             ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(TranslationService.t('offer_sent_check_chat', widget.lang))));
                             Navigator.push(context, MaterialPageRoute(builder: (context) => ChatScreen(ad: widget.ad)));
                           }
@@ -1195,7 +1200,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                             ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ошибка: $e'), backgroundColor: Colors.redAccent));
                           }
                         } finally {
-                          if (context.mounted) {
+                          if (modalContext.mounted) {
                             setModalState(() => isSending = false);
                           }
                         }

@@ -117,7 +117,9 @@ class UserService {
           ? 'Поздравляем! Ваш профиль успешно прошел проверку и получил статус подтвержденного.' 
           : 'Ваш статус верификации был обновлен администратором.',
         type: 'driver_verified', // Using this type for icon/color
-      );
+      ).catchError((e) {
+        debugPrint('[USER_SERVICE] toggleUserVerification notification failed: $e');
+      });
     } catch (e) {
       debugPrint('Error toggling user verification: $e');
     }
@@ -134,7 +136,9 @@ class UserService {
           title: 'Ваш аккаунт заблокирован ❌',
           body: 'Ваш профиль был заблокирован администратором за нарушение правил сообщества.',
           type: 'ad_rejected',
-        );
+        ).catchError((e) {
+          debugPrint('[USER_SERVICE] toggleUserBan notification failed: $e');
+        });
       }
     } catch (e) {
       debugPrint('Error toggling user ban: $e');

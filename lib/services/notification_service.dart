@@ -245,12 +245,14 @@ class NotificationService {
       if (type == 'chat' && chatId != null) {
         // Обновляем или создаём один документ на чат
         final docId = 'chat_$chatId';
+        final senderId = data?['senderId'] ?? UserService.currentUid;
         await _db.collection('users').doc(targetUid).collection('notifications').doc(docId).set({
           'title': title,
           'body': body,
           'timestamp': FieldValue.serverTimestamp(),
           'type': type,
           'isRead': false,
+          'senderId': senderId,
           'data': data,
         }, SetOptions(merge: false)); // merge:false чтобы обновить весь документ
         return;
@@ -277,6 +279,7 @@ class NotificationService {
           'targetUid: $targetUid'
         ],
       );
+      rethrow;
     }
   }
 
