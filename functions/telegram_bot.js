@@ -4,6 +4,7 @@
  */
 
 const functions = require('firebase-functions/v1');
+const { onDocumentUpdated } = require('firebase-functions/v2/firestore');
 const admin     = require('firebase-admin');
 const db        = admin.firestore();
 const crypto    = require('crypto');
@@ -449,9 +450,9 @@ exports.telegramWebhook = functions.https.onRequest(async (req, res) => {
 });
 
 // ─── FIRESTORE TRIGGER: verification status → notify driver ──────────────────
-exports.onVerificationUpdate = functions.firestore.document('driver_verifications/{docId}').onUpdate(async (change) => {
-    const before = change.before.data();
-    const after  = change.after.data();
+exports.onVerificationUpdate = onDocumentUpdated('driver_verifications/{docId}', async (event) => {
+    const before = event.data.before.data();
+    const after  = event.data.after.data();
     if (before.status === after.status) return;
     const chatId = after.driver_chat_id;
     if (!chatId) return;

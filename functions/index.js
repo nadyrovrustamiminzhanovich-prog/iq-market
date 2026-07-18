@@ -3,6 +3,7 @@
  */
 
 const functions = require('firebase-functions/v1');
+const { onDocumentCreated, onDocumentDeleted, onDocumentUpdated } = require('firebase-functions/v2/firestore');
 const admin     = require('firebase-admin');
 const crypto    = require('crypto');
 
@@ -20,9 +21,9 @@ exports.onVerificationUpdate = telegramBot.onVerificationUpdate;
 
 
 // ─── FIRESTORE TRIGGER: new chat message → FCM push ──────────────────────────
-exports.onNewMessage = functions.firestore.document('chats/{chatId}/messages/{msgId}').onCreate(async (snapshot, context) => {
-    const message  = snapshot.data();
-    const chatId   = context.params.chatId;
+exports.onNewMessage = onDocumentCreated('chats/{chatId}/messages/{msgId}', async (event) => {
+    const message  = event.data.data();
+    const chatId   = event.params.chatId;
     const senderId = message.senderId;
 
     const chatSnap = await db.collection('chats').doc(chatId).get();
@@ -217,9 +218,9 @@ exports.secureGeminiCall = functions.https.onRequest(async (req, res) => {
 
 
 // ─── FIRESTORE TRIGGER: new notification → FCM push ──────────────────────────
-exports.onNewNotification = functions.firestore.document('users/{userId}/notifications/{notifId}').onCreate(async (snapshot, context) => {
-    const notification = snapshot.data();
-    const userId       = context.params.userId;
+exports.onNewNotification = onDocumentCreated('users/{userId}/notifications/{notifId}', async (event) => {
+    const notification = event.data.data();
+    const userId       = event.params.userId;
 
     // Исключаем Push-уведомления для чатов из этого триггера,
     // так как они отправляются более подробно через триггер onNewMessage.
@@ -563,11 +564,11 @@ exports.checkAdFingerprint = functions.https.onCall(async (data, context) => {
 
 
 // ─── FIRESTORE TRIGGER: new report → Telegram notification ──────────────────
-exports.onNewReport = functions.firestore.document('reports/{reportId}').onCreate(async (snapshot, context) => {
-  const report = snapshot.data();
+exports.onNewReport = onDocumentCreated('reports/{reportId}', async (event) => {
+  const report = event.data.data();
   if (!report) return;
 
-  const reportId = context.params.reportId;
+  const reportId = event.params.reportId;
   const isAdReport = !!report.adId;
 
   // 1. Защита от спама (дедупликация) за последние 5 минут
@@ -1248,8 +1249,8 @@ async function updateUserRatingTransaction(userId, ratingChange, countChange) {
   });
 }
 
-exports.onReviewCreated = functions.firestore.document('reviews/{reviewId}').onCreate(async (snapshot, context) => {
-  const review = snapshot.data();
+exports.onReviewCreated = onDocumentCreated('reviews/{reviewId}', async (event) => {
+  const review = event.data.data();
   const toUserId = review.toUserId;
   const rating = Number(review.rating);
   if (!toUserId || isNaN(rating)) {
@@ -1264,8 +1265,8 @@ exports.onReviewCreated = functions.firestore.document('reviews/{reviewId}').onC
   }
 });
 
-exports.onReviewDeleted = functions.firestore.document('reviews/{reviewId}').onDelete(async (snapshot, context) => {
-  const review = snapshot.data();
+exports.onReviewDeleted = onDocumentDeleted('reviews/{reviewId}', async (event) => {
+  const review = event.data.data();
   const toUserId = review.toUserId;
   const rating = Number(review.rating);
   if (!toUserId || isNaN(rating)) {
@@ -1280,9 +1281,9 @@ exports.onReviewDeleted = functions.firestore.document('reviews/{reviewId}').onD
   }
 });
 
-exports.onReviewUpdated = functions.firestore.document('reviews/{reviewId}').onUpdate(async (change, context) => {
-  const oldReview = change.before.data();
-  const newReview = change.after.data();
+exports.onReviewUpdated = onDocumentUpdated('reviews/{reviewId}', async (event) => {
+  const oldReview = event.data.before.data();
+  const newReview = event.data.after.data();
   const toUserId = newReview.toUserId;
   const oldRating = Number(oldReview.rating);
   const newRating = Number(newReview.rating);
