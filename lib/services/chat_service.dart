@@ -330,7 +330,7 @@ class ChatService {
 
         // Parent resource lock (P.1): read and lock the ad document to serialize
         // concurrent accepts on different offers for the same ad.
-        if (offerAdId.isNotEmpty) {
+        if (offerAdId.isNotEmpty && status == 'accepted') {
           final adRef = _db.collection('ads').doc(offerAdId);
           final adSnap = await transaction.get(adRef);
           if (adSnap.exists) {
@@ -471,7 +471,7 @@ class ChatService {
                   .collection('messages')
                   .add({
                     'senderId': sellerId,
-                    'text': 'Предложение отклонено ❌ (товар продан другому покупателю)',
+                    'text': 'Предложение отклонено ❌',
                     'type': 'text',
                     'timestamp': Timestamp.now(),
                     'isRead': false,
@@ -480,7 +480,7 @@ class ChatService {
               NotificationService.saveNotificationToFirestore(
                 uid: buyerId,
                 title: 'Предложение отклонено ❌',
-                body: 'К сожалению, товар "$adTitle" был продан другому покупателю.',
+                body: 'Предложение по товару "$adTitle" отклонено.',
                 type: 'chat',
                 data: {
                   'chatId': chatDoc.id,

@@ -154,6 +154,7 @@ class TelegramBotService {
     required String category,
     required String userName,
     required String reason,
+    String description = '',
     List<String> imageUrls = const [],
   }) async {
     final adminId = await _getAdminChatId();
@@ -166,6 +167,9 @@ class TelegramBotService {
     sb.writeln('💰 Цена: <b>$price</b>');
     sb.writeln('🗂️ Категория: $category');
     sb.writeln('👤 Автор: $userName');
+    if (description.isNotEmpty) {
+      sb.writeln('📝 Описание: <i>${_formatDescription(description, isPublished: false, adId: adId)}</i>');
+    }
     sb.writeln('⚠️ Статус: $reason');
     
     if (imageUrls.isNotEmpty) {
@@ -198,6 +202,7 @@ class TelegramBotService {
     required String price,
     required String category,
     required String userName,
+    String description = '',
     List<String> imageUrls = const [],
   }) async {
     final adminId = await _getAdminChatId();
@@ -210,6 +215,9 @@ class TelegramBotService {
     sb.writeln('💰 Цена: <b>$price</b>');
     sb.writeln('🗂️ Категория: $category');
     sb.writeln('👤 Автор: $userName');
+    if (description.isNotEmpty) {
+      sb.writeln('📝 Описание: <i>${_formatDescription(description, isPublished: true, adId: adId)}</i>');
+    }
     sb.writeln('✅ Статус: Опубликовано автоматически');
     
     if (imageUrls.isNotEmpty) {
@@ -299,5 +307,33 @@ class TelegramBotService {
         }),
       );
     } catch (e) { debugPrint('[TelegramBotService._sendWithKeyboard] Error: $e'); }
+  }
+
+  static String _formatDescription(String? description, {required bool isPublished, required String adId}) {
+    if (description == null || description.isEmpty) return 'нет';
+    
+    String truncated = description;
+    bool isTruncated = false;
+    
+    // Safely truncate by Unicode code points (runes) instead of UTF-16 code units
+    if (truncated.runes.length > 600) {
+      truncated = String.fromCharCodes(truncated.runes.take(600));
+      isTruncated = true;
+    }
+    
+    // HTML Escape the truncated text
+    String escaped = truncated
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;');
+    
+    if (isTruncated) {
+      escaped += '...';
+      if (isPublished && adId.isNotEmpty) {
+        escaped += '\n🔗 <a href="https://iqmarket.kz/ad/$adId">Полное объявление</a>';
+      }
+    }
+    
+    return escaped;
   }
 }

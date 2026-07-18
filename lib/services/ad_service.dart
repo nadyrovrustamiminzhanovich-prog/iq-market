@@ -189,7 +189,8 @@ class AdService {
           price: price,
           category: category,
           userName: authorName,
-          reason: '🚫 ЗАБЛОКИРОВАНО ИИ: ${reason.isEmpty ? "Нарушение политики контента" : reason}\n📝 Описание: $description',
+          reason: '🚫 ЗАБЛОКИРОВАНО ИИ: ${reason.isEmpty ? "Нарушение политики контента" : reason}',
+          description: description,
           imageUrls: const [],
         );
       } catch (tgEx) {
@@ -378,6 +379,7 @@ class AdService {
             price: price,
             category: category,
             userName: adModel.userName,
+            description: description,
             imageUrls: adModel.images,
           );
         } else {
@@ -389,6 +391,7 @@ class AdService {
             category: category,
             userName: adModel.userName,
             reason: '🤖 ИИ или правила запросили ручную проверку (MANUAL_REVIEW).',
+            description: description,
             imageUrls: adModel.images,
           );
         }
