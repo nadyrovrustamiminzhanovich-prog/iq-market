@@ -703,4 +703,64 @@ describe("chats users order comparison", () => {
   });
 });
 
+// ──────────────────────────────────────────
+// ТЕСТЫ: ads stats and viewLogs
+// ──────────────────────────────────────────
+describe("ads stats and viewLogs", () => {
+  const adId = "ad_test_001";
+  const userId = "user_001";
+  const adminId = "admin_001";
+
+  beforeEach(async () => {
+    // 1. Создаем объявление через admin
+    await adminSet(`ads/${adId}`, {
+      title: "Test Ad",
+      price: 100,
+      userId: "seller_123",
+      timestamp: new Date()
+    });
+
+    // 2. Создаем пользователя admin с accountType: admin
+    await adminSet("users/admin_001", {
+      accountType: "admin"
+    });
+
+    // 3. Создаем обычного пользователя
+    await adminSet("users/user_001", {
+      accountType: "user"
+    });
+  });
+
+  test("обычный авторизованный пользователь НЕ может прочитать ads/adId/stats/counters", async () => {
+    await assertFails(getDoc(doc(userDb(userId), `ads/${adId}/stats/counters`)));
+  });
+
+  test("пользователь с ролью admin МОЖЕТ прочитать ads/adId/stats/counters", async () => {
+    await assertSucceeds(getDoc(doc(userDb(adminId), `ads/${adId}/stats/counters`)));
+  });
+
+  test("никто кроме серверного admin SDK не может писать в counters напрямую с клиента", async () => {
+    await assertFails(
+      setDoc(doc(userDb(adminId), `ads/${adId}/stats/counters`), {
+        viewsCount: 10
+      })
+    );
+    await assertFails(
+      setDoc(doc(userDb(userId), `ads/${adId}/stats/counters`), {
+        viewsCount: 10
+      })
+    );
+  });
+
+  test("никто не может читать или писать в viewLogs с клиента", async () => {
+    await assertFails(getDoc(doc(userDb(userId), "viewLogs", `${userId}_${adId}`)));
+    await assertFails(
+      setDoc(doc(userDb(userId), "viewLogs", `${userId}_${adId}`), {
+        lastViewedAt: new Date()
+      })
+    );
+  });
+});
+
+
 

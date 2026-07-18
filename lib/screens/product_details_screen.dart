@@ -23,6 +23,7 @@ import 'package:iqmarket/providers/app_config_provider.dart';
 import 'package:iqmarket/screens/seller_profile_screen.dart';
 import 'package:iqmarket/screens/leave_review_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:iqmarket/screens/post_ad_screen.dart';
 import 'package:iqmarket/services/chat_service.dart';
@@ -83,6 +84,29 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
 
     _fetchSeller();
     AnalyticsService.logAdView(widget.ad.id, widget.ad.title);
+    _incrementViewCount();
+  }
+
+  void _incrementViewCount() async {
+    if (FirebaseAuth.instance.currentUser == null) return;
+    try {
+      await FirebaseFunctions.instance
+          .httpsCallable('incrementViewCount')
+          .call({'listingId': widget.ad.id});
+    } catch (e) {
+      debugPrint('Error incrementing view count: $e');
+    }
+  }
+
+  void _incrementCallCount() async {
+    if (FirebaseAuth.instance.currentUser == null) return;
+    try {
+      await FirebaseFunctions.instance
+          .httpsCallable('incrementCallCount')
+          .call({'listingId': widget.ad.id});
+    } catch (e) {
+      debugPrint('Error incrementing call count: $e');
+    }
   }
 
   Future<void> _fetchSeller() async {
@@ -1021,6 +1045,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                 );
                 return;
               }
+              _incrementCallCount();
               final uri = Uri.parse('tel:${widget.ad.userPhone}');
               try {
                 if (await canLaunchUrl(uri)) {

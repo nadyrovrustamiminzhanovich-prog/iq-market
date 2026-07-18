@@ -1084,3 +1084,143 @@ exports.onVoiceMessageUpload = functions.storage.object().onFinalize(async (obje
   return null;
 });
 
+// ─── HTTPS CALLABLE: incrementViewCount ────────────────────────────────────────
+exports.incrementViewCount = functions.https.onCall(async (data, context) => {
+  // Требование Firebase App Check
+  if (!context.app) {
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      'The function must be called from an App Check verified app.'
+    );
+  }
+
+  // Требование авторизации
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      'unauthenticated',
+      'Пользователь должен быть авторизован'
+    );
+  }
+
+  const listingId = data.listingId;
+  if (!listingId) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'Не указан listingId'
+    );
+  }
+
+  const userId = context.auth.uid;
+  const adRef = db.collection('ads').doc(listingId);
+  const logRef = db.collection('viewLogs').doc(`${userId}_${listingId}`);
+  const statsRef = db.collection('ads').doc(listingId).collection('stats').doc('counters');
+
+  return db.runTransaction(async (transaction) => {
+    // 1. Чтение объявления
+    const adSnap = await transaction.get(adRef);
+    if (!adSnap.exists) {
+      throw new functions.https.HttpsError(
+        'not-found',
+        'Объявление не найдено'
+      );
+    }
+
+    const adData = adSnap.data();
+    // Смягчаем проверку: если active или status отсутствуют в документе, считаем их активными по умолчанию
+    const isActive = adData.active === undefined ? true : adData.active;
+    const status = adData.status === undefined ? 'active' : adData.status;
+
+    if (isActive !== true || status !== 'active') {
+      throw new functions.https.HttpsError(
+        'failed-precondition',
+        `Объявление не активно (статус: ${status}, активность: ${isActive})`
+      );
+    }
+
+    // 2. Чтение лога дедупликации
+    const logSnap = await transaction.get(logRef);
+    const now = Date.now();
+
+    if (logSnap.exists) {
+      const lastViewedAt = logSnap.data().lastViewedAt;
+      if (lastViewedAt) {
+        const lastViewedMs = lastViewedAt.toDate().getTime();
+        const diffMs = now - lastViewedMs;
+        if (diffMs < 60 * 60 * 1000) { // 1 час
+          return { success: false, reason: 'duplicate' };
+        }
+      }
+    }
+
+    // 3. Запись лога с TTL-полем createdAt
+    transaction.set(logRef, {
+      lastViewedAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: admin.firestore.FieldValue.serverTimestamp() // для TTL политики (удаление через 24 часа)
+    });
+
+    // 4. Инкремент счетчика в ads/{listingId}/stats/counters
+    transaction.set(statsRef, {
+      viewsCount: admin.firestore.FieldValue.increment(1)
+    }, { merge: true });
+
+    return { success: true };
+  });
+});
+
+// ─── HTTPS CALLABLE: incrementCallCount ────────────────────────────────────────
+exports.incrementCallCount = functions.https.onCall(async (data, context) => {
+  // Требование Firebase App Check
+  if (!context.app) {
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      'The function must be called from an App Check verified app.'
+    );
+  }
+
+  // Требование авторизации
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      'unauthenticated',
+      'Пользователь должен быть авторизован'
+    );
+  }
+
+  const listingId = data.listingId;
+  if (!listingId) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'Не указан listingId'
+    );
+  }
+
+  // Проверяем, что объявление существует и активно в коллекции 'ads'
+  const adRef = db.collection('ads').doc(listingId);
+  const adSnap = await adRef.get();
+  if (!adSnap.exists) {
+    throw new functions.https.HttpsError(
+      'not-found',
+      'Объявление не найдено'
+    );
+  }
+
+  const adData = adSnap.data();
+  // Смягчаем проверку: если active или status отсутствуют в документе, считаем их активными по умолчанию
+  const isActive = adData.active === undefined ? true : adData.active;
+  const status = adData.status === undefined ? 'active' : adData.status;
+
+  if (isActive !== true || status !== 'active') {
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      `Объявление не активно (статус: ${status}, активность: ${isActive})`
+    );
+  }
+
+  // Инкрементируем callsCount в ads/{listingId}/stats/counters
+  const statsRef = db.collection('ads').doc(listingId).collection('stats').doc('counters');
+  await statsRef.set({
+    callsCount: admin.firestore.FieldValue.increment(1)
+  }, { merge: true });
+
+  return { success: true };
+});
+

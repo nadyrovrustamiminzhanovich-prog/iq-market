@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:iqmarket/providers/app_config_provider.dart';
 import 'package:iqmarket/services/ad_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'package:iqmarket/models/ad_model.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -233,6 +234,46 @@ class _AdminAdsScreenState extends State<AdminAdsScreen> with SingleTickerProvid
                     ),
                     const SizedBox(height: 4),
                     Text(ad.userName, style: GoogleFonts.inter(fontSize: 11, color: Colors.grey[500], fontWeight: FontWeight.w600)),
+                    StreamBuilder<DocumentSnapshot>(
+                      stream: FirebaseFirestore.instance
+                          .collection('ads')
+                          .doc(ad.id)
+                          .collection('stats')
+                          .doc('counters')
+                          .snapshots(),
+                      builder: (context, snapshot) {
+                        int viewsCount = 0;
+                        int callsCount = 0;
+                        if (snapshot.hasData && snapshot.data!.exists) {
+                          final data = snapshot.data!.data() as Map<String, dynamic>?;
+                          if (data != null) {
+                            viewsCount = data['viewsCount'] ?? 0;
+                            callsCount = data['callsCount'] ?? 0;
+                          }
+                        }
+
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 8.0),
+                          child: Row(
+                            children: [
+                              Icon(PhosphorIcons.eye(), size: 14, color: Colors.grey[600]),
+                              const SizedBox(width: 4),
+                              Text(
+                                '$viewsCount',
+                                style: GoogleFonts.inter(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w600),
+                              ),
+                              const SizedBox(width: 16),
+                              Icon(PhosphorIcons.phone(), size: 14, color: Colors.grey[600]),
+                              const SizedBox(width: 4),
+                              Text(
+                                '$callsCount',
+                                style: GoogleFonts.inter(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w600),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
                     const SizedBox(height: 20),
                     Row(
                       children: [

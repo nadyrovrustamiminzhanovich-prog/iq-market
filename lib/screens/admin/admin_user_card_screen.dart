@@ -402,9 +402,51 @@ class _AdminUserCardScreenState extends State<AdminUserCardScreen> {
                 child: ListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                   title: Text(ad['title'] ?? '', style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 14)),
-                  subtitle: Text(
-                    'Создано: ${_formatDate(ad['createdAt'])}',
-                    style: GoogleFonts.inter(fontSize: 12, color: Colors.grey[600]),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Создано: ${_formatDate(ad['createdAt'])}',
+                        style: GoogleFonts.inter(fontSize: 12, color: Colors.grey[600]),
+                      ),
+                      const SizedBox(height: 4),
+                      StreamBuilder<DocumentSnapshot>(
+                        stream: FirebaseFirestore.instance
+                            .collection('ads')
+                            .doc(ad['id'])
+                            .collection('stats')
+                            .doc('counters')
+                            .snapshots(),
+                        builder: (context, snapshot) {
+                          int viewsCount = 0;
+                          int callsCount = 0;
+                          if (snapshot.hasData && snapshot.data!.exists) {
+                            final data = snapshot.data!.data() as Map<String, dynamic>?;
+                            if (data != null) {
+                              viewsCount = data['viewsCount'] ?? 0;
+                              callsCount = data['callsCount'] ?? 0;
+                            }
+                          }
+                          return Row(
+                            children: [
+                              Icon(PhosphorIcons.eye(), size: 12, color: Colors.grey[600]),
+                              const SizedBox(width: 4),
+                              Text(
+                                '$viewsCount',
+                                style: GoogleFonts.inter(fontSize: 11, color: Colors.grey[600]),
+                              ),
+                              const SizedBox(width: 12),
+                              Icon(PhosphorIcons.phone(), size: 12, color: Colors.grey[600]),
+                              const SizedBox(width: 4),
+                              Text(
+                                '$callsCount',
+                                style: GoogleFonts.inter(fontSize: 11, color: Colors.grey[600]),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                    ],
                   ),
                   trailing: Column(
                     mainAxisAlignment: MainAxisAlignment.center,

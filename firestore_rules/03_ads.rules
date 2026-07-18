@@ -12,4 +12,13 @@
         && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['userId']));
       allow delete: if isSignedIn()
         && (isOwner(resource.data.userId) || isAdmin());
+
+      match /stats/counters {
+        allow read: if isAdmin();
+        allow write: if false;
+      }
+    }
+
+    match /viewLogs/{logId} {
+      allow read, write: if false;
     }
