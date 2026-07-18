@@ -545,10 +545,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         });
       }
     }).catchError((e, stack) async {
-      final errorStr = e.toString().toLowerCase();
-      final isPermissionError = errorStr.contains('permission-denied') || 
-                                errorStr.contains('unauthorized') || 
-                                errorStr.contains('forbidden');
+      final code = e is FirebaseException ? e.code : '';
+      final isPermissionError = code == 'permission-denied' || code == 'unauthorized';
       
       const delays = [500, 1500, 3000];
       
