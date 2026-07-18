@@ -537,12 +537,42 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
 
     task.then((snapshot) async {
-      final url = await snapshot.ref.getDownloadURL();
-      await ChatService.updateMessage(widget.ad.userId, msgId, {'mediaUrl': url});
-      if (mounted) {
-        setState(() {
-          _activeUploads.remove(msgId);
-        });
+      try {
+        final url = await snapshot.ref.getDownloadURL();
+        await ChatService.updateMessage(widget.ad.userId, msgId, {'mediaUrl': url});
+        if (mounted) {
+          setState(() {
+            _activeUploads.remove(msgId);
+          });
+        }
+      } catch (e, stack) {
+        debugPrint('[CHAT_SCREEN] Error updating message reference after successful upload: $e');
+        AnalyticsService.logStoragePermissionError(e, stack, 'voice_messages/$chatId');
+        if (mounted) {
+          setState(() {
+            _activeUploads.remove(msgId);
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Row(
+                children: [
+                  Icon(Icons.warning_amber_rounded, color: Colors.white, size: 18),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Файл загружен, но не удалось прикрепить сообщение.',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+              backgroundColor: Colors.orangeAccent,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        }
       }
     }).catchError((e, stack) async {
       final code = e is FirebaseException ? e.code : '';
