@@ -1224,3 +1224,85 @@ exports.incrementCallCount = functions.https.onCall(async (data, context) => {
   return { success: true };
 });
 
+async function updateUserRatingTransaction(userId, ratingChange, countChange) {
+  const userRef = db.collection('users').doc(userId);
+  await db.runTransaction(async (transaction) => {
+    const userSnap = await transaction.get(userRef);
+    let currentCount = 0;
+    let currentSum = 0;
+    if (userSnap.exists) {
+      const data = userSnap.data();
+      currentCount = data.reviewsCount || 0;
+      currentSum = data.ratingSum !== undefined ? (data.ratingSum || 0.0) : ((data.rating || 0.0) * currentCount);
+    }
+    
+    const newSum = Math.max(0, currentSum + ratingChange);
+    const newCount = Math.max(0, currentCount + countChange);
+    const avgRating = newCount >= 5 ? (newSum / newCount) : 0.0;
+    
+    transaction.set(userRef, {
+      ratingSum: newSum,
+      reviewsCount: newCount,
+      rating: avgRating
+    }, { merge: true });
+  });
+}
+
+exports.onReviewCreated = functions.firestore.document('reviews/{reviewId}').onCreate(async (snapshot, context) => {
+  const review = snapshot.data();
+  const toUserId = review.toUserId;
+  const rating = Number(review.rating);
+  if (!toUserId || isNaN(rating)) {
+    console.error('[onReviewCreated] Invalid review data:', review);
+    return;
+  }
+  try {
+    await updateUserRatingTransaction(toUserId, rating, 1);
+    console.log(`[onReviewCreated] Successfully updated rating for user ${toUserId}`);
+  } catch (err) {
+    console.error('[onReviewCreated] Error updating rating transaction:', err);
+  }
+});
+
+exports.onReviewDeleted = functions.firestore.document('reviews/{reviewId}').onDelete(async (snapshot, context) => {
+  const review = snapshot.data();
+  const toUserId = review.toUserId;
+  const rating = Number(review.rating);
+  if (!toUserId || isNaN(rating)) {
+    console.error('[onReviewDeleted] Invalid review data:', review);
+    return;
+  }
+  try {
+    await updateUserRatingTransaction(toUserId, -rating, -1);
+    console.log(`[onReviewDeleted] Successfully updated rating for user ${toUserId}`);
+  } catch (err) {
+    console.error('[onReviewDeleted] Error updating rating transaction:', err);
+  }
+});
+
+exports.onReviewUpdated = functions.firestore.document('reviews/{reviewId}').onUpdate(async (change, context) => {
+  const oldReview = change.before.data();
+  const newReview = change.after.data();
+  const toUserId = newReview.toUserId;
+  const oldRating = Number(oldReview.rating);
+  const newRating = Number(newReview.rating);
+  
+  if (!toUserId || isNaN(oldRating) || isNaN(newRating)) {
+    console.error('[onReviewUpdated] Invalid review data:', oldReview, newReview);
+    return;
+  }
+  
+  const ratingChange = newRating - oldRating;
+  if (ratingChange === 0) {
+    console.log('[onReviewUpdated] Rating did not change, skipping update');
+    return;
+  }
+  
+  try {
+    await updateUserRatingTransaction(toUserId, ratingChange, 0);
+    console.log(`[onReviewUpdated] Successfully updated rating for user ${toUserId}`);
+  } catch (err) {
+    console.error('[onReviewUpdated] Error updating rating transaction:', err);
+  }
+});
+

@@ -82,6 +82,41 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
         imageUrls = await FileService.uploadMultipleFiles(_images, 'reviews');
       }
 
+      if (imageUrls.length != _images.length) {
+        if (!mounted) return;
+        final bool? proceed = await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (dialogCtx) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: Text(TranslationService.t('photo_upload_partial_failed_title', lang)),
+            content: Text(TranslationService.t('photo_upload_partial_failed_msg', lang)),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogCtx, false),
+                child: Text(TranslationService.t('cancel', lang)),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(dialogCtx, true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF4A80F0),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: Text(TranslationService.t('publish_without_photos', lang)),
+              ),
+            ],
+          ),
+        );
+
+        if (proceed != true) {
+          if (mounted) {
+            setState(() => _isUploading = false);
+          }
+          return;
+        }
+      }
+
       final review = ReviewModel(
         id: '',
         adId: widget.ad.id,

@@ -26,8 +26,14 @@ const mockUserSnap = {
 const mockGet = jest.fn();
 const mockCollection = jest.fn();
 
+const mockTransaction = {
+  get: jest.fn(),
+  set: jest.fn()
+};
+
 const mockDb = {
-  collection: mockCollection
+  collection: mockCollection,
+  runTransaction: async (handler) => handler(mockTransaction)
 };
 
 const mockQuery = {
@@ -134,7 +140,8 @@ jest.mock('firebase-functions/v1', () => ({
   firestore: {
     document: (path) => ({
       onCreate: (handler) => handler,
-      onUpdate: (handler) => handler
+      onUpdate: (handler) => handler,
+      onDelete: (handler) => handler
     })
   },
   pubsub: {
@@ -570,5 +577,195 @@ describe('onVoiceMessageUpload Cloud Function Storage Trigger Tests', () => {
     expect(mockFileGetMetadata).toHaveBeenCalledTimes(1); // Ровно 1 вызов
     expect(mockFileDelete).toHaveBeenCalledTimes(1);
     expect(mockDocDelete).toHaveBeenCalledTimes(1);
+  });
+});
+
+const { onReviewCreated, onReviewDeleted, onReviewUpdated } = require('./functions/index');
+
+describe('Review triggers Cloud Function Tests', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test('onReviewCreated увеличивает рейтинг и счетчик отзывов для нового пользователя', async () => {
+    const mockSnap = {
+      data: () => ({
+        toUserId: 'user_new',
+        rating: 5
+      })
+    };
+
+    // Пользователя не существует в БД изначально
+    mockTransaction.get.mockResolvedValueOnce({ exists: false });
+
+    await onReviewCreated(mockSnap, {});
+
+    expect(mockTransaction.get).toHaveBeenCalledTimes(1);
+    expect(mockTransaction.set).toHaveBeenCalledTimes(1);
+    expect(mockTransaction.set).toHaveBeenCalledWith(
+      expect.anything(),
+      {
+        ratingSum: 5,
+        reviewsCount: 1,
+        rating: 0.0 // рейтинг 0.0, так как отзывов меньше 5
+      },
+      { merge: true }
+    );
+  });
+
+  test('onReviewCreated вычисляет средний рейтинг, если количество отзывов >= 5', async () => {
+    const mockSnap = {
+      data: () => ({
+        toUserId: 'user_existing',
+        rating: 5
+      })
+    };
+
+    // Пользователь уже имеет 4 отзыва со средним рейтингом 4.0
+    mockTransaction.get.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({
+        ratingSum: 16.0,
+        reviewsCount: 4,
+        rating: 4.0
+      })
+    });
+
+    await onReviewCreated(mockSnap, {});
+
+    expect(mockTransaction.get).toHaveBeenCalledTimes(1);
+    expect(mockTransaction.set).toHaveBeenCalledTimes(1);
+    expect(mockTransaction.set).toHaveBeenCalledWith(
+      expect.anything(),
+      {
+        ratingSum: 21.0,
+        reviewsCount: 5,
+        rating: 4.2 // (16 + 5) / 5 = 4.2
+      },
+      { merge: true }
+    );
+  });
+
+  test('onReviewCreated восстанавливает ratingSum для старых пользователей', async () => {
+    const mockSnap = {
+      data: () => ({
+        toUserId: 'user_legacy',
+        rating: 5
+      })
+    };
+
+    // У пользователя есть rating и reviewsCount, но нет ratingSum
+    mockTransaction.get.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({
+        reviewsCount: 4,
+        rating: 4.0
+      })
+    });
+
+    await onReviewCreated(mockSnap, {});
+
+    expect(mockTransaction.get).toHaveBeenCalledTimes(1);
+    expect(mockTransaction.set).toHaveBeenCalledWith(
+      expect.anything(),
+      {
+        ratingSum: 21.0, // (4 * 4.0) + 5 = 21.0
+        reviewsCount: 5,
+        rating: 4.2
+      },
+      { merge: true }
+    );
+  });
+
+  test('onReviewDeleted корректно уменьшает счетчик и сумму оценок', async () => {
+    const mockSnap = {
+      data: () => ({
+        toUserId: 'user_existing',
+        rating: 5
+      })
+    };
+
+    mockTransaction.get.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({
+        ratingSum: 25.0,
+        reviewsCount: 5,
+        rating: 5.0
+      })
+    });
+
+    await onReviewDeleted(mockSnap, {});
+
+    expect(mockTransaction.set).toHaveBeenCalledWith(
+      expect.anything(),
+      {
+        ratingSum: 20.0,
+        reviewsCount: 4,
+        rating: 0.0 // Счетчик стал меньше 5, рейтинг сбрасывается в 0.0
+      },
+      { merge: true }
+    );
+  });
+
+  test('onReviewUpdated пересчитывает рейтинг только при изменении оценки', async () => {
+    const mockChange = {
+      before: {
+        data: () => ({
+          toUserId: 'user_existing',
+          rating: 4
+        })
+      },
+      after: {
+        data: () => ({
+          toUserId: 'user_existing',
+          rating: 5
+        })
+      }
+    };
+
+    mockTransaction.get.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({
+        ratingSum: 20.0,
+        reviewsCount: 5,
+        rating: 4.0
+      })
+    });
+
+    await onReviewUpdated(mockChange, {});
+
+    expect(mockTransaction.set).toHaveBeenCalledWith(
+      expect.anything(),
+      {
+        ratingSum: 21.0, // оценка изменилась на +1
+        reviewsCount: 5,
+        rating: 4.2 // (20 + 1) / 5 = 4.2
+      },
+      { merge: true }
+    );
+  });
+
+  test('onReviewUpdated игнорирует изменения, если оценка не изменилась', async () => {
+    const mockChange = {
+      before: {
+        data: () => ({
+          toUserId: 'user_existing',
+          rating: 5,
+          comment: 'Old comment'
+        })
+      },
+      after: {
+        data: () => ({
+          toUserId: 'user_existing',
+          rating: 5,
+          comment: 'New comment'
+        })
+      }
+    };
+
+    await onReviewUpdated(mockChange, {});
+
+    expect(mockTransaction.get).not.toHaveBeenCalled();
+    expect(mockTransaction.set).not.toHaveBeenCalled();
   });
 });

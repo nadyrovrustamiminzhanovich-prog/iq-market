@@ -18,9 +18,6 @@ class ReviewService {
     }
     await _db.collection('reviews').add(review.toMap());
     
-    // Update user average rating
-    await _updateUserRating(review.toUserId);
-
     // Notify the seller
     NotificationService.saveNotificationToFirestore(
       uid: review.toUserId,
@@ -96,35 +93,5 @@ class ReviewService {
         debugPrint('[REVIEW_SERVICE] deleteReview notification failed: $e');
       });
     }
-
-    // Пересчитываем рейтинг пользователя после удаления
-    await _updateUserRating(toUserId);
-  }
-
-  /// Private helper to update the aggregate rating of a user
-
-  static Future<void> _updateUserRating(String userId) async {
-
-    final snapshot = await _db
-        .collection('reviews')
-        .where('toUserId', isEqualTo: userId)
-        .get();
-    
-    int count = snapshot.docs.length;
-    double avgRating = 0.0;
-    
-    if (count >= 5) {
-      double totalRating = 0;
-      for (var doc in snapshot.docs) {
-        totalRating += (doc.data()['rating'] ?? 0).toDouble();
-      }
-      avgRating = totalRating / count;
-    }
-
-    await _db.collection('users').doc(userId).set({
-      'rating': avgRating,
-      'reviewsCount': count,
-    }, SetOptions(merge: true));
-
   }
 }
