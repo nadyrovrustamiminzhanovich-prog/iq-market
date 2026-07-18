@@ -77,9 +77,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   final Map<String, UploadTask> _activeUploads = {};
   final Map<String, String> _localAudioPaths = {};
   bool _showEmoji = false;
-  bool _isOtherOnline = false;
-  bool _isOtherTyping = false;
-  StreamSubscription? _presenceSubscription;
+  DateTime? _lastTypingSentTime;
   // 🔒 AudioPlayer stream subscriptions — хранятся явно для отмены в dispose()
   StreamSubscription? _audioPositionSub;
   StreamSubscription? _audioDurationSub;
@@ -155,24 +153,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
   }
 
-  void _subscribeToPresence(String chatId) {
-    final otherId = widget.ad.userId;
-    _presenceSubscription = FirebaseFirestore.instance
-        .collection('chats')
-        .doc(chatId)
-        .snapshots()
-        .listen((snapshot) {
-      if (!mounted) return;
-      final data = snapshot.data();
-      if (data != null) {
-        setState(() {
-          _isOtherTyping = data['typing_${otherId}'] == true;
-          _isOtherOnline = data['online_${otherId}'] == true;
-        });
-      }
-    });
-  }
-
   void _validateChatId(String chatId) async {
     final uid = UserService.currentUid;
     if (uid == null) {
@@ -190,7 +170,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             _messagesStream = ChatService.getMessagesStream(widget.ad.userId);
             ChatService.activeChatId = ChatService.getChatId(widget.ad.userId);
           });
-          _subscribeToPresence(ChatService.activeChatId!);
           
           AnalyticsService.logPushNavigation('chat_fallback_triggered', extra: {
             'attempted_chat_id': chatId,
@@ -209,7 +188,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           // через sorted([currentUid, otherId]).join('_'), клиент не контролирует результат.
           if (UserService.currentUid != null) {
             ChatService.markAsRead(widget.ad.userId);
-            ChatService.updateOnlineStatus(widget.ad.userId, true);
           }
         }
         return;
@@ -244,7 +222,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           _messagesStream = ChatService.getMessagesStreamWithChatId(chatId);
           ChatService.activeChatId = chatId;
         });
-        _subscribeToPresence(chatId);
 
         AnalyticsService.logPushNavigation('chat_validated_success', extra: {'chat_id': chatId});
         AnalyticsService.logPushNavigation('chat_opened', extra: {
@@ -253,10 +230,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           'is_from_push': widget.chatId != null ? 'true' : 'false'
         });
 
-        // ✅ markAsRead / updateOnlineStatus — только после подтверждения участия
+        // ✅ markAsRead — только после подтверждения участия
         if (UserService.currentUid != null) {
           ChatService.markAsRead(widget.ad.userId);
-          ChatService.updateOnlineStatus(widget.ad.userId, true);
         }
       }
     } catch (e, stack) {
@@ -291,10 +267,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
       if (_isRecording) {
         _handleRecordingCancelled();
       }
+      _updateMyTyping(false);
     }
   }
 
@@ -303,7 +280,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _recordTimer?.cancel();
     _typingTimer?.cancel();
-    _presenceSubscription?.cancel();
     // ✅ Явная отмена AudioPlayer-стримов — предотвращает утечку памяти
     _audioPositionSub?.cancel();
     _audioDurationSub?.cancel();
@@ -320,7 +296,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final expectedChatId = widget.chatId ?? ChatService.getChatId(widget.ad.userId);
     if (ChatService.activeChatId == expectedChatId) {
       ChatService.activeChatId = null;
-      ChatService.updateOnlineStatus(widget.ad.userId, false);
     }
     super.dispose();
   }
@@ -328,20 +303,30 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void _updateMyTyping(bool isTyping) {
     _typingTimer?.cancel();
     if (isTyping) {
-      if (!_isTyping) {
+      final now = DateTime.now();
+      if (!_isTyping || _lastTypingSentTime == null || now.difference(_lastTypingSentTime!).inSeconds >= 5) {
         ChatService.updateTypingStatus(widget.ad.userId, true);
+        _lastTypingSentTime = now;
+      }
+      if (!_isTyping) {
         setState(() => _isTyping = true);
       }
       _typingTimer = Timer(const Duration(milliseconds: 2500), () {
         if (mounted && _isTyping) {
           ChatService.updateTypingStatus(widget.ad.userId, false);
-          setState(() => _isTyping = false);
+          setState(() {
+            _isTyping = false;
+            _lastTypingSentTime = null;
+          });
         }
       });
     } else {
       if (_isTyping) {
         ChatService.updateTypingStatus(widget.ad.userId, false);
-        setState(() => _isTyping = false);
+        setState(() {
+          _isTyping = false;
+          _lastTypingSentTime = null;
+        });
       }
     }
   }
@@ -356,7 +341,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _typingTimer?.cancel();
     _msgController.clear();
     ChatService.updateTypingStatus(widget.ad.userId, false);
-    setState(() => _isTyping = false);
+    setState(() {
+      _isTyping = false;
+      _lastTypingSentTime = null;
+    });
     _scrollToBottom();
     
     try {
@@ -515,6 +503,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
     
     if (path != null) {
+      _updateMyTyping(false);
       final msgId = await ChatService.sendMessage(ad: widget.ad, text: 'Голосовое сообщение', type: 'audio', duration: _recordSeconds, senderName: _currentUserName);
       if (msgId != null) {
         _playSentSound();
@@ -783,6 +772,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         await ChatService.createChatIfNeeded(widget.ad);
         final url = await FileService.uploadFile(File(file.path), 'chat_media/$chatId');
         if (url != null) {
+          _updateMyTyping(false);
           final msgId = await ChatService.sendMessage(ad: widget.ad, text: 'Фото', type: 'image', mediaUrl: url, senderName: _currentUserName);
           if (msgId == null && mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -1004,8 +994,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               children: [
                 ChatGlassHeader(
                   ad: widget.ad, sellerAvatarUrl: _sellerAvatarUrl,
-                  isOnline: _isOtherOnline,
-                  isTyping: _isOtherTyping,
                   onBack: () => Navigator.of(context).maybePop(),
                   onProfileTap: _navigateToSellerProfile,
                   firestore: widget.firestore,

@@ -15,7 +15,6 @@ import 'package:iqmarket/widgets/report_user_sheet.dart';
 class ChatGlassHeader extends StatelessWidget {
   final AdModel ad;
   final String? sellerAvatarUrl;
-  final bool isOnline;
   final bool isTyping;
   final VoidCallback onBack;
   final VoidCallback onProfileTap;
@@ -26,7 +25,6 @@ class ChatGlassHeader extends StatelessWidget {
     super.key,
     required this.ad,
     this.sellerAvatarUrl,
-    this.isOnline = false,
     this.isTyping = false,
     required this.onBack,
     required this.onProfileTap,
@@ -69,9 +67,6 @@ class ChatGlassHeader extends StatelessWidget {
                           if (streamTyping || isTyping) {
                             return Text(TranslationService.t('typing', lang), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: const Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold));
                           }
-                          if (isOnline) {
-                            return Text(TranslationService.t('online', lang), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold));
-                          }
                           return StreamBuilder<DocumentSnapshot>(
                             stream: (firestore ?? FirebaseFirestore.instance).collection('users').doc(ad.userId).snapshots(),
                             builder: (context, userSnap) {
@@ -81,6 +76,13 @@ class ChatGlassHeader extends StatelessWidget {
                                 if (lastActiveStamp != null) {
                                   final date = lastActiveStamp.toDate().toLocal();
                                   final now = DateTime.now();
+                                  
+                                  // Онлайн, если lastActive обновлялся в течение последних 60 секунд
+                                  final difference = now.difference(date).inSeconds;
+                                  if (difference <= 60) {
+                                    return Text(TranslationService.t('online', lang), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold));
+                                  }
+
                                   final today = DateTime(now.year, now.month, now.day);
                                   final yesterday = today.subtract(const Duration(days: 1));
                                   final activeDay = DateTime(date.year, date.month, date.day);

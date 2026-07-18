@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:iqmarket/models/message_model.dart';
 import 'package:iqmarket/models/ad_model.dart';
@@ -631,39 +632,60 @@ class ChatService {
     final chatId = getChatId(sellerId);
     await _db.collection('chats').doc(chatId).set({
       'typing_$uid': isTyping,
+      'typing_last_update_$uid': isTyping ? FieldValue.serverTimestamp() : null,
     }, SetOptions(merge: true));
   }
 
   static Stream<bool> getTypingStatusStream(String sellerId) {
     final chatId = getChatId(sellerId);
-    return _db.collection('chats').doc(chatId).snapshots().map((doc) {
-      if (!doc.exists) return false;
-      final data = doc.data() as Map<String, dynamic>;
-      return data['typing_$sellerId'] ?? false;
-    });
-  }
+    StreamController<bool>? controller;
+    StreamSubscription? sub;
+    Timer? timer;
+    Map<String, dynamic>? lastData;
 
-  /// Установка статуса Online в чате и обновление lastActive
-  static Future<void> updateOnlineStatus(String sellerId, bool isOnline) async {
-    final uid = UserService.currentUid;
-    if (uid == null) return;
-    
-    // Обновляем онлайн статус в чате
-    final chatId = getChatId(sellerId);
-    try {
-      await _db.collection('chats').doc(chatId).set({
-        'online_$uid': isOnline,
-      }, SetOptions(merge: true));
-    } catch (e) { debugPrint('[ChatService.updateOnlineStatus] Chat not created yet: $e'); }
-
-    // Обновляем lastActive в глобальном профиле
-    if (!isOnline) {
-      try {
-        await _db.collection('users').doc(uid).update({
-          'lastActive': FieldValue.serverTimestamp(),
-        });
-      } catch (e) { debugPrint('[ChatService.updateOnlineStatus] lastActive update error: $e'); }
+    void checkStatus() {
+      if (controller == null || controller.isClosed) return;
+      if (lastData == null) {
+        controller.add(false);
+        return;
+      }
+      final isTyping = lastData!['typing_$sellerId'] ?? false;
+      if (!isTyping) {
+        controller.add(false);
+        return;
+      }
+      final lastUpdateStamp = lastData!['typing_last_update_$sellerId'] as Timestamp?;
+      if (lastUpdateStamp != null) {
+        final lastUpdate = lastUpdateStamp.toDate();
+        final now = DateTime.now();
+        if (now.difference(lastUpdate).inSeconds > 10) {
+          controller.add(false);
+          return;
+        }
+      } else {
+        controller.add(false);
+        return;
+      }
+      controller.add(true);
     }
+
+    controller = StreamController<bool>(
+      onListen: () {
+        sub = _db.collection('chats').doc(chatId).snapshots().listen((snap) {
+          lastData = snap.data();
+          checkStatus();
+        });
+        timer = Timer.periodic(const Duration(seconds: 2), (t) {
+          checkStatus();
+        });
+      },
+      onCancel: () {
+        sub?.cancel();
+        timer?.cancel();
+      },
+    );
+
+    return controller.stream;
   }
 
   /// Get list of chats for the current user

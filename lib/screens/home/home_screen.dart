@@ -41,7 +41,8 @@ class IQMarketHome extends StatefulWidget {
   State<IQMarketHome> createState() => _IQMarketHomeState();
 }
 
-class _IQMarketHomeState extends State<IQMarketHome> {
+class _IQMarketHomeState extends State<IQMarketHome> with WidgetsBindingObserver {
+  Timer? _activeHeartbeatTimer;
   int _currentIndex = 0;
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
@@ -78,6 +79,8 @@ class _IQMarketHomeState extends State<IQMarketHome> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _startHeartbeat();
     _speech = stt.SpeechToText();
     _pagingController.addPageRequestListener((pageKey) {
       _fetchPage(pageKey);
@@ -226,8 +229,44 @@ class _IQMarketHomeState extends State<IQMarketHome> {
     }
   }
 
+  void _startHeartbeat() {
+    _activeHeartbeatTimer?.cancel();
+    _activeHeartbeatTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      _sendHeartbeat();
+    });
+    // Send immediate heartbeat on start/resume
+    _sendHeartbeat();
+  }
+
+  void _stopHeartbeat() {
+    _activeHeartbeatTimer?.cancel();
+    _activeHeartbeatTimer = null;
+  }
+
+  void _sendHeartbeat() {
+    final uid = UserService.currentUid;
+    if (uid != null) {
+      UserService.updateUserProfile({'lastActive': FieldValue.serverTimestamp()}).catchError((e) {
+        debugPrint('[Heartbeat] Error updating lastActive: $e');
+      });
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _startHeartbeat();
+    } else if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+      _stopHeartbeat();
+      // Send one final immediate heartbeat to mark the exact moment they went inactive
+      _sendHeartbeat();
+    }
+  }
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _stopHeartbeat();
     _authSubscription?.cancel();
     _searchController.dispose();
     _scrollController.dispose();
