@@ -750,13 +750,13 @@ class _PostAdScreenState extends State<PostAdScreen> {
     // Basic preview
     final priceClean = _priceController.text.replaceAll(RegExp(r'[^0-9]'), '');
     final ad = AdModel(
-      id: 'p', title: _titleController.text, description: _descriptionController.text,
+      id: '__preview_ad__', title: _titleController.text, description: _descriptionController.text,
       price: double.tryParse(priceClean) ?? 0.0, 
       category: _selectedCategory, 
       images: _imageFiles.map((f)=>f.path).toList(),
-      userId: 'u', userName: 'Вы', userEmail: '', timestamp: DateTime.now(), location: _selectedLocation,
+      userId: '__preview_user__', userName: 'Вы', userEmail: '', timestamp: DateTime.now(), location: _selectedLocation,
       userPhone: _phoneController.text,
     );
-    Navigator.push(context, MaterialPageRoute(builder: (context) => ProductDetailsScreen(ad: ad, lang: widget.lang, onReport: (_){}, heroPrefix: 'p_')));
+    Navigator.push(context, MaterialPageRoute(builder: (context) => ProductDetailsScreen(ad: ad, lang: widget.lang, onReport: (_){}, heroPrefix: 'p_', isPreview: true)));
   }
 }

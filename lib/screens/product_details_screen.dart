@@ -38,6 +38,7 @@ class ProductDetailsScreen extends StatefulWidget {
   final Function(String adId) onReport;
   final String lang;
   final String? heroPrefix;
+  final bool isPreview;
 
   const ProductDetailsScreen({
     super.key,
@@ -45,6 +46,7 @@ class ProductDetailsScreen extends StatefulWidget {
     required this.onReport,
     required this.lang,
     this.heroPrefix,
+    this.isPreview = false,
   });
 
   @override
@@ -82,9 +84,11 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       });
     }
 
-    _fetchSeller();
-    AnalyticsService.logAdView(widget.ad.id, widget.ad.title);
-    _incrementViewCount();
+    if (!widget.isPreview) {
+      _fetchSeller();
+      AnalyticsService.logAdView(widget.ad.id, widget.ad.title);
+      _incrementViewCount();
+    }
   }
 
   void _incrementViewCount() async {
@@ -430,22 +434,28 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
             elevation: 0,
             leading: _backButton(),
             actions: [
-              _circleButton(Icons.share_rounded, _shareAd),
-              if (_currentUser?.uid != ad.userId) ...[
-                const SizedBox(width: 8),
-                _favoriteButton(),
-              ],
-              if (_currentUser?.accountType == 'admin' || ad.userId == _currentUser?.uid) ...[
-
-                const SizedBox(width: 8),
-                _circleButton(Icons.edit_outlined, () async {
-                  await Navigator.push(context, MaterialPageRoute(builder: (ctx) => PostAdScreen(lang: widget.lang, initialAd: ad)));
-                  await _refreshAd();
-                }),
-                const SizedBox(width: 8),
-                _circleButton(Icons.delete_outline_rounded, () => _handleDeleteAd()),
-              ],
-
+              AbsorbPointer(
+                absorbing: widget.isPreview,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _circleButton(Icons.share_rounded, _shareAd),
+                    if (_currentUser?.uid != ad.userId) ...[
+                      const SizedBox(width: 8),
+                      _favoriteButton(),
+                    ],
+                    if (_currentUser?.accountType == 'admin' || ad.userId == _currentUser?.uid) ...[
+                      const SizedBox(width: 8),
+                      _circleButton(Icons.edit_outlined, () async {
+                        await Navigator.push(context, MaterialPageRoute(builder: (ctx) => PostAdScreen(lang: widget.lang, initialAd: ad)));
+                        await _refreshAd();
+                      }),
+                      const SizedBox(width: 8),
+                      _circleButton(Icons.delete_outline_rounded, () => _handleDeleteAd()),
+                    ],
+                  ],
+                ),
+              ),
               const SizedBox(width: 12),
             ],
 
@@ -459,13 +469,15 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                     ClipRRect(
                       borderRadius: BorderRadius.circular(24),
                       child: GestureDetector(
-                        onTap: () {
-                          // Video is always last, so it's at index images.length
-                          final isVideoSlide = hasVideo && _currentPage == images.length;
-                          if (!isVideoSlide) {
-                            _openFullscreenGallery(_currentPage);
-                          }
-                        },
+                        onTap: widget.isPreview
+                            ? null
+                            : () {
+                                // Video is always last, so it's at index images.length
+                                final isVideoSlide = hasVideo && _currentPage == images.length;
+                                if (!isVideoSlide) {
+                                  _openFullscreenGallery(_currentPage);
+                                }
+                              },
                         child: PageView.builder(
                           controller: _pageController,
                           onPageChanged: (i) => setState(() => _currentPage = i),
@@ -478,14 +490,16 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                                 fit: StackFit.expand,
                                 children: [
                                   GestureDetector(
-                                    onTap: () {
-                                      if (_isVideoInitialized) {
-                                        setState(() {
-                                          _isVideoPlaying = !_isVideoPlaying;
-                                          _isVideoPlaying ? _videoController!.play() : _videoController!.pause();
-                                        });
-                                      }
-                                    },
+                                    onTap: widget.isPreview
+                                        ? null
+                                        : () {
+                                            if (_isVideoInitialized) {
+                                              setState(() {
+                                                _isVideoPlaying = !_isVideoPlaying;
+                                                _isVideoPlaying ? _videoController!.play() : _videoController!.pause();
+                                              });
+                                            }
+                                          },
                                     child: Stack(
                                       fit: StackFit.expand,
                                       children: [
@@ -518,12 +532,12 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                                       ],
                                     ),
                                   ),
-                                  // Кнопка развертывания на весь экран в правом верхнем углу видео
+                                  // Кнопка развертывания на весь экран в правом нижнем углу видео
                                   if (_isVideoInitialized)
                                     Positioned(
-                                      top: 12, right: 12,
+                                      bottom: 16, right: 16,
                                       child: GestureDetector(
-                                        onTap: _openFullscreenVideo,
+                                        onTap: widget.isPreview ? null : _openFullscreenVideo,
                                         child: Container(
                                           padding: const EdgeInsets.all(8),
                                           decoration: BoxDecoration(
@@ -562,8 +576,11 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                       ),
                     ),
                     if (itemCount > 1)
-                      Positioned(
-                        bottom: 16, right: 16,
+                      AnimatedPositioned(
+                        duration: const Duration(milliseconds: 250),
+                        curve: Curves.easeInOut,
+                        bottom: 16,
+                        right: (hasVideo && _currentPage == images.length) ? 72 : 16,
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                           decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.6), borderRadius: BorderRadius.circular(12)),
@@ -576,28 +593,34 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
             ),
           ),
           SliverToBoxAdapter(
-            child: Column(
-              children: [
-                _buildMainInfo(isFree),
-                if (_currentUser?.uid != ad.userId) _buildBargainSection(),
-                _buildTags(),
-                const SizedBox(height: 10),
-                if (widget.ad.extraFields != null && widget.ad.extraFields!.isNotEmpty) _buildSpecsSection(),
-                const SizedBox(height: 10),
-                _buildDescription(),
-                const SizedBox(height: 10),
-                _buildSellerCard(),
-                const SizedBox(height: 10),
-                _buildReviewsSection(), 
-                const SizedBox(height: 10),
-                if (_currentUser?.uid != ad.userId) _buildReportButton(),
-                const SizedBox(height: 70),
-              ],
+            child: AbsorbPointer(
+              absorbing: widget.isPreview,
+              child: Column(
+                children: [
+                  _buildMainInfo(isFree),
+                  if (_currentUser?.uid != ad.userId) _buildBargainSection(),
+                  _buildTags(),
+                  const SizedBox(height: 10),
+                  if (widget.ad.extraFields != null && widget.ad.extraFields!.isNotEmpty) _buildSpecsSection(),
+                  const SizedBox(height: 10),
+                  _buildDescription(),
+                  const SizedBox(height: 10),
+                  _buildSellerCard(),
+                  const SizedBox(height: 10),
+                  _buildReviewsSection(), 
+                  const SizedBox(height: 10),
+                  if (_currentUser?.uid != ad.userId) _buildReportButton(),
+                  const SizedBox(height: 70),
+                ],
+              ),
             ),
           ),
         ],
       ),
-      bottomSheet: _buildBottomBar(),
+      bottomSheet: AbsorbPointer(
+        absorbing: widget.isPreview,
+        child: _buildBottomBar(),
+      ),
       ),
     );
   }
@@ -751,7 +774,9 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
         ]),
         const SizedBox(height: 16),
         StreamBuilder<List<ReviewModel>>(
-          stream: ReviewService.getAdReviewsStream(widget.ad.id),
+          stream: widget.isPreview
+              ? Stream.value(<ReviewModel>[])
+              : ReviewService.getAdReviewsStream(widget.ad.id),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
             final reviews = snapshot.data ?? [];

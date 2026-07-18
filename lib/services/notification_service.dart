@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -235,6 +237,9 @@ class NotificationService {
     Map<String, dynamic>? data,
     String? uid, // Добавили опциональный UID
   }) async {
+    if (kDebugMode && Platform.environment.containsKey('FLUTTER_TEST')) {
+      return;
+    }
     final targetUid = uid ?? UserService.currentUid;
     try {
       if (targetUid == null) return;

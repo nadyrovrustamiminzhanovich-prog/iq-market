@@ -17,6 +17,8 @@ import 'package:iqmarket/services/storage_service.dart';
 import 'package:iqmarket/services/user_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:iqmarket/services/chat_service.dart';
+import 'package:iqmarket/services/file_service.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 
 void setupTestMocks() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -48,6 +50,17 @@ void setupTestMocks() {
   });
 
   setupFirebaseCoreMocks(); // Use official platform interface mocks for Firebase Core
+
+  // Crashlytics Mock
+  TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+      .setMockMethodCallHandler(
+    const MethodChannel('plugins.flutter.io/firebase_crashlytics'),
+    (MethodCall methodCall) async {
+      return <String, dynamic>{
+        'isCrashlyticsCollectionEnabled': true,
+      };
+    },
+  );
 
   // Auth Mock
   TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -188,6 +201,17 @@ class FakeDocumentReference extends Fake implements DocumentReference<Map<String
   FakeDocumentReference(this._snapshotsStream);
 
   @override
+  String get id => 'msg_xyz';
+
+  @override
+  Future<void> set(Map<String, dynamic> data, [SetOptions? options]) async {}
+
+  @override
+  CollectionReference<Map<String, dynamic>> collection(String collectionPath) {
+    return FakeCollectionReference(collectionPath, _snapshotsStream);
+  }
+
+  @override
   Stream<DocumentSnapshot<Map<String, dynamic>>> snapshots({
     bool includeMetadataChanges = false,
     ListenSource source = ListenSource.defaultSource,
@@ -204,6 +228,11 @@ class FakeCollectionReference extends Fake implements CollectionReference<Map<St
 
   @override
   DocumentReference<Map<String, dynamic>> doc([String? path]) {
+    return FakeDocumentReference(_snapshotsStream);
+  }
+
+  @override
+  Future<DocumentReference<Map<String, dynamic>>> add(Map<String, dynamic> data) async {
     return FakeDocumentReference(_snapshotsStream);
   }
 }
@@ -427,5 +456,137 @@ void main() {
         await firestoreController.close();
       }
     });
+
+    testWidgets('Error after successful upload shows warning and does not trigger retry', (WidgetTester tester) async {
+      int uploadCalls = 0;
+      
+      // Override FileService to track calls and simulate success upload but failure on getDownloadURL
+      FileService.uploadFileWithTaskOverride = (file, folder, {customFileName}) {
+        uploadCalls++;
+        final fakeRef = FakeReference('', throwOnGetUrl: true);
+        final fakeSnapshot = FakeTaskSnapshot(fakeRef);
+        return FakeUploadTask(Future.value(fakeSnapshot));
+      };
+
+      final fakeRecorder = FakeAudioRecorder();
+      final ad = AdModel(
+        id: 'ad_123',
+        userId: 'seller_123',
+        userName: 'Seller Name',
+        userEmail: 'seller@example.com',
+        title: 'Test Ad',
+        description: 'Test Ad description',
+        price: 100,
+        images: [],
+        category: 'Electronics',
+        status: 'approved',
+        timestamp: DateTime.now(),
+      );
+
+      final firestoreController = StreamController<DocumentSnapshot<Map<String, dynamic>>>.broadcast();
+      final fakeFirestore = FakeFirebaseFirestore(firestoreController.stream);
+
+      firestoreController.add(FakeDocumentSnapshot({
+        'lastActive': Timestamp.fromDate(DateTime.now()),
+        'typing_seller_123': false,
+      }, true));
+
+      ChatService.dbOverride = fakeFirestore;
+
+      try {
+        UserService.mockUid = 'current_user_123';
+        await tester.pumpWidget(
+          ChangeNotifierProvider<AppConfigProvider>(
+            create: (_) => AppConfigProvider(),
+            child: MaterialApp(
+              home: Scaffold(
+                body: ChatScreen(
+                  ad: ad,
+                  recorder: fakeRecorder,
+                  firestore: fakeFirestore,
+                ),
+              ),
+            ),
+          ),
+        );
+
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+
+        final micBtn = find.byIcon(Icons.mic_rounded);
+        expect(micBtn, findsOneWidget);
+
+        // Start long press to begin recording
+        final gesture = await tester.startGesture(tester.getCenter(micBtn));
+        // Pump 1500ms to exceed short recording threshold (1s)
+        await tester.pump(const Duration(milliseconds: 1500));
+
+        // Stop recording
+        await tester.runAsync(() async {
+          await gesture.up();
+          await Future.delayed(const Duration(milliseconds: 500));
+        });
+
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 500));
+
+        // Verify that upload was called exactly once (no retries)
+        expect(uploadCalls, equals(1));
+
+        // Verify the warning SnackBar is shown
+        expect(find.text('Файл загружен, но не удалось прикрепить сообщение.'), findsOneWidget);
+
+        // Dismiss the SnackBar
+        await tester.pump(const Duration(seconds: 4));
+      } finally {
+        UserService.mockUid = null;
+        ChatService.dbOverride = null;
+        FileService.uploadFileWithTaskOverride = null;
+        await firestoreController.close();
+      }
+    });
   });
+}
+
+class FakeUploadTask extends Fake implements UploadTask {
+  final Future<TaskSnapshot> _future;
+
+  FakeUploadTask(this._future);
+
+  @override
+  Future<S> then<S>(FutureOr<S> Function(TaskSnapshot value) onValue, {Function? onError}) {
+    return _future.then<S>(onValue, onError: onError);
+  }
+
+  @override
+  Future<TaskSnapshot> catchError(Function onError, {bool Function(Object error)? test}) {
+    return _future.catchError(onError, test: test);
+  }
+}
+
+class FakeTaskSnapshot extends Fake implements TaskSnapshot {
+  final Reference _ref;
+  FakeTaskSnapshot(this._ref);
+
+  @override
+  Reference get ref => _ref;
+}
+
+class FakeReference extends Fake implements Reference {
+  final String downloadUrl;
+  final bool throwOnGetUrl;
+
+  FakeReference(this.downloadUrl, {this.throwOnGetUrl = false});
+
+  @override
+  Future<String> getDownloadURL() async {
+    if (throwOnGetUrl) {
+      throw FirebaseException(
+        plugin: 'storage',
+        code: 'unauthorized',
+        message: 'Mocked getDownloadURL permission denied error',
+      );
+    }
+    return downloadUrl;
+  }
 }

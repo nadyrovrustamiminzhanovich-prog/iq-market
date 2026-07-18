@@ -9,12 +9,18 @@ import 'package:iqmarket/services/analytics_service.dart';
 
 class FileService {
   static final FirebaseStorage _storage = FirebaseStorage.instance;
+  
+  /// Test hook to override file upload behavior in widget/unit tests
+  static UploadTask Function(File file, String folder, {String? customFileName})? uploadFileWithTaskOverride;
 
   // 🔒 X10: Max file size before aggressive recompression (5 MB)
   static const int _maxFileSizeBytes = 5 * 1024 * 1024;
 
   /// Upload a file to Firebase Storage and return the Task for cancellation support
   static UploadTask uploadFileWithTask(File file, String folder, {String? customFileName}) {
+    if (uploadFileWithTaskOverride != null) {
+      return uploadFileWithTaskOverride!(file, folder, customFileName: customFileName);
+    }
     final String extension = p.extension(file.path).toLowerCase();
     final String fileName = customFileName ?? '${DateTime.now().millisecondsSinceEpoch}$extension';
     final Reference ref = _storage.ref().child(folder).child(fileName);
