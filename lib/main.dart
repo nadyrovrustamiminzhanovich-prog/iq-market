@@ -99,6 +99,7 @@ class MainApp extends StatelessWidget {
       supportedLocales: const [
         Locale('ru', 'RU'),
         Locale('kk', 'KZ'),
+        Locale('ug'),
         Locale('en', 'US'),
       ],
       locale: config.locale,

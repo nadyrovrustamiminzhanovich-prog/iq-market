@@ -12,6 +12,7 @@ import 'package:iqmarket/data/legal_texts.dart';
 
 import 'package:iqmarket/services/storage_service.dart';
 import 'package:provider/provider.dart';
+import 'package:iqmarket/providers/app_config_provider.dart';
 import 'package:iqmarket/providers/taxi_provider.dart';
 import 'package:iqmarket/screens/home/home_screen.dart';
 import 'package:iqmarket/translations/login_strings.dart';
@@ -46,6 +47,8 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   bool _isLoading = false;
   bool _showPassword = false;
   bool _showConfirmPassword = false;
+  late String _selectedLang;
+  bool _languageManuallyChanged = false;
 
 
   String? _tgSessionToken;
@@ -63,6 +66,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _selectedLang = widget.lang;
     _tosRecognizer = TapGestureRecognizer()..onTap = () => _showLegalText(_t('tos_title'));
     _privacyRecognizer = TapGestureRecognizer()..onTap = () => _showLegalText(_t('privacy_title'));
     if (widget.autoStartTelegramLogin) {
@@ -74,7 +78,90 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
 
   // ===================== TRANSLATIONS =====================
   String _t(String key) {
-    return loginStrings[key]?[widget.lang] ?? loginStrings[key]?['Русский'] ?? key;
+    return loginStrings[key]?[_selectedLang] ?? loginStrings[key]?['Русский'] ?? key;
+  }
+
+  void _changeLanguage(String newLang) {
+    setState(() {
+      _selectedLang = newLang;
+      _languageManuallyChanged = true;
+    });
+    try {
+      final config = Provider.of<AppConfigProvider>(context, listen: false);
+      config.setLanguage(newLang);
+    } catch (e) {
+      debugPrint('AppConfigProvider error: $e');
+    }
+  }
+
+  Widget _buildLanguageSelector() {
+    return Theme(
+      data: Theme.of(context).copyWith(
+        cardColor: Colors.white,
+      ),
+      child: PopupMenuButton<String>(
+        icon: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.black.withValues(alpha: 0.1)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.translate_rounded, color: Color(0xFF4A80F0), size: 16),
+              const SizedBox(width: 4),
+              Text(
+                _selectedLang == 'Русский' 
+                    ? 'RU' 
+                    : (_selectedLang == 'Қазақша' ? 'KZ' : 'UG'),
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+              const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.black54, size: 14),
+            ],
+          ),
+        ),
+        onSelected: _changeLanguage,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        itemBuilder: (context) => [
+          PopupMenuItem(
+            value: 'Русский',
+            child: Row(
+              children: [
+                const Text('🇷🇺', style: TextStyle(fontSize: 16)),
+                const SizedBox(width: 8),
+                Text('Русский', style: GoogleFonts.inter(fontWeight: _selectedLang == 'Русский' ? FontWeight.bold : FontWeight.normal)),
+              ],
+            ),
+          ),
+          PopupMenuItem(
+            value: 'Қазақша',
+            child: Row(
+              children: [
+                const Text('🇰🇿', style: TextStyle(fontSize: 16)),
+                const SizedBox(width: 8),
+                Text('Қазақша', style: GoogleFonts.inter(fontWeight: _selectedLang == 'Қазақша' ? FontWeight.bold : FontWeight.normal)),
+              ],
+            ),
+          ),
+          PopupMenuItem(
+            value: 'Уйғурчә',
+            child: Row(
+              children: [
+                const Text('🌙', style: TextStyle(fontSize: 16)),
+                const SizedBox(width: 8),
+                Text('Уйғурчә', style: GoogleFonts.inter(fontWeight: _selectedLang == 'Уйғурчә' ? FontWeight.bold : FontWeight.normal)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -167,7 +254,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
         _nameController.text.trim(),
       ).timeout(const Duration(seconds: 25));
       
-      _showSuccess(_t('success_reg') + ". Проверьте почту для подтверждения!");
+      _showSuccess(_t('success_reg'));
       
       // Строгая верификация: выходим из сессии, не пускаем внутрь
       await AuthService.signOut();
@@ -745,7 +832,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
               }
 
               if (tokenToUse == null || tokenToUse.split('.').length != 3) {
-                throw Exception('Сервер не смог создать токен. Попробуйте через 30 сек.');
+                throw Exception(_t('err_server_token'));
               }
 
               final userCred = await FirebaseAuth.instance
@@ -771,7 +858,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
             } catch (e) {
               ss(() {
                 isDialogLoading = false;
-                dialogErrorMsg = 'Ошибка: ${e.toString().replaceAll('Exception:', '').trim()}';
+                dialogErrorMsg = '${_t('err_general')}${e.toString().replaceAll('Exception:', '').trim()}';
               });
             }
           }
@@ -1006,7 +1093,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                                   ),
                                   const SizedBox(width: 10),
                                   Text(
-                                    'Входим в аккаунт...',
+                                    _t('logging_in'),
                                     style: GoogleFonts.inter(
                                       color: const Color(0xFF0088CC),
                                       fontSize: 12,
@@ -1075,7 +1162,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                                   )
                                 : Text(
                                     dialogErrorMsg != null
-                                        ? 'Повторить'
+                                        ? _t('retry')
                                         : _t('confirm'),
                                     style: GoogleFonts.inter(
                                       color: Colors.white,
@@ -1106,6 +1193,8 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
       photoUrl: photoUrl,
       isVerified: isVerified,
       accountType: accountType,
+      language: _selectedLang,
+      isLanguageManuallyChanged: _languageManuallyChanged,
     );
     
     // 2. Локальное сохранение
@@ -1114,6 +1203,12 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     StorageService.setBool('taxi_logged_in', true);
     
     if (mounted) {
+      try {
+        final config = Provider.of<AppConfigProvider>(context, listen: false);
+        await config.forceReload();
+      } catch (e) {
+        debugPrint('AppConfigProvider forceReload error: $e');
+      }
       Provider.of<TaxiProvider>(context, listen: false).setLoginStatus(true);
       Provider.of<TaxiProvider>(context, listen: false).loadPreferences();
       Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => IQMarketHome()));
@@ -1410,6 +1505,12 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                         onPressed: () => Navigator.of(context).pop(),
                       )
                     : null),
+            actions: [
+              Padding(
+                padding: const EdgeInsets.only(right: 16),
+                child: _buildLanguageSelector(),
+              ),
+            ],
           ),
           body: Stack(
             children: [

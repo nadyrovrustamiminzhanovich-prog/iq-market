@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:iqmarket/services/storage_service.dart';
 import 'package:iqmarket/services/user_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class AppConfigProvider with ChangeNotifier {
   String _language = StorageService.getString('app_lang') ?? 'Русский';
@@ -15,6 +16,9 @@ class AppConfigProvider with ChangeNotifier {
 
   AppConfigProvider() {
     _checkAndReload();
+    FirebaseAuth.instance.authStateChanges().listen((user) {
+      _checkAndReload();
+    });
   }
 
   Locale get locale => _locale;
@@ -39,19 +43,24 @@ class AppConfigProvider with ChangeNotifier {
   
   bool get isDarkMode => StorageService.getString('theme') == 'Dark';
 
-  void _checkAndReload() {
+  Future<void> _checkAndReload() async {
     final uid = UserService.currentUid;
     if (uid != _lastLoadedUid) {
       _lastLoadedUid = uid;
       if (uid != null) {
         _blockedUserIds = Set<String>.from(StorageService.getStringList('blockedUserIds_${uid}') ?? []);
         _favoriteIds = Set<String>.from(StorageService.getStringList('favorites_${uid}') ?? []);
-        _loadFavoritesFromFirestore();
+        await _loadFavoritesFromFirestore();
       } else {
         _favoriteIds = Set<String>.from(StorageService.getStringList('favorites') ?? []);
         _blockedUserIds = Set<String>.from(StorageService.getStringList('blockedUserIds') ?? []);
       }
     }
+  }
+
+  Future<void> forceReload() async {
+    _lastLoadedUid = null;
+    await _checkAndReload();
   }
 
   void setLanguage(String lang) {
@@ -62,7 +71,7 @@ class AppConfigProvider with ChangeNotifier {
     final localeMap = {
       'Русский': const Locale('ru', 'RU'),
       'Қазақша': const Locale('kk', 'KZ'),
-      'Уйғурчә': const Locale('en', 'US'),
+      'Уйғурчә': const Locale('ug'),
     };
     _locale = localeMap[lang] ?? const Locale('ru', 'RU');
     
@@ -128,7 +137,7 @@ class AppConfigProvider with ChangeNotifier {
             final localeMap = {
               'Русский': const Locale('ru', 'RU'),
               'Қазақша': const Locale('kk', 'KZ'),
-              'Уйғурчә': const Locale('en', 'US'),
+              'Уйғурчә': const Locale('ug'),
             };
             _locale = localeMap[firestoreLanguage] ?? const Locale('ru', 'RU');
             onLanguageChanged?.call(firestoreLanguage);

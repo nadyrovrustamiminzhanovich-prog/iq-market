@@ -16,6 +16,8 @@ import 'package:iqmarket/models/ad_model.dart';
 import 'package:iqmarket/screens/login_screen.dart';
 import 'package:iqmarket/screens/legal_info_screen.dart';
 import 'package:iqmarket/screens/home/home_screen.dart';
+import 'package:provider/provider.dart';
+import 'package:iqmarket/providers/app_config_provider.dart';
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_functions/cloud_functions.dart';
@@ -1577,7 +1579,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LoginScreen())),
+              onPressed: () {
+                final currentLang = Provider.of<AppConfigProvider>(context, listen: false).language;
+                Navigator.push(context, MaterialPageRoute(builder: (_) => LoginScreen(lang: currentLang)));
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: _primaryColor,
                 foregroundColor: Colors.white,

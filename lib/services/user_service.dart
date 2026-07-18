@@ -26,6 +26,8 @@ class UserService {
     String? phone,
     bool isVerified = false,
     String? accountType,
+    String? language,
+    bool isLanguageManuallyChanged = false,
   }) async {
     final user = _auth.currentUser;
     if (user == null) return false;
@@ -48,6 +50,7 @@ class UserService {
           'registrationDate': FieldValue.serverTimestamp(),
           'reviewsCount': 0,
           'rating': 0.0,
+          'language': language ?? 'Русский',
         });
         return isVerified;
       } else {
@@ -60,6 +63,9 @@ class UserService {
         if (email != null && email.isNotEmpty) updates['email'] = email;
         if (isVerified && !existingVerified) updates['isVerified'] = true;
         if (accountType != null) updates['accountType'] = accountType;
+        if (isLanguageManuallyChanged && language != null) {
+          updates['language'] = language;
+        }
         
         if (updates.isNotEmpty) {
           await docRef.update(updates);
