@@ -509,43 +509,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         _playSentSound();
         _localAudioPaths[msgId] = path;
         final chatId = ChatService.getChatId(widget.ad.userId);
-        final task = FileService.uploadFileWithTask(
-          File(path),
-          'voice_messages/$chatId',
-          customFileName: '$msgId.m4a',
-        );
-        if (mounted) setState(() { _activeUploads[msgId] = task; });
-        task.then((snapshot) async {
-          final url = await snapshot.ref.getDownloadURL();
-          await ChatService.updateMessage(widget.ad.userId, msgId, {'mediaUrl': url});
-          if (mounted) setState(() { _activeUploads.remove(msgId); });
-        }).catchError((e, stack) {
-          final String cid = ChatService.getChatId(widget.ad.userId);
-          AnalyticsService.logStoragePermissionError(e, stack, 'voice_messages/$cid');
-          if (mounted) {
-            setState(() { _activeUploads.remove(msgId); });
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: const Row(
-                  children: [
-                    Icon(Icons.cloud_off_rounded, color: Colors.white, size: 18),
-                    SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        'Не удалось загрузить голосовое. Попробуйте ещё раз.',
-                        style: TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                  ],
-                ),
-                backgroundColor: Colors.redAccent,
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                duration: const Duration(seconds: 4),
-              ),
-            );
-          }
-        });
+        _uploadVoiceMessageWithRetry(msgId, path, chatId);
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -558,6 +522,73 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         }
       }
     }
+  }
+
+  void _uploadVoiceMessageWithRetry(String msgId, String path, String chatId, {int attempt = 1}) {
+    final task = FileService.uploadFileWithTask(
+      File(path),
+      'voice_messages/$chatId',
+      customFileName: '$msgId.m4a',
+    );
+    if (mounted) {
+      setState(() {
+        _activeUploads[msgId] = task;
+      });
+    }
+
+    task.then((snapshot) async {
+      final url = await snapshot.ref.getDownloadURL();
+      await ChatService.updateMessage(widget.ad.userId, msgId, {'mediaUrl': url});
+      if (mounted) {
+        setState(() {
+          _activeUploads.remove(msgId);
+        });
+      }
+    }).catchError((e, stack) async {
+      final errorStr = e.toString().toLowerCase();
+      final isPermissionError = errorStr.contains('permission-denied') || 
+                                errorStr.contains('unauthorized') || 
+                                errorStr.contains('forbidden');
+      
+      const delays = [500, 1500, 3000];
+      
+      if (isPermissionError && attempt <= delays.length) {
+        final delayMs = delays[attempt - 1];
+        debugPrint('[CHAT_SCREEN] Upload permission denied (replication lag). Retrying attempt $attempt in ${delayMs}ms. Error: $e');
+        await Future.delayed(Duration(milliseconds: delayMs));
+        if (mounted) {
+          _uploadVoiceMessageWithRetry(msgId, path, chatId, attempt: attempt + 1);
+        }
+      } else {
+        final String cid = ChatService.getChatId(widget.ad.userId);
+        AnalyticsService.logStoragePermissionError(e, stack, 'voice_messages/$cid');
+        if (mounted) {
+          setState(() {
+            _activeUploads.remove(msgId);
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Row(
+                children: [
+                  Icon(Icons.cloud_off_rounded, color: Colors.white, size: 18),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Не удалось загрузить голосовое. Попробуйте ещё раз.',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+              backgroundColor: Colors.redAccent,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        }
+      }
+    });
   }
 
   void _playTapSound() async {
@@ -703,9 +734,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             audioFocus: AndroidAudioFocus.gain,
           ),
           iOS: AudioContextIOS(
-            category: AVAudioSessionCategory.playAndRecord,
+            category: AVAudioSessionCategory.playback,
             options: {
-              AVAudioSessionOptions.defaultToSpeaker,
               AVAudioSessionOptions.mixWithOthers,
             },
           ),

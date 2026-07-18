@@ -321,6 +321,42 @@ describe("storage: voice_messages/{chatId}/", () => {
     const storageRef = ref(userStorage(outsider), `voice_messages/${chatId}/hacked.ogg`);
     await assertFails(uploadBytes(storageRef, SMALL_IMAGE, { contentType: "audio/ogg" }));
   });
+
+  test("участник свежесозданного чата с ретраем в итоге может загрузить файл (симуляция лага репликации)", async () => {
+    const freshChatId = "laggy_chat_id";
+    const userUid = "user_laggy";
+    
+    // 1. Попытка загрузки ДО создания чата в Firestore должна провалиться (permission-denied)
+    const storageRef = ref(userStorage(userUid), `voice_messages/${freshChatId}/voice.m4a`);
+    await assertFails(uploadBytes(storageRef, SMALL_IMAGE, { contentType: "audio/x-m4a" }));
+
+    // 2. Симулируем прохождение лага репликации: создаем чат в Firestore
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), `chats/${freshChatId}`), {
+        users: [userUid, "another_user"],
+      });
+    });
+
+    // 3. Повторная попытка загрузки (retry) теперь должна завершиться успешно
+    await assertSucceeds(uploadBytes(storageRef, SMALL_IMAGE, { contentType: "audio/x-m4a" }));
+  });
+
+  test("не-участник чата НЕ может загрузить файл в любом случае, даже зная правильный формат chatId", async () => {
+    const maliciousChatId = "hacked_chat_id";
+    const victimUid = "victim_user";
+    const hackerUid = "hacker_user";
+    
+    // 1. Создаем чат в Firestore, где Хакер НЕ является участником
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), `chats/${maliciousChatId}`), {
+        users: [victimUid, "legit_user"],
+      });
+    });
+
+    // 2. Хакер пытается загрузить файл в чужой чат — это должно провалиться
+    const storageRef = ref(userStorage(hackerUid), `voice_messages/${maliciousChatId}/hacked.m4a`);
+    await assertFails(uploadBytes(storageRef, SMALL_IMAGE, { contentType: "audio/x-m4a" }));
+  });
 });
 
 // ──────────────────────────────────────────
