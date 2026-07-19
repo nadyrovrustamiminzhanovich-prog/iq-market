@@ -167,98 +167,180 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       );
       return;
     }
-    String? selectedType;
-    final TextEditingController commentCtrl = TextEditingController();
-    bool isLoading = false;
 
-    showModalBottomSheet(
+    final result = await showModalBottomSheet<bool>(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (modalContext) => StatefulBuilder(
-        builder: (builderContext, setModalState) {
-          return Container(
-            padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(builderContext).viewInsets.bottom + 24),
-            decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
+      builder: (modalContext) => _ReportAdSheetContent(
+        adId: widget.ad.id,
+        adTitle: widget.ad.title,
+        reportedUserId: widget.ad.userId,
+        lang: widget.lang,
+      ),
+    );
+
+    if (result == true && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(TranslationService.t('report_sent_success', widget.lang)),
+          backgroundColor: const Color(0xFF10B981),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        ),
+      );
+    }
+  }
+}
+
+class _ReportAdSheetContent extends StatefulWidget {
+  final String adId;
+  final String adTitle;
+  final String reportedUserId;
+  final String lang;
+
+  const _ReportAdSheetContent({
+    required this.adId,
+    required this.adTitle,
+    required this.reportedUserId,
+    required this.lang,
+  });
+
+  @override
+  State<_ReportAdSheetContent> createState() => _ReportAdSheetContentState();
+}
+
+class _ReportAdSheetContentState extends State<_ReportAdSheetContent> {
+  late final TextEditingController _commentCtrl;
+  String? _selectedType;
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _commentCtrl = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _commentCtrl.dispose();
+    super.dispose();
+  }
+
+  Widget _reportChip(String title, String type) {
+    final isSelected = _selectedType == type;
+    return ChoiceChip(
+      label: Text(title),
+      selected: isSelected,
+      onSelected: (_) => setState(() => _selectedType = type),
+      backgroundColor: const Color(0xFFF1F5F9),
+      selectedColor: const Color(0xFF4A80F0).withValues(alpha: 0.1),
+      labelStyle: TextStyle(
+        color: isSelected ? const Color(0xFF4A80F0) : const Color(0xFF1E293B),
+        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+      ),
+      side: BorderSide.none,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      showCheckmark: false,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(context).viewInsets.bottom + 24),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              TranslationService.t('report_ad', widget.lang),
+              style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              TranslationService.t('report_ad_select_reason', widget.lang),
+              style: GoogleFonts.inter(color: Colors.grey[600], fontSize: 14),
+            ),
+            const SizedBox(height: 20),
+            AbsorbPointer(
+              absorbing: _isLoading,
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
                 children: [
-                  Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(10)))),
-                  const SizedBox(height: 24),
-                  Text(TranslationService.t('report_ad', widget.lang), style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w900)),
-                  const SizedBox(height: 8),
-                  Text(TranslationService.t('report_ad_select_reason', widget.lang), style: GoogleFonts.inter(color: Colors.grey[600], fontSize: 14)),
-                  const SizedBox(height: 20),
-                  AbsorbPointer(
-                    absorbing: isLoading,
-                    child: Wrap(
-                      spacing: 8, runSpacing: 8,
-                      children: [
-                        _reportChip(TranslationService.t('report_reason_fraud', widget.lang), 'fraud', selectedType, (v) => setModalState(() => selectedType = v)),
-                        _reportChip(TranslationService.t('report_reason_price', widget.lang), 'wrong_price', selectedType, (v) => setModalState(() => selectedType = v)),
-                        _reportChip(TranslationService.t('report_reason_sold', widget.lang), 'sold', selectedType, (v) => setModalState(() => selectedType = v)),
-                        _reportChip(TranslationService.t('report_reason_prohibited', widget.lang), 'prohibited', selectedType, (v) => setModalState(() => selectedType = v)),
-                        _reportChip(TranslationService.t('report_reason_other', widget.lang), 'other', selectedType, (v) => setModalState(() => selectedType = v)),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  TextField(
-                    controller: commentCtrl,
-                    maxLines: 3,
-                    enabled: !isLoading,
-                    decoration: InputDecoration(
-                      hintText: TranslationService.t('report_comment_hint', widget.lang),
-                      filled: true, fillColor: const Color(0xFFF1F5F9),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: selectedType == null || isLoading ? null : () async {
-                        setModalState(() {
-                          isLoading = true;
-                        });
+                  _reportChip(TranslationService.t('report_reason_fraud', widget.lang), 'fraud'),
+                  _reportChip(TranslationService.t('report_reason_price', widget.lang), 'wrong_price'),
+                  _reportChip(TranslationService.t('report_reason_sold', widget.lang), 'sold'),
+                  _reportChip(TranslationService.t('report_reason_prohibited', widget.lang), 'prohibited'),
+                  _reportChip(TranslationService.t('report_reason_other', widget.lang), 'other'),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            TextField(
+              controller: _commentCtrl,
+              maxLines: 3,
+              enabled: !_isLoading,
+              decoration: InputDecoration(
+                hintText: TranslationService.t('report_comment_hint', widget.lang),
+                filled: true,
+                fillColor: const Color(0xFFF1F5F9),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _selectedType == null || _isLoading
+                    ? null
+                    : () async {
+                        setState(() => _isLoading = true);
                         try {
                           final reporterId = FirebaseAuth.instance.currentUser?.uid;
                           await FirebaseFirestore.instance.collection('reports').add({
-                            'adId': widget.ad.id,
-                            'adTitle': widget.ad.title,
-                            'reportedUserId': widget.ad.userId,
+                            'adId': widget.adId,
+                            'adTitle': widget.adTitle,
+                            'reportedUserId': widget.reportedUserId,
                             'reporterUserId': reporterId ?? 'anonymous',
-                            'type': selectedType,
-                            'comment': commentCtrl.text.trim(),
+                            'type': _selectedType,
+                            'comment': _commentCtrl.text.trim(),
                             'timestamp': FieldValue.serverTimestamp(),
                           });
-                          
-                          if (modalContext.mounted) {
-                            Navigator.pop(modalContext);
-                          }
-                          
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(TranslationService.t('report_sent_success', widget.lang)),
-                                backgroundColor: const Color(0xFF10B981),
-                                behavior: SnackBarBehavior.floating,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                              ),
-                            );
+
+                          if (mounted) {
+                            Navigator.of(context).pop(true);
                           }
                         } catch (e) {
-                          if (builderContext.mounted) {
-                            setModalState(() {
-                              isLoading = false;
-                            });
-                          }
-                          if (context.mounted) {
+                          debugPrint('[Report] Submit error: $e');
+                          setState(() => _isLoading = false);
+                          if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text(TranslationService.t('errSendReport', widget.lang).replaceAll('{error}', e.toString())),
+                                content: Text(
+                                  TranslationService.t('errSendReport', widget.lang)
+                                      .replaceAll('{error}', e.toString()),
+                                ),
                                 backgroundColor: Colors.redAccent,
                                 behavior: SnackBarBehavior.floating,
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -267,28 +349,33 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                           }
                         }
                       },
-                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4A80F0), foregroundColor: Colors.white, disabledBackgroundColor: Colors.grey[300], padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), elevation: 0),
-                      child: isLoading
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2,
-                              ),
-                            )
-                          : Text(TranslationService.t('report_submit_btn', widget.lang), style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 16)),
-                    ),
-                  ),
-                ],
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF4A80F0),
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor: Colors.grey[300],
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  elevation: 0,
+                ),
+                child: _isLoading
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : Text(
+                        TranslationService.t('report_submit_btn', widget.lang),
+                        style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 16),
+                      ),
               ),
             ),
-          );
-        }
+          ],
+        ),
       ),
-    ).then((_) {
-      commentCtrl.dispose();
-    });
+    );
   }
 
   Widget _reportChip(String title, String type, String? selectedType, Function(String) onSelect) {
@@ -415,6 +502,9 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
 
     final int itemCount = images.length + (hasVideo ? 1 : 0);
     final isFree = ad.price == 0.0 || ad.category == 'Отдам даром';
+
+    // Объявление считается архивным, если status != 'active' или active == false
+    final bool isArchived = ad.status != 'active' || !ad.active;
 
     return PopScope(
       canPop: true,
@@ -597,8 +687,10 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
               absorbing: widget.isPreview,
               child: Column(
                 children: [
+                  // ── Архивный баннер (показывается сверху, если объявление в архиве) ──
+                  if (isArchived) _buildArchivedBanner(),
                   _buildMainInfo(isFree),
-                  if (_currentUser?.uid != ad.userId) _buildBargainSection(),
+                  if (_currentUser?.uid != ad.userId && !isArchived) _buildBargainSection(),
                   _buildTags(),
                   const SizedBox(height: 10),
                   if (widget.ad.extraFields != null && widget.ad.extraFields!.isNotEmpty) _buildSpecsSection(),
@@ -607,9 +699,10 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                   const SizedBox(height: 10),
                   _buildSellerCard(),
                   const SizedBox(height: 10),
-                  _buildReviewsSection(), 
+                  _buildReviewsSection(isArchived: isArchived),
                   const SizedBox(height: 10),
-                  if (_currentUser?.uid != ad.userId) _buildReportButton(),
+                  // Кнопка «Пожаловаться» — только для активных объявлений
+                  if (_currentUser?.uid != ad.userId && !isArchived) _buildReportButton(),
                   const SizedBox(height: 70),
                 ],
               ),
@@ -764,7 +857,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     ]),
   );
 
-  Widget _buildReviewsSection() {
+  Widget _buildReviewsSection({bool isArchived = false}) {
     return Container(
       width: double.infinity, color: Colors.white, padding: const EdgeInsets.all(20),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -780,11 +873,19 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
             final reviews = snapshot.data ?? [];
-            
+
             final bool isMyAd = _currentUser?.uid == widget.ad.userId;
             final bool hasReviewedThisAd = _currentUser != null && reviews.any((r) => r.fromUserId == _currentUser!.uid && r.adId == widget.ad.id);
-            
-            if (reviews.isEmpty) return Column(children: [Center(child: Text(TranslationService.t('reviews_empty', widget.lang))), const SizedBox(height: 20), if (!isMyAd && !hasReviewedThisAd) _buildLeaveReviewButton()]);
+            // Для архивных объявлений кнопка «Оставить отзыв» недоступна
+            final bool canLeaveReview = !isMyAd && !hasReviewedThisAd && !isArchived;
+
+            if (reviews.isEmpty) {
+              return Column(children: [
+                Center(child: Text(TranslationService.t('reviews_empty', widget.lang))),
+                const SizedBox(height: 20),
+                if (canLeaveReview) _buildLeaveReviewButton(),
+              ]);
+            }
             return Column(children: [
               ...reviews.take(3).map((r) => _buildReviewItem(r)),
               if (reviews.length > 3)
@@ -796,7 +897,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                   ),
                 ),
               const SizedBox(height: 16),
-              if (!isMyAd && !hasReviewedThisAd) _buildLeaveReviewButton(),
+              if (canLeaveReview) _buildLeaveReviewButton(),
             ]);
           },
         ),
@@ -960,6 +1061,52 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
 
   Widget _buildLeaveReviewButton() => SizedBox(width: double.infinity, height: 54, child: OutlinedButton.icon(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => LeaveReviewScreen(ad: widget.ad))), icon: const Icon(Icons.rate_review_rounded), label: Text(TranslationService.t('leave_review', widget.lang)), style: OutlinedButton.styleFrom(foregroundColor: const Color(0xFF4A80F0), side: const BorderSide(color: Color(0xFF4A80F0)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)))));
 
+  /// Баннер «Объявление в архиве» — показывается вместо кнопок действий
+  Widget _buildArchivedBanner() {
+    final text = widget.lang == 'Қазақша'
+        ? 'Хабарландыру мұрағатта. Байланысу мүмкін емес.'
+        : widget.lang == 'Уйғурчә'
+            ? 'Елан архивта. Мурасиет қилиш мүмкин әмәс.'
+            : 'Объявление в архиве. Связаться с продавцом нельзя.';
+    return Container(
+      width: double.infinity,
+      margin: EdgeInsets.zero,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      decoration: const BoxDecoration(
+        color: Color(0xFFFFF7ED),
+        border: Border(
+          bottom: BorderSide(color: Color(0xFFFED7AA), width: 1),
+          top: BorderSide(color: Color(0xFFFED7AA), width: 1),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: const Color(0xFFFB923C).withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.archive_rounded, color: Color(0xFFF97316), size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              text,
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF9A3412),
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
 
   Widget _buildSellerCard() => InkWell(
     onTap: () { if (_seller != null) Navigator.push(context, MaterialPageRoute(builder: (context) => SellerProfileScreen(seller: widget.ad, lang: widget.lang, sellerAds: const []))); },
@@ -1054,8 +1201,67 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
 
   Widget _tagChip({required String label}) => Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(10)), child: Text(label, style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: const Color(0xFF475569))));
   Widget _buildBottomBar() {
-    if (_currentUser?.uid == widget.ad.userId) return const SizedBox.shrink();
+    final ad = _updatedAd ?? widget.ad;
 
+    // Своё объявление — без панели
+    if (_currentUser?.uid == ad.userId) return const SizedBox.shrink();
+
+    // Архивное объявление — показываем информационную плашку вместо кнопок
+    final bool isArchived = ad.status != 'active' || !ad.active;
+    if (isArchived) {
+      final archivedLabel = widget.lang == 'Қазақша'
+          ? 'Мұрағатта'
+          : widget.lang == 'Уйғурчә'
+              ? 'Архивта'
+              : 'В архиве';
+      final archivedDesc = widget.lang == 'Қазақша'
+          ? 'Байланысу мүмкін емес'
+          : widget.lang == 'Уйғурчә'
+              ? 'Мурасиет қилиш мүмкин әмәс'
+              : 'Объявление недоступно';
+      return Container(
+        padding: EdgeInsets.fromLTRB(
+          16, 12, 16,
+          MediaQuery.of(context).padding.bottom > 0 ? MediaQuery.of(context).padding.bottom : 12,
+        ),
+        decoration: const BoxDecoration(
+          color: Color(0xFFFFF7ED),
+          boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 20, offset: Offset(0, -5))],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: const Color(0xFFFB923C).withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.archive_rounded, color: Color(0xFFF97316), size: 22),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    archivedLabel,
+                    style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w800, color: const Color(0xFF9A3412)),
+                  ),
+                  Text(
+                    archivedDesc,
+                    style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500, color: const Color(0xFFC2410C)),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Активное объявление — обычные кнопки
     return Container(
       padding: EdgeInsets.fromLTRB(16, 8, 16, MediaQuery.of(context).padding.bottom > 0 ? MediaQuery.of(context).padding.bottom : 8),
       decoration: const BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 20, offset: Offset(0, -5))]),
