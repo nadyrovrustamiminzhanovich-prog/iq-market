@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:iqmarket/services/telegram_bot_service.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 
 class AuthService {
   static final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -152,5 +153,20 @@ class AuthService {
 
   static Future<void> deleteAccount() async {
     await _auth.currentUser?.delete();
+  }
+
+  static Future<UserCredential> verifyOtpAndSignIn(String sessionId, String otp) async {
+    final callable = FirebaseFunctions.instance.httpsCallable('verifyTelegramOtp');
+    final result = await callable.call({
+      'sessionId': sessionId,
+      'otp': otp,
+    });
+    
+    final tokenToUse = result.data['customToken'] as String?;
+    if (tokenToUse == null || tokenToUse.split('.').length != 3) {
+      throw Exception('Не удалось получить токен авторизации от сервера');
+    }
+    
+    return await _auth.signInWithCustomToken(tokenToUse);
   }
 }

@@ -18,6 +18,7 @@ exports.telegramWebhook = telegramBot.telegramWebhook;
 exports.sendTelegramOtp = telegramBot.sendTelegramOtp;
 exports.secureSendTelegramMessage = telegramBot.secureSendTelegramMessage;
 exports.onVerificationUpdate = telegramBot.onVerificationUpdate;
+exports.verifyTelegramOtp = telegramBot.verifyTelegramOtp;
 
 
 // ─── FIRESTORE TRIGGER: new chat message → FCM push ──────────────────────────
@@ -299,67 +300,7 @@ exports.sendSystemNotification = functions.https.onCall(async (data, context) =>
   return { success: true };
 });
 
-// ─── HTTPS CALLABLE: verifyTelegramOtp ────────────────────────────────────────
-exports.verifyTelegramOtp = functions.https.onCall(async (data, context) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'Пользователь должен быть авторизован');
-  }
 
-  const otp = data.otp;
-  const phone = data.phone;
-  const sessionToken = data.sessionToken;
-
-  if (!otp || !phone || !sessionToken) {
-    throw new functions.https.HttpsError('invalid-argument', 'Неполные параметры запроса (otp, phone, sessionToken)');
-  }
-
-  try {
-    const sessionRef = db.collection('tg_auth_sessions').doc(sessionToken);
-    const sessionSnap = await sessionRef.get();
-
-    if (!sessionSnap.exists) {
-      throw new functions.https.HttpsError('not-found', 'Сессия верификации не найдена или устарела');
-    }
-
-    const sessionData = sessionSnap.data();
-    
-    // Проверка на уязвимость подмены токена (initiatorUid должен совпадать с текущим UID)
-    if (sessionData.initiatorUid && sessionData.initiatorUid !== context.auth.uid) {
-      throw new functions.https.HttpsError('permission-denied', 'Попытка верификации чужой сессии');
-    }
-    
-    // Проверяем статус верификации сессии и OTP-код
-    if (sessionData.otp !== otp || sessionData.verified !== true) {
-      throw new functions.https.HttpsError('failed-precondition', 'Неверный код подтверждения');
-    }
-
-    // Дополнительная валидация номера телефона (сравнение последних 10 цифр)
-    const sessionPhoneRaw = sessionData.phone || '';
-    const cleanSession = sessionPhoneRaw.replace(/\D/g, '').slice(-10);
-    const cleanInput = phone.replace(/\D/g, '').slice(-10);
-
-    if (cleanSession !== cleanInput) {
-      throw new functions.https.HttpsError('failed-precondition', 'Номер телефона не совпадает с подтвержденным в Telegram');
-    }
-
-    const userUid = context.auth.uid;
-    const userRef = db.collection('users').doc(userUid);
-    
-    await userRef.update({
-      isVerified: true,
-      phone: phone,
-      telegramChatId: sessionData.chat_id || ''
-    });
-
-    console.log(`[verifyTelegramOtp] User ${userUid} successfully verified via Telegram.`);
-    
-    return { success: true };
-  } catch (error) {
-    console.error('[verifyTelegramOtp] Error:', error);
-    if (error instanceof functions.https.HttpsError) throw error;
-    throw new functions.https.HttpsError('internal', error.message || 'Внутренняя ошибка сервера');
-  }
-});
 
 // ─── HELPER: isAdActive ──────────────────────────────────────────────────────
 function isAdActive(adData) {
@@ -675,8 +616,13 @@ exports.onNewReport = onDocumentCreated('reports/{reportId}', async (event) => {
       if (userSnap.exists) {
         const userData = userSnap.data();
         reportedName = userData.displayName || userData.userName || reportedName;
-        reportedPhone = userData.phone || reportedPhone;
-        reportedEmail = userData.email || reportedEmail;
+      }
+
+      const contactSnap = await db.collection('users').doc(report.reportedUserId).collection('private').doc('contact').get();
+      if (contactSnap.exists) {
+        const contactData = contactSnap.data();
+        reportedPhone = contactData.phone || reportedPhone;
+        reportedEmail = contactData.email || reportedEmail;
       }
     } catch (err) {
       console.error('[onNewReport] Error fetching user context (falling back):', err);
@@ -1304,6 +1250,99 @@ exports.onReviewUpdated = onDocumentUpdated('reviews/{reviewId}', async (event) 
     console.log(`[onReviewUpdated] Successfully updated rating for user ${toUserId}`);
   } catch (err) {
     console.error('[onReviewUpdated] Error updating rating transaction:', err);
+  }
+});
+
+// ─── CRON: Cleanup Expired Sessions — каждые 10 минут ───────────────────────
+exports.cleanupExpiredSessions = functions.pubsub.schedule('every 10 minutes').onRun(async (context) => {
+  const tenMinutesAgo = admin.firestore.Timestamp.fromMillis(Date.now() - 10 * 60 * 1000);
+  
+  try {
+    const sessionsSnap = await db.collection('tg_auth_sessions')
+      .where('created_at', '<', tenMinutesAgo)
+      .get();
+      
+    if (!sessionsSnap.empty) {
+      const batch = db.batch();
+      sessionsSnap.docs.forEach((doc) => {
+        batch.delete(doc.ref);
+        // Также удаляем соответствующий документ из защищенной коллекции
+        const secureRef = db.collection('tg_auth_sessions_secure').doc(doc.id);
+        batch.delete(secureRef);
+      });
+      await batch.commit();
+      console.log(`[cleanupExpiredSessions] Cleaned up ${sessionsSnap.size} expired sessions.`);
+    }
+  } catch (err) {
+    console.error('[cleanupExpiredSessions] Error:', err);
+  }
+});
+
+// ─── ADMIN MIGRATION: Move contact info to private subcollection ──────────────
+exports.migrateUsersContactInfo = functions.https.onRequest(async (req, res) => {
+  // P2: Admin-only endpoint
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).send('Unauthorized: Missing token');
+  }
+  try {
+    const decoded = await admin.auth().verifyIdToken(authHeader.split('Bearer ')[1]);
+    const userDoc = await db.collection('users').doc(decoded.uid).get();
+    if (!userDoc.exists || userDoc.data().accountType !== 'admin') {
+      return res.status(403).send('Forbidden: Admin only');
+    }
+  } catch (e) {
+    return res.status(401).send('Unauthorized: Invalid token');
+  }
+
+  try {
+    const usersSnap = await db.collection('users').get();
+    let migratedCount = 0;
+    const batch = db.batch();
+
+    for (const userDoc of usersSnap.docs) {
+      const userData = userDoc.data();
+      const uid = userDoc.id;
+
+      const phone = userData.phone || '';
+      const telegram_chat_id = userData.telegram_chat_id || userData.telegramChatId || '';
+      const email = userData.email || '';
+
+      // Skip if no sensitive fields are present in the main doc
+      if (!phone && !telegram_chat_id && !email) {
+        continue;
+      }
+
+      // Write to the subcollection users/{uid}/private/contact
+      const contactRef = db.collection('users').doc(uid).collection('private').doc('contact');
+      batch.set(contactRef, {
+        phone: phone,
+        telegram_chat_id: telegram_chat_id,
+        telegramChatId: telegram_chat_id,
+        email: email,
+        updated_at: admin.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+
+      // Remove sensitive fields from main doc
+      const mainRef = db.collection('users').doc(uid);
+      batch.update(mainRef, {
+        phone: admin.firestore.FieldValue.delete(),
+        telegram_chat_id: admin.firestore.FieldValue.delete(),
+        telegramChatId: admin.firestore.FieldValue.delete(),
+        email: admin.firestore.FieldValue.delete()
+      });
+
+      migratedCount++;
+    }
+
+    if (migratedCount > 0) {
+      await batch.commit();
+    }
+
+    return res.status(200).json({ success: true, migratedCount });
+  } catch (err) {
+    console.error('[migrateUsersContactInfo] Error:', err);
+    return res.status(500).send(err.toString());
   }
 });
 

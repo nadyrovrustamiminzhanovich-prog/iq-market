@@ -44,8 +44,11 @@
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['offerStatus'])
             && request.resource.data.offerStatus == 'cancelled'
           ) ||
-          // 3. Anyone in chat marking messages as read
-          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead'])) ||
+          // 3. Only the recipient (not the sender) marking messages as read
+          (
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead'])
+            && request.auth.uid != resource.data.senderId
+          ) ||
           // 4. Only the RECEIVER of an offer can change its status (accept/reject) while pending
           (
             resource.data.type == 'offer'

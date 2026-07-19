@@ -52,8 +52,8 @@ class ChatService {
         });
   }
 
-  static Future<void> createChatIfNeeded(AdModel ad) async {
-    final sellerId = ad.userId;
+  static Future<void> createChatIfNeeded(AdModel ad, {String? recipientId}) async {
+    final sellerId = recipientId ?? ad.userId;
     final uid = UserService.currentUid;
     if (uid == null) return;
     final chatId = getChatId(sellerId);
@@ -94,8 +94,9 @@ class ChatService {
     String? mediaUrl,
     int? duration,
     String? senderName,
+    String? recipientId,
   }) async {
-    final sellerId = ad.userId;
+    final sellerId = recipientId ?? ad.userId;
     final uid = UserService.currentUid;
     if (uid == null) return null;
 

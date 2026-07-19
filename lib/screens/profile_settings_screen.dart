@@ -1397,9 +1397,10 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                 await AuthService.linkWithEmail(emailC.text, passC.text);
                 final uid = UserService.currentUid;
                 if (uid != null) {
-                  await FirebaseFirestore.instance.collection('users').doc(uid).update({
+                  await FirebaseFirestore.instance.collection('users').doc(uid).collection('private').doc('contact').set({
                     'email': emailC.text.trim(),
-                  });
+                    'updated_at': FieldValue.serverTimestamp(),
+                  }, SetOptions(merge: true));
                 }
                 Navigator.pop(context);
                 setState(() {});

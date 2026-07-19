@@ -283,12 +283,18 @@ exports.telegramWebhook = functions.https.onRequest(async (req, res) => {
       }
 
       await sessionDoc.ref.update({
-        otp,
-        customToken,
+        chat_id   : chatId,
+        otp       : 'sent',
         verified  : true,
         linked_at : admin.firestore.FieldValue.serverTimestamp(),
       });
-      console.log(`[contact] Session ${sessionDoc.id} updated: otp=${otp}, verified=true`);
+      
+      await db.collection('tg_auth_sessions_secure').doc(sessionDoc.id).set({
+        otp,
+        customToken,
+        created_at: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      console.log(`[contact] Session ${sessionDoc.id} secure OTP saved. Public doc updated.`);
 
       await tgSend(chatId,
         `✅ <b>Номер телефона успешно подтверждён!</b>\n\n`
@@ -311,10 +317,12 @@ exports.telegramWebhook = functions.https.onRequest(async (req, res) => {
           const sessionData = snap.data() || {};
 
           // 🛡️ Bypass duplicate start resets
-          if (sessionData.chat_id && sessionData.otp) {
+          const secureSnap = await db.collection('tg_auth_sessions_secure').doc(sessionToken).get();
+          const secureData = secureSnap.data() || {};
+          if (sessionData.chat_id && secureData.otp) {
             await tgSend(chatId,
               `👋 <b>${name}, ваш код подтверждения (повторный запрос):</b>\n\n`
-              + `🔐 Код: <code>${sessionData.otp}</code>\n\n`
+              + `🔐 Код: <code>${secureData.otp}</code>\n\n`
               + `<i>Введите этот код в приложении. Код действителен 5 минут.</i>`
             );
             return res.sendStatus(200);
@@ -357,9 +365,14 @@ exports.telegramWebhook = functions.https.onRequest(async (req, res) => {
             await ref.update({
               chat_id   : chatId,
               verified  : true,   // ✅ Direct Telegram login = verified by definition
+              otp       : 'sent',
+              linked_at : admin.firestore.FieldValue.serverTimestamp(),
+            });
+
+            await db.collection('tg_auth_sessions_secure').doc(sessionToken).set({
               otp,
               customToken,
-              linked_at : admin.firestore.FieldValue.serverTimestamp(),
+              created_at: admin.firestore.FieldValue.serverTimestamp(),
             });
             await tgSend(chatId,
               `👋 <b>${name}, добро пожаловать в IQ-Market!</b>\n\n`
@@ -484,14 +497,66 @@ exports.secureSendTelegramMessage = functions.https.onRequest(async (req, res) =
     return res.status(401).send('Unauthorized: Missing token');
   }
   const idToken = authHeader.split('Bearer ')[1];
+  let decodedToken;
   try {
-    await admin.auth().verifyIdToken(idToken);
+    decodedToken = await admin.auth().verifyIdToken(idToken);
   } catch (error) {
     return res.status(401).send('Unauthorized: Invalid token');
   }
 
   const { chatId, text, reply_markup, parse_mode } = req.body;
   if (!chatId || !text) return res.status(400).send('Missing chatId or text');
+
+  const targetChatStr = String(chatId);
+  const adminChatStr = String(ADMIN_CHAT);
+  const isTargetAdmin = (targetChatStr === adminChatStr || targetChatStr === '1910159480');
+
+  // 🔒 X10 SECURITY: Validate that the client is not sending arbitrary messages to random chats.
+  // The destination must be either the Admin Chat (for driver review / ad moderation)
+  // or the sender's own Telegram chat_id registered in their profile.
+  let isAllowedRecipient = false;
+  if (isTargetAdmin) {
+    isAllowedRecipient = true;
+  } else {
+    try {
+      const contactSnap = await db.collection('users').doc(decodedToken.uid).collection('private').doc('contact').get();
+      if (contactSnap.exists) {
+        const contactData = contactSnap.data();
+        const userChatId = contactData.telegram_chat_id || contactData.telegramChatId || contactData.chatId || contactData.chat_id;
+        if (userChatId && String(userChatId) === targetChatStr) {
+          isAllowedRecipient = true;
+        }
+      }
+    } catch (dbError) {
+      console.error('[secureSendTelegramMessage] Firestore error:', dbError);
+    }
+  }
+
+  if (!isAllowedRecipient) {
+    console.error(`[secureSendTelegramMessage] Security breach: User ${decodedToken.uid} tried sending to unauthorized chatId=${targetChatStr}`);
+    return res.status(403).send('Forbidden: Message destination is not allowed.');
+  }
+
+  // 🔒 Check message content templates
+  const isMessageAllowed = (messageText) => {
+    if (isTargetAdmin) {
+      return messageText.includes('Требуется ручная проверка водителя') ||
+             messageText.includes('Новое объявление на модерацию') ||
+             messageText.includes('Объявление АВТО-ОДОБРЕНО ИИ');
+    }
+    
+    return messageText.includes('Ваш код подтверждения') ||
+           messageText.includes('Ваш код для входа') ||
+           messageText.includes('Поздравляем! Верификация пройдена') ||
+           messageText.includes('Верификация отклонена') ||
+           messageText.includes('успешно проверено и опубликовано') ||
+           messageText.includes('отклонено модератором');
+  };
+
+  if (!isMessageAllowed(text)) {
+    console.error(`[secureSendTelegramMessage] Security breach: Content is not allowed. Tried: "${text}"`);
+    return res.status(403).send('Forbidden: Message content is not allowed.');
+  }
 
   try {
     const extra    = reply_markup ? { reply_markup } : {};
@@ -514,23 +579,48 @@ exports.sendTelegramOtp = functions.https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
   if (req.method === 'OPTIONS') return res.status(204).send('');
 
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).send('Unauthorized: Missing token');
-  }
-  const idToken = authHeader.split('Bearer ')[1];
-  try {
-    await admin.auth().verifyIdToken(idToken);
-  } catch (error) {
-    return res.status(401).send('Unauthorized: Invalid token');
-  }
-
-  const { chat_id, code } = req.body;
+  const ipRaw = req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.ip || '';
+  const ip = ipRaw.split(',')[0].trim();
+  const { chat_id, phone, code } = req.body;
   if (!chat_id || !code) return res.status(400).send('Missing chat_id or code');
 
-  const text = `🔐 <b>Ваш код для входа в IQ-Market:</b>\n\n<code>${code}</code>\n\n<i>Код действителен 5 минут. Никому не сообщайте!</i>`;
+  // Rate Limiting: max 3 requests per phone or IP in 10 minutes
+  const now = Date.now();
+  const tenMinutesAgo = admin.firestore.Timestamp.fromMillis(now - 10 * 60 * 1000);
 
   try {
+    if (phone) {
+      const cleanPhone = phone.replace(/\D/g, '');
+      if (cleanPhone) {
+        const phoneSnap = await db.collection('otp_requests')
+          .where('phone', '==', cleanPhone)
+          .where('timestamp', '>', tenMinutesAgo)
+          .get();
+        if (phoneSnap.size >= 3) {
+          return res.status(429).json({ success: false, error: 'Too many requests for this phone number. Please wait 10 minutes.' });
+        }
+      }
+    }
+
+    if (ip) {
+      const ipSnap = await db.collection('otp_requests')
+        .where('ip', '==', ip)
+        .where('timestamp', '>', tenMinutesAgo)
+        .get();
+      if (ipSnap.size >= 3) {
+        return res.status(429).json({ success: false, error: 'Too many requests from this IP. Please wait 10 minutes.' });
+      }
+    }
+
+    // Save request for rate-limiting verification
+    await db.collection('otp_requests').add({
+      phone: phone ? phone.replace(/\D/g, '') : '',
+      ip: ip,
+      timestamp: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    const text = `🔐 <b>Ваш код для входа в IQ-Market:</b>\n\n<code>${code}</code>\n\n<i>Код действителен 5 минут. Никому не сообщайте!</i>`;
+
     const response = await tgSend(chat_id, text);
     if (response && response.ok) {
       return res.status(200).json({ success: true });
@@ -543,4 +633,81 @@ exports.sendTelegramOtp = functions.https.onRequest(async (req, res) => {
   }
 });
 
+// ─── VERIFY TELEGRAM OTP CALLABLE ───────────────────────────────────────────
+exports.verifyTelegramOtp = functions.https.onCall(async (data, context) => {
+  const sessionId = data.sessionId || data.sessionToken;
+  const otp = data.otp;
+  
+  if (!sessionId || !otp) {
+    throw new functions.https.HttpsError('invalid-argument', 'Missing sessionId or otp');
+  }
+
+  try {
+    const secureDocRef = db.collection('tg_auth_sessions_secure').doc(sessionId);
+    const secureSnap = await secureDocRef.get();
+    if (!secureSnap.exists) {
+      throw new functions.https.HttpsError('not-found', 'Сессия не найдена или срок ее действия истек.');
+    }
+
+    const secureData = secureSnap.data();
+    const realOtp = secureData.otp;
+    const customToken = secureData.customToken;
+
+    if (otp !== realOtp) {
+      throw new functions.https.HttpsError('permission-denied', 'Неверный код подтверждения.');
+    }
+
+    // Get public session info for chat_id or phone if needed
+    const sessionRef = db.collection('tg_auth_sessions').doc(sessionId);
+    const sessionSnap = await sessionRef.get();
+    if (!sessionSnap.exists) {
+      throw new functions.https.HttpsError('not-found', 'Сессия верификации не найдена или устарела');
+    }
+    const sessionData = sessionSnap.data();
+
+    // Check initiatorUid matching if exists
+    if (sessionData.initiatorUid && context.auth && sessionData.initiatorUid !== context.auth.uid) {
+      throw new functions.https.HttpsError('permission-denied', 'Попытка верификации чужой сессии');
+    }
+
+    // Single-use clean up
+    await secureDocRef.delete();
+
+    // Case 1: Authenticated user (Linking Telegram/Phone)
+    if (context.auth) {
+      const userUid = context.auth.uid;
+      const userRef = db.collection('users').doc(userUid);
+      
+      const phoneToUse = data.phone || sessionData.phone || '';
+      
+      await userRef.update({
+        isVerified: true
+      });
+
+      await userRef.collection('private').doc('contact').set({
+        phone: phoneToUse,
+        telegram_chat_id: sessionData.chat_id || '',
+        telegramChatId: sessionData.chat_id || '',
+        updated_at: admin.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+
+      console.log(`[verifyTelegramOtp] User ${userUid} successfully verified via Telegram.`);
+      return { success: true };
+    }
+
+    // Case 2: Guest user (Logging in via Telegram)
+    return {
+      success: true,
+      customToken: customToken
+    };
+  } catch (error) {
+    console.error('[verifyTelegramOtp] Error:', error);
+    if (error instanceof functions.https.HttpsError) {
+      throw error;
+    }
+    throw new functions.https.HttpsError('internal', error.message || 'Ошибка верификации');
+  }
+});
+
 exports.tgSend = tgSend;
+

@@ -8,8 +8,12 @@
         && request.resource.data.title is string
         && request.resource.data.title.size() > 0;
       allow update: if isSignedIn()
-        && (isOwner(resource.data.userId) || isAdmin())
-        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['userId']));
+        && (
+          isAdmin() || (
+            isOwner(resource.data.userId)
+            && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['userId', 'status', 'active', 'views', 'favorites'])
+          )
+        );
       allow delete: if isSignedIn()
         && (isOwner(resource.data.userId) || isAdmin());
 

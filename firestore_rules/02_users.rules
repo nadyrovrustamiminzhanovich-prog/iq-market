@@ -1,11 +1,19 @@
     match /users/{userId} {
-      allow read: if isSignedIn(); 
+      allow get: if isSignedIn();
+      allow list: if false;
       allow create: if isSignedIn() && request.auth.uid == userId 
+        && !request.resource.data.keys().hasAny(['phone', 'email', 'telegram_chat_id', 'telegramChatId'])
         && (!request.resource.data.keys().hasAny(['accountType']) || request.resource.data.accountType in ['user', 'driver'])
         && (!request.resource.data.keys().hasAny(['isVerified']) || request.resource.data.isVerified == false || (request.auth.uid.size() >= 9 && request.auth.uid[0:9] == 'telegram_'));
       allow delete: if isOwner(userId);
-      // Пользователь может обновить свой профиль, но не может изменить роль/рейтинг/верификацию
-      allow update: if isAdmin() || (isOwner(userId) && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['accountType', 'rating', 'reviewsCount', 'status', 'isVerified'])));
+      // Пользователь может обновить свой профиль, но не может изменить роль/рейтинг/верификацию/контакты в основном документе
+      allow update: if isAdmin() || (isOwner(userId) 
+        && !request.resource.data.keys().hasAny(['phone', 'email', 'telegram_chat_id', 'telegramChatId'])
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['accountType', 'rating', 'reviewsCount', 'status', 'isVerified'])));
+
+      match /private/contact {
+        allow read, write: if isOwner(userId) || isAdmin();
+      }
 
       match /notifications/{notifId} {
         allow create: if isSignedIn() 

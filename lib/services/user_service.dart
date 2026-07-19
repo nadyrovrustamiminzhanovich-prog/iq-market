@@ -41,8 +41,6 @@ class UserService {
         await docRef.set({
           'uid': user.uid,
           'name': name,
-          'email': email ?? user.email ?? '',
-          'phone': phone ?? user.phoneNumber ?? '',
           'photoUrl': photoUrl ?? user.photoURL ?? '',
           'accountType': accountType ?? 'user', // Standardized
           'isVerified': isVerified,
@@ -52,6 +50,13 @@ class UserService {
           'rating': 0.0,
           'language': language ?? 'Русский',
         });
+
+        // Save sensitive contact fields to the private subcollection
+        await docRef.collection('private').doc('contact').set({
+          'phone': phone ?? user.phoneNumber ?? '',
+          'email': email ?? user.email ?? '',
+          'updated_at': FieldValue.serverTimestamp(),
+        });
         return isVerified;
       } else {
         final existingData = docSnap.data() as Map<String, dynamic>?;
@@ -60,7 +65,6 @@ class UserService {
         // Update existing user profile
         Map<String, dynamic> updates = {};
         if (photoUrl != null && photoUrl.isNotEmpty) updates['photoUrl'] = photoUrl;
-        if (email != null && email.isNotEmpty) updates['email'] = email;
         if (isVerified && !existingVerified) updates['isVerified'] = true;
         if (accountType != null) updates['accountType'] = accountType;
         if (isLanguageManuallyChanged && language != null) {
@@ -69,6 +73,14 @@ class UserService {
         
         if (updates.isNotEmpty) {
           await docRef.update(updates);
+        }
+
+        // Update contact info if email is provided
+        if (email != null && email.isNotEmpty) {
+          await docRef.collection('private').doc('contact').set({
+            'email': email,
+            'updated_at': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
         }
         return existingVerified || isVerified;
       }
@@ -84,9 +96,24 @@ class UserService {
     if (uid == null) {
       return Stream.value(null);
     }
-    return users.doc(uid).snapshots().map((doc) {
-      if (!doc.exists) return null;
-      return UserModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
+    
+    // Combine main document stream with private contact document stream
+    return users.doc(uid).snapshots().asyncMap((mainSnap) async {
+      if (!mainSnap.exists) return null;
+      final mainData = Map<String, dynamic>.from(mainSnap.data() as Map);
+
+      try {
+        final contactSnap = await users.doc(uid).collection('private').doc('contact').get();
+        if (contactSnap.exists) {
+          final contactData = contactSnap.data() as Map<String, dynamic>;
+          mainData['phone'] = contactData['phone'] ?? '';
+          mainData['email'] = contactData['email'] ?? '';
+        }
+      } catch (e) {
+        debugPrint('[UserService] getUserStream: Accessing contact info failed: $e');
+      }
+
+      return UserModel.fromMap(mainData, mainSnap.id);
     });
   }
 
@@ -96,7 +123,31 @@ class UserService {
     if (uid == null) return;
     
     try {
-      await users.doc(uid).update(data);
+      // Split public and private contact fields
+      final Map<String, dynamic> publicData = {};
+      final Map<String, dynamic> contactData = {};
+      
+      final contactFields = ['phone', 'email', 'telegram_chat_id', 'telegramChatId'];
+      
+      data.forEach((key, value) {
+        if (contactFields.contains(key)) {
+          contactData[key] = value;
+        } else {
+          publicData[key] = value;
+        }
+      });
+      
+      if (publicData.isNotEmpty) {
+        await users.doc(uid).update(publicData);
+      }
+      
+      if (contactData.isNotEmpty) {
+        contactData['updated_at'] = FieldValue.serverTimestamp();
+        await users.doc(uid).collection('private').doc('contact').set(
+          contactData,
+          SetOptions(merge: true),
+        );
+      }
     } catch (e) {
       debugPrint('Error updating user profile: $e');
       rethrow;
@@ -167,7 +218,26 @@ class UserService {
     try {
       final doc = await users.doc(uid).get();
       if (!doc.exists) return null;
-      return UserModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
+      final mainData = Map<String, dynamic>.from(doc.data() as Map);
+
+      String phone = '';
+      String email = '';
+
+      try {
+        final contactSnap = await users.doc(uid).collection('private').doc('contact').get();
+        if (contactSnap.exists) {
+          final contactData = contactSnap.data() as Map<String, dynamic>;
+          phone = contactData['phone'] ?? '';
+          email = contactData['email'] ?? '';
+        }
+      } catch (e) {
+        debugPrint('[UserService] Contact info access restricted for uid: $uid');
+      }
+
+      mainData['phone'] = phone;
+      mainData['email'] = email;
+
+      return UserModel.fromMap(mainData, doc.id);
     } catch (e) {
       debugPrint('Error getting user by id: $e');
       return null;

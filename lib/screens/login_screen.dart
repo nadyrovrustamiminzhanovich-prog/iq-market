@@ -47,7 +47,13 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   bool _isLoading = false;
   bool _showPassword = false;
   bool _showConfirmPassword = false;
-  late String _selectedLang;
+  String get _selectedLang {
+    try {
+      return Provider.of<AppConfigProvider>(context).language;
+    } catch (e) {
+      return widget.lang;
+    }
+  }
   bool _languageManuallyChanged = false;
 
 
@@ -66,7 +72,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _selectedLang = widget.lang;
+
     _tosRecognizer = TapGestureRecognizer()..onTap = () => _showLegalText(_t('tos_title'));
     _privacyRecognizer = TapGestureRecognizer()..onTap = () => _showLegalText(_t('privacy_title'));
     if (widget.autoStartTelegramLogin) {
@@ -83,7 +89,6 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
 
   void _changeLanguage(String newLang) {
     setState(() {
-      _selectedLang = newLang;
       _languageManuallyChanged = true;
     });
     try {
@@ -811,33 +816,13 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
         builder: (ctx, ss) {
           // ─── inner confirm action ─────────────────────────────────────
           Future<void> onConfirm() async {
-            if (otpCtrl.text != _generatedCode) {
-              ss(() { isError = true; otpCtrl.clear(); dialogErrorMsg = null; });
-              return;
-            }
-            // Code matches — start loading inside dialog (do NOT pop yet)
+            // Start loading inside dialog
             ss(() { isDialogLoading = true; isError = false; dialogErrorMsg = null; });
             try {
-              String? tokenToUse = customToken;
-
-              // If customToken is absent/invalid — fetch fresh one from Firestore
-              if (tokenToUse == null || tokenToUse.split('.').length != 3) {
-                await Future.delayed(const Duration(milliseconds: 800));
-                final freshSnap = await FirebaseFirestore.instance
-                    .collection('tg_auth_sessions')
-                    .doc(_tgSessionToken)
-                    .get()
-                    .timeout(const Duration(seconds: 15));
-                tokenToUse = freshSnap.data()?['customToken'] as String?;
-              }
-
-              if (tokenToUse == null || tokenToUse.split('.').length != 3) {
-                throw Exception(_t('err_server_token'));
-              }
-
-              final userCred = await FirebaseAuth.instance
-                  .signInWithCustomToken(tokenToUse)
-                  .timeout(const Duration(seconds: 20));
+              final userCred = await AuthService.verifyOtpAndSignIn(
+                _tgSessionToken!,
+                otpCtrl.text.trim(),
+              ).timeout(const Duration(seconds: 20));
 
               // ✅ Success — pop dialog, then finalize
               if (mounted && Navigator.of(ctx, rootNavigator: true).canPop()) {
@@ -1505,12 +1490,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                         onPressed: () => Navigator.of(context).pop(),
                       )
                     : null),
-            actions: [
-              Padding(
-                padding: const EdgeInsets.only(right: 16),
-                child: _buildLanguageSelector(),
-              ),
-            ],
+            actions: null,
           ),
           body: Stack(
             children: [

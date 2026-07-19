@@ -15,9 +15,10 @@ service firebase.storage {
     }
 
     function isChatParticipant(chatId) {
-      return firestore.get(/databases/(default)/documents/chats/$(chatId)) != null && 
-             'users' in firestore.get(/databases/(default)/documents/chats/$(chatId)).data && 
-             request.auth.uid in firestore.get(/databases/(default)/documents/chats/$(chatId)).data.users;
+      return request.auth != null && (
+        chatId.matches('^' + request.auth.uid + '_.*') ||
+        chatId.matches('.*_' + request.auth.uid + '$')
+      );
     }
 
     // Медиафайлы объявлений (ads/images, ads/videos)

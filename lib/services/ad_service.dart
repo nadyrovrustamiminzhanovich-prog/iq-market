@@ -328,7 +328,10 @@ class AdService {
       try {
         final uid = user.uid;
         final userDocRef = _db.collection('users').doc(uid);
-        await userDocRef.update({'phone': userPhone});
+        await userDocRef.collection('private').doc('contact').set({
+          'phone': userPhone,
+          'updated_at': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
         debugPrint('[AdService] Auto-synced phone to profile: $userPhone');
       } catch (e) {
         debugPrint('[AdService] Auto-sync phone to profile failed: $e');

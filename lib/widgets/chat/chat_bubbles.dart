@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -20,6 +21,7 @@ class ChatBubble extends StatefulWidget {
   final Function(MessageModel) onLongPress;
   final Function(String) onImageTap;
   final String lang;
+  final String? localImagePath;
 
   const ChatBubble({
     super.key,
@@ -35,6 +37,7 @@ class ChatBubble extends StatefulWidget {
     required this.currentDur,
     required this.onLongPress,
     required this.onImageTap,
+    this.localImagePath,
     this.onAcceptOffer,
     this.onDeclineOffer,
     this.onWriteOffer,
@@ -114,20 +117,52 @@ class _ChatBubbleState extends State<ChatBubble> {
                         ),
                 ),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                  if (widget.msg.type == 'image' && widget.msg.mediaUrl != null)
+                  if (widget.msg.type == 'image')
                     GestureDetector(
-                      onTap: () => widget.onImageTap(widget.msg.mediaUrl!),
+                      onTap: (widget.msg.mediaUrl != null && widget.msg.mediaUrl!.isNotEmpty)
+                          ? () => widget.onImageTap(widget.msg.mediaUrl!)
+                          : null,
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(12), 
-                        child: Hero(
-                          tag: widget.msg.mediaUrl!, 
-                          child: (widget.msg.mediaUrl != null && widget.msg.mediaUrl!.startsWith('http'))
-                            ? CachedNetworkImage(
-                                imageUrl: widget.msg.mediaUrl!,
-                                errorWidget: (context, url, error) => const Icon(Icons.broken_image_rounded, color: Colors.white),
-                              )
-                            : const Icon(Icons.broken_image_rounded, color: Colors.white)
-                        )
+                        child: Container(
+                          width: 200,
+                          height: 200,
+                          color: isMe ? Colors.black26 : Colors.grey[200],
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              // 1. Show the Image (Local or Network)
+                              Positioned.fill(
+                                child: (widget.msg.mediaUrl != null && widget.msg.mediaUrl!.startsWith('http'))
+                                    ? CachedNetworkImage(
+                                        imageUrl: widget.msg.mediaUrl!,
+                                        fit: BoxFit.cover,
+                                        errorWidget: (context, url, error) => const Icon(Icons.broken_image_rounded, color: Colors.grey),
+                                      )
+                                    : (widget.localImagePath != null && widget.localImagePath!.isNotEmpty)
+                                        ? Image.file(
+                                            File(widget.localImagePath!),
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image_rounded, color: Colors.grey),
+                                          )
+                                        : const Center(child: Icon(Icons.image_rounded, color: Colors.grey, size: 40)),
+                              ),
+                              // 2. Show the Upload/Loading Overlay
+                              if (widget.msg.mediaUrl == null || widget.msg.mediaUrl!.isEmpty)
+                                Positioned.fill(
+                                  child: Container(
+                                    color: Colors.black.withValues(alpha: 0.4),
+                                    child: const Center(
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 3,
+                                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                   if (widget.msg.type == 'audio') _AudioPlayerWidget(
@@ -431,11 +466,20 @@ class _AudioPlayerWidget extends StatelessWidget {
             shape: BoxShape.circle,
           ),
           child: Center(
-            child: Icon(
-              isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-              color: const Color(0xFF3B82F6),
-              size: 22,
-            ),
+            child: isUploading
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF3B82F6)),
+                    ),
+                  )
+                : Icon(
+                    isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                    color: const Color(0xFF3B82F6),
+                    size: 22,
+                  ),
           ),
         ),
       ),

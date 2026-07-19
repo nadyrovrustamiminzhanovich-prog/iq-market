@@ -28,7 +28,7 @@ class FileService {
     // 🔒 Set content-type metadata to prevent "application/octet-stream" playback failures
     String? contentType;
     if (extension == '.m4a') {
-      contentType = 'audio/x-m4a';
+      contentType = 'audio/mp4';
     } else if (extension == '.mp4') {
       contentType = 'video/mp4';
     } else if (extension == '.mp3') {

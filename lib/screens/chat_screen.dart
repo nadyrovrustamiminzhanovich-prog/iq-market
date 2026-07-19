@@ -73,9 +73,25 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   String _currentUserName = 'Пользователь';
   String? _sellerAvatarUrl;
   String? _otherUserPhone;
+
+  String get _otherUserId {
+    final uid = UserService.currentUid;
+    if (uid == null) return widget.ad.userId;
+    
+    final explicitChatId = widget.chatId;
+    if (explicitChatId != null && explicitChatId.isNotEmpty && explicitChatId.contains('_')) {
+      final parts = explicitChatId.split('_');
+      if (parts.length == 2) {
+        return parts[0] == uid ? parts[1] : parts[0];
+      }
+    }
+    return widget.ad.userId;
+  }
+
   late Stream<List<MessageModel>> _messagesStream;
   final Map<String, UploadTask> _activeUploads = {};
   final Map<String, String> _localAudioPaths = {};
+  final Map<String, String> _localImagePaths = {};
   bool _showEmoji = false;
   DateTime? _lastTypingSentTime;
   // 🔒 AudioPlayer stream subscriptions — хранятся явно для отмены в dispose()
@@ -114,7 +130,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       ),
     ));
     
-    final otherId = widget.ad.userId;
+    final otherId = _otherUserId;
     final explicitChatId = widget.chatId;
 
     _audioPositionSub = _audioPlayer.onPositionChanged.listen((p) {
@@ -144,7 +160,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final me = await UserService.getUserById(UserService.currentUid ?? '');
     if (me != null && mounted) setState(() => _currentUserName = me.name);
 
-    final seller = await UserService.getUserById(widget.ad.userId);
+    final seller = await UserService.getUserById(_otherUserId);
     if (seller != null && mounted) {
       setState(() {
         _sellerAvatarUrl = seller.photoUrl;
@@ -167,8 +183,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         if (mounted) {
           setState(() {
             _isChatValidating = false;
-            _messagesStream = ChatService.getMessagesStream(widget.ad.userId);
-            ChatService.activeChatId = ChatService.getChatId(widget.ad.userId);
+            _messagesStream = ChatService.getMessagesStream(_otherUserId);
+            ChatService.activeChatId = ChatService.getChatId(_otherUserId);
           });
           
           AnalyticsService.logPushNavigation('chat_fallback_triggered', extra: {
@@ -187,7 +203,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           // Fallback не может привести в чужой чат: getChatId(otherId) детерминирован
           // через sorted([currentUid, otherId]).join('_'), клиент не контролирует результат.
           if (UserService.currentUid != null) {
-            ChatService.markAsRead(widget.ad.userId);
+            ChatService.markAsRead(_otherUserId);
           }
         }
         return;
@@ -232,7 +248,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
         // ✅ markAsRead — только после подтверждения участия
         if (UserService.currentUid != null) {
-          ChatService.markAsRead(widget.ad.userId);
+          ChatService.markAsRead(_otherUserId);
         }
       }
     } catch (e, stack) {
@@ -252,7 +268,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         reason: 'Error validating chatId',
         information: [
           'chatId: $chatId',
-          'otherId: ${widget.ad.userId}',
+          'otherId: $_otherUserId',
           'isFromPush: ${widget.chatId != null ? "true" : "false"}',
         ],
       );
@@ -292,8 +308,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _msgController.dispose();
     _scrollController.dispose();
     _msgFocusNode.dispose();
-    ChatService.updateTypingStatus(widget.ad.userId, false);
-    final expectedChatId = widget.chatId ?? ChatService.getChatId(widget.ad.userId);
+    ChatService.updateTypingStatus(_otherUserId, false);
+    final expectedChatId = widget.chatId ?? ChatService.getChatId(_otherUserId);
     if (ChatService.activeChatId == expectedChatId) {
       ChatService.activeChatId = null;
     }
@@ -305,7 +321,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (isTyping) {
       final now = DateTime.now();
       if (!_isTyping || _lastTypingSentTime == null || now.difference(_lastTypingSentTime!).inSeconds >= 5) {
-        ChatService.updateTypingStatus(widget.ad.userId, true);
+        ChatService.updateTypingStatus(_otherUserId, true);
         _lastTypingSentTime = now;
       }
       if (!_isTyping) {
@@ -313,7 +329,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       }
       _typingTimer = Timer(const Duration(milliseconds: 2500), () {
         if (mounted && _isTyping) {
-          ChatService.updateTypingStatus(widget.ad.userId, false);
+          ChatService.updateTypingStatus(_otherUserId, false);
           setState(() {
             _isTyping = false;
             _lastTypingSentTime = null;
@@ -322,7 +338,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       });
     } else {
       if (_isTyping) {
-        ChatService.updateTypingStatus(widget.ad.userId, false);
+        ChatService.updateTypingStatus(_otherUserId, false);
         setState(() {
           _isTyping = false;
           _lastTypingSentTime = null;
@@ -333,14 +349,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   Future<void> _sendMessage() async {
     final lang = Provider.of<AppConfigProvider>(context, listen: false).language;
-    if (Provider.of<AppConfigProvider>(context, listen: false).isUserBlocked(widget.ad.userId)) return;
+    if (Provider.of<AppConfigProvider>(context, listen: false).isUserBlocked(_otherUserId)) return;
     final text = _msgController.text.trim();
     if (text.isEmpty) return;
     
     final backupText = _msgController.text;
     _typingTimer?.cancel();
     _msgController.clear();
-    ChatService.updateTypingStatus(widget.ad.userId, false);
+    ChatService.updateTypingStatus(_otherUserId, false);
     setState(() {
       _isTyping = false;
       _lastTypingSentTime = null;
@@ -348,7 +364,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _scrollToBottom();
     
     try {
-      final msgId = await ChatService.sendMessage(ad: widget.ad, text: text, senderName: _currentUserName);
+      final msgId = await ChatService.sendMessage(ad: widget.ad, text: text, senderName: _currentUserName, recipientId: _otherUserId);
       if (msgId == null) {
         throw Exception('Сообщение не сохранено в БД');
       }
@@ -409,28 +425,37 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     HapticFeedback.mediumImpact();
     final dir = await getTemporaryDirectory();
     final path = '${dir.path}/voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
-    await _recorder.start(
-      const RecordConfig(
-        encoder: AudioEncoder.aacLc,
-        sampleRate: 44100,
-        numChannels: 1,
-      ),
-      path: path,
-    );
-    if (mounted) {
-      setState(() { _isRecording = true; _recordSeconds = 0; _isCancelled = false; });
-    }
-    _recordTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+    try {
+      await _recorder.start(
+        const RecordConfig(
+          encoder: AudioEncoder.aacLc,
+          sampleRate: 44100,
+          numChannels: 1,
+        ),
+        path: path,
+      );
       if (mounted) {
-        setState(() {
-          _recordSeconds++;
-          if (_recordSeconds >= VoiceLimitsConfig.maxDurationSeconds) {
-            _recordTimer?.cancel();
-            _stopRecording();
-          }
-        });
+        setState(() { _isRecording = true; _recordSeconds = 0; _isCancelled = false; });
       }
-    });
+      _recordTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (mounted) {
+          setState(() {
+            _recordSeconds++;
+            if (_recordSeconds >= VoiceLimitsConfig.maxDurationSeconds) {
+              _recordTimer?.cancel();
+              _stopRecording();
+            }
+          });
+        }
+      });
+    } catch (e) {
+      debugPrint('Error starting voice recorder: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Не удалось запустить диктофон: $e'), backgroundColor: Colors.redAccent),
+        );
+      }
+    }
   }
 
   Future<void> _handleRecordingCancelled() async {
@@ -466,8 +491,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _recordTimer?.cancel();
     final lang = Provider.of<AppConfigProvider>(context, listen: false).language;
     if (!_isRecording) return;
-    await Future.delayed(const Duration(milliseconds: 200));
-    final path = await _recorder.stop();
+    
+    String? path;
+    try {
+      await Future.delayed(const Duration(milliseconds: 200));
+      path = await _recorder.stop();
+    } catch (e) {
+      debugPrint('Error stopping voice recorder: $e');
+    }
     if (mounted) setState(() => _isRecording = false);
     
     if (_isCancelled) {
@@ -475,8 +506,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       return;
     }
     
-    if (_recordSeconds < 1) {
-      if (mounted) {
+    if (path == null || _recordSeconds < 1) {
+      await _cancelRecording(path);
+      if (mounted && _recordSeconds < 1) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Row(
@@ -498,17 +530,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           ),
         );
       }
-      await _cancelRecording(path);
       return;
     }
     
     if (path != null) {
       _updateMyTyping(false);
-      final msgId = await ChatService.sendMessage(ad: widget.ad, text: 'Голосовое сообщение', type: 'audio', duration: _recordSeconds, senderName: _currentUserName);
+      final msgId = await ChatService.sendMessage(ad: widget.ad, text: 'Голосовое сообщение', type: 'audio', duration: _recordSeconds, senderName: _currentUserName, recipientId: _otherUserId);
       if (msgId != null) {
         _playSentSound();
         _localAudioPaths[msgId] = path;
-        final chatId = ChatService.getChatId(widget.ad.userId);
+        final chatId = ChatService.getChatId(_otherUserId);
         _uploadVoiceMessageWithRetry(msgId, path, chatId);
       } else {
         if (mounted) {
@@ -539,7 +570,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     task.then((snapshot) async {
       try {
         final url = await snapshot.ref.getDownloadURL();
-        await ChatService.updateMessage(widget.ad.userId, msgId, {'mediaUrl': url});
+        await ChatService.updateMessage(_otherUserId, msgId, {'mediaUrl': url});
         if (mounted) {
           setState(() {
             _activeUploads.remove(msgId);
@@ -588,7 +619,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           _uploadVoiceMessageWithRetry(msgId, path, chatId, attempt: attempt + 1);
         }
       } else {
-        final String cid = ChatService.getChatId(widget.ad.userId);
+        final String cid = ChatService.getChatId(_otherUserId);
         AnalyticsService.logStoragePermissionError(e, stack, 'voice_messages/$cid');
         if (mounted) {
           setState(() {
@@ -612,6 +643,73 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               duration: const Duration(seconds: 4),
+            ),
+          );
+        }
+      }
+    });
+  }
+
+  void _uploadImageWithRetry(String msgId, String path, String chatId, {int attempt = 1}) {
+    final task = FileService.uploadFileWithTask(
+      File(path),
+      'chat_media/$chatId',
+      customFileName: '$msgId.jpg',
+    );
+    if (mounted) {
+      setState(() {
+        _activeUploads[msgId] = task;
+      });
+    }
+
+    task.then((snapshot) async {
+      try {
+        final url = await snapshot.ref.getDownloadURL();
+        await ChatService.updateMessage(_otherUserId, msgId, {'mediaUrl': url});
+        if (mounted) {
+          setState(() {
+            _activeUploads.remove(msgId);
+          });
+        }
+      } catch (e, stack) {
+        debugPrint('[CHAT_SCREEN] Error updating message reference after successful photo upload: $e');
+        AnalyticsService.logStoragePermissionError(e, stack, 'chat_media/$chatId');
+        if (mounted) {
+          setState(() {
+            _activeUploads.remove(msgId);
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Файл загружен, но не удалось обновить ссылку на фото.'),
+              backgroundColor: Colors.orangeAccent,
+            ),
+          );
+        }
+      }
+    }).catchError((e, stack) async {
+      final code = e is FirebaseException ? e.code : '';
+      final isPermissionError = code == 'permission-denied' || code == 'unauthorized';
+      
+      const delays = [500, 1500, 3000];
+      
+      if (isPermissionError && attempt <= delays.length) {
+        final delayMs = delays[attempt - 1];
+        debugPrint('[CHAT_SCREEN] Photo upload permission denied. Retrying attempt $attempt in ${delayMs}ms. Error: $e');
+        await Future.delayed(Duration(milliseconds: delayMs));
+        if (mounted) {
+          _uploadImageWithRetry(msgId, path, chatId, attempt: attempt + 1);
+        }
+      } else {
+        final String cid = ChatService.getChatId(_otherUserId);
+        AnalyticsService.logStoragePermissionError(e, stack, 'chat_media/$cid');
+        if (mounted) {
+          setState(() {
+            _activeUploads.remove(msgId);
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Не удалось отправить фото. Попробуйте еще раз.'),
+              backgroundColor: Colors.redAccent,
             ),
           );
         }
@@ -809,7 +907,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   void _pickMedia(ImageSource source) async {
     final lang = Provider.of<AppConfigProvider>(context, listen: false).language;
-    if (Provider.of<AppConfigProvider>(context, listen: false).isUserBlocked(widget.ad.userId)) return;
+    if (Provider.of<AppConfigProvider>(context, listen: false).isUserBlocked(_otherUserId)) return;
     final picker = ImagePicker();
     XFile? file;
     try {
@@ -826,25 +924,37 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     
     if (file != null) {
       try {
-        final chatId = ChatService.getChatId(widget.ad.userId);
-        await ChatService.createChatIfNeeded(widget.ad);
-        final url = await FileService.uploadFile(File(file.path), 'chat_media/$chatId');
-        if (url != null) {
-          _updateMyTyping(false);
-          final msgId = await ChatService.sendMessage(ad: widget.ad, text: 'Фото', type: 'image', mediaUrl: url, senderName: _currentUserName);
-          if (msgId == null && mounted) {
+        final chatId = ChatService.getChatId(_otherUserId);
+        await ChatService.createChatIfNeeded(widget.ad, recipientId: _otherUserId);
+        
+        _updateMyTyping(false);
+        final msgId = await ChatService.sendMessage(
+          ad: widget.ad,
+          text: 'Фото',
+          type: 'image',
+          mediaUrl: '', // empty means uploading!
+          senderName: _currentUserName,
+          recipientId: _otherUserId,
+        );
+
+        if (msgId != null) {
+          if (mounted) {
+            setState(() {
+              _localImagePaths[msgId] = file!.path;
+            });
+          }
+          _playSentSound();
+          _scrollToBottom();
+          _uploadImageWithRetry(msgId, file!.path, chatId);
+        } else {
+          if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text(TranslationService.t('errSendPhoto', lang)), backgroundColor: Colors.redAccent, behavior: SnackBarBehavior.floating),
             );
           }
-          _scrollToBottom();
-        } else if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(TranslationService.t('errLoadPhoto', lang)), backgroundColor: Colors.redAccent, behavior: SnackBarBehavior.floating),
-          );
         }
       } catch (e, stack) {
-        final String cid = ChatService.getChatId(widget.ad.userId);
+        final String cid = ChatService.getChatId(_otherUserId);
         AnalyticsService.logStoragePermissionError(e, stack, 'chat_media/$cid');
         FirebaseCrashlytics.instance.recordError(
           e,
@@ -964,7 +1074,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       );
     }
 
-    final isBlocked = config.isUserBlocked(widget.ad.userId);
+    final isBlocked = config.isUserBlocked(_otherUserId);
     const chatBg = Color(0xFFF1F5F9); 
     const myBubbleColor = Color(0xFF3B82F6);
     const otherBubbleColor = Colors.white;
@@ -1128,6 +1238,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           currentDur: _currentDur,
           onLongPress: _showContextMenu,
           onImageTap: _showFullScreenImage,
+          localImagePath: _localImagePaths[msg.id],
           onAcceptOffer: () => ChatService.updateOfferStatus(msg.senderId, msg.id, 'accepted'),
           onDeclineOffer: () => ChatService.updateOfferStatus(msg.senderId, msg.id, 'rejected'),
           onWriteOffer: () {
@@ -1225,7 +1336,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 title: Text(TranslationService.t('delete_for_all', lang), style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)), 
                 onTap: () async { 
                   Navigator.pop(context);
-                  final count = await ChatService.deleteMessages(widget.ad.userId, [msg.id]); 
+                  final count = await ChatService.deleteMessages(_otherUserId, [msg.id]); 
                   if (count == 0 && mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text(TranslationService.t('errDeleteMsg', lang)), backgroundColor: Colors.redAccent, behavior: SnackBarBehavior.floating),
@@ -1269,7 +1380,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void _navigateToSellerProfile() async {
     showDialog(context: context, barrierDismissible: false, builder: (context) => const Center(child: CircularProgressIndicator(color: Colors.white)));
     try {
-      final adsStream = AdService.getAdsByUserStream(widget.ad.userId);
+      final adsStream = AdService.getAdsByUserStream(_otherUserId);
       final adsList = await adsStream.first;
       final ads = adsList;
       

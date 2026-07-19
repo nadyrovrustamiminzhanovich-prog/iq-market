@@ -16,6 +16,9 @@ import 'package:iqmarket/screens/admin/admin_reports_screen.dart';
 import 'package:iqmarket/screens/admin/admin_dashboard_screen.dart';
 import 'package:iqmarket/screens/admin/admin_taxi_screen.dart';
 import 'package:iqmarket/services/ad_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class AdminPanelScreen extends StatefulWidget {
   const AdminPanelScreen({super.key});
@@ -268,6 +271,69 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
     });
   }
 
+  bool _isMigrating = false;
+
+  Future<void> _runMigration() async {
+    setState(() => _isMigrating = true);
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        throw Exception('Пользователь не авторизован');
+      }
+
+      final idToken = await user.getIdToken();
+      final response = await http.post(
+        Uri.parse('https://us-central1-iq-market-3dc07.cloudfunctions.net/migrateUsersContactInfo'),
+        headers: {
+          'Authorization': 'Bearer $idToken',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200) {
+        final result = json.decode(response.body);
+        final migratedCount = result['migratedCount'] ?? 0;
+        
+        showDialog(
+          context: context,
+          builder: (c) => AlertDialog(
+            title: const Text('Миграция завершена ✅'),
+            content: Text('Успешно перенесено пользователей: $migratedCount'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(c),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+      } else {
+        throw Exception('Код ответа ${response.statusCode}: ${response.body}');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        builder: (c) => AlertDialog(
+          title: const Text('Ошибка миграции ❌'),
+          content: Text(e.toString()),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(c),
+              child: const Text('Закрыть'),
+            ),
+          ],
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isMigrating = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -324,6 +390,36 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                     _buildToolCard(context, 'Рассылка', 'Push-уведомления', PhosphorIcons.paperPlaneTilt(), Colors.pink, () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminNotificationsScreen()))),
                     _buildToolCard(context, 'Жалобы', 'Конфликты', PhosphorIcons.warningCircle(), Colors.red, () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminReportsScreen())), badgeCount: _reportsCount),
                   ],
+                ),
+                const SizedBox(height: 32),
+                SizedBox(
+                  width: double.infinity,
+                  height: 54,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFEF4444),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    onPressed: _isMigrating ? null : _runMigration,
+                    icon: _isMigrating
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Icon(Icons.swap_horiz_rounded),
+                    label: Text(
+                      _isMigrating ? 'Выполняется миграция...' : 'Запустить миграцию контактов',
+                      style: GoogleFonts.inter(fontWeight: FontWeight.bold),
+                    ),
+                  ),
                 ),
               ],
             ),
