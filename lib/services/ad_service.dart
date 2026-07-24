@@ -543,6 +543,17 @@ class AdService {
   }
 
 
+  /// Get ALL ads stream for admin (Active, Pending, Archived, Rejected)
+  static Stream<List<AdModel>> getAllAdsStreamAdmin() {
+    return _adsCollection
+        .orderBy('timestamp', descending: true)
+        .limit(300)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => AdModel.fromMap(doc.data() as Map<String, dynamic>, doc.id))
+            .toList());
+  }
+
   /// Get pending ads stream for admin review
   static Stream<List<AdModel>> getPendingAdsStream() {
     return _adsCollection
@@ -552,6 +563,20 @@ class AdService {
         .map((snapshot) => snapshot.docs
             .map((doc) => AdModel.fromMap(doc.data() as Map<String, dynamic>, doc.id))
             .toList());
+  }
+
+  /// Get archived or inactive ads stream for admin
+  static Stream<List<AdModel>> getArchivedAdsStreamAdmin() {
+    return _adsCollection
+        .snapshots()
+        .map((snapshot) {
+          final list = snapshot.docs
+              .map((doc) => AdModel.fromMap(doc.data() as Map<String, dynamic>, doc.id))
+              .where((ad) => !ad.active || ad.status == 'archived' || ad.status == 'rejected')
+              .toList();
+          list.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+          return list;
+        });
   }
 
   /// Get ads for a specific user

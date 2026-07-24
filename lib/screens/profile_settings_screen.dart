@@ -400,15 +400,30 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                       'Email', 
                       _userEmail, 
                       Icons.alternate_email_rounded,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      fontSize: 13.0,
+                      maxLines: 2,
+                      overflow: TextOverflow.visible,
+                      fontSize: 15.0,
                       onTap: () {
                         Clipboard.setData(ClipboardData(text: _userEmail));
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text(_t('email_copied')),
+                            content: Row(
+                              children: [
+                                const Icon(Icons.check_circle, color: Colors.white, size: 18),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Email скопирован: $_userEmail',
+                                    style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            backgroundColor: const Color(0xFF10B981),
                             behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                           ),
                         );
                       },
@@ -887,18 +902,14 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                 ),
               ),
               const SizedBox(height: 4),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  value,
-                  maxLines: maxLines,
-                  overflow: overflow,
-                  style: GoogleFonts.inter(
-                    color: _txtColor,
-                    fontWeight: FontWeight.w800,
-                    fontSize: fontSize ?? (isStandalone ? 16.0 : 15.0),
-                  ),
+              Text(
+                value,
+                maxLines: maxLines ?? 1,
+                overflow: overflow ?? TextOverflow.ellipsis,
+                style: GoogleFonts.inter(
+                  color: _txtColor,
+                  fontWeight: FontWeight.w800,
+                  fontSize: fontSize ?? (isStandalone ? 16.0 : 15.0),
                 ),
               ),
             ],
@@ -975,7 +986,6 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
 
   Widget _buildLocationPicker(String label, TextEditingController controller, IconData icon) {
     final isDark = _isDark;
-    const purpleColor = Color(0xFF7C3AED);
     return GestureDetector(
       onTap: () => _showLocationDialog(),
       child: Container(
@@ -1002,11 +1012,11 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                color: isDark ? Colors.white.withValues(alpha: 0.05) : const Color(0xFFFAF5FF),
+                color: isDark ? Colors.white.withValues(alpha: 0.05) : const Color(0xFFEFF6FF),
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Center(
-                child: Icon(icon, color: purpleColor, size: 20),
+                child: Icon(icon, color: _primaryColor, size: 20),
               ),
             ),
             const SizedBox(width: 16),

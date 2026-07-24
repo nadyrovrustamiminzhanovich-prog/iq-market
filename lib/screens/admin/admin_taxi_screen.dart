@@ -215,7 +215,7 @@ class _AdminTaxiScreenState extends State<AdminTaxiScreen> with SingleTickerProv
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(name, style: GoogleFonts.inter(fontWeight: FontWeight.w800, color: const Color(0xFF0F172A), fontSize: 14)),
+                      Text(name, style: GoogleFonts.inter(fontWeight: FontWeight.w800, color: const Color(0xFF0F172A), fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
                       const SizedBox(height: 2),
                       Row(
                         children: [
@@ -226,13 +226,16 @@ class _AdminTaxiScreenState extends State<AdminTaxiScreen> with SingleTickerProv
                           ),
                           const SizedBox(width: 8),
                           if (phone.isNotEmpty)
-                            Text(phone, style: GoogleFonts.inter(color: Colors.grey[500], fontSize: 11, fontWeight: FontWeight.w600)),
+                            Flexible(
+                              child: Text(phone, style: GoogleFonts.inter(color: Colors.grey[500], fontSize: 11, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
+                            ),
                         ],
                       ),
                     ],
                   ),
                 ),
-                Text('$price ₸', style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: const Color(0xFF4A80F0), fontSize: 18)),
+                const SizedBox(width: 8),
+                Text('$price ₸', style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: const Color(0xFF4A80F0), fontSize: 16)),
               ],
             ),
             const SizedBox(height: 16),

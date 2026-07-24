@@ -113,7 +113,7 @@ class AdModel {
       'canExchange': canExchange,
       'hasDelivery': hasDelivery,
       'extraFields': extraFields,
-      'expiresAt': expiresAt != null ? Timestamp.fromDate(expiresAt!) : FieldValue.serverTimestamp(), // Will be properly set in post_ad_screen
+      'expiresAt': expiresAt != null ? Timestamp.fromDate(expiresAt!) : Timestamp.fromDate(DateTime.now().add(const Duration(days: 30))),
       'notifiedExpiry': notifiedExpiry,
       'oldPrice': oldPrice,
     };

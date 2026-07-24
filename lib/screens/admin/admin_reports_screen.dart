@@ -350,9 +350,30 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
                             SizedBox(
                               width: double.infinity,
                               child: ElevatedButton.icon(
-                                onPressed: () {
-                                  Navigator.pop(context);
-                                  _viewAd(context, adId);
+                                onPressed: () async {
+                                  final rootNav = Navigator.of(context);
+                                  try {
+                                    final ad = await AdService.getAdById(adId);
+                                    rootNav.pop(); // close bottom sheet
+                                    if (ad != null && rootNav.context.mounted) {
+                                      final lang = Provider.of<AppConfigProvider>(rootNav.context, listen: false).language;
+                                      Navigator.push(
+                                        rootNav.context,
+                                        MaterialPageRoute(builder: (c) => ProductDetailsScreen(ad: ad, onReport: (_) {}, lang: lang, heroPrefix: 'rep_${ad.id}')),
+                                      );
+                                    } else if (rootNav.context.mounted) {
+                                      ScaffoldMessenger.of(rootNav.context).showSnackBar(
+                                        const SnackBar(content: Text('Объявление не найдено или уже удалено.')),
+                                      );
+                                    }
+                                  } catch (e) {
+                                    rootNav.pop();
+                                    if (rootNav.context.mounted) {
+                                      ScaffoldMessenger.of(rootNav.context).showSnackBar(
+                                        SnackBar(content: Text('Ошибка открытия объявления: $e')),
+                                      );
+                                    }
+                                  }
                                 },
                                 icon: const Icon(Icons.remove_red_eye_outlined, size: 16),
                                 label: const Text('Смотреть объявление'),
@@ -779,6 +800,7 @@ class UserDetailCard extends StatelessWidget {
 
         return GestureDetector(
           onTap: () {
+            Navigator.pop(context);
             Navigator.push(
               screenContext,
               MaterialPageRoute(builder: (_) => AdminUserCardScreen(uid: userId)),

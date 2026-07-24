@@ -32,15 +32,18 @@ class UserModel {
   });
 
   factory UserModel.fromMap(Map<String, dynamic> map, String id) {
+    final String rawName = map['name'] ?? map['displayName'] ?? map['userName'] ?? '';
+    final String name = rawName.isNotEmpty ? rawName : 'Пользователь';
+    
     return UserModel(
       uid: id,
-      name: map['name'] ?? 'Пользователь',
+      name: name,
       email: map['email'] ?? '',
-      phone: map['phone'] ?? '',
-      photoUrl: map['photoUrl'] ?? '',
+      phone: map['phone'] ?? map['phoneNumber'] ?? '',
+      photoUrl: map['photoUrl'] ?? map['photoURL'] ?? '',
       accountType: map['accountType'] ?? 'Личный',
       isVerified: map['isVerified'] ?? false,
-      registrationDate: (map['registrationDate'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      registrationDate: (map['registrationDate'] as Timestamp?)?.toDate() ?? (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       lastActive: (map['lastActive'] as Timestamp?)?.toDate() ?? DateTime.now(),
       reviewsCount: map['reviewsCount'] ?? 0,
       rating: (map['rating'] as num?)?.toDouble() ?? 0.0,

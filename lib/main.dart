@@ -59,14 +59,17 @@ class MainApp extends StatelessWidget {
                   const Icon(Icons.error_outline_rounded, color: Colors.redAccent, size: 64),
                   const SizedBox(height: 16),
                   Text(
-                    'Упс! Что-то пошло не так',
-                    style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w900),
+                    'ОШИБКА ВИДЖЕТА:',
+                    style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.red),
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    'Мы уже получили отчет и работаем над исправлением.',
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.inter(color: Colors.grey[600]),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: SelectableText(
+                        '${details.exception}\n\n${details.stack}',
+                        style: GoogleFonts.firaCode(color: Colors.black, fontSize: 10),
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 24),
                   ElevatedButton(

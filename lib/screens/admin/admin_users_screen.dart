@@ -61,11 +61,15 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
           
           final users = snapshot.data ?? [];
-          final filteredUsers = users.where((u) => 
-            u.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-            u.email.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-            u.uid.toLowerCase().contains(_searchQuery.toLowerCase())
-          ).toList();
+          final query = _searchQuery.trim().toLowerCase();
+          final filteredUsers = users.where((u) {
+            if (query.isEmpty) return true;
+            return u.name.toLowerCase().contains(query) ||
+                u.email.toLowerCase().contains(query) ||
+                u.phone.toLowerCase().contains(query) ||
+                u.accountType.toLowerCase().contains(query) ||
+                u.uid.toLowerCase().contains(query);
+          }).toList();
 
           if (filteredUsers.isEmpty) return _buildEmptyState();
 
@@ -81,6 +85,9 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
 
   Widget _buildUserCard(UserModel user, ColorScheme colorScheme) {
     final isAdmin = user.accountType == 'admin';
+    final subtitleText = user.email.isNotEmpty 
+        ? user.email 
+        : (user.phone.isNotEmpty ? user.phone : 'Телефон/email не указан');
     
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -101,8 +108,8 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
         leading: CircleAvatar(
           radius: 28,
           backgroundColor: colorScheme.surfaceContainerHighest,
-          backgroundImage: user.photoUrl.isNotEmpty ? CachedNetworkImageProvider(user.photoUrl) : null,
-          child: user.photoUrl.isEmpty ? Icon(PhosphorIcons.user(), color: Colors.grey) : null,
+          backgroundImage: (user.photoUrl.startsWith('http://') || user.photoUrl.startsWith('https://')) ? CachedNetworkImageProvider(user.photoUrl) : null,
+          child: (!user.photoUrl.startsWith('http://') && !user.photoUrl.startsWith('https://')) ? Icon(PhosphorIcons.user(), color: Colors.grey) : null,
         ),
         title: Row(
           children: [
@@ -118,7 +125,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 4),
-            Text(user.email, style: GoogleFonts.inter(fontSize: 13, color: Colors.grey[600])),
+            Text(subtitleText, style: GoogleFonts.inter(fontSize: 13, color: Colors.grey[600])),
             const SizedBox(height: 8),
             GestureDetector(
               onTap: () {

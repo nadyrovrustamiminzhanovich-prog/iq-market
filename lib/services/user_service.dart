@@ -156,9 +156,13 @@ class UserService {
 
   /// Get all users (Admin only)
   static Stream<List<UserModel>> getAllUsersStream() {
-    return users.orderBy('registrationDate', descending: true).snapshots().map((snapshot) => 
-      snapshot.docs.map((doc) => UserModel.fromMap(doc.data() as Map<String, dynamic>, doc.id)).toList()
-    );
+    return users.snapshots().map((snapshot) {
+      final list = snapshot.docs
+          .map((doc) => UserModel.fromMap(doc.data() as Map<String, dynamic>, doc.id))
+          .toList();
+      list.sort((a, b) => b.registrationDate.compareTo(a.registrationDate));
+      return list;
+    });
   }
 
   /// Admin: Toggle user verification status

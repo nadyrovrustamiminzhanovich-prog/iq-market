@@ -6,8 +6,13 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import 'package:iqmarket/providers/app_config_provider.dart';
 import 'package:iqmarket/models/ad_model.dart';
 import 'package:iqmarket/screens/product_details_screen.dart';
+import 'package:iqmarket/screens/chat_screen.dart';
+import 'package:iqmarket/services/ad_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class AdminUserCardScreen extends StatefulWidget {
   final String uid;
@@ -28,6 +33,23 @@ class _AdminUserCardScreenState extends State<AdminUserCardScreen> {
     _loadUserInfo();
   }
 
+  Map<String, dynamic>? _safeMap(dynamic input) {
+    if (input is Map) {
+      return input.map((k, v) => MapEntry(k.toString(), v));
+    }
+    return null;
+  }
+
+  List<Map<String, dynamic>> _safeList(dynamic input) {
+    if (input is! Iterable) return [];
+    return input.map((item) {
+      if (item is Map) {
+        return item.map((k, v) => MapEntry(k.toString(), v));
+      }
+      return <String, dynamic>{};
+    }).toList();
+  }
+
   Future<void> _loadUserInfo() async {
     setState(() {
       _isLoading = true;
@@ -38,30 +60,166 @@ class _AdminUserCardScreenState extends State<AdminUserCardScreen> {
       final HttpsCallable callable = FirebaseFunctions.instance.httpsCallable('getFullUserInfo');
       final HttpsCallableResult result = await callable.call({'targetUid': widget.uid});
       
-      setState(() {
-        _data = Map<String, dynamic>.from(result.data);
-        _isLoading = false;
-      });
-    } on FirebaseFunctionsException catch (e) {
-      setState(() {
-        _error = e.message ?? 'Ошибка вызова Cloud Function';
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _data = _safeMap(result.data);
+          _isLoading = false;
+        });
+      }
     } catch (e) {
-      setState(() {
-        _error = e.toString();
-        _isLoading = false;
-      });
+      debugPrint('[AdminUserCard] Cloud Function failed ($e), falling back to direct Firestore fetch...');
+      await _loadUserInfoFromFirestore(widget.uid);
     }
   }
 
-  String _formatDate(String? isoString) {
-    if (isoString == null) return 'N/A';
+  Future<void> _loadUserInfoFromFirestore(String uid) async {
     try {
-      final date = DateTime.parse(isoString);
-      return DateFormat('dd.MM.yyyy, HH:mm').format(date);
+      final db = FirebaseFirestore.instance;
+      
+      // 1. Fetch main user document
+      final userDoc = await db.collection('users').doc(uid).get();
+      final profileData = userDoc.exists ? (userDoc.data() ?? {}) : <String, dynamic>{};
+      
+      // 2. Fetch contact info if available
+      Map<String, dynamic> contactData = {};
+      try {
+        final contactDoc = await db.collection('users').doc(uid).collection('private').doc('contact').get();
+        if (contactDoc.exists && contactDoc.data() != null) {
+          contactData = contactDoc.data()!;
+        }
+      } catch (_) {}
+
+      // 2b. Search tg_auth_sessions for Telegram phone & chat_id
+      try {
+        final rawTgId = uid.replaceAll('telegram_', '').replaceAll('tg_', '');
+        if (RegExp(r'^\d+$').hasMatch(rawTgId)) {
+          contactData['telegram_chat_id'] = rawTgId;
+        }
+        final tgSessions = await db.collection('tg_auth_sessions').where('initiatorUid', isEqualTo: uid).limit(5).get();
+        for (final doc in tgSessions.docs) {
+          final d = doc.data();
+          if (d['phone'] != null && d['phone'].toString().isNotEmpty) {
+            contactData['tg_session_phone'] = d['phone'].toString();
+          }
+          if (d['chat_id'] != null && d['chat_id'].toString().isNotEmpty) {
+            contactData['telegram_chat_id'] = d['chat_id'].toString();
+          }
+        }
+      } catch (_) {}
+
+      // 3. Fetch user ads
+      List<Map<String, dynamic>> adsList = [];
+      try {
+        final adsSnap = await db.collection('ads').where('userId', isEqualTo: uid).get();
+        adsList = adsSnap.docs.map((d) {
+          final data = d.data();
+          data['id'] = d.id;
+          return data;
+        }).toList();
+      } catch (_) {}
+
+      // 4. Fetch reports against user
+      List<Map<String, dynamic>> reportsAgainstList = [];
+      try {
+        final repAgainstSnap = await db.collection('reports').where('reportedUserId', isEqualTo: uid).get();
+        reportsAgainstList = repAgainstSnap.docs.map((d) => d.data()).toList();
+      } catch (_) {}
+
+      // 5. Fetch reports submitted by user
+      List<Map<String, dynamic>> reportsSubmittedList = [];
+      try {
+        final repSubSnap = await db.collection('reports').where('userId', isEqualTo: uid).get();
+        reportsSubmittedList = repSubSnap.docs.map((d) => d.data()).toList();
+      } catch (_) {}
+
+      // 6. Fetch reviews received by user (toUserId == uid)
+      List<Map<String, dynamic>> reviewsToList = [];
+      try {
+        final revToSnap = await db.collection('reviews').where('toUserId', isEqualTo: uid).limit(50).get();
+        reviewsToList = revToSnap.docs.map((d) {
+          final data = d.data();
+          data['id'] = d.id;
+          return data;
+        }).toList();
+      } catch (_) {}
+
+      // 7. Fetch reviews submitted by user (fromUserId == uid)
+      List<Map<String, dynamic>> reviewsFromList = [];
+      try {
+        final revFromSnap = await db.collection('reviews').where('fromUserId', isEqualTo: uid).limit(50).get();
+        reviewsFromList = revFromSnap.docs.map((d) {
+          final data = d.data();
+          data['id'] = d.id;
+          return data;
+        }).toList();
+      } catch (_) {}
+
+      final Map<String, dynamic> authMap = {
+        'uid': uid,
+        'email': profileData['email'] ?? contactData['email'] ?? 'Не указан',
+        'phoneNumber': profileData['phone'] ?? contactData['phone'] ?? 'Не указан',
+        'displayName': profileData['name'] ?? profileData['displayName'] ?? 'Пользователь',
+        'photoURL': profileData['photoUrl'] ?? '',
+        'disabled': profileData['isBanned'] == true || profileData['disabled'] == true,
+        'creationTime': profileData['createdAt']?.toString(),
+        'lastSignInTime': profileData['lastLoginAt']?.toString(),
+        'metadata': {
+          'creationTime': profileData['createdAt']?.toString(),
+          'lastSignInTime': profileData['lastLoginAt']?.toString(),
+        },
+      };
+
+      if (mounted) {
+        setState(() {
+          _data = {
+            'auth': authMap,
+            'profile': profileData,
+            'contact': contactData,
+            'ads': adsList,
+            'reportsAgainst': reportsAgainstList,
+            'reportsSubmitted': reportsSubmittedList,
+            'reviewsTo': reviewsToList,
+            'reviewsFrom': reviewsFromList,
+            'chats': {},
+            'taxiBidsSent': [],
+            'taxiBidsReceived': [],
+            'taxiOrdersPassenger': [],
+            'taxiOrdersDriver': [],
+            'avgRating': (profileData['rating'] as num?)?.toDouble() ?? 0.0,
+            'reviewsCount': (profileData['reviewsCount'] as num?)?.toInt() ?? 0,
+          };
+          _isLoading = false;
+          _error = null;
+        });
+      }
+    } catch (fallbackErr) {
+      if (mounted) {
+        setState(() {
+          _error = 'Ошибка при загрузке профиля: $fallbackErr';
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  String _formatDate(dynamic val) {
+    if (val == null) return 'N/A';
+    try {
+      DateTime dt;
+      if (val is Timestamp) {
+        dt = val.toDate();
+      } else if (val is DateTime) {
+        dt = val;
+      } else if (val is int) {
+        dt = DateTime.fromMillisecondsSinceEpoch(val);
+      } else {
+        final str = val.toString();
+        if (str.isEmpty) return 'N/A';
+        dt = DateTime.parse(str);
+      }
+      return DateFormat('dd.MM.yyyy, HH:mm').format(dt);
     } catch (_) {
-      return isoString;
+      return val.toString();
     }
   }
 
@@ -125,18 +283,18 @@ class _AdminUserCardScreenState extends State<AdminUserCardScreen> {
       return const Center(child: Text('Нет данных'));
     }
 
-    final auth = _data!['auth'] as Map<String, dynamic>?;
-    final profile = _data!['profile'] as Map<String, dynamic>?;
-    final ads = List<Map<String, dynamic>>.from(_data!['ads'] ?? []);
-    final reportsAgainst = List<Map<String, dynamic>>.from(_data!['reportsAgainst'] ?? []);
-    final reportsSubmitted = List<Map<String, dynamic>>.from(_data!['reportsSubmitted'] ?? []);
-    final reviewsTo = List<Map<String, dynamic>>.from(_data!['reviewsTo'] ?? []);
-    final reviewsFrom = List<Map<String, dynamic>>.from(_data!['reviewsFrom'] ?? []);
-    final chats = _data!['chats'] as Map<String, dynamic>?;
-    final taxiBidsSent = List<Map<String, dynamic>>.from(_data!['taxiBidsSent'] ?? []);
-    final taxiBidsReceived = List<Map<String, dynamic>>.from(_data!['taxiBidsReceived'] ?? []);
-    final taxiOrdersPassenger = List<Map<String, dynamic>>.from(_data!['taxiOrdersPassenger'] ?? []);
-    final taxiOrdersDriver = List<Map<String, dynamic>>.from(_data!['taxiOrdersDriver'] ?? []);
+    final auth = _safeMap(_data!['auth']);
+    final profile = _safeMap(_data!['profile']);
+    final ads = _safeList(_data!['ads']);
+    final reportsAgainst = _safeList(_data!['reportsAgainst']);
+    final reportsSubmitted = _safeList(_data!['reportsSubmitted']);
+    final reviewsTo = _safeList(_data!['reviewsTo']);
+    final reviewsFrom = _safeList(_data!['reviewsFrom']);
+    final chats = _safeMap(_data!['chats']);
+    final taxiBidsSent = _safeList(_data!['taxiBidsSent']);
+    final taxiBidsReceived = _safeList(_data!['taxiBidsReceived']);
+    final taxiOrdersPassenger = _safeList(_data!['taxiOrdersPassenger']);
+    final taxiOrdersDriver = _safeList(_data!['taxiOrdersDriver']);
 
     final double avgRating = (_data!['avgRating'] as num?)?.toDouble() ?? 0.0;
     final int reviewsCount = (_data!['reviewsCount'] as num?)?.toInt() ?? 0;
@@ -178,6 +336,80 @@ class _AdminUserCardScreenState extends State<AdminUserCardScreen> {
     );
   }
 
+  Future<void> _openAdDetails(String adId) async {
+    try {
+      final docSnap = await FirebaseFirestore.instance.collection('ads').doc(adId).get();
+      if (docSnap.exists && mounted) {
+        final adModel = AdModel.fromMap(docSnap.data()!, docSnap.id);
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ProductDetailsScreen(ad: adModel, lang: 'ru', onReport: (_) {}, heroPrefix: 'card_ad_$adId'),
+          ),
+        );
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Объявление не найдено или удалено.')),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error opening ad details: $e');
+    }
+  }
+
+  void _editUserPhoneDialog(String currentPhone) {
+    final cleanPhone = currentPhone.contains('(') ? currentPhone.split('(')[0].trim() : (currentPhone == 'Не указан' ? '' : currentPhone);
+    final phoneController = TextEditingController(text: cleanPhone);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('Указать / Редактировать номер', style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 16)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Сохраните номер телефона для связи с этим пользователем:', style: GoogleFonts.inter(fontSize: 13, color: Colors.grey[600])),
+            const SizedBox(height: 14),
+            TextField(
+              controller: phoneController,
+              keyboardType: TextInputType.phone,
+              decoration: InputDecoration(
+                labelText: 'Номер телефона (+7 777 ...)',
+                prefixIcon: const Icon(Icons.phone),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Отмена')),
+          ElevatedButton(
+            onPressed: () async {
+              final newPhone = phoneController.text.trim();
+              Navigator.pop(ctx);
+              try {
+                final db = FirebaseFirestore.instance;
+                await db.collection('users').doc(widget.uid).set({'phone': newPhone}, SetOptions(merge: true));
+                await db.collection('users').doc(widget.uid).collection('private').doc('contact').set({'phone': newPhone}, SetOptions(merge: true));
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Номер телефона успешно сохранен!')));
+                  _loadUserInfo();
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ошибка сохранения: $e')));
+                }
+              }
+            },
+            child: const Text('Сохранить'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildHeaderCard(
     BuildContext context,
     ColorScheme colorScheme,
@@ -187,8 +419,25 @@ class _AdminUserCardScreenState extends State<AdminUserCardScreen> {
     Map<String, dynamic>? auth,
     Map<String, dynamic>? profile,
   ) {
-    final email = profile?['email'] ?? auth?['email'] ?? 'N/A';
-    final phone = profile?['phone'] ?? auth?['phoneNumber'] ?? 'N/A';
+    final ads = _safeList(_data?['ads']);
+    final contact = _safeMap(_data?['contact']);
+    final email = profile?['email'] ?? contact?['email'] ?? auth?['email'] ?? 'N/A';
+    
+    String phone = profile?['phone'] ?? profile?['phoneNumber'] ?? contact?['phone'] ?? contact?['tg_session_phone'] ?? contact?['driver_phone'] ?? auth?['phoneNumber'] ?? '';
+    if (phone.isEmpty || phone == 'Не указан' || phone == 'N/A') {
+      for (final ad in ads) {
+        final p = (ad['phone'] ?? ad['contactPhone'] ?? ad['userPhone'] ?? ad['phoneNumber'] ?? '').toString().trim();
+        if (p.isNotEmpty) {
+          phone = '$p (из объявления)';
+          break;
+        }
+      }
+    }
+    if (phone.isEmpty) phone = 'Не указан';
+
+    final telegramUser = profile?['telegram_username'] ?? profile?['telegramUsername'] ?? profile?['username'] ?? '';
+    final telegramChatId = contact?['telegram_chat_id'] ?? profile?['telegramChatId'] ?? profile?['chat_id'] ?? (widget.uid.startsWith('telegram_') ? widget.uid.replaceAll('telegram_', '') : null);
+
     final isVerified = profile?['isVerified'] == true;
     final isDisabled = auth?['disabled'] == true;
 
@@ -209,8 +458,8 @@ class _AdminUserCardScreenState extends State<AdminUserCardScreen> {
               CircleAvatar(
                 radius: 36,
                 backgroundColor: colorScheme.surfaceContainerHighest,
-                backgroundImage: photo.isNotEmpty ? CachedNetworkImageProvider(photo) : null,
-                child: photo.isEmpty ? Icon(PhosphorIcons.user(), color: Colors.grey, size: 28) : null,
+                backgroundImage: (photo.startsWith('http://') || photo.startsWith('https://')) ? CachedNetworkImageProvider(photo) : null,
+                child: (!photo.startsWith('http://') && !photo.startsWith('https://')) ? Icon(PhosphorIcons.user(), color: Colors.grey, size: 28) : null,
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -251,7 +500,69 @@ class _AdminUserCardScreenState extends State<AdminUserCardScreen> {
           const SizedBox(height: 12),
           _buildInfoRow(PhosphorIcons.envelope(), 'Email', email, colorScheme),
           const SizedBox(height: 12),
-          _buildInfoRow(PhosphorIcons.phone(), 'Телефон', phone, colorScheme),
+          Row(
+            children: [
+              Expanded(
+                child: _buildInfoRow(PhosphorIcons.phone(), 'Телефон', phone, colorScheme),
+              ),
+              IconButton(
+                icon: const Icon(Icons.edit_outlined, size: 18, color: Colors.blue),
+                tooltip: 'Указать / изменять телефон',
+                onPressed: () => _editUserPhoneDialog(phone),
+              ),
+            ],
+          ),
+          if (telegramUser.toString().isNotEmpty || telegramChatId != null) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildInfoRow(
+                    PhosphorIcons.telegramLogo(),
+                    'Telegram',
+                    telegramUser.toString().isNotEmpty ? '@${telegramUser.toString().replaceAll('@', '')}' : 'ID: $telegramChatId',
+                    colorScheme,
+                  ),
+                ),
+                InkWell(
+                  onTap: () async {
+                    final tgLink = telegramUser.toString().isNotEmpty
+                        ? 'https://t.me/${telegramUser.toString().replaceAll('@', '')}'
+                        : 'https://t.me/c/$telegramChatId';
+                    try {
+                      final uri = Uri.parse(tgLink);
+                      if (await canLaunchUrl(uri)) {
+                        await launchUrl(uri, mode: LaunchMode.externalApplication);
+                      } else {
+                        Clipboard.setData(ClipboardData(text: tgLink));
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ссылка на Telegram скопирована!')));
+                        }
+                      }
+                    } catch (e) {
+                      Clipboard.setData(ClipboardData(text: tgLink));
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ссылка скопирована!')));
+                      }
+                    }
+                  },
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(color: const Color(0xFF0088CC).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.telegram, size: 14, color: Color(0xFF0088CC)),
+                        const SizedBox(width: 4),
+                        Text('Написать', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF0088CC))),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: 12),
           _buildInfoRow(
             PhosphorIcons.lockKey(),
@@ -315,7 +626,7 @@ class _AdminUserCardScreenState extends State<AdminUserCardScreen> {
       );
     }
 
-    final providers = List<Map<String, dynamic>>.from(auth['providerData'] ?? []);
+    final providers = _safeList(auth['providerData']);
 
     return _buildSectionContainer(
       colorScheme,
@@ -324,9 +635,9 @@ class _AdminUserCardScreenState extends State<AdminUserCardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildDetailRow('Регистрация', _formatDate(auth['creationTime'])),
-          _buildDetailRow('Последний вход', _formatDate(auth['lastSignInTime'])),
-          _buildDetailRow('Последнее обновление', _formatDate(auth['lastRefreshTime'])),
+          _buildDetailRow('Регистрация', _formatDate(auth['creationTime'] ?? (auth['metadata'] is Map ? auth['metadata']['creationTime'] : null))),
+          _buildDetailRow('Последний вход', _formatDate(auth['lastSignInTime'] ?? (auth['metadata'] is Map ? auth['metadata']['lastSignInTime'] : null))),
+          _buildDetailRow('Последнее обновление', _formatDate(auth['lastRefreshTime'] ?? (auth['metadata'] is Map ? auth['metadata']['lastRefreshTime'] : null))),
           _buildDetailRow('Email подтвержден', auth['emailVerified'] == true ? 'Да' : 'Нет'),
           const SizedBox(height: 16),
           Text('Способы авторизации:', style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13)),
@@ -350,16 +661,31 @@ class _AdminUserCardScreenState extends State<AdminUserCardScreen> {
                   provName = 'Email/Пароль';
                 }
                 return Container(
-                  margin: const EdgeInsets.only(bottom: 6),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(8)),
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(12)),
                   child: Row(
                     children: [
-                      Icon(provIcon, size: 16, color: colorScheme.primary),
-                      const SizedBox(width: 8),
-                      Text(provName, style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.bold)),
-                      const Spacer(),
-                      Text('UID: ${prov['uid']}', style: GoogleFonts.firaCode(fontSize: 11, color: Colors.grey[600])),
+                      Icon(provIcon, size: 20, color: colorScheme.primary),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              provName,
+                              style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A)),
+                            ),
+                            if (prov['uid'] != null && prov['uid'].toString().isNotEmpty) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                'ID / Contact: ${prov['uid']}',
+                                style: GoogleFonts.firaCode(fontSize: 11, color: Colors.grey[600]),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 );
@@ -381,6 +707,8 @@ class _AdminUserCardScreenState extends State<AdminUserCardScreen> {
             children: ads.map((ad) {
               final price = ad['price'] ?? 0.0;
               final status = ad['status'] ?? 'pending';
+              final phone = (ad['phone'] ?? ad['contactPhone'] ?? ad['userPhone'] ?? ad['phoneNumber'] ?? '').toString().trim();
+
               Color statusColor = Colors.orange;
               String statusText = 'На проверке';
               if (status == 'active') {
@@ -394,97 +722,128 @@ class _AdminUserCardScreenState extends State<AdminUserCardScreen> {
                 statusText = 'В архиве';
               }
 
-              return Card(
-                elevation: 0,
-                color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.15),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                margin: const EdgeInsets.only(bottom: 8),
-                child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                  title: Text(ad['title'] ?? '', style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 14)),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Создано: ${_formatDate(ad['createdAt'])}',
-                        style: GoogleFonts.inter(fontSize: 12, color: Colors.grey[600]),
-                      ),
-                      const SizedBox(height: 4),
-                      StreamBuilder<DocumentSnapshot>(
-                        stream: FirebaseFirestore.instance
-                            .collection('ads')
-                            .doc(ad['id'])
-                            .collection('stats')
-                            .doc('counters')
-                            .snapshots(),
-                        builder: (context, snapshot) {
-                          int viewsCount = 0;
-                          int callsCount = 0;
-                          if (snapshot.hasData && snapshot.data!.exists) {
-                            final data = snapshot.data!.data() as Map<String, dynamic>?;
-                            if (data != null) {
-                              viewsCount = data['viewsCount'] ?? 0;
-                              callsCount = data['callsCount'] ?? 0;
-                            }
-                          }
-                          return Row(
+              return Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: () async {
+                      try {
+                        final docSnap = await FirebaseFirestore.instance.collection('ads').doc(ad['id']).get();
+                        if (docSnap.exists && context.mounted) {
+                          final adModel = AdModel.fromMap(docSnap.data()!, docSnap.id);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => ProductDetailsScreen(ad: adModel, lang: 'ru', onReport: (_) {}, heroPrefix: 'user_card_${ad['id']}'),
+                            ),
+                          );
+                        } else if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Объявление удалено из базы данных.')),
+                          );
+                        }
+                      } catch (e) {
+                        debugPrint('Error opening ad details: $e');
+                      }
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
                             children: [
-                              Icon(PhosphorIcons.eye(), size: 12, color: Colors.grey[600]),
-                              const SizedBox(width: 4),
-                              Text(
-                                '$viewsCount',
-                                style: GoogleFonts.inter(fontSize: 11, color: Colors.grey[600]),
+                              Expanded(
+                                child: Text(
+                                  ad['title'] ?? 'Объявление',
+                                  style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 14, color: const Color(0xFF0F172A)),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
-                              const SizedBox(width: 12),
-                              Icon(PhosphorIcons.phone(), size: 12, color: Colors.grey[600]),
-                              const SizedBox(width: 4),
-                              Text(
-                                '$callsCount',
-                                style: GoogleFonts.inter(fontSize: 11, color: Colors.grey[600]),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(6)),
+                                child: Text(
+                                  statusText,
+                                  style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.bold),
+                                ),
                               ),
                             ],
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                  trailing: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text('$price ₸', style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13)),
-                      const SizedBox(height: 4),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
-                        child: Text(
-                          statusText,
-                          style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.bold),
-                        ),
-                      )
-                    ],
-                  ),
-                  onTap: () async {
-                    // Переход в детали объявления
-                    try {
-                      final docSnap = await FirebaseFirestore.instance.collection('ads').doc(ad['id']).get();
-                      if (docSnap.exists && context.mounted) {
-                        final adModel = AdModel.fromMap(docSnap.data()!, docSnap.id);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => ProductDetailsScreen(ad: adModel, lang: 'ru', onReport: (_) {}),
                           ),
-                        );
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Объявление удалено из базы данных.')),
-                        );
-                      }
-                    } catch (e) {
-                      debugPrint('Error opening ad details: $e');
-                    }
-                  },
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                '${price is num ? price.toInt() : price} ₸',
+                                style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 15, color: const Color(0xFF10B981)),
+                              ),
+                              if (phone.isNotEmpty)
+                                Row(
+                                  children: [
+                                    Icon(PhosphorIcons.phone(), size: 12, color: colorScheme.primary),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      phone,
+                                      style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: colorScheme.primary),
+                                    ),
+                                  ],
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Text(
+                                _formatDate(ad['createdAt']),
+                                style: GoogleFonts.inter(fontSize: 11, color: Colors.grey[500]),
+                              ),
+                              const Spacer(),
+                              StreamBuilder<DocumentSnapshot>(
+                                stream: FirebaseFirestore.instance
+                                    .collection('ads')
+                                    .doc(ad['id'])
+                                    .collection('stats')
+                                    .doc('counters')
+                                    .snapshots(),
+                                builder: (context, snapshot) {
+                                  int viewsCount = 0;
+                                  int callsCount = 0;
+                                  if (snapshot.hasData && snapshot.data!.exists) {
+                                    final data = snapshot.data!.data() as Map<String, dynamic>?;
+                                    if (data != null) {
+                                      viewsCount = data['viewsCount'] ?? 0;
+                                      callsCount = data['callsCount'] ?? 0;
+                                    }
+                                  }
+                                  return Row(
+                                    children: [
+                                      Icon(PhosphorIcons.eye(), size: 12, color: Colors.grey[500]),
+                                      const SizedBox(width: 4),
+                                      Text('$viewsCount', style: GoogleFonts.inter(fontSize: 11, color: Colors.grey[500])),
+                                      const SizedBox(width: 10),
+                                      Icon(PhosphorIcons.phoneCall(), size: 12, color: Colors.grey[500]),
+                                      const SizedBox(width: 4),
+                                      Text('$callsCount', style: GoogleFonts.inter(fontSize: 11, color: Colors.grey[500])),
+                                    ],
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
               );
             }).toList(),
@@ -529,11 +888,15 @@ class _AdminUserCardScreenState extends State<AdminUserCardScreen> {
           else
             Column(
               children: reviewsTo.map((rev) {
+                final adTitle = rev['adTitle']?.toString() ?? '';
+                final adTitleText = adTitle.isNotEmpty ? ' на «$adTitle»' : '';
                 return _buildReviewTile(
-                  title: 'От ${rev['fromUserName'] ?? "Пользователь"} (${rev['rating']}★)',
-                  comment: rev['comment'],
+                  title: 'От ${rev['fromUserName'] ?? "Пользователь"}$adTitleText (${rev['rating']}★)',
+                  comment: rev['comment']?.toString() ?? '',
                   dateIso: rev['timestamp'],
                   rating: rev['rating'],
+                  adId: rev['adId']?.toString(),
+                  adTitle: adTitle,
                   colorScheme: colorScheme,
                 );
               }).toList(),
@@ -546,11 +909,15 @@ class _AdminUserCardScreenState extends State<AdminUserCardScreen> {
           else
             Column(
               children: reviewsFrom.map((rev) {
+                final adTitle = rev['adTitle']?.toString() ?? '';
+                final adTitleText = adTitle.isNotEmpty ? ' на «$adTitle»' : '';
                 return _buildReviewTile(
-                  title: 'Кому (UID): ${rev['toUserId']} (${rev['rating']}★)',
-                  comment: rev['comment'],
+                  title: 'Кому (UID): ${rev['toUserId']}$adTitleText (${rev['rating']}★)',
+                  comment: rev['comment']?.toString() ?? '',
                   dateIso: rev['timestamp'],
                   rating: rev['rating'],
+                  adId: rev['adId']?.toString(),
+                  adTitle: adTitle,
                   colorScheme: colorScheme,
                 );
               }).toList(),
@@ -563,10 +930,14 @@ class _AdminUserCardScreenState extends State<AdminUserCardScreen> {
   Widget _buildReviewTile({
     required String title,
     required String comment,
-    required String? dateIso,
+    required dynamic dateIso,
     required num rating,
     required ColorScheme colorScheme,
+    String? adId,
+    String? adTitle,
   }) {
+    final validAdId = (adId != null && adId.trim().isNotEmpty) ? adId.trim() : null;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
@@ -579,16 +950,53 @@ class _AdminUserCardScreenState extends State<AdminUserCardScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(title, style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13)),
-              Text(_formatDate(dateIso), style: GoogleFonts.inter(fontSize: 11, color: Colors.grey)),
+              Expanded(
+                child: Text(
+                  title,
+                  style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13, color: const Color(0xFF0F172A)),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(_formatDate(dateIso), style: GoogleFonts.inter(fontSize: 11, color: Colors.grey[500])),
             ],
           ),
           if (comment.isNotEmpty) ...[
             const SizedBox(height: 4),
-            Text(comment, style: GoogleFonts.inter(fontSize: 13, color: Colors.grey[800])),
-          ]
+            Text(comment, style: GoogleFonts.inter(fontSize: 12.5, color: Colors.grey[800], height: 1.3)),
+          ],
+          if (validAdId != null) ...[
+            const SizedBox(height: 8),
+            InkWell(
+              onTap: () => _openAdDetails(validAdId),
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: colorScheme.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: colorScheme.primary.withValues(alpha: 0.25)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(PhosphorIcons.arrowSquareOut(), size: 14, color: colorScheme.primary),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        'Посмотреть объявление${adTitle != null && adTitle.isNotEmpty ? " «$adTitle»" : ""}',
+                        style: GoogleFonts.inter(fontSize: 11.5, fontWeight: FontWeight.bold, color: colorScheme.primary),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -614,11 +1022,13 @@ class _AdminUserCardScreenState extends State<AdminUserCardScreen> {
             Column(
               children: reportsAgainst.map((rep) {
                 return _buildReportTile(
-                  title: rep['adId'] != null ? 'На объявление «${rep['adTitle']}»' : 'На профиль',
-                  type: rep['type'],
-                  comment: rep['comment'],
+                  title: rep['adId'] != null ? 'На объявление «${rep['adTitle'] ?? ""}»' : 'На профиль',
+                  type: rep['type']?.toString(),
+                  comment: rep['comment']?.toString(),
                   dateIso: rep['timestamp'],
+                  adId: rep['adId']?.toString(),
                   subText: 'Отправил (UID): ${rep['reporterUserId']}',
+                  colorScheme: colorScheme,
                 );
               }).toList(),
             ),
@@ -632,10 +1042,12 @@ class _AdminUserCardScreenState extends State<AdminUserCardScreen> {
               children: reportsSubmitted.map((rep) {
                 return _buildReportTile(
                   title: rep['adId'] != null ? 'На объявление (ID: ${rep['adId']})' : 'На пользователя ${rep['reportedUserName'] ?? ""}',
-                  type: rep['type'],
-                  comment: rep['comment'],
+                  type: rep['type']?.toString(),
+                  comment: rep['comment']?.toString(),
                   dateIso: rep['timestamp'],
+                  adId: rep['adId']?.toString(),
                   subText: 'Нарушитель (UID): ${rep['reportedUserId']}',
+                  colorScheme: colorScheme,
                 );
               }).toList(),
             ),
@@ -646,10 +1058,12 @@ class _AdminUserCardScreenState extends State<AdminUserCardScreen> {
 
   Widget _buildReportTile({
     required String title,
-    required String type,
-    required String comment,
-    required String? dateIso,
+    required String? type,
+    required String? comment,
+    required dynamic dateIso,
     required String subText,
+    required ColorScheme colorScheme,
+    String? adId,
   }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -663,20 +1077,58 @@ class _AdminUserCardScreenState extends State<AdminUserCardScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Expanded(child: Text(title, style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13))),
-              Text(_formatDate(dateIso), style: GoogleFonts.inter(fontSize: 11, color: Colors.grey)),
+              Expanded(
+                child: Text(
+                  title,
+                  style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13, color: const Color(0xFF0F172A)),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(_formatDate(dateIso), style: GoogleFonts.inter(fontSize: 11, color: Colors.grey[500])),
             ],
           ),
           const SizedBox(height: 4),
-          Text('Тип: $type', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.red[800])),
-          if (comment.isNotEmpty) ...[
+          Text('Тип: ${type ?? "Жалоба"}', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.red[800])),
+          if (comment != null && comment.isNotEmpty) ...[
             const SizedBox(height: 4),
-            Text('Коммент: "$comment"', style: GoogleFonts.inter(fontSize: 12, color: Colors.grey[800])),
+            Text('Коммент: "$comment"', style: GoogleFonts.inter(fontSize: 12, color: Colors.grey[800], height: 1.3)),
           ],
-          const SizedBox(height: 4),
-          Text(subText, style: GoogleFonts.inter(fontSize: 11, color: Colors.grey[600])),
+          const SizedBox(height: 6),
+          Text(
+            subText,
+            style: GoogleFonts.inter(fontSize: 11, color: Colors.grey[600]),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          if (adId != null && adId.trim().isNotEmpty) ...[
+            const SizedBox(height: 8),
+            InkWell(
+              onTap: () => _openAdDetails(adId),
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.red.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.red.withValues(alpha: 0.2)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(PhosphorIcons.arrowSquareOut(), size: 14, color: Colors.red[700]),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Посмотреть объявление',
+                      style: GoogleFonts.inter(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.red[700]),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -704,10 +1156,100 @@ class _AdminUserCardScreenState extends State<AdminUserCardScreen> {
               Icon(PhosphorIcons.chatCircleText(), size: 20, color: colorScheme.primary),
               const SizedBox(width: 8),
               Text(
-                'Всего активных чатов: $chatsCount',
+                'Активные чаты пользователя:',
                 style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 14),
               ),
             ],
+          ),
+          const SizedBox(height: 10),
+          StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('chats')
+                .where('users', arrayContains: widget.uid)
+                .snapshots(),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) return const SizedBox(height: 40, child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
+
+              final docs = snapshot.data!.docs;
+              if (docs.isEmpty) {
+                return Text('Нет активных переписок у пользователя.', style: GoogleFonts.inter(fontSize: 13, color: Colors.grey));
+              }
+
+              return Column(
+                children: docs.map((doc) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  final adTitle = data['adTitle'] ?? 'Объявление';
+                  final adId = data['adId'];
+                  final lastMessage = data['lastMessage'] ?? '...';
+                  final buyerName = data['buyerName'] ?? 'Покупатель';
+                  final sellerName = data['sellerName'] ?? 'Продавец';
+
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(PhosphorIcons.chatTeardropDots(), size: 16, color: const Color(0xFF4A80F0)),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                '$adTitle ($buyerName ↔ $sellerName)',
+                                style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 12.5, color: const Color(0xFF0F172A)),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (lastMessage.toString().isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            '"$lastMessage"',
+                            style: GoogleFonts.inter(fontSize: 11, color: Colors.grey[600], fontStyle: FontStyle.italic),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                        const SizedBox(height: 10),
+                        OutlinedButton.icon(
+                          onPressed: () async {
+                            if (adId != null && adId.toString().isNotEmpty) {
+                              try {
+                                final ad = await AdService.getAdById(adId.toString());
+                                if (ad != null && context.mounted) {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(builder: (c) => ChatScreen(ad: ad, chatId: doc.id)),
+                                  );
+                                }
+                              } catch (e) {
+                                debugPrint('Error opening chat: $e');
+                              }
+                            }
+                          },
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF4A80F0),
+                            side: const BorderSide(color: Color(0xFF4A80F0)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          ),
+                          icon: const Icon(Icons.mark_chat_read_rounded, size: 14),
+                          label: Text('ПРОЧИТАТЬ ЧАТ И ПЕРЕПИСКУ', style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              );
+            },
           ),
           const Divider(height: 24),
           Text('Ставки такси (Отправленные):', style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13)),
@@ -766,17 +1308,22 @@ class _AdminUserCardScreenState extends State<AdminUserCardScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                isSent ? 'Кому (UID): ${bid['receiverId']}' : 'От (UID): ${bid['senderId']}',
-                style: GoogleFonts.inter(fontSize: 12),
-              ),
-              const SizedBox(height: 2),
-              Text('Заказ: ${bid['targetId']}', style: GoogleFonts.inter(fontSize: 11, color: Colors.grey[600])),
-            ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isSent ? 'Кому (UID): ${bid['receiverId']}' : 'От (UID): ${bid['senderId']}',
+                  style: GoogleFonts.inter(fontSize: 12),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text('Заказ: ${bid['targetId']}', style: GoogleFonts.inter(fontSize: 11, color: Colors.grey[600]), maxLines: 1, overflow: TextOverflow.ellipsis),
+              ],
+            ),
           ),
+          const SizedBox(width: 8),
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
@@ -805,17 +1352,22 @@ class _AdminUserCardScreenState extends State<AdminUserCardScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('ID Заказа: ${ord['id']}', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 2),
-              Text(
-                role == 'Пассажир' ? 'Водитель (UID): ${ord['driverId']}' : 'Пассажир (UID): ${ord['passengerId']}',
-                style: GoogleFonts.inter(fontSize: 11, color: Colors.grey[600]),
-              ),
-            ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('ID Заказа: ${ord['id']}', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
+                const SizedBox(height: 2),
+                Text(
+                  role == 'Пассажир' ? 'Водитель (UID): ${ord['driverId']}' : 'Пассажир (UID): ${ord['passengerId']}',
+                  style: GoogleFonts.inter(fontSize: 11, color: Colors.grey[600]),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
           ),
+          const SizedBox(width: 8),
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
@@ -853,9 +1405,13 @@ class _AdminUserCardScreenState extends State<AdminUserCardScreen> {
             children: [
               Icon(icon, size: 22, color: colorScheme.primary),
               const SizedBox(width: 12),
-              Text(
-                title,
-                style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 16),
+              Expanded(
+                child: Text(
+                  title,
+                  style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 16),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ],
           ),
@@ -868,12 +1424,26 @@ class _AdminUserCardScreenState extends State<AdminUserCardScreen> {
 
   Widget _buildDetailRow(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 6.0),
+      padding: const EdgeInsets.only(bottom: 8.0),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: GoogleFonts.inter(fontSize: 13, color: Colors.grey[600])),
-          Text(value, style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.bold)),
+          Expanded(
+            flex: 5,
+            child: Text(
+              label,
+              style: GoogleFonts.inter(fontSize: 12.5, color: Colors.grey[600]),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            flex: 6,
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A)),
+            ),
+          ),
         ],
       ),
     );

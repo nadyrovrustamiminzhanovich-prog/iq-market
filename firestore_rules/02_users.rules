@@ -1,6 +1,5 @@
     match /users/{userId} {
-      allow get: if isSignedIn();
-      allow list: if false;
+      allow get, list: if isSignedIn();
       allow create: if isSignedIn() && request.auth.uid == userId 
         && !request.resource.data.keys().hasAny(['phone', 'email', 'telegram_chat_id', 'telegramChatId'])
         && (!request.resource.data.keys().hasAny(['accountType']) || request.resource.data.accountType in ['user', 'driver'])
@@ -16,18 +15,17 @@
       }
 
       match /notifications/{notifId} {
-        allow create: if isSignedIn() 
-          && request.resource.data.keys().hasAll(['title', 'body', 'type', 'timestamp', 'senderId'])
-          && request.resource.data.senderId == request.auth.uid
-          && (
-            isOwner(userId) ||
-            isAdmin() ||
-            (
-              notifId.size() > 5 && 
-              notifId[0:5] == 'chat_' && 
-              get(/databases/$(database)/documents/chats/$(notifId[5:])).data.users.hasAll([request.auth.uid, userId])
-            )
-          );
+        allow create: if isSignedIn() && (
+          isOwner(userId) ||
+          isAdmin() ||
+          (
+            request.resource.data.keys().hasAll(['title', 'body', 'type', 'timestamp', 'senderId']) &&
+            request.resource.data.senderId == request.auth.uid &&
+            notifId.size() > 5 && 
+            notifId[0:5] == 'chat_' && 
+            get(/databases/$(database)/documents/chats/$(notifId[5:])).data.users.hasAll([request.auth.uid, userId])
+          )
+        );
         allow read, delete: if isOwner(userId);
         allow update: if isSignedIn() && (
           isOwner(userId) || 

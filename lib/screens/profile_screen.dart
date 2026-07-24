@@ -1633,76 +1633,155 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _showAboutDialog() {
+    final isDark = _isDark;
+    final bgSurface = isDark ? const Color(0xFF1E293B) : Colors.white;
+    final textDark = isDark ? Colors.white : const Color(0xFF0F172A);
+    final cardBg = isDark ? const Color(0xFF0F172A) : const Color(0xFFFAFAFA);
+    final cardBorder = isDark ? const Color(0xFF334155) : const Color(0xFFE5E7EB);
+    final subText = isDark ? Colors.grey[400] : const Color(0xFF64748B);
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (context) => Container(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.fromLTRB(24, 14, 24, 32),
         decoration: BoxDecoration(
-          color: _surfaceColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(40)),
+          color: bgSurface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(36)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.15),
+              blurRadius: 25,
+              offset: const Offset(0, -5),
+            )
+          ],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(width: 40, height: 4, decoration: BoxDecoration(color: _subtxtColor.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(10))),
-            const SizedBox(height: 32),
-            const Icon(Icons.copyright_rounded, size: 64, color: Color(0xFF4A80F0)),
-            const SizedBox(height: 24),
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white24 : Colors.black12,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
             Text(
-              _t('copyright_title'),
-              style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w900, color: _txtColor),
-              textAlign: TextAlign.center,
+              'IQ-Market',
+              style: GoogleFonts.inter(
+                fontSize: 26,
+                fontWeight: FontWeight.w900,
+                color: textDark,
+                letterSpacing: -0.5,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              'PRO v1.1.0',
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: subText,
+              ),
             ),
             const SizedBox(height: 24),
+            Text(
+              'О РАЗРАБОТЧИКЕ',
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                color: const Color(0xFF3B82F6),
+                letterSpacing: 0.8,
+              ),
+            ),
+            const SizedBox(height: 12),
             Container(
-              padding: const EdgeInsets.all(20),
+              width: double.infinity,
+              padding: const EdgeInsets.all(22),
               decoration: BoxDecoration(
-                color: _primaryColor.withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: _primaryColor.withValues(alpha: 0.1)),
+                color: cardBg,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: cardBorder, width: 1.2),
               ),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '${_t('founder_and_dev')}:\n${AppConstants.copyrightOwner}',
-                    style: GoogleFonts.inter(fontSize: 16, height: 1.4, color: _txtColor, fontWeight: FontWeight.w900),
-                    textAlign: TextAlign.center,
+                    'Надыров Рустам Иминжанович',
+                    style: GoogleFonts.inter(
+                      fontSize: 19,
+                      fontWeight: FontWeight.w900,
+                      color: textDark,
+                      height: 1.2,
+                    ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 14),
                   Text(
-                    _t('copyright_legal_text'),
-                    style: GoogleFonts.inter(fontSize: 13, height: 1.5, color: _subtxtColor, fontWeight: FontWeight.w500),
-                    textAlign: TextAlign.center,
+                    'Основатель и главный разработчик платформы IQ-Market.',
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      height: 1.45,
+                      color: textDark,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
-                  const SizedBox(height: 20),
-                  const Divider(),
                   const SizedBox(height: 12),
                   Text(
-                    '© ${AppConstants.copyrightYear} ${AppConstants.appName}. All Rights Reserved.\n${_t('all_rights_reserved')}\n\n${_t('app_version')} ${AppConstants.fullVersionString}',
-                    style: GoogleFonts.inter(fontSize: 11, color: _subtxtColor.withValues(alpha: 0.6), fontWeight: FontWeight.w700, letterSpacing: 0.5),
-                    textAlign: TextAlign.center,
+                    'Вся интеллектуальная собственность, исходный код, дизайн и бренд приложения строго защищены и принадлежат автору.',
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      height: 1.45,
+                      color: textDark,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.verified_rounded,
+                        color: Color(0xFF3B82F6),
+                        size: 22,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Официальные права © 2026',
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          color: textDark,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 32),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => Navigator.pop(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _primaryColor,
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(0, 56),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  elevation: 0,
-                ),
-                child: Text(_t('got_it'), style: const TextStyle(fontWeight: FontWeight.w900)),
+            const SizedBox(height: 24),
+            Text(
+              'Версия приложения: 1.1.0',
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: textDark,
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
+            Text(
+              'Сервис предназначен для удобного и безопасного размещения объявлений. Любое использование материалов без согласия автора запрещено.',
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                height: 1.4,
+                color: subText,
+              ),
+            ),
+            const SizedBox(height: 12),
           ],
         ),
       ),
