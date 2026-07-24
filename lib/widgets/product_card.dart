@@ -257,7 +257,7 @@ class _ProductCardState extends State<ProductCard> with SingleTickerProviderStat
                           const Icon(Icons.archive_rounded, color: Colors.white, size: 11),
                           const SizedBox(width: 4),
                           Text(
-                            lang == 'Қазақша' ? 'МҰРАҒАТТА' : (lang == 'Уйғурчә' ? 'АРХИВТА' : 'В АРХИВЕ'),
+                            TranslationService.t('in_archive', lang),
                             style: GoogleFonts.inter(
                               color: Colors.white,
                               fontSize: 8,
