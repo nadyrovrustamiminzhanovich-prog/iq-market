@@ -451,7 +451,8 @@ void main() {
       expect(fakeRecorder.stopCalled, isTrue);
 
       // Verify that the short recording SnackBar warning is displayed
-      expect(find.text('Запись слишком короткая'), findsOneWidget);
+      expect(find.byType(SnackBar), findsOneWidget);
+      expect(find.textContaining('слишком короткая'), findsOneWidget);
 
       // Dismiss the SnackBar completely by pumping past its duration (3 seconds)
       await tester.pump(const Duration(seconds: 3));

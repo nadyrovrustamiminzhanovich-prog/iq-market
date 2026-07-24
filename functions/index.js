@@ -166,6 +166,14 @@ exports.checkExpiredAds = functions.pubsub.schedule('0 3 * * *').timeZone('Asia/
   }
 );
 
+// Rate limiting map for Gemini proxy (in-memory per container instance)
+const geminiRateLimitMap = new Map();
+const GEMINI_RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
+const GEMINI_MAX_REQUESTS_PER_WINDOW = 30; // 30 requests / min per user
+
+// Allowlist pattern for valid Gemini API endpoints
+const GEMINI_ALLOWED_PATH_REGEX = /^\/v1(beta)?\/models\/gemini-[a-zA-Z0-9.\-]+:(generateContent|streamGenerateContent|countTokens|embedContent)$/;
+
 // ─── SECURE GEMINI CALL PROXY ─────────────────────────────────────────────────
 exports.secureGeminiCall = functions.https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin', 'https://iqmarket.kz');
@@ -178,10 +186,33 @@ exports.secureGeminiCall = functions.https.onRequest(async (req, res) => {
     return res.status(401).send('Unauthorized: Missing token');
   }
   const idToken = authHeader.split('Bearer ')[1];
+  let decodedToken;
   try {
-    await admin.auth().verifyIdToken(idToken);
+    decodedToken = await admin.auth().verifyIdToken(idToken);
   } catch (error) {
     return res.status(401).send('Unauthorized: Invalid token');
+  }
+
+  // 1. Path Allowlist Check
+  const reqPath = req.path || '';
+  if (!GEMINI_ALLOWED_PATH_REGEX.test(reqPath)) {
+    console.warn(`[secureGeminiCall] Blocked unauthorized path: ${reqPath} from user ${decodedToken.uid}`);
+    return res.status(403).send('Forbidden: Invalid API endpoint');
+  }
+
+  // 2. Rate Limiting Check (per UID)
+  const uid = decodedToken.uid;
+  const now = Date.now();
+  let userRateData = geminiRateLimitMap.get(uid);
+  if (!userRateData || (now - userRateData.startTime) > GEMINI_RATE_LIMIT_WINDOW_MS) {
+    userRateData = { startTime: now, count: 1 };
+    geminiRateLimitMap.set(uid, userRateData);
+  } else {
+    userRateData.count++;
+    if (userRateData.count > GEMINI_MAX_REQUESTS_PER_WINDOW) {
+      console.warn(`[secureGeminiCall] Rate limit exceeded for user ${uid}`);
+      return res.status(429).send('Too Many Requests: Rate limit exceeded');
+    }
   }
 
   const keySelector = req.query.key || 'moderation';
@@ -193,7 +224,6 @@ exports.secureGeminiCall = functions.https.onRequest(async (req, res) => {
     return res.status(500).send('Server configuration error');
   }
 
-  const reqPath   = req.path || '';
   const targetUrl = `https://generativelanguage.googleapis.com${reqPath}?key=${targetApiKey}`;
 
   try {
