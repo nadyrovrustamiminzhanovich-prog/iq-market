@@ -213,8 +213,10 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
 
   // ===================== LEGAL TEXT =====================
   void _showLegalText(String title) {
-    String content = LegalTexts.termsOfService;
-    if (title.contains('конфиденц') || title.contains('Құпия') || title.contains('Мәхпий')) content = LegalTexts.privacyPolicy;
+    String content = LegalTexts.getTermsOfService(_selectedLang);
+    if (title.contains('конфиденц') || title.contains('Құпия') || title.contains('Мәхпий')) {
+      content = LegalTexts.getPrivacyPolicy(_selectedLang);
+    }
     showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: Colors.transparent, builder: (c) => Container(
       height: MediaQuery.of(context).size.height * 0.85, padding: const EdgeInsets.all(24),
       decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
@@ -1435,6 +1437,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
           TextSpan(text: _t('tos_link'), style: const TextStyle(color: Color(0xFF4A80F0), fontWeight: FontWeight.w600), recognizer: _tosRecognizer),
           TextSpan(text: _t('tos_and')),
           TextSpan(text: _t('privacy_link'), style: const TextStyle(color: Color(0xFF4A80F0), fontWeight: FontWeight.w600), recognizer: _privacyRecognizer),
+          TextSpan(text: _t('tos_suffix')),
         ]), textAlign: TextAlign.center)),
         const SizedBox(height: 25),
 

@@ -183,7 +183,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _isGuest = false; // Auto-recover from Guest if a user document is loaded
           }
 
-          final String displayName = _isGuest ? 'Гость' : (user?.name ?? _localName);
+          final String displayName = _isGuest ? _t('guest') : (user?.name ?? _localName);
           final String photoUrl = user?.photoUrl ?? '';
 
 
@@ -249,10 +249,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       : (_localImage != null ? FileImage(_localImage!) : null),
 
                                     child: (photoUrl.isEmpty && _localImage == null) 
-                                      ? (displayName.trim().isNotEmpty 
-                                          ? Text(displayName.trim().split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join('').toUpperCase(), 
-                                              style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: Color(0xFF4A80F0)))
-                                          : const Icon(Icons.person, size: 50, color: Color(0xFF4A80F0)))
+                                      ? const Icon(Icons.person_rounded, size: 56, color: Color(0xFF4A80F0))
                                       : null,
                                   ),
                                 ),

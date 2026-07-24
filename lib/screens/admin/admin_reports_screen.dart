@@ -31,6 +31,41 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.done_all_rounded, color: Color(0xFF10B981)),
+            tooltip: 'Прочитать все',
+            onPressed: () async {
+              try {
+                final snapshot = await FirebaseFirestore.instance.collection('reports').get();
+                final batch = FirebaseFirestore.instance.batch();
+                int unreadCount = 0;
+                for (final doc in snapshot.docs) {
+                  if (doc.data()['isRead'] != true) {
+                    batch.update(doc.reference, {'isRead': true});
+                    unreadCount++;
+                  }
+                }
+                if (unreadCount > 0) {
+                  await batch.commit();
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Прочитано жалоб: $unreadCount')),
+                    );
+                  }
+                } else {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Все жалобы уже прочитаны')),
+                    );
+                  }
+                }
+              } catch (e) {
+                debugPrint('Error marking all read: $e');
+              }
+            },
+          ),
+        ],
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance.collection('reports').snapshots(),
@@ -71,10 +106,16 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
               final data = doc.data() as Map<String, dynamic>;
               final timestamp = (data['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now();
               final comment = data['comment'] ?? '';
+              final bool isUnread = data['isRead'] != true;
 
               return Card(
                 margin: const EdgeInsets.only(bottom: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  side: isUnread 
+                      ? const BorderSide(color: Color(0xFFEF4444), width: 1.5)
+                      : BorderSide.none,
+                ),
                 elevation: 0,
                 color: Colors.white,
                 child: InkWell(
@@ -88,6 +129,24 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
                         Row(
                           children: [
                             _typeBadge(data['type'] ?? 'other'),
+                            if (isUnread) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFEF4444),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  'НОВОЕ',
+                                  style: GoogleFonts.inter(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                              ),
+                            ],
                             const Spacer(),
                             Text(DateFormat('dd.MM HH:mm').format(timestamp), style: const TextStyle(fontSize: 12, color: Colors.grey)),
                           ],
@@ -188,6 +247,15 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
 
   void _showReportDetails(BuildContext context, QueryDocumentSnapshot doc, Map<String, dynamic> data) async {
     if (_isProcessing) return;
+
+    if (data['isRead'] != true) {
+      FirebaseFirestore.instance
+          .collection('reports')
+          .doc(doc.id)
+          .update({'isRead': true})
+          .catchError((e) => debugPrint('Error marking report read: $e'));
+    }
+
     setState(() => _isProcessing = true);
     try {
       final timestamp = (data['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now();

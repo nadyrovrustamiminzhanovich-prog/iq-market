@@ -192,6 +192,7 @@ class _ReportUserSheetContentState extends State<_ReportUserSheetContent> {
                             'reporterUserId': reporterId ?? 'anonymous',
                             'type': _selectedType,
                             'comment': _commentCtrl.text.trim(),
+                            'isRead': false,
                             'timestamp': FieldValue.serverTimestamp(),
                           });
 

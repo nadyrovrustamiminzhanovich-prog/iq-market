@@ -1713,6 +1713,7 @@ class _ReportAdSheetContentState extends State<_ReportAdSheetContent> {
                             'reporterUserId': reporterId ?? 'anonymous',
                             'type': _selectedType,
                             'comment': _commentCtrl.text.trim(),
+                            'isRead': false,
                             'timestamp': FieldValue.serverTimestamp(),
                           });
 

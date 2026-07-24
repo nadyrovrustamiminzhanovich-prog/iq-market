@@ -411,13 +411,17 @@ void showTaxiBidDetailsSheet({
                                   border: Border.all(
                                       color: Colors.red.withValues(alpha: 0.15)),
                                 ),
-                                child: Center(
-                                  child: Text(
-                                    'ОТКЛОНИТЬ',
-                                    style: GoogleFonts.inter(
-                                      color: Colors.red,
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 13,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(
+                                      provider.translate('decline_btn').toUpperCase(),
+                                      style: GoogleFonts.inter(
+                                        color: Colors.red,
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 13,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -436,8 +440,8 @@ void showTaxiBidDetailsSheet({
                                   if (c.mounted) {
                                     NotificationService.notify(
                                       c,
-                                      'Принято',
-                                      'Вы согласились на предложение за $offeredPrice ₸',
+                                      provider.translate('acceptedTitle'),
+                                      provider.translate('agreedToPriceMsg').replaceAll('{price}', offeredPrice.toString()),
                                       isSuccess: true,
                                     );
                                     Navigator.pop(c);
@@ -458,27 +462,30 @@ void showTaxiBidDetailsSheet({
                                 }
                               },
                               child: Container(
-                                  height: 54,
-                                  decoration: BoxDecoration(
-                                    gradient: const LinearGradient(
-                                      colors: [
-                                        Color(0xFF84CC16),
-                                        Color(0xFF4D7C0F),
-                                      ],
-                                    ),
-                                    borderRadius: BorderRadius.circular(16),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: const Color(0xFF84CC16)
-                                            .withValues(alpha: 0.3),
-                                        blurRadius: 10,
-                                        offset: const Offset(0, 4),
-                                      ),
+                                height: 54,
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [
+                                      Color(0xFF84CC16),
+                                      Color(0xFF4D7C0F),
                                     ],
                                   ),
-                                  child: Center(
+                                  borderRadius: BorderRadius.circular(16),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(0xFF84CC16)
+                                          .withValues(alpha: 0.3),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
                                     child: Text(
-                                      'ПРИНЯТЬ',
+                                      provider.translate('accept_btn').toUpperCase(),
                                       style: GoogleFonts.inter(
                                         color: Colors.white,
                                         fontWeight: FontWeight.w900,
@@ -487,6 +494,7 @@ void showTaxiBidDetailsSheet({
                                     ),
                                   ),
                                 ),
+                              ),
                             ),
                           ),
                         ],

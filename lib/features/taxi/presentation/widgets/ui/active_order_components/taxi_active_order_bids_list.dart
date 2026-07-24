@@ -266,13 +266,17 @@ class _TaxiActiveOrderBidsListState extends State<TaxiActiveOrderBidsList> {
                                     border: Border.all(
                                         color: Colors.red.withValues(alpha: 0.15)),
                                   ),
-                                  child: Center(
-                                    child: Text(
-                                      'Отклонить',
-                                      style: GoogleFonts.inter(
-                                          color: Colors.red,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 12),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Text(
+                                        provider.translate('decline'),
+                                        style: GoogleFonts.inter(
+                                            color: Colors.red,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 12),
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -312,13 +316,17 @@ class _TaxiActiveOrderBidsListState extends State<TaxiActiveOrderBidsList> {
                                           offset: const Offset(0, 4))
                                     ],
                                   ),
-                                  child: Center(
-                                    child: Text(
-                                      'Принять',
-                                      style: GoogleFonts.inter(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.w800,
-                                          fontSize: 12),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Text(
+                                        provider.translate('accept'),
+                                        style: GoogleFonts.inter(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w800,
+                                            fontSize: 12),
+                                      ),
                                     ),
                                   ),
                                 ),

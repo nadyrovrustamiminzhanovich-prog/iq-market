@@ -813,7 +813,7 @@ class _IQMarketHomeState extends State<IQMarketHome> with WidgetsBindingObserver
               onApproveAd: (_){}, 
               onUpdateAd: (_,__){}, 
               onUpdateProfile: (a,b,c,d,e){}, 
-              currentName: _cachedUser?.name ?? 'Гость', 
+              currentName: _cachedUser?.name ?? TranslationService.t('guest', config.language), 
               isBioEnabled: false, 
               accType: _cachedUser?.accountType ?? 'user', 
               lang: config.language, 

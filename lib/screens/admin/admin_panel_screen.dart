@@ -16,9 +16,6 @@ import 'package:iqmarket/screens/admin/admin_reports_screen.dart';
 import 'package:iqmarket/screens/admin/admin_dashboard_screen.dart';
 import 'package:iqmarket/screens/admin/admin_taxi_screen.dart';
 import 'package:iqmarket/services/ad_service.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 
 class AdminPanelScreen extends StatefulWidget {
   const AdminPanelScreen({super.key});
@@ -167,40 +164,46 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
   }
 
   void _setupRealtimeListeners() {
-    // 1. Listen to Reports
+    // 1. Listen to Unread Reports
     _reportsSub = FirebaseFirestore.instance.collection('reports').snapshots().listen((snapshot) {
       if (!mounted) return;
 
-      final docChanges = snapshot.docChanges;
-      final totalReports = snapshot.docs.length;
+      final unreadCount = snapshot.docs.where((doc) {
+        final data = doc.data();
+        final isRead = data['isRead'] == true;
+        final isResolved = data['status'] == 'resolved' || data['resolved'] == true;
+        return !isRead && !isResolved;
+      }).length;
 
       if (_isInitialReports) {
         setState(() {
-          _reportsCount = totalReports;
+          _reportsCount = unreadCount;
           _isInitialReports = false;
         });
         return;
       }
 
-      // Check for newly added reports
-      for (final change in docChanges) {
+      // Check for newly added unread reports
+      for (final change in snapshot.docChanges) {
         if (change.type == DocumentChangeType.added) {
           final data = change.doc.data();
-          final title = data?['adTitle'] ?? data?['reportedUserName'] ?? 'Жалоба';
-          final type = data?['type'] ?? 'другое';
+          if (data?['isRead'] != true) {
+            final title = data?['adTitle'] ?? data?['reportedUserName'] ?? 'Жалоба';
+            final type = data?['type'] ?? 'другое';
 
-          _showNotificationBanner(
-            title: '⚠️ Новая жалоба!',
-            body: '$title ($type)',
-            onTap: () {
-              Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminReportsScreen()));
-            },
-          );
+            _showNotificationBanner(
+              title: '⚠️ Новая жалоба!',
+              body: '$title ($type)',
+              onTap: () {
+                Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminReportsScreen()));
+              },
+            );
+          }
         }
       }
 
       setState(() {
-        _reportsCount = totalReports;
+        _reportsCount = unreadCount;
       });
     }, onError: (err) {
       debugPrint('Admin reports sub error: $err');
@@ -271,69 +274,6 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
     });
   }
 
-  bool _isMigrating = false;
-
-  Future<void> _runMigration() async {
-    setState(() => _isMigrating = true);
-    try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
-        throw Exception('Пользователь не авторизован');
-      }
-
-      final idToken = await user.getIdToken();
-      final response = await http.post(
-        Uri.parse('https://us-central1-iq-market-3dc07.cloudfunctions.net/migrateUsersContactInfo'),
-        headers: {
-          'Authorization': 'Bearer $idToken',
-          'Content-Type': 'application/json',
-        },
-      );
-
-      if (!mounted) return;
-
-      if (response.statusCode == 200) {
-        final result = json.decode(response.body);
-        final migratedCount = result['migratedCount'] ?? 0;
-        
-        showDialog(
-          context: context,
-          builder: (c) => AlertDialog(
-            title: const Text('Миграция завершена ✅'),
-            content: Text('Успешно перенесено пользователей: $migratedCount'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(c),
-                child: const Text('OK'),
-              ),
-            ],
-          ),
-        );
-      } else {
-        throw Exception('Код ответа ${response.statusCode}: ${response.body}');
-      }
-    } catch (e) {
-      if (!mounted) return;
-      showDialog(
-        context: context,
-        builder: (c) => AlertDialog(
-          title: const Text('Ошибка миграции ❌'),
-          content: Text(e.toString()),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(c),
-              child: const Text('Закрыть'),
-            ),
-          ],
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _isMigrating = false);
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -390,36 +330,6 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                     _buildToolCard(context, 'Рассылка', 'Push-уведомления', PhosphorIcons.paperPlaneTilt(), Colors.pink, () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminNotificationsScreen()))),
                     _buildToolCard(context, 'Жалобы', 'Конфликты', PhosphorIcons.warningCircle(), Colors.red, () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminReportsScreen())), badgeCount: _reportsCount),
                   ],
-                ),
-                const SizedBox(height: 32),
-                SizedBox(
-                  width: double.infinity,
-                  height: 54,
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFEF4444),
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    onPressed: _isMigrating ? null : _runMigration,
-                    icon: _isMigrating
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2,
-                            ),
-                          )
-                        : const Icon(Icons.swap_horiz_rounded),
-                    label: Text(
-                      _isMigrating ? 'Выполняется миграция...' : 'Запустить миграцию контактов',
-                      style: GoogleFonts.inter(fontWeight: FontWeight.bold),
-                    ),
-                  ),
                 ),
               ],
             ),

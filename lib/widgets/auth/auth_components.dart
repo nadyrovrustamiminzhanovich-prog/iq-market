@@ -187,23 +187,39 @@ class AuthSocialLongButton extends StatelessWidget {
             )
           ],
         ),
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            Positioned(
-              left: 20,
-              child: icon,
-            ),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
-                color: textColor ?? (isDark ? Colors.white : Colors.black87),
-                letterSpacing: 0.3,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 32,
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: icon,
+                ),
               ),
-            ),
-          ],
+              const SizedBox(width: 8),
+              Expanded(
+                child: Center(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.center,
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: textColor ?? (isDark ? Colors.white : Colors.black87),
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 32),
+            ],
+          ),
         ),
       ),
     );

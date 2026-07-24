@@ -114,3 +114,36 @@ li {
 .back-link:hover {
   color: var(--primary-hover);
 }
+
+.lang-switcher {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 1.2rem;
+}
+
+.lang-btn {
+  background: var(--border-color);
+  color: var(--text-color);
+  border: none;
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.lang-btn.active, .lang-btn:hover {
+  background: var(--primary-color);
+  color: #fff;
+}
+
+.lang-content {
+  display: none;
+}
+
+.lang-content.active {
+  display: block;
+}
+

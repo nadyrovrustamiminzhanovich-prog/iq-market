@@ -329,13 +329,16 @@ class _TaxiOrderCardState extends State<TaxiOrderCard> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'ПРЕДЛОЖИТЬ СВОЮ ЦЕНУ',
-                    style: GoogleFonts.inter(
-                      fontSize: 9,
-                      fontWeight: FontWeight.w900,
-                      color: const Color(0xFF4F46E5),
-                      letterSpacing: 0.6,
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      widget.provider.translate('suggest_price').toUpperCase(),
+                      style: GoogleFonts.inter(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w900,
+                        color: const Color(0xFF4F46E5),
+                        letterSpacing: 0.6,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -420,12 +423,15 @@ class _TaxiOrderCardState extends State<TaxiOrderCard> {
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              child: Text(
-                'Отправить',
-                style: GoogleFonts.inter(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 0.2,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  widget.provider.translate('send').toUpperCase(),
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.2,
+                  ),
                 ),
               ),
             ),

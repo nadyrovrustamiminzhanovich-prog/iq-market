@@ -268,14 +268,18 @@ class TaxiDriverCard extends StatelessWidget {
                           BoxShadow(color: const Color(0xFF4A80F0).withValues(alpha: 0.15), blurRadius: 8, offset: const Offset(0, 4))
                         ],
                       ),
-                      child: Center(
-                        child: Text(
-                          'ТОРГОВАТЬСЯ',
-                          style: GoogleFonts.inter(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 12,
-                            letterSpacing: 0.5,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            provider.translate('bargain').toUpperCase(),
+                            style: GoogleFonts.inter(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 12,
+                              letterSpacing: 0.5,
+                            ),
                           ),
                         ),
                       ),

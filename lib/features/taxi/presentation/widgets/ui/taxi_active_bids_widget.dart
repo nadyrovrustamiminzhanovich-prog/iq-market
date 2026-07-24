@@ -208,9 +208,12 @@ class _BidRowState extends State<_BidRow> {
   Widget _actionBtn(String label, Color bg, Color textColor, VoidCallback onTap) => GestureDetector(
     onTap: onTap,
     child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12)),
-      child: Text(label, style: GoogleFonts.inter(color: textColor, fontWeight: FontWeight.bold, fontSize: 11)),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(label, style: GoogleFonts.inter(color: textColor, fontWeight: FontWeight.bold, fontSize: 11)),
+      ),
     ),
   );
 }
