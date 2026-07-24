@@ -853,21 +853,26 @@ class _TaxiProfileViewScreenState extends State<TaxiProfileViewScreen> {
   void _showFullScreenImage(BuildContext context, String imageUrl) {
     if (imageUrl.isEmpty) return;
 
-    ImageProvider imageProvider;
     if (imageUrl.startsWith('http')) {
-      imageProvider = NetworkImage(imageUrl);
-    } else {
-      imageProvider = FileImage(File(imageUrl));
-    }
-
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => SecureImageViewerScreen(
-          imageProvider: imageProvider,
-          heroTag: 'taxi_p_${widget.user['name']}',
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => SecureImageViewerScreen(
+            imageUrl: imageUrl,
+            heroTag: 'taxi_p_${widget.user['name']}',
+          ),
         ),
-      ),
-    );
+      );
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => SecureImageViewerScreen(
+            file: File(imageUrl),
+            heroTag: 'taxi_p_${widget.user['name']}',
+          ),
+        ),
+      );
+    }
   }
 }

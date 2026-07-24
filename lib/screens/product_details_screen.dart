@@ -23,6 +23,7 @@ import 'package:iqmarket/providers/app_config_provider.dart';
 import 'package:iqmarket/screens/seller_profile_screen.dart';
 import 'package:iqmarket/screens/leave_review_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:iqmarket/widgets/secure_image_viewer.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:iqmarket/screens/post_ad_screen.dart';
@@ -805,30 +806,13 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   );
 
   void _showFullScreenImage(String url) {
-    showDialog(
-      context: context,
-      builder: (context) => Scaffold(
-        backgroundColor: Colors.black,
-        body: Stack(
-          children: [
-            Center(
-              child: InteractiveViewer(
-                child: (url.isNotEmpty && url.startsWith('http'))
-                  ? CachedNetworkImage(
-                      imageUrl: url,
-                      placeholder: (context, url) => const CircularProgressIndicator(),
-                      errorWidget: (context, url, error) => const Icon(Icons.error, color: Colors.white),
-                    )
-                  : const Icon(Icons.broken_image_rounded, color: Colors.white, size: 50),
-              ),
-            ),
-            // Prominent Back Button
-            Positioned(
-              top: MediaQuery.of(context).padding.top + 10,
-              left: 16,
-              child: _circleButton(Icons.arrow_back_ios_new_rounded, () => Navigator.pop(context)),
-            ),
-          ],
+    if (url.isEmpty) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SecureImageViewerScreen(
+          imageUrl: url,
+          heroTag: 'product_image_$url',
         ),
       ),
     );

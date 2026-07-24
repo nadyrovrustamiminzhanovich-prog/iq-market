@@ -33,9 +33,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:iqmarket/services/analytics_service.dart';
 
-import 'package:gal/gal.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:http/http.dart' as http;
+import 'package:iqmarket/widgets/secure_image_viewer.dart';
 
 import '../widgets/chat/chat_background_painter.dart';
 import '../widgets/chat/chat_bubbles.dart';
@@ -1352,29 +1350,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   void _showFullScreenImage(String url) {
-    final lang = Provider.of<AppConfigProvider>(context, listen: false).language;
-    Navigator.push(context, MaterialPageRoute(builder: (innerCtx) => Scaffold(backgroundColor: Colors.black, appBar: AppBar(backgroundColor: Colors.black, foregroundColor: Colors.white, actions: [IconButton(icon: const Icon(Icons.download_rounded), onPressed: () async {
-      try {
-        final response = await http.get(Uri.parse(url));
-        await Gal.putImageBytes(response.bodyBytes);
-        if (innerCtx.mounted) {
-          ScaffoldMessenger.of(innerCtx).showSnackBar(SnackBar(content: Text(TranslationService.t('saved_to_gallery', lang))));
-        }
-      } catch (e) {
-        if (innerCtx.mounted) {
-          ScaffoldMessenger.of(innerCtx).showSnackBar(
-            SnackBar(content: Text(TranslationService.t('errSavePhoto', lang).replaceAll('{error}', e.toString())), backgroundColor: Colors.redAccent),
-          );
-        }
-      }
-    })]), body: Center(child: InteractiveViewer(child: (url.isNotEmpty && url.startsWith('http')) 
-      ? CachedNetworkImage(
+    if (url.isEmpty) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SecureImageViewerScreen(
           imageUrl: url,
-          placeholder: (context, url) => const CircularProgressIndicator(color: Colors.white),
-          errorWidget: (context, url, error) => const Icon(Icons.error_outline_rounded, color: Colors.white, size: 40),
-        )
-      : const Icon(Icons.broken_image_rounded, color: Colors.white, size: 40)
-    )))));
+          heroTag: 'chat_msg_img_$url',
+        ),
+      ),
+    );
   }
 
   void _navigateToSellerProfile() async {

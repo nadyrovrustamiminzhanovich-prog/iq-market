@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:intl/intl.dart';
-import 'package:flutter/services.dart';
 import 'package:iqmarket/models/ad_model.dart';
 import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -57,6 +57,7 @@ class _ProductCardState extends State<ProductCard> with SingleTickerProviderStat
     final images = ad.images;
     final hasMultiple = images.length > 1;
     final isFree = ad.price == 0.0 || ad.category == 'Отдам даром';
+    final isArchived = ad.status != 'active' || !ad.active;
 
     return RepaintBoundary(
       child: Container(
@@ -223,8 +224,52 @@ class _ProductCardState extends State<ProductCard> with SingleTickerProviderStat
                   ),
                 ),
 
-                // Бейдж "Новый"
-                if (DateTime.now().difference(ad.timestamp).inDays.abs() < 3)
+                // Полупрозрачное затемнение для архивных объявлений
+                if (isArchived)
+                  Positioned.fill(
+                    child: Container(
+                      color: Colors.black.withValues(alpha: 0.35),
+                    ),
+                  ),
+
+                // Бейдж "В АРХИВЕ" или "НОВЫЙ"
+                if (isArchived)
+                  Positioned(
+                    top: 10, left: 10,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFF97316), Color(0xFFEA580C)],
+                        ),
+                        borderRadius: BorderRadius.circular(8),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFF97316).withValues(alpha: 0.4),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          )
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.archive_rounded, color: Colors.white, size: 11),
+                          const SizedBox(width: 4),
+                          Text(
+                            lang == 'Қазақша' ? 'МҰРАҒАТТА' : (lang == 'Уйғурчә' ? 'АРХИВТА' : 'В АРХИВЕ'),
+                            style: GoogleFonts.inter(
+                              color: Colors.white,
+                              fontSize: 8,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                else if (DateTime.now().difference(ad.timestamp).inDays.abs() < 3)
                   Positioned(
                     top: 10, left: 10,
                     child: Container(

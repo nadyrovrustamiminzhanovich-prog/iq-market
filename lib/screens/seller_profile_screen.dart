@@ -14,6 +14,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:iqmarket/widgets/report_user_sheet.dart';
+import 'package:iqmarket/widgets/secure_image_viewer.dart';
 
 class SellerProfileScreen extends StatefulWidget {
   final AdModel seller;
@@ -240,35 +241,15 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
     ),
   );
 
-  void _showFullScreenAvatar(String url) {
+  void _showFullScreenAvatar(String url, {String? customHeroTag}) {
     if (url.isEmpty) return;
     Navigator.push(
       context,
       MaterialPageRoute(
         fullscreenDialog: true,
-        builder: (context) => Scaffold(
-          backgroundColor: Colors.black,
-          appBar: AppBar(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            leading: IconButton(
-              icon: const Icon(Icons.close, color: Colors.white),
-              onPressed: () => Navigator.pop(context),
-            ),
-          ),
-          body: Center(
-            child: InteractiveViewer(
-              child: Hero(
-                tag: 'seller_avatar_fullscreen',
-                child: CachedNetworkImage(
-                  imageUrl: url,
-                  fit: BoxFit.contain,
-                  placeholder: (context, url) => const CircularProgressIndicator(color: Colors.white),
-                  errorWidget: (context, url, error) => const Icon(Icons.error, color: Colors.white),
-                ),
-              ),
-            ),
-          ),
+        builder: (context) => SecureImageViewerScreen(
+          imageUrl: url,
+          heroTag: customHeroTag ?? 'seller_avatar_fullscreen',
         ),
       ),
     );

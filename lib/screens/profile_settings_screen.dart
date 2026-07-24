@@ -576,25 +576,40 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   );
 
   void _showFullScreenPhoto() {
-    final imageProvider = _newImage != null 
-        ? FileImage(_newImage!) 
-        : (widget.profileImagePath != null && widget.profileImagePath!.isNotEmpty
-            ? (widget.profileImagePath!.startsWith('http') 
-                ? NetworkImage(widget.profileImagePath!) as ImageProvider 
-                : FileImage(File(widget.profileImagePath!)))
-            : null);
-    
-    if (imageProvider == null) return;
-
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => SecureImageViewerScreen(
-          imageProvider: imageProvider,
-          heroTag: 'avatar_full_settings',
+    if (_newImage != null) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => SecureImageViewerScreen(
+            file: _newImage,
+            heroTag: 'avatar_full_settings',
+          ),
         ),
-      ),
-    );
+      );
+    } else if (widget.profileImagePath != null && widget.profileImagePath!.isNotEmpty) {
+      final path = widget.profileImagePath!;
+      if (path.startsWith('http')) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => SecureImageViewerScreen(
+              imageUrl: path,
+              heroTag: 'avatar_full_settings',
+            ),
+          ),
+        );
+      } else {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => SecureImageViewerScreen(
+              file: File(path),
+              heroTag: 'avatar_full_settings',
+            ),
+          ),
+        );
+      }
+    }
   }
 
   void _showImagePickerOptions() {

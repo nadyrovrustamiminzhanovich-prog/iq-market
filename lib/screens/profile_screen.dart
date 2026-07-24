@@ -1382,24 +1382,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
 
   void _showFullScreenPhoto(String photoUrl) {
-    ImageProvider? imageProvider;
     if (photoUrl.isNotEmpty && photoUrl.startsWith('http')) {
-      imageProvider = NetworkImage(photoUrl);
-    } else if (_localImage != null) {
-      imageProvider = FileImage(_localImage!);
-    }
-    
-    if (imageProvider == null) return;
-
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => SecureImageViewerScreen(
-          imageProvider: imageProvider!,
-          heroTag: 'avatar_full',
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => SecureImageViewerScreen(
+            imageUrl: photoUrl,
+            heroTag: 'avatar_full',
+          ),
         ),
-      ),
-    );
+      );
+    } else if (_localImage != null) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => SecureImageViewerScreen(
+            file: _localImage,
+            heroTag: 'avatar_full',
+          ),
+        ),
+      );
+    }
   }
 
   void _openSettings(String currentPhotoUrl) {

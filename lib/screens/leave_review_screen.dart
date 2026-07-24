@@ -10,6 +10,7 @@ import 'package:iqmarket/providers/app_config_provider.dart';
 import 'package:iqmarket/services/review_service.dart';
 import 'package:iqmarket/services/file_service.dart';
 import 'package:iqmarket/services/translation_service.dart';
+import 'package:iqmarket/widgets/secure_image_viewer.dart';
 
 class LeaveReviewScreen extends StatefulWidget {
   final AdModel ad;
@@ -244,39 +245,12 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
 
   /// Показывает выбранное локальное фото на весь экран с возможностью масштабирования
   void _showFullScreenImage(File file) {
-    showDialog(
-      context: context,
-      builder: (context) => Scaffold(
-        backgroundColor: Colors.black,
-        body: Stack(
-          children: [
-            Center(
-              child: InteractiveViewer(
-                maxScale: 4.0,
-                minScale: 0.5,
-                child: Image.file(
-                  file,
-                  fit: BoxFit.contain,
-                  width: double.infinity,
-                  height: double.infinity,
-                ),
-              ),
-            ),
-            // Кнопка закрытия
-            Positioned(
-              top: MediaQuery.of(context).padding.top + 10,
-              left: 16,
-              child: CircleAvatar(
-                backgroundColor: Colors.black.withValues(alpha: 0.4),
-                radius: 20,
-                child: IconButton(
-                  icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: Colors.white),
-                  onPressed: () => Navigator.pop(context),
-                  padding: EdgeInsets.zero,
-                ),
-              ),
-            ),
-          ],
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SecureImageViewerScreen(
+          file: file,
+          heroTag: 'review_file_${file.path}',
         ),
       ),
     );

@@ -72,6 +72,21 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
               }
               
               final ads = snapshot.data ?? [];
+              if (snapshot.hasData && ads.length < favoriteIds.length) {
+                final existingIds = ads.map((e) => e.id).toSet();
+                final deadIds = favoriteIds.where((id) => !existingIds.contains(id)).toList();
+                if (deadIds.isNotEmpty) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) {
+                      final provider = context.read<AppConfigProvider>();
+                      for (final deadId in deadIds) {
+                        provider.toggleFavorite(deadId);
+                      }
+                    }
+                  });
+                }
+              }
+
               if (ads.isEmpty) return _buildEmptyState();
 
               return GridView.builder(
