@@ -431,14 +431,18 @@ void main() {
       expect(find.byIcon(Icons.stop_rounded), findsOneWidget);
 
       // Stop recording immediately (which means duration is < 1s)
+      // runAsync delay must cover the 200ms Future.delayed inside _stopRecording()
       await tester.runAsync(() async {
         await gesture.up();
-        await Future.delayed(const Duration(milliseconds: 200));
+        await Future.delayed(const Duration(milliseconds: 600));
       });
       
-      // Pump specific frame changes to handle UI state transition and SnackBar display
+      // Pump multiple frames to flush setState calls and render the SnackBar
       await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
       await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 200));
 
       // Verify that recording stopped (Icon changed back to Icons.mic_rounded)
       expect(find.byIcon(Icons.mic_rounded), findsOneWidget);

@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    name: Build & Analyze
+    name: Build, Analyze & Test
     runs-on: ubuntu-latest
 
     steps:
@@ -24,7 +24,7 @@ jobs:
       - name: 🐦 Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.22.x' # Версия Flutter
+          flutter-version: '3.41.x'
           channel: 'stable'
           cache: true
 
@@ -34,9 +34,8 @@ jobs:
       - name: 🔍 Analyze code (Lint)
         run: flutter analyze
 
-      # У тебя пока нет папки test, но мы оставляем этот шаг на будущее
-      # - name: 🧪 Run tests
-      #   run: flutter test
+      - name: 🧪 Run tests
+        run: flutter test --reporter=compact
 
       - name: 🏗️ Build Release APK
         run: flutter build apk --release
