@@ -1,0 +1,15 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.iqmarket.app",
+      "sha256_cert_fingerprints": [
+        "C0:59:34:43:40:29:2C:C4:EB:25:F0:2E:C6:5C:D3:75:36:AB:F7:8F:03:BE:96:A2:1C:CC:E4:F3:C7:D5:67:82",
+        "86:12:6B:07:30:D3:47:4F:E2:03:AF:16:24:AA:24:F9:06:83:DD:B8:98:77:CA:7D:35:FD:DA:9D:55:A2:35:DC"
+      ]
+    }
+  }
+]
