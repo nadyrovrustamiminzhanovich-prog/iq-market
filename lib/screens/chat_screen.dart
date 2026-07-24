@@ -39,6 +39,9 @@ import '../widgets/chat/chat_background_painter.dart';
 import '../widgets/chat/chat_bubbles.dart';
 import '../widgets/chat/chat_headers.dart';
 import '../widgets/chat/chat_input.dart';
+import '../widgets/chat/chat_date_header.dart';
+import '../widgets/chat/chat_context_menu.dart';
+import '../widgets/chat/chat_empty_state.dart';
 
 class ChatScreen extends StatefulWidget {
   final AdModel ad;
@@ -1183,15 +1186,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   Widget _buildEmptyState() {
-    final lang = Provider.of<AppConfigProvider>(context, listen: false).language;
-    return Center(child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(Icons.chat_bubble_outline_rounded, size: 64, color: Colors.white.withValues(alpha: 0.2)),
-        const SizedBox(height: 16),
-        Text(TranslationService.t('chat_start', lang), style: const TextStyle(color: Colors.white54)),
-      ],
-    ));
+    return const ChatEmptyState();
   }
 
   Widget _buildMessageList(List<MessageModel> messages, Color myColor, Color otherColor) {
@@ -1220,7 +1215,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       itemCount: groupedItems.length,
       itemBuilder: (context, index) {
         final item = groupedItems[index];
-        if (item is DateTime) return _buildDateHeader(item);
+        if (item is DateTime) return ChatDateHeader(date: item);
         final msg = item as MessageModel;
         return ChatBubble(
           msg: msg,
@@ -1279,73 +1274,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildDateHeader(DateTime date) {
-    final lang = Provider.of<AppConfigProvider>(context, listen: false).language;
-    final now = DateTime.now();
-    String text;
-    if (now.day == date.day && now.month == date.month && now.year == date.year) {
-      text = TranslationService.t('today', lang);
-    } else if (now.day - 1 == date.day && now.month == date.month && now.year == date.year) {
-      text = TranslationService.t('yesterday', lang);
-    } else {
-      final locale = lang == 'Қазақша' ? 'kk' : (lang == 'Уйғурчә' ? 'ug' : 'ru');
-      text = DateFormat('d MMMM', locale).format(date);
-    }
-    return Center(child: Container(margin: const EdgeInsets.symmetric(vertical: 12), padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4), decoration: BoxDecoration(color: const Color(0xFF17212D).withValues(alpha: 0.6), borderRadius: BorderRadius.circular(12)), child: Text(text, style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold))));
-  }
-
   void _showContextMenu(MessageModel msg) {
-    final lang = Provider.of<AppConfigProvider>(context, listen: false).language;
-    final bool isMyMessage = msg.senderId == UserService.currentUid;
-    showModalBottomSheet(
-      context: context, 
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: const BoxDecoration(
-          color: Color(0xFF1C2B3A),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min, 
-            children: [
-              Container(
-                margin: const EdgeInsets.only(top: 12, bottom: 8),
-                width: 36, height: 4,
-                decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)),
-              ),
-              if (msg.type == 'text') ListTile(
-                leading: const Icon(Icons.copy_rounded, color: Colors.white70), 
-                title: Text(TranslationService.t('copy_text', lang), style: const TextStyle(color: Colors.white)), 
-                onTap: () { 
-                  Clipboard.setData(ClipboardData(text: msg.text)); 
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(TranslationService.t('copied', lang)),
-                      behavior: SnackBarBehavior.floating,
-                      duration: const Duration(seconds: 1),
-                    ),
-                  );
-                }
-              ),
-              if (isMyMessage) ListTile(
-                leading: const Icon(Icons.delete_forever_rounded, color: Colors.redAccent), 
-                title: Text(TranslationService.t('delete_for_all', lang), style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)), 
-                onTap: () async { 
-                  Navigator.pop(context);
-                  final count = await ChatService.deleteMessages(_otherUserId, [msg.id]); 
-                  if (count == 0 && mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(TranslationService.t('errDeleteMsg', lang)), backgroundColor: Colors.redAccent, behavior: SnackBarBehavior.floating),
-                    );
-                  }
-                }
-              ),
-            ],
-          ),
-        ),
-      ),
+    ChatContextMenu.show(
+      context: context,
+      msg: msg,
+      otherUserId: _otherUserId,
     );
   }
 
