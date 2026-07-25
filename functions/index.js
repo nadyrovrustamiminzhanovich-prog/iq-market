@@ -87,84 +87,157 @@ exports.onNewMessage = onDocumentCreated('chats/{chatId}/messages/{msgId}', asyn
   }
 );
 
-// ─── CRON: Check Expired Ads — каждый день в 03:00 Алматы ────────────────────
-exports.checkExpiredAds = functions.pubsub.schedule('0 3 * * *').timeZone('Asia/Almaty').onRun(async () => {
-    const now              = admin.firestore.Timestamp.now();
-    const warningTimestamp = admin.firestore.Timestamp.fromMillis(Date.now() + 3 * 24 * 60 * 60 * 1000);
-    let expiredCount = 0;
-    let notifyCount  = 0;
-    let batchOps = [];
-    let currentBatch = db.batch();
-    let batchCount = 0;
+// ─── HELPER: Expired Ads Lifecycle Processing ────────────────────────────────
+async function runExpiredAdsCheckLogic() {
+  const now = admin.firestore.Timestamp.now();
+  const thirtyDaysAgo = admin.firestore.Timestamp.fromMillis(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const warningTimestamp = admin.firestore.Timestamp.fromMillis(Date.now() + 3 * 24 * 60 * 60 * 1000);
 
-    try {
-      const expiredAdsSnap = await db.collection('ads')
-        .where('expiresAt', '<=', now)
-        .where('status', '==', 'active')
-        .get();
-      expiredAdsSnap.forEach((doc) => {
-        currentBatch.update(doc.ref, { status: 'archived', active: false });
-        batchCount++;
-        if (batchCount >= 499) {
-          batchOps.push(currentBatch.commit());
-          currentBatch = db.batch();
-          batchCount = 0;
+  let expiredCount = 0;
+  let notifyCount  = 0;
+  let batchOps = [];
+  let currentBatch = db.batch();
+  let batchCount = 0;
+
+  const expiredDocsMap = new Map();
+
+  // 1. Ищем объявления, у которых expiresAt <= текущего времени
+  const expiredByExpirySnap = await db.collection('ads')
+    .where('expiresAt', '<=', now)
+    .where('status', '==', 'active')
+    .get();
+  expiredByExpirySnap.forEach((doc) => expiredDocsMap.set(doc.id, doc));
+
+  // 2. Ищем легаси объявления без expiresAt, которые были созданы > 30 дней назад
+  const expiredByTimestampSnap = await db.collection('ads')
+    .where('timestamp', '<=', thirtyDaysAgo)
+    .where('status', '==', 'active')
+    .get();
+  expiredByTimestampSnap.forEach((doc) => expiredDocsMap.set(doc.id, doc));
+
+  const sendPromises = [];
+
+  // Автоматический перенос просроченных объявлений в архив
+  for (const doc of expiredDocsMap.values()) {
+    const data = doc.data();
+    currentBatch.update(doc.ref, {
+      status: 'archived',
+      active: false,
+      archivedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+    batchCount++;
+    expiredCount++;
+
+    if (batchCount >= 450) {
+      batchOps.push(currentBatch.commit());
+      currentBatch = db.batch();
+      batchCount = 0;
+    }
+
+    // Сохранение уведомления в личный кабинет продавца и отправка Push
+    if (data.userId) {
+      const userRef = db.collection('users').doc(data.userId);
+      const notifPromise = userRef.collection('notifications').add({
+        title: 'Объявление перенесено в архив 📁',
+        body: `Срок размещения «${data.title || 'Объявление'}» (30 дней) истек. Вы можете в любой момент бесплатно продлить его в профиле!`,
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        type: 'ad_archived',
+        isRead: false,
+        data: { adId: doc.id }
+      }).catch(e => console.error('[checkExpiredAds] In-app notif error:', e));
+
+      sendPromises.push(notifPromise);
+
+      const pushPromise = userRef.get().then((userSnap) => {
+        if (userSnap.exists && userSnap.data().fcmToken) {
+          const payload = {
+            token: userSnap.data().fcmToken,
+            notification: {
+              title: 'Объявление перенесено в архив 📁',
+              body: `Срок размещения «${data.title || 'Объявление'}» истек. Продлите его в профиле!`,
+            },
+            data: { type: 'ad_archived', adId: doc.id, click_action: 'FLUTTER_NOTIFICATION_CLICK' },
+          };
+          return admin.messaging().send(payload).catch(e => console.error('[checkExpiredAds] FCM Error:', e));
         }
-        expiredCount++;
       });
-
-      const expiringAdsSnap = await db.collection('ads')
-        .where('expiresAt', '<=', warningTimestamp)
-        .where('expiresAt', '>', now)
-        .where('status', '==', 'active')
-        .get();
-
-      const sendPromises = [];
-
-      for (const doc of expiringAdsSnap.docs) {
-        const data = doc.data();
-        if (data.notifiedExpiry === true) continue;
-        currentBatch.update(doc.ref, { notifiedExpiry: true });
-        batchCount++;
-        if (batchCount >= 499) {
-          batchOps.push(currentBatch.commit());
-          currentBatch = db.batch();
-          batchCount = 0;
-        }
-
-        if (data.userId) {
-          const userSnap = await db.collection('users').doc(data.userId).get();
-          if (userSnap.exists && userSnap.data().fcmToken) {
-            const payload = {
-              token       : userSnap.data().fcmToken,
-              notification: {
-                title: 'Объявление скоро истечет ⏳',
-                body : `Срок размещения "${data.title}" истекает менее чем через 3 дня. Продлите его в профиле!`,
-              },
-              data: { type: 'ad_expiring', adId: doc.id, click_action: 'FLUTTER_NOTIFICATION_CLICK' },
-            };
-            const sendPromise = admin.messaging().send(payload)
-              .then(() => notifyCount++)
-              .catch(e => console.error('Push error:', e));
-            sendPromises.push(sendPromise);
-          }
-        }
-      }
-
-      if (batchCount > 0) batchOps.push(currentBatch.commit());
-      
-      if (batchOps.length > 0 || sendPromises.length > 0) {
-        await Promise.all(batchOps);
-        await Promise.all(sendPromises);
-        console.log(`[checkExpiredAds] Archived ${expiredCount}, notified ${notifyCount}`);
-      } else {
-        console.log('[checkExpiredAds] No expired or expiring ads today.');
-      }
-    } catch (error) {
-      console.error('[checkExpiredAds] Error:', error);
+      sendPromises.push(pushPromise);
     }
   }
-);
+
+  // 3. Отправка предупреждающих уведомлений (за 3 дня до истечения)
+  const expiringAdsSnap = await db.collection('ads')
+    .where('expiresAt', '<=', warningTimestamp)
+    .where('expiresAt', '>', now)
+    .where('status', '==', 'active')
+    .get();
+
+  for (const doc of expiringAdsSnap.docs) {
+    const data = doc.data();
+    if (data.notifiedExpiry === true) continue;
+    currentBatch.update(doc.ref, { notifiedExpiry: true });
+    batchCount++;
+    if (batchCount >= 450) {
+      batchOps.push(currentBatch.commit());
+      currentBatch = db.batch();
+      batchCount = 0;
+    }
+
+    if (data.userId) {
+      const userSnap = await db.collection('users').doc(data.userId).get();
+      if (userSnap.exists && userSnap.data().fcmToken) {
+        const payload = {
+          token       : userSnap.data().fcmToken,
+          notification: {
+            title: 'Объявление скоро истечет ⏳',
+            body : `Срок размещения «${data.title}» истекает менее чем через 3 дня. Продлите его в профиле!`,
+          },
+          data: { type: 'ad_expiring', adId: doc.id, click_action: 'FLUTTER_NOTIFICATION_CLICK' },
+        };
+        const sendPromise = admin.messaging().send(payload)
+          .then(() => notifyCount++)
+          .catch(e => console.error('[checkExpiredAds] Warning Push error:', e));
+        sendPromises.push(sendPromise);
+      }
+    }
+  }
+
+  if (batchCount > 0) batchOps.push(currentBatch.commit());
+
+  if (batchOps.length > 0 || sendPromises.length > 0) {
+    await Promise.all(batchOps);
+    await Promise.all(sendPromises);
+    console.log(`[checkExpiredAds] Archived ${expiredCount}, notified ${notifyCount}`);
+  } else {
+    console.log('[checkExpiredAds] No expired or expiring ads today.');
+  }
+
+  return { expiredCount, notifyCount };
+}
+
+// ─── CRON: Check Expired Ads — каждый день в 03:00 Алматы ────────────────────
+exports.checkExpiredAds = functions.pubsub.schedule('0 3 * * *').timeZone('Asia/Almaty').onRun(async () => {
+  try {
+    await runExpiredAdsCheckLogic();
+  } catch (error) {
+    console.error('[checkExpiredAds] Cron Error:', error);
+  }
+});
+
+// ─── HTTPS CALLABLE: Admin manual trigger for ad lifecycle check ─────────────
+exports.triggerAdLifecycleCheck = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Авторизуйтесь для выполнения операции');
+  }
+
+  const requesterSnap = await db.collection('users').doc(context.auth.uid).get();
+  if (!requesterSnap.exists || requesterSnap.data().accountType !== 'admin') {
+    throw new functions.https.HttpsError('permission-denied', 'Доступ разрешен только администраторам');
+  }
+
+  const result = await runExpiredAdsCheckLogic();
+  return { success: true, ...result };
+});
 
 // Rate limiting map for Gemini proxy (in-memory per container instance)
 const geminiRateLimitMap = new Map();
@@ -1063,14 +1136,6 @@ exports.onVoiceMessageUpload = functions.storage.object().onFinalize(async (obje
 
 // ─── HTTPS CALLABLE: incrementViewCount ────────────────────────────────────────
 exports.incrementViewCount = functions.https.onCall(async (data, context) => {
-  // Требование Firebase App Check
-  if (!context.app) {
-    throw new functions.https.HttpsError(
-      'failed-precondition',
-      'The function must be called from an App Check verified app.'
-    );
-  }
-
   // Требование авторизации
   if (!context.auth) {
     throw new functions.https.HttpsError(
@@ -1135,7 +1200,12 @@ exports.incrementViewCount = functions.https.onCall(async (data, context) => {
       createdAt: admin.firestore.FieldValue.serverTimestamp() // для TTL политики (удаление через 24 часа)
     });
 
-    // 4. Инкремент счетчика в ads/{listingId}/stats/counters
+    // 4. Атомарный инкремент счетчика просмотров прямо в документе объявления ads/{listingId}
+    transaction.update(adRef, {
+      views: admin.firestore.FieldValue.increment(1)
+    });
+
+    // 5. Инкремент счетчика в ads/{listingId}/stats/counters (для аналитики)
     transaction.set(statsRef, {
       viewsCount: admin.firestore.FieldValue.increment(1)
     }, { merge: true });
@@ -1146,14 +1216,6 @@ exports.incrementViewCount = functions.https.onCall(async (data, context) => {
 
 // ─── HTTPS CALLABLE: incrementCallCount ────────────────────────────────────────
 exports.incrementCallCount = functions.https.onCall(async (data, context) => {
-  // Требование Firebase App Check
-  if (!context.app) {
-    throw new functions.https.HttpsError(
-      'failed-precondition',
-      'The function must be called from an App Check verified app.'
-    );
-  }
-
   // Требование авторизации
   if (!context.auth) {
     throw new functions.https.HttpsError(
@@ -1191,6 +1253,11 @@ exports.incrementCallCount = functions.https.onCall(async (data, context) => {
       `Объявление не активно (статус: ${status}, активность: ${isActive})`
     );
   }
+
+  // Инкрементируем callsCount прямо в документе объявления ads/{listingId}
+  await adRef.update({
+    callsCount: admin.firestore.FieldValue.increment(1)
+  });
 
   // Инкрементируем callsCount в ads/{listingId}/stats/counters
   const statsRef = db.collection('ads').doc(listingId).collection('stats').doc('counters');

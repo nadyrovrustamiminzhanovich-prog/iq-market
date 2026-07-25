@@ -97,9 +97,43 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   void _incrementViewCount() async {
     if (FirebaseAuth.instance.currentUser == null) return;
     try {
-      await FirebaseFunctions.instance
+      final res = await FirebaseFunctions.instance
           .httpsCallable('incrementViewCount')
           .call({'listingId': widget.ad.id});
+      
+      if (res.data != null && res.data['success'] == true && mounted) {
+        final currentViews = _updatedAd?.views ?? widget.ad.views;
+        final baseAd = _updatedAd ?? widget.ad;
+        setState(() {
+          _updatedAd = AdModel(
+            id: baseAd.id,
+            title: baseAd.title,
+            description: baseAd.description,
+            price: baseAd.price,
+            category: baseAd.category,
+            images: baseAd.images,
+            videoUrl: baseAd.videoUrl,
+            userId: baseAd.userId,
+            userName: baseAd.userName,
+            userEmail: baseAd.userEmail,
+            userPhone: baseAd.userPhone,
+            timestamp: baseAd.timestamp,
+            views: currentViews + 1,
+            favoritesCount: baseAd.favoritesCount,
+            status: baseAd.status,
+            active: baseAd.active,
+            location: baseAd.location,
+            isBargainAllowed: baseAd.isBargainAllowed,
+            condition: baseAd.condition,
+            canExchange: baseAd.canExchange,
+            hasDelivery: baseAd.hasDelivery,
+            extraFields: baseAd.extraFields,
+            expiresAt: baseAd.expiresAt,
+            notifiedExpiry: baseAd.notifiedExpiry,
+            oldPrice: baseAd.oldPrice,
+          );
+        });
+      }
     } catch (e) {
       debugPrint('Error incrementing view count: $e');
     }
@@ -639,6 +673,12 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
         ),
         const SizedBox(width: 8),
         Text(_formatFullDate(widget.ad.timestamp), style: GoogleFonts.inter(fontSize: 14, color: const Color(0xFF94A3B8))),
+        if (_currentUser?.accountType == 'admin') ...[
+          const SizedBox(width: 12),
+          const Icon(Icons.remove_red_eye_outlined, size: 16, color: Color(0xFF94A3B8)),
+          const SizedBox(width: 4),
+          Text('${(_updatedAd?.views ?? widget.ad.views)}', style: GoogleFonts.inter(fontSize: 14, color: const Color(0xFF94A3B8), fontWeight: FontWeight.w700)),
+        ],
       ]),
     ]),
   );

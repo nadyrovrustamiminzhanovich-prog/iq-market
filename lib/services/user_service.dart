@@ -139,6 +139,9 @@ class UserService {
       
       if (publicData.isNotEmpty) {
         await users.doc(uid).update(publicData);
+        if (publicData.containsKey('name') || publicData.containsKey('photoUrl')) {
+          _syncProfileToChats(uid, name: publicData['name'], photoUrl: publicData['photoUrl']);
+        }
       }
       
       if (contactData.isNotEmpty) {
@@ -151,6 +154,28 @@ class UserService {
     } catch (e) {
       debugPrint('Error updating user profile: $e');
       rethrow;
+    }
+  }
+
+  /// Синхронизация нового имени/аватарки по всем диалогам пользователя
+  static Future<void> _syncProfileToChats(String uid, {String? name, String? photoUrl}) async {
+    try {
+      final chatsSnap = await _db.collection('chats').where('users', arrayContains: uid).get();
+      if (chatsSnap.docs.isEmpty) return;
+
+      final batch = _db.batch();
+      for (var doc in chatsSnap.docs) {
+        final Map<String, dynamic> updates = {};
+        if (name != null) updates['name_$uid'] = name;
+        if (photoUrl != null) updates['avatar_$uid'] = photoUrl;
+        if (updates.isNotEmpty) {
+          batch.update(doc.reference, updates);
+        }
+      }
+      await batch.commit();
+      debugPrint('[UserService] Synced updated profile to ${chatsSnap.docs.length} active chats ✅');
+    } catch (e) {
+      debugPrint('[UserService] Error syncing profile to chats: $e');
     }
   }
 

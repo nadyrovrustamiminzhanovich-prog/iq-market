@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -201,209 +200,225 @@ class AdService {
     }
 
     // 3. Загрузка pre-compressed фото в Firebase Storage
+    final List<String> newlyUploadedUrls = [];
     List<String> imageUrls = [];
-    for (int i = 0; i < compressedImages.length; i++) {
-      if (onStatusUpdate != null) onStatusUpdate('Загрузка фото ${i + 1}/${compressedImages.length}...');
-      final file = compressedImages[i];
-      try {
+    String? videoUrl;
+
+    try {
+      for (int i = 0; i < compressedImages.length; i++) {
+        if (onStatusUpdate != null) onStatusUpdate('Загрузка фото ${i + 1}/${compressedImages.length}...');
+        final file = compressedImages[i];
         final url = await FileService.uploadFile(file, 'ads/images');
         if (url != null) {
           imageUrls.add(url);
+          newlyUploadedUrls.add(url);
         } else {
-          throw Exception('Не удалось загрузить фото ${i+1}');
+          throw Exception('Не удалось загрузить фото ${i + 1}');
         }
-      } catch (e) {
-        throw Exception('Ошибка при загрузке фото: $e');
       }
-    }
 
-    // 3. Загрузка оптимизированного видео
-    String? videoUrl;
-    if (video != null) {
-      if (onStatusUpdate != null) onStatusUpdate('Загрузка видео...');
-      videoUrl = await FileService.uploadFile(video, 'ads/videos');
+      // 3. Загрузка оптимизированного видео
+      if (video != null) {
+        if (onStatusUpdate != null) onStatusUpdate('Загрузка видео...');
+        videoUrl = await FileService.uploadFile(video, 'ads/videos');
+        if (videoUrl != null) {
+          newlyUploadedUrls.add(videoUrl);
+        }
 
-      // Если нет фотографий, сгенерируем обложку из видео
-      if (imageUrls.isEmpty) {
+        // Если нет фотографий, сгенерируем обложку из видео
+        if (imageUrls.isEmpty) {
+          try {
+            if (onStatusUpdate != null) onStatusUpdate('Создание обложки из видео...');
+            final thumbnailFile = await VideoCompress.getFileThumbnail(
+              video.path,
+              quality: 75,
+              position: 100, // 100ms is safer than -1 which often fails
+            );
+            final thumbnailUrl = await FileService.uploadFile(thumbnailFile, 'ads/images');
+            if (thumbnailUrl != null) {
+              imageUrls.add(thumbnailUrl);
+              newlyUploadedUrls.add(thumbnailUrl);
+              debugPrint('[AdService] Generated video thumbnail: $thumbnailUrl');
+            }
+          } catch (e) {
+            debugPrint('[AdService] Failed to generate video thumbnail: $e');
+          }
+        }
+      }
+
+      // 4. Подготовка данных и вызов Серверной верификации отпечатков
+      final String savedAdId = initialAdId ?? _adsCollection.doc().id;
+      final userData = await UserService.getUserById(user.uid);
+      final isAdmin = userData?.accountType == 'admin';
+
+      // Исходная активность и статус на основе ИИ-модерации
+      bool finalActive = moderationVerdict == 'APPROVED' || isAdmin;
+      String finalStatus = finalActive ? 'active' : 'pending';
+
+      // Если ИИ одобрил объявление (и пользователь не админ), проверяем на дубликаты
+      if (finalActive && !isAdmin) {
+        if (onStatusUpdate != null) onStatusUpdate('Проверка на дубликаты...');
         try {
-          if (onStatusUpdate != null) onStatusUpdate('Создание обложки из видео...');
-          final thumbnailFile = await VideoCompress.getFileThumbnail(
-            video.path,
-            quality: 75,
-            position: 100, // 100ms is safer than -1 which often fails
+          final callable = FirebaseFunctions.instance.httpsCallable('checkAdFingerprint');
+          final allImages = [...(existingImages ?? []), ...imageUrls];
+
+          final response = await callable.call({
+            'title': title,
+            'description': description,
+            'imagePaths': allImages,
+            'adId': savedAdId,
+          });
+
+          final String serverVerdict = response.data['verdict'] ?? 'CLEAN';
+          if (serverVerdict == 'MANUAL_REVIEW') {
+            // Если найден дубль у другого пользователя — отправляем на ручную проверку
+            finalActive = false;
+            finalStatus = 'pending';
+            debugPrint('[AdService] Ad fingerprint marked as MANUAL_REVIEW by server.');
+          }
+        } on FirebaseFunctionsException catch (e, stack) {
+          if (e.code == 'already-exists') {
+            throw Exception('Вы уже опубликовали точно такое же объявление');
+          }
+          // Fail-open логирование сбоя проверки на дубликаты
+          AnalyticsService.logFingerprintCheckFailure(
+            error: e,
+            stack: stack,
+            adId: savedAdId,
+            userId: _userId,
+            errorCode: e.code,
           );
-          final thumbnailUrl = await FileService.uploadFile(thumbnailFile, 'ads/images');
-          if (thumbnailUrl != null) {
-            imageUrls.add(thumbnailUrl);
-            debugPrint('[AdService] Generated video thumbnail: $thumbnailUrl');
+          debugPrint('[AdService] checkAdFingerprint error (fail-open): ${e.message}');
+        } catch (e, stack) {
+          if (e.toString().contains('Вы уже опубликовали точно такое же объявление')) {
+            rethrow;
+          }
+          // Fail-open логирование общего сбоя
+          AnalyticsService.logFingerprintCheckFailure(
+            error: e,
+            stack: stack,
+            adId: savedAdId,
+            userId: _userId,
+            errorCode: 'unknown_exception',
+          );
+          debugPrint('[AdService] checkAdFingerprint general error (fail-open): $e');
+        }
+      }
+
+      // Get original ad owner if editing (to prevent changing userId and failing firestore rules)
+      String finalUserId = user.uid;
+      String finalUserName = user.displayName ?? 'Пользователь';
+      String finalUserEmail = user.email ?? '';
+
+      if (initialAdId != null) {
+        try {
+          final existingAdDoc = await _adsCollection.doc(initialAdId).get();
+          if (existingAdDoc.exists) {
+            final existingData = existingAdDoc.data() as Map<String, dynamic>?;
+            if (existingData != null && existingData.containsKey('userId')) {
+              finalUserId = existingData['userId'];
+              finalUserName = existingData['userName'] ?? finalUserName;
+              finalUserEmail = existingData['userEmail'] ?? finalUserEmail;
+            }
           }
         } catch (e) {
-          debugPrint('[AdService] Failed to generate video thumbnail: $e');
+          debugPrint('[AdService] Error fetching original ad owner: $e');
         }
       }
-    }
 
-    // 4. Подготовка данных и вызов Серверной верификации отпечатков
-    final String savedAdId = initialAdId ?? _adsCollection.doc().id;
-    final userData = await UserService.getUserById(user.uid);
-    final isAdmin = userData?.accountType == 'admin';
-
-    // Исходная активность и статус на основе ИИ-модерации
-    bool finalActive = moderationVerdict == 'APPROVED' || isAdmin;
-    String finalStatus = finalActive ? 'active' : 'pending';
-
-    // Если ИИ одобрил объявление (и пользователь не админ), проверяем на дубликаты
-    if (finalActive && !isAdmin) {
-      if (onStatusUpdate != null) onStatusUpdate('Проверка на дубликаты...');
-      try {
-        final callable = FirebaseFunctions.instance.httpsCallable('checkAdFingerprint');
-        final allImages = [...(existingImages ?? []), ...imageUrls];
-
-        final response = await callable.call({
-          'title': title,
-          'description': description,
-          'imagePaths': allImages,
-          'adId': savedAdId,
-        });
-
-        final String serverVerdict = response.data['verdict'] ?? 'CLEAN';
-        if (serverVerdict == 'MANUAL_REVIEW') {
-          // Если найден дубль у другого пользователя — отправляем на ручную проверку
-          finalActive = false;
-          finalStatus = 'pending';
-          debugPrint('[AdService] Ad fingerprint marked as MANUAL_REVIEW by server.');
+      // 🔒 Auto-sync phone number to user profile in Firestore (only if creator is editing)
+      if (userPhone.isNotEmpty && finalUserId == user.uid) {
+        try {
+          final uid = user.uid;
+          final userDocRef = _db.collection('users').doc(uid);
+          await userDocRef.collection('private').doc('contact').set({
+            'phone': userPhone,
+            'updated_at': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+          debugPrint('[AdService] Auto-synced phone to profile: $userPhone');
+        } catch (e) {
+          debugPrint('[AdService] Auto-sync phone to profile failed: $e');
         }
-      } on FirebaseFunctionsException catch (e, stack) {
-        if (e.code == 'already-exists') {
-          throw Exception('Вы уже опубликовали точно такое же объявление');
-        }
-        // Fail-open логирование сбоя проверки на дубликаты
-        AnalyticsService.logFingerprintCheckFailure(
-          error: e,
-          stack: stack,
-          adId: savedAdId,
-          userId: _userId,
-          errorCode: e.code,
-        );
-        debugPrint('[AdService] checkAdFingerprint error (fail-open): ${e.message}');
-      } catch (e, stack) {
-        if (e.toString().contains('Вы уже опубликовали точно такое же объявление')) {
-          rethrow;
-        }
-        // Fail-open логирование общего сбоя
-        AnalyticsService.logFingerprintCheckFailure(
-          error: e,
-          stack: stack,
-          adId: savedAdId,
-          userId: _userId,
-          errorCode: 'unknown_exception',
-        );
-        debugPrint('[AdService] checkAdFingerprint general error (fail-open): $e');
       }
-    }
 
-    // Get original ad owner if editing (to prevent changing userId and failing firestore rules)
-    String finalUserId = user.uid;
-    String finalUserName = user.displayName ?? 'Пользователь';
-    String finalUserEmail = user.email ?? '';
+      final adModel = AdModel(
+        id: savedAdId,
+        title: title,
+        description: description,
+        price: double.tryParse(price.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0.0,
+        category: category,
+        images: [...(existingImages ?? []), ...imageUrls],
+        videoUrl: videoUrl,
+        userId: finalUserId,
+        userName: finalUserName,
+        userEmail: finalUserEmail,
+        userPhone: userPhone,
+        timestamp: DateTime.now(),
+        location: location,
+        condition: condition,
+        isBargainAllowed: bargain,
+        canExchange: exchange,
+        hasDelivery: delivery,
+        active: finalActive,
+        status: finalStatus,
+        extraFields: extraFields,
+        expiresAt: DateTime.now().add(const Duration(days: 30)),
+      );
 
-    if (initialAdId != null) {
-      try {
-        final existingAdDoc = await _adsCollection.doc(initialAdId).get();
-        if (existingAdDoc.exists) {
-          final existingData = existingAdDoc.data() as Map<String, dynamic>?;
-          if (existingData != null && existingData.containsKey('userId')) {
-            finalUserId = existingData['userId'];
-            finalUserName = existingData['userName'] ?? finalUserName;
-            finalUserEmail = existingData['userEmail'] ?? finalUserEmail;
+      // 5. Сохранение
+      if (onStatusUpdate != null) onStatusUpdate('Сохранение...');
+      if (initialAdId != null) {
+        await updateAd(initialAdId, adModel.toMap());
+      } else {
+        await createAd(adModel, customId: savedAdId);
+      }
+
+      // 📣 X10 NOTIFICATION: Отправляем уведомление админу в Телеграм для всех новых и обновленных объявлений
+      if (savedAdId.isNotEmpty) {
+        try {
+          final displayTitle = initialAdId != null ? '🔄 [ОБНОВЛЕНО] $title' : title;
+          if (finalActive) {
+            // Если одобрено ИИ — отправляем информационное уведомление с кнопкой "Отклонить"
+            await TelegramBotService.notifyAdminAdAutoApproved(
+              adId: savedAdId,
+              title: displayTitle,
+              price: price,
+              category: category,
+              userName: adModel.userName,
+              description: description,
+              imageUrls: adModel.images,
+            );
+          } else {
+            // Если требует ручной модерации — отправляем алерт на ручную проверку (кнопки "Одобрить"/"Отклонить")
+            await TelegramBotService.notifyAdminNewAd(
+              adId: savedAdId,
+              title: displayTitle,
+              price: price,
+              category: category,
+              userName: adModel.userName,
+              reason: '🤖 ИИ или правила запросили ручную проверку (MANUAL_REVIEW).',
+              description: description,
+              imageUrls: adModel.images,
+            );
           }
+        } catch (e) {
+          debugPrint('[AdService] Failed to notify admin via Telegram: $e');
         }
-      } catch (e) {
-        debugPrint('[AdService] Error fetching original ad owner: $e');
       }
-    }
 
-    // 🔒 Auto-sync phone number to user profile in Firestore (only if creator is editing)
-    if (userPhone.isNotEmpty && finalUserId == user.uid) {
-      try {
-        final uid = user.uid;
-        final userDocRef = _db.collection('users').doc(uid);
-        await userDocRef.collection('private').doc('contact').set({
-          'phone': userPhone,
-          'updated_at': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
-        debugPrint('[AdService] Auto-synced phone to profile: $userPhone');
-      } catch (e) {
-        debugPrint('[AdService] Auto-sync phone to profile failed: $e');
-      }
-    }
-
-    final adModel = AdModel(
-      id: savedAdId,
-      title: title,
-      description: description,
-      price: double.tryParse(price.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0.0,
-      category: category,
-      images: [...(existingImages ?? []), ...imageUrls],
-      videoUrl: videoUrl,
-      userId: finalUserId,
-      userName: finalUserName,
-      userEmail: finalUserEmail,
-      userPhone: userPhone,
-      timestamp: DateTime.now(),
-      location: location,
-      condition: condition,
-      isBargainAllowed: bargain,
-      canExchange: exchange,
-      hasDelivery: delivery,
-      active: finalActive,
-      status: finalStatus,
-      extraFields: extraFields,
-      expiresAt: DateTime.now().add(const Duration(days: 30)),
-    );
-
-    // 5. Сохранение
-    if (onStatusUpdate != null) onStatusUpdate('Сохранение...');
-    if (initialAdId != null) {
-      await updateAd(initialAdId, adModel.toMap());
-    } else {
-      await createAd(adModel, customId: savedAdId);
-    }
-
-    // 📣 X10 NOTIFICATION: Отправляем уведомление админу в Телеграм для всех новых и обновленных объявлений
-    if (savedAdId.isNotEmpty) {
-      try {
-        final displayTitle = initialAdId != null ? '🔄 [ОБНОВЛЕНО] $title' : title;
-        if (finalActive) {
-          // Если одобрено ИИ — отправляем информационное уведомление с кнопкой "Отклонить"
-          await TelegramBotService.notifyAdminAdAutoApproved(
-            adId: savedAdId,
-            title: displayTitle,
-            price: price,
-            category: category,
-            userName: adModel.userName,
-            description: description,
-            imageUrls: adModel.images,
-          );
-        } else {
-          // Если требует ручной модерации — отправляем алерт на ручную проверку (кнопки "Одобрить"/"Отклонить")
-          await TelegramBotService.notifyAdminNewAd(
-            adId: savedAdId,
-            title: displayTitle,
-            price: price,
-            category: category,
-            userName: adModel.userName,
-            reason: '🤖 ИИ или правила запросили ручную проверку (MANUAL_REVIEW).',
-            description: description,
-            imageUrls: adModel.images,
-          );
+      return savedAdId;
+    } catch (e) {
+      // 🔒 Senior Orphaned File Cleanup: Delete any newly uploaded files if publication process fails mid-way
+      if (newlyUploadedUrls.isNotEmpty) {
+        debugPrint('[AdService] Emergency cleanup: deleting ${newlyUploadedUrls.length} orphaned files due to error: $e');
+        try {
+          await FileService.deleteMultipleFiles(newlyUploadedUrls);
+        } catch (cleanupError) {
+          debugPrint('[AdService] Failed to cleanup orphaned files: $cleanupError');
         }
-      } catch (e) {
-        debugPrint('[AdService] Failed to notify admin via Telegram: $e');
       }
+      rethrow;
     }
-
-    return savedAdId;
   }
 
   /// Get a single ad by ID
@@ -424,6 +439,39 @@ class AdService {
   }
 
 
+  /// Генерация поисковых токенов для полнотекстового индексирования в Firestore
+  static List<String> generateSearchKeywords({
+    required String title,
+    required String description,
+    required String category,
+    required String location,
+  }) {
+    final Set<String> tokens = {};
+
+    void extractTokens(String text) {
+      if (text.trim().isEmpty) return;
+      final clean = text.toLowerCase();
+      final words = clean.split(RegExp(r'[^a-z0-9а-яёәғқңөұүһі]+')).where((w) => w.length >= 2);
+
+      for (final word in words) {
+        tokens.add(word);
+        // Добавляем префиксы от 2 до 10 символов для быстрого поиска на лету
+        for (int i = 2; i <= word.length && i <= 10; i++) {
+          tokens.add(word.substring(0, i));
+        }
+      }
+    }
+
+    extractTokens(title);
+    extractTokens(category);
+    extractTokens(location);
+    if (description.isNotEmpty) {
+      extractTokens(description.length > 250 ? description.substring(0, 250) : description);
+    }
+
+    return tokens.take(120).toList();
+  }
+
   /// Create a new advertisement in Firestore (supports optional customId)
   static Future<String?> createAd(AdModel ad, {String? customId}) async {
     final user = _auth.currentUser;
@@ -431,7 +479,14 @@ class AdService {
 
     try {
       final docRef = customId != null ? _adsCollection.doc(customId) : _adsCollection.doc();
-      await docRef.set(ad.toMap());
+      final mapData = ad.toMap();
+      mapData['searchKeywords'] = generateSearchKeywords(
+        title: ad.title,
+        description: ad.description,
+        category: ad.category,
+        location: ad.location,
+      );
+      await docRef.set(mapData);
       return docRef.id;
     } catch (e) {
       debugPrint('Error creating ad: $e');
@@ -618,7 +673,20 @@ class AdService {
       if (!doc.exists) return;
       final oldAd = AdModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
 
-      // 2. Выполняем обновление
+      // 2. Авто-обновление поисковых токенов при изменении текста
+      final String title = updates['title'] ?? oldAd.title;
+      final String description = updates['description'] ?? oldAd.description;
+      final String category = updates['category'] ?? oldAd.category;
+      final String location = updates['location'] ?? oldAd.location;
+
+      updates['searchKeywords'] = generateSearchKeywords(
+        title: title,
+        description: description,
+        category: category,
+        location: location,
+      );
+
+      // 3. Выполняем обновление
       await _adsCollection.doc(adId).update(updates);
 
       // 3. Логика уведомления о снижении цены
@@ -854,20 +922,94 @@ class AdService {
     }
   }
 
-  /// Search ads by query
+  /// Search ads by query with native Firestore index search + relevance ranking
   static Future<List<AdModel>> searchAds(String query) async {
-    // Ограничиваем выборку для поиска, так как Firestore не поддерживает полнотекстовый поиск напрямую
-    final snapshot = await _adsCollection
-        .where('active', isEqualTo: true)
-        .where('status', isEqualTo: 'active')
-        .orderBy('timestamp', descending: true)
-        .limit(100) // Ищем среди последних 100
-        .get();
-        
-    return snapshot.docs
-        .map((doc) => AdModel.fromMap(doc.data() as Map<String, dynamic>, doc.id))
-        .where((ad) => FuzzyMatcher.isMatch(query, '${ad.title} ${ad.description}'))
-        .toList();
+    final cleanQuery = query.trim();
+    if (cleanQuery.isEmpty) return [];
+
+    try {
+      final isOffline = await NetworkService.isOffline();
+      final queryTokens = generateSearchKeywords(
+        title: cleanQuery,
+        description: '',
+        category: '',
+        location: '',
+      );
+
+      final Map<String, AdModel> candidatesMap = {};
+
+      // 1. Полнотекстовый поиск через GIN-индекс Firestore (arrayContainsAny по токенам)
+      if (queryTokens.isNotEmpty) {
+        try {
+          final indexedSnap = await _adsCollection
+              .where('active', isEqualTo: true)
+              .where('status', isEqualTo: 'active')
+              .where('searchKeywords', arrayContainsAny: queryTokens.take(10).toList())
+              .limit(200)
+              .get(GetOptions(source: isOffline ? Source.cache : Source.serverAndCache));
+
+          for (var doc in indexedSnap.docs) {
+            final ad = AdModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
+            candidatesMap[ad.id] = ad;
+          }
+        } catch (e) {
+          debugPrint('[AdService] searchKeywords index query fallback: $e');
+        }
+      }
+
+      // 2. Фолбэк для неиндексированных старых объявлений или малого количества результатов
+      if (candidatesMap.length < 20) {
+        final recentSnap = await _adsCollection
+            .where('active', isEqualTo: true)
+            .where('status', isEqualTo: 'active')
+            .orderBy('timestamp', descending: true)
+            .limit(200)
+            .get(GetOptions(source: isOffline ? Source.cache : Source.serverAndCache));
+
+        for (var doc in recentSnap.docs) {
+          final ad = AdModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
+          candidatesMap[ad.id] = ad;
+        }
+      }
+
+      // 3. Отбор совпадений через FuzzyMatcher
+      final List<AdModel> results = [];
+      for (var ad in candidatesMap.values) {
+        final isMatch = FuzzyMatcher.isMatch(cleanQuery, '${ad.title} ${ad.description} ${ad.category} ${ad.location}');
+        if (isMatch) {
+          results.add(ad);
+        }
+      }
+
+      // 4. Сеньор-ранжирование по релевантности (Точное совпадение в заголовке > Префикс > Описание)
+      final qLower = cleanQuery.toLowerCase();
+      results.sort((a, b) {
+        final aTitle = a.title.toLowerCase();
+        final bTitle = b.title.toLowerCase();
+
+        final aExact = aTitle == qLower;
+        final bExact = bTitle == qLower;
+        if (aExact && !bExact) return -1;
+        if (!aExact && bExact) return 1;
+
+        final aPrefix = aTitle.startsWith(qLower);
+        final bPrefix = bTitle.startsWith(qLower);
+        if (aPrefix && !bPrefix) return -1;
+        if (!aPrefix && bPrefix) return 1;
+
+        final aContains = aTitle.contains(qLower);
+        final bContains = bTitle.contains(qLower);
+        if (aContains && !bContains) return -1;
+        if (!aContains && bContains) return 1;
+
+        return b.timestamp.compareTo(a.timestamp);
+      });
+
+      return results;
+    } catch (e) {
+      debugPrint('Error searching ads: $e');
+      return [];
+    }
   }
 
   /// Get similar ads by category

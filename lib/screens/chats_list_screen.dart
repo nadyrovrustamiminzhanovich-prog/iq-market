@@ -222,105 +222,118 @@ class _ChatsListScreenState extends State<ChatsListScreen> {
               
               final List users = chat['users'] ?? [];
               final String sellerId = users.firstWhere((id) => id != uid, orElse: () => '');
-              final String sellerName = chat['name_$sellerId'] ?? 'Пользователь';
-              
-              final ad = AdModel(
-                id: chat['adId'] ?? '', title: adTitle, description: '', price: 0.0, category: '',
-                images: adImage.isNotEmpty ? [adImage] : [], userId: sellerId, userName: sellerName,
-                userEmail: '', timestamp: DateTime.now(), location: '',
-              );
+              final String fallbackName = chat['name_$sellerId'] ?? 'Пользователь';
 
-              return Container(
-                margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surface,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: theme.colorScheme.outline, width: 1.2),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.02),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    )
-                  ],
-                ),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(24),
-                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ChatScreen(ad: ad))),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Row(
-                        children: [
-                          Stack(
+              return StreamBuilder<DocumentSnapshot>(
+                stream: sellerId.isNotEmpty ? UserService.users.doc(sellerId).snapshots() : null,
+                builder: (context, userSnap) {
+                  String displaySellerName = fallbackName;
+                  if (userSnap.hasData && userSnap.data!.exists) {
+                    final uData = userSnap.data!.data() as Map<String, dynamic>?;
+                    if (uData != null && uData['name'] != null && uData['name'].toString().trim().isNotEmpty) {
+                      displaySellerName = uData['name'];
+                    }
+                  }
+
+                  final ad = AdModel(
+                    id: chat['adId'] ?? '', title: adTitle, description: '', price: 0.0, category: '',
+                    images: adImage.isNotEmpty ? [adImage] : [], userId: sellerId, userName: displaySellerName,
+                    userEmail: '', timestamp: DateTime.now(), location: '',
+                  );
+
+                  return Container(
+                    margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surface,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: theme.colorScheme.outline, width: 1.2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.02),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        )
+                      ],
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(24),
+                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ChatScreen(ad: ad))),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Row(
                             children: [
-                              Container(
-                                width: 56, height: 56,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  border: Border.all(color: theme.colorScheme.surfaceContainerHighest, width: 2),
-                                ),
-                                child: ClipOval(
-                                  child: Hero(
-                                    tag: 'chat_ad-image-$adId',
-                                    child: adImage.isNotEmpty 
-                                      ? CachedNetworkImage(
-                                          imageUrl: adImage,
-                                          fit: BoxFit.cover,
-                                          memCacheWidth: 150,
-                                          placeholder: (context, url) => Container(color: theme.colorScheme.surface),
-                                          errorWidget: (context, url, error) => const Icon(Icons.error_outline_rounded),
-                                        )
-                                      : const Icon(Icons.person_outline_rounded, color: Colors.grey),
+                              Stack(
+                                children: [
+                                  Container(
+                                    width: 56, height: 56,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      border: Border.all(color: theme.colorScheme.surfaceContainerHighest, width: 2),
+                                    ),
+                                    child: ClipOval(
+                                      child: Hero(
+                                        tag: 'chat_ad-image-$adId',
+                                        child: adImage.isNotEmpty 
+                                          ? CachedNetworkImage(
+                                              imageUrl: adImage,
+                                              fit: BoxFit.cover,
+                                              memCacheWidth: 150,
+                                              placeholder: (context, url) => Container(color: theme.colorScheme.surface),
+                                              errorWidget: (context, url, error) => const Icon(Icons.error_outline_rounded),
+                                            )
+                                          : const Icon(Icons.person_outline_rounded, color: Colors.grey),
+                                      ),
+                                    ),
                                   ),
+                                  if (unreadCount > 0)
+                                    Positioned(
+                                      right: 0, bottom: 0,
+                                      child: Container(
+                                        width: 14, height: 14,
+                                        decoration: BoxDecoration(color: const Color(0xFF22C55E), shape: BoxShape.circle, border: Border.all(color: theme.colorScheme.surface, width: 2.5)),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Expanded(child: Text(displaySellerName, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: theme.colorScheme.onSurface))),
+                                        Text(time, style: TextStyle(color: unreadCount > 0 ? const Color(0xFF4A80F0) : Colors.grey, fontSize: 11, fontWeight: FontWeight.bold)),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(adTitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Color(0xFF4A80F0), fontSize: 12, fontWeight: FontWeight.bold)),
+                                    const SizedBox(height: 6),
+                                    Row(
+                                      children: [
+                                        Expanded(child: Text(lastMsg, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 14, fontWeight: unreadCount > 0 ? FontWeight.w700 : FontWeight.normal))),
+                                        if (unreadCount > 0)
+                                          Container(
+                                            margin: const EdgeInsets.only(left: 10),
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                            decoration: BoxDecoration(color: const Color(0xFF4A80F0), borderRadius: BorderRadius.circular(10)),
+                                            child: Text(unreadCount > 99 ? '99+' : '$unreadCount', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                                          ),
+                                      ],
+                                    ),
+                                  ],
                                 ),
                               ),
-                              if (unreadCount > 0)
-                                Positioned(
-                                  right: 0, bottom: 0,
-                                  child: Container(
-                                    width: 14, height: 14,
-                                    decoration: BoxDecoration(color: const Color(0xFF22C55E), shape: BoxShape.circle, border: Border.all(color: theme.colorScheme.surface, width: 2.5)),
-                                  ),
-                                ),
                             ],
                           ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Expanded(child: Text(sellerName, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: theme.colorScheme.onSurface))),
-                                    Text(time, style: TextStyle(color: unreadCount > 0 ? const Color(0xFF4A80F0) : Colors.grey, fontSize: 11, fontWeight: FontWeight.bold)),
-                                  ],
-                                ),
-                                const SizedBox(height: 2),
-                                Text(adTitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Color(0xFF4A80F0), fontSize: 12, fontWeight: FontWeight.bold)),
-                                const SizedBox(height: 6),
-                                Row(
-                                  children: [
-                                    Expanded(child: Text(lastMsg, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 14, fontWeight: unreadCount > 0 ? FontWeight.w700 : FontWeight.normal))),
-                                    if (unreadCount > 0)
-                                      Container(
-                                        margin: const EdgeInsets.only(left: 10),
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                        decoration: BoxDecoration(color: const Color(0xFF4A80F0), borderRadius: BorderRadius.circular(10)),
-                                        child: Text(unreadCount > 99 ? '99+' : '$unreadCount', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-                                      ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     ),
-                  ),
-                ),
+                  );
+                },
               );
             },
           );

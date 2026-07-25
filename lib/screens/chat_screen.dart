@@ -6,7 +6,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:audioplayers/audioplayers.dart';
@@ -29,7 +28,6 @@ import 'package:iqmarket/screens/seller_profile_screen.dart';
 import 'package:iqmarket/screens/profile_settings_screen.dart';
 
 import 'package:firebase_storage/firebase_storage.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:iqmarket/services/analytics_service.dart';
 
@@ -157,15 +155,27 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
   }
 
+  StreamSubscription<DocumentSnapshot>? _otherUserSub;
+
   void _loadUserNames() async {
     final me = await UserService.getUserById(UserService.currentUid ?? '');
     if (me != null && mounted) setState(() => _currentUserName = me.name);
 
-    final seller = await UserService.getUserById(_otherUserId);
-    if (seller != null && mounted) {
-      setState(() {
-        _sellerAvatarUrl = seller.photoUrl;
-        _otherUserPhone = seller.phone;
+    final otherId = _otherUserId;
+    if (otherId.isNotEmpty) {
+      _otherUserSub?.cancel();
+      _otherUserSub = UserService.users.doc(otherId).snapshots().listen((snap) {
+        if (snap.exists && mounted) {
+          final data = snap.data() as Map<String, dynamic>?;
+          if (data != null) {
+            setState(() {
+              _sellerAvatarUrl = data['photoUrl'];
+              if (data['phone'] != null) {
+                _otherUserPhone = data['phone'];
+              }
+            });
+          }
+        }
       });
     }
   }
@@ -301,6 +311,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _audioPositionSub?.cancel();
     _audioDurationSub?.cancel();
     _audioCompleteSub?.cancel();
+    _otherUserSub?.cancel();
     if (_isRecording) {
       _recorder.stop();
     }
@@ -534,7 +545,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       return;
     }
     
-    if (path != null) {
+    if (path.isNotEmpty) {
       _updateMyTyping(false);
       final msgId = await ChatService.sendMessage(ad: widget.ad, text: 'Голосовое сообщение', type: 'audio', duration: _recordSeconds, senderName: _currentUserName, recipientId: _otherUserId);
       if (msgId != null) {
@@ -946,7 +957,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           }
           _playSentSound();
           _scrollToBottom();
-          _uploadImageWithRetry(msgId, file!.path, chatId);
+          _uploadImageWithRetry(msgId, file.path, chatId);
         } else {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(

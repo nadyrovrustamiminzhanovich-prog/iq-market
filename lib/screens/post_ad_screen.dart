@@ -61,6 +61,7 @@ class _PostAdScreenState extends State<PostAdScreen> {
   bool _canExchange = false;
   bool _hasDelivery = false;
   bool _isLoading = false;
+  bool _isSubmitting = false;
   String _uploadStatus = '';
   
   // Media
@@ -202,10 +203,12 @@ class _PostAdScreenState extends State<PostAdScreen> {
         ],
       ),
       body: PopScope(
-        canPop: true,
+        canPop: !_isLoading && !_isSubmitting,
         onPopInvokedWithResult: (didPop, result) {
           if (didPop) return;
-          Navigator.of(context).maybePop();
+          if (!_isLoading && !_isSubmitting) {
+            Navigator.of(context).maybePop();
+          }
         },
         child: Stack(
           children: [
@@ -457,7 +460,7 @@ class _PostAdScreenState extends State<PostAdScreen> {
       width: double.infinity, 
       height: 56, 
       child: OutlinedButton.icon(
-        onPressed: _showPreview, 
+        onPressed: (_isLoading || _isSubmitting) ? null : _showPreview, 
         icon: const Icon(Icons.visibility_outlined, size: 20), 
         label: Text(TranslationService.t('preview', widget.lang)), 
         style: OutlinedButton.styleFrom(
@@ -473,17 +476,29 @@ class _PostAdScreenState extends State<PostAdScreen> {
       width: double.infinity, 
       height: 56, 
       child: ElevatedButton.icon(
-        onPressed: _isLoading ? null : _handlePublish, 
-        icon: const Icon(Icons.near_me_outlined, size: 20),
+        onPressed: (_isLoading || _isSubmitting) ? null : _handlePublish, 
+        icon: (_isLoading || _isSubmitting)
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+              )
+            : const Icon(Icons.near_me_outlined, size: 20),
         label: Text(
-          widget.initialAd != null 
-              ? TranslationService.t('update', widget.lang) 
-              : TranslationService.t('publish', widget.lang), 
+          (_isLoading || _isSubmitting)
+              ? (widget.initialAd != null 
+                  ? TranslationService.t('updating', widget.lang) 
+                  : TranslationService.t('publishing', widget.lang))
+              : (widget.initialAd != null 
+                  ? TranslationService.t('update', widget.lang) 
+                  : TranslationService.t('publish', widget.lang)), 
           style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w700),
         ),
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF1A73E8), 
+          disabledBackgroundColor: const Color(0xFF93C5FD),
           foregroundColor: Colors.white, 
+          disabledForegroundColor: Colors.white,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), 
           elevation: 0,
         ),
@@ -491,16 +506,19 @@ class _PostAdScreenState extends State<PostAdScreen> {
     ),
   ]);
 
-  Widget _buildLoadingOverlay() => Container(
-    color: Colors.black.withValues(alpha: 0.7),
-    child: Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const CircularProgressIndicator(color: Colors.white),
-          const SizedBox(height: 20),
-          Text(_uploadStatus, style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w700), textAlign: TextAlign.center),
-        ],
+  Widget _buildLoadingOverlay() => AbsorbPointer(
+    absorbing: true,
+    child: Container(
+      color: Colors.black.withValues(alpha: 0.7),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(color: Colors.white),
+            const SizedBox(height: 20),
+            Text(_uploadStatus, style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w700), textAlign: TextAlign.center),
+          ],
+        ),
       ),
     ),
   );
@@ -508,7 +526,7 @@ class _PostAdScreenState extends State<PostAdScreen> {
   // --- Logic Methods ---
 
   Future<void> _pickMedia(bool isVideo) async {
-    if (_isLoading) return;
+    if (_isLoading || _isSubmitting) return;
     setState(() => _isLoading = true);
     try {
       if (isVideo) {
@@ -554,47 +572,106 @@ class _PostAdScreenState extends State<PostAdScreen> {
   }
 
   Future<void> _handlePublish() async {
-    if (_titleController.text.length < 5) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(TranslationService.t('err_title_short', widget.lang))));
+    // 🔒 Synchronous Atomic Double-Submit Protection
+    if (_isSubmitting || _isLoading) return;
+
+    _isSubmitting = true;
+    setState(() {
+      _isLoading = true;
+      _uploadStatus = widget.initialAd != null
+          ? TranslationService.t('updating', widget.lang)
+          : TranslationService.t('publishing', widget.lang);
+    });
+
+    // Validations
+    if (_titleController.text.trim().length < 5) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _isSubmitting = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(TranslationService.t('err_title_short', widget.lang))));
+      } else {
+        _isSubmitting = false;
+      }
       return;
     }
 
-    if (_descriptionController.text.length < 10) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(TranslationService.t('err_desc_short', widget.lang))));
+    if (_descriptionController.text.trim().length < 10) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _isSubmitting = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(TranslationService.t('err_desc_short', widget.lang))));
+      } else {
+        _isSubmitting = false;
+      }
       return;
     }
 
     if (_selectedCategory == 'all' || _selectedCategory.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(TranslationService.t('err_select_cat', widget.lang))));
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _isSubmitting = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(TranslationService.t('err_select_cat', widget.lang))));
+      } else {
+        _isSubmitting = false;
+      }
       return;
     }
 
     final priceClean = _priceController.text.replaceAll(RegExp(r'[^0-9]'), '');
     final priceVal = double.tryParse(priceClean) ?? 0;
     if (_selectedCategory != 'Отдам даром' && priceVal <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(TranslationService.t('err_invalid_price', widget.lang))));
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _isSubmitting = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(TranslationService.t('err_invalid_price', widget.lang))));
+      } else {
+        _isSubmitting = false;
+      }
       return;
     }
 
     // 🔒 STRICT Validation: Phone number must be exactly 11 digits
     final unformattedPhone = _phoneController.text.replaceAll(RegExp(r'\D'), '');
     if (unformattedPhone.length != 11) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(TranslationService.t('err_fill_phone', widget.lang)),
-          backgroundColor: Colors.redAccent,
-          behavior: SnackBarBehavior.floating,
-        )
-      );
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _isSubmitting = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(TranslationService.t('err_fill_phone', widget.lang)),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+          )
+        );
+      } else {
+        _isSubmitting = false;
+      }
       return;
     }
 
     if (_selectedLocation.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(TranslationService.t('err_select_city', widget.lang))));
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _isSubmitting = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(TranslationService.t('err_select_city', widget.lang))));
+      } else {
+        _isSubmitting = false;
+      }
       return;
     }
 
-    setState(() => _isLoading = true);
     try {
       final priceClean = _priceController.text.replaceAll(RegExp(r'[^0-9]'), '');
       final id = await AdService.uploadAndPublishAd(
@@ -613,7 +690,9 @@ class _PostAdScreenState extends State<PostAdScreen> {
         lang: widget.lang,
         initialAdId: widget.initialAd?.id,
         userPhone: _phoneController.text,
-        onStatusUpdate: (s) => setState(() => _uploadStatus = s),
+        onStatusUpdate: (s) {
+          if (mounted) setState(() => _uploadStatus = s);
+        },
         extraFields: {
           'subCategory': _selectedSubCategory,
           if (_selectedCategory == 'Авто') ...{
@@ -627,7 +706,6 @@ class _PostAdScreenState extends State<PostAdScreen> {
             'reFloor': _reFloor,
             'reArea': _reAreaController.text,
           },
-
         }
       );
       
@@ -636,7 +714,14 @@ class _PostAdScreenState extends State<PostAdScreen> {
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${TranslationService.t('error_saving_msg', widget.lang)}: $e')));
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _isSubmitting = false;
+        });
+      } else {
+        _isSubmitting = false;
+      }
     }
   }
 

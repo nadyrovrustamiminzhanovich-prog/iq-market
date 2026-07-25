@@ -1,3 +1,5 @@
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:iqmarket/services/user_service.dart';
 import 'package:flutter/material.dart';
 import 'package:iqmarket/services/translation_service.dart';
 import 'package:iqmarket/screens/post_ad_screen.dart';
@@ -16,11 +18,26 @@ class MyAdsScreen extends StatefulWidget {
 }
 
 class _MyAdsScreenState extends State<MyAdsScreen> {
+  bool _isAdmin = false;
+
   @override
   void initState() {
     super.initState();
     // Проверка своих объявлений на истечение при входе в раздел
     AdService.checkMyAdsLifecycle();
+    _checkAdminStatus();
+  }
+
+  void _checkAdminStatus() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      final user = await UserService.getUserById(uid);
+      if (mounted && user != null) {
+        setState(() {
+          _isAdmin = user.accountType == 'admin';
+        });
+      }
+    }
   }
 
   String _t(String key) {
@@ -148,7 +165,6 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
     final bool isPending = ad.status == 'pending';
     final bool isArchived = !ad.active || ad.status == 'archived' || ad.status == 'archive';
     final DateTime now = DateTime.now();
-    final bool isExpired = ad.expiresAt != null && ad.expiresAt!.isBefore(now);
     final bool isNearExpiry = ad.expiresAt != null && ad.expiresAt!.difference(now).inDays <= 3;
 
     return Container(
@@ -240,6 +256,12 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
                               const Icon(Icons.location_on_rounded, size: 12, color: Colors.grey),
                               const SizedBox(width: 4),
                               Expanded(child: Text(ad.location, maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(color: Colors.grey[600], fontSize: 12, fontWeight: FontWeight.w500))),
+                              if (_isAdmin) ...[
+                                const SizedBox(width: 8),
+                                const Icon(Icons.remove_red_eye_outlined, size: 13, color: Colors.grey),
+                                const SizedBox(width: 3),
+                                Text('${ad.views}', style: GoogleFonts.inter(color: Colors.grey[600], fontSize: 12, fontWeight: FontWeight.w600)),
+                              ],
                             ],
                           ),
                           const SizedBox(height: 8),
