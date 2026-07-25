@@ -29,7 +29,16 @@
         allow read, delete: if isOwner(userId);
         allow update: if isSignedIn() && (
           isOwner(userId) || 
-          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']))
+          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead'])) ||
+          (
+            // Разрешаем отправителю обновлять chat-notification (upsert паттерн)
+            // Те же проверки что и в create — senderId, формат notifId, участие в чате
+            request.resource.data.keys().hasAll(['title', 'body', 'type', 'timestamp', 'senderId']) &&
+            request.resource.data.senderId == request.auth.uid &&
+            notifId.size() > 5 &&
+            notifId[0:5] == 'chat_' &&
+            get(/databases/$(database)/documents/chats/$(notifId[5:])).data.users.hasAll([request.auth.uid, userId])
+          )
         );
       }
     }

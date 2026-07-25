@@ -203,8 +203,28 @@ class ChatService {
     final senderPhone = StorageService.getString('user_phone') ?? '';
 
     try {
+      // ── Обновляем/создаём сводку чата ПЕРВЫМ ───────────────────────────────
+      // CRITICAL: Чат-документ ОБЯЗАН существовать ДО любых запросов к messages,
+      // потому что Firestore rules для read messages проверяют
+      // get(.../chats/chatId).data.users — без документа → permission-denied.
+      final summaryData = {
+        'lastMessage': text,
+        'lastTimestamp': Timestamp.now(),
+        'lastSenderId': uid,
+        'isRead': false,
+        'users': [uid, ad.userId]..sort(),
+        'unreadCount_${ad.userId}': FieldValue.increment(1),
+        'name_$uid': actualSenderName,
+        'name_${ad.userId}': ad.userName,
+        'adId': ad.id,
+        'adTitle': ad.title,
+        'adImage': ad.images.isNotEmpty ? ad.images.first : '',
+      };
+      await _db.collection('chats').doc(chatId).set(summaryData, SetOptions(merge: true));
+
       // ── Дедупликация: автоматически отменяем предыдущее pending-предложение ──
       // Если покупатель отправляет новое предложение — старое становится 'cancelled'.
+      // NOTE: Этот запрос теперь безопасен, т.к. чат-документ уже существует.
       final existingPending = await _db
           .collection('chats')
           .doc(chatId)
@@ -235,22 +255,6 @@ class ChatService {
           }
         }
       }
-
-      // ── Обновляем/создаём сводку чата ───────────────────────────────────────
-      final summaryData = {
-        'lastMessage': text,
-        'lastTimestamp': Timestamp.now(),
-        'lastSenderId': uid,
-        'isRead': false,
-        'users': [uid, ad.userId]..sort(),
-        'unreadCount_${ad.userId}': FieldValue.increment(1),
-        'name_$uid': actualSenderName,
-        'name_${ad.userId}': ad.userName,
-        'adId': ad.id,
-        'adTitle': ad.title,
-        'adImage': ad.images.isNotEmpty ? ad.images.first : '',
-      };
-      await _db.collection('chats').doc(chatId).set(summaryData, SetOptions(merge: true));
 
       final messageData = {
         'senderId': uid,

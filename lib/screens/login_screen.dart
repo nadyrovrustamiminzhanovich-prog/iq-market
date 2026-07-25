@@ -818,13 +818,21 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
         builder: (ctx, ss) {
           // ─── inner confirm action ─────────────────────────────────────
           Future<void> onConfirm() async {
-            // Start loading inside dialog
-            ss(() { isDialogLoading = true; isError = false; dialogErrorMsg = null; });
+            if (isDialogLoading) return;
+            final code = otpCtrl.text.trim();
+            if (code.length < 6) return;
+
+            ss(() {
+              isDialogLoading = true;
+              isError = false;
+              dialogErrorMsg = null;
+            });
+
             try {
               final userCred = await AuthService.verifyOtpAndSignIn(
                 _tgSessionToken!,
-                otpCtrl.text.trim(),
-              ).timeout(const Duration(seconds: 20));
+                code,
+              ).timeout(const Duration(seconds: 15));
 
               // ✅ Success — pop dialog, then finalize
               if (mounted && Navigator.of(ctx, rootNavigator: true).canPop()) {
@@ -837,16 +845,31 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
               );
 
             } on TimeoutException {
-              // Stay in dialog — show retry message
-              ss(() {
-                isDialogLoading = false;
-                dialogErrorMsg = _t('err_timeout');
-              });
+              if (ctx.mounted) {
+                ss(() {
+                  isDialogLoading = false;
+                  dialogErrorMsg = _t('err_timeout');
+                });
+              }
             } catch (e) {
-              ss(() {
-                isDialogLoading = false;
-                dialogErrorMsg = '${_t('err_general')}${e.toString().replaceAll('Exception:', '').trim()}';
-              });
+              debugPrint('[OTP_DIALOG] Verification error: $e');
+              if (ctx.mounted) {
+                final String rawErr = e.toString().replaceAll('Exception:', '').trim();
+                final bool isWrongCode = rawErr.contains('Неверный') ||
+                    rawErr.contains('permission-denied') ||
+                    rawErr.contains('invalid-argument');
+
+                ss(() {
+                  isDialogLoading = false;
+                  if (isWrongCode) {
+                    isError = true;
+                    dialogErrorMsg = _t('err_invalid_otp_retry');
+                    otpCtrl.clear();
+                  } else {
+                    dialogErrorMsg = '${_t('err_general')}$rawErr';
+                  }
+                });
+              }
             }
           }
           // ─────────────────────────────────────────────────────────────
@@ -856,313 +879,352 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
             child: Dialog(
               backgroundColor: Colors.transparent,
               insetPadding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(24, 24, 24, 28),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(28),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.15),
-                      blurRadius: 24,
-                      offset: const Offset(0, 10),
-                    )
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // ── Header ────────────────────────────────────────────
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFE5F5FF),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(Icons.telegram_rounded, color: Color(0xFF0088CC), size: 24),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            _t('tg_otp_title'),
-                            style: GoogleFonts.inter(
-                              fontWeight: FontWeight.w900,
-                              fontSize: 18,
-                              color: const Color(0xFF1A1D1E),
-                            ),
-                          ),
-                        ),
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 28),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(28),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.15),
+                          blurRadius: 28,
+                          offset: const Offset(0, 12),
+                        )
                       ],
                     ),
-                    const SizedBox(height: 20),
-
-                    // ── Description ───────────────────────────────────────
-                    Text(
-                      _t('tg_otp_desc'),
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.inter(
-                        color: Colors.black54,
-                        fontSize: 13,
-                        height: 1.4,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-
-                    // ── Expiry badge ───────────────────────────────────────
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.timer_outlined, color: Colors.orange, size: 14),
-                        const SizedBox(width: 6),
-                        Text(
-                          _t('otp_valid_5m'),
-                          style: GoogleFonts.inter(
-                            color: Colors.orange,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-
-                    // ── 6-box OTP input ────────────────────────────────────
-                    AbsorbPointer(
-                      absorbing: isDialogLoading,
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          Opacity(
-                            opacity: 0.0,
-                            child: TextField(
-                              controller: otpCtrl,
-                              keyboardType: TextInputType.number,
-                              maxLength: 6,
-                              autofocus: true,
-                              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                              onChanged: (_) => ss(() { isError = false; dialogErrorMsg = null; }),
-                              decoration: const InputDecoration(counterText: ''),
-                            ),
-                          ),
-                          IgnorePointer(
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: List.generate(6, (i) {
-                                final char = otpCtrl.text.length > i ? otpCtrl.text[i] : '';
-                                final focused = otpCtrl.text.length == i ||
-                                    (otpCtrl.text.length == 6 && i == 5);
-                                return AnimatedContainer(
-                                  duration: const Duration(milliseconds: 120),
-                                  width: 38,
-                                  height: 48,
-                                  decoration: BoxDecoration(
-                                    color: isDialogLoading
-                                        ? const Color(0xFFF0F4F8)
-                                        : const Color(0xFFF6F8FA),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: isError
-                                          ? Colors.redAccent
-                                          : (focused
-                                              ? const Color(0xFF0088CC)
-                                              : const Color(0xFFE6E8EB)),
-                                      width: focused ? 2.2 : 1.0,
-                                    ),
-                                  ),
-                                  alignment: Alignment.center,
-                                  child: isDialogLoading && char.isNotEmpty
-                                      ? const SizedBox(
-                                          width: 14,
-                                          height: 14,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            color: Color(0xFF0088CC),
-                                          ),
-                                        )
-                                      : Text(
-                                          char,
-                                          style: GoogleFonts.inter(
-                                            fontSize: 20,
-                                            fontWeight: FontWeight.w900,
-                                            color: isDialogLoading
-                                                ? Colors.black38
-                                                : const Color(0xFF1A1D1E),
-                                          ),
-                                        ),
-                                );
-                              }),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    // ── Error messages ─────────────────────────────────────
-                    AnimatedSize(
-                      duration: const Duration(milliseconds: 200),
-                      child: isError
-                          ? Padding(
-                              padding: const EdgeInsets.only(top: 14),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const Icon(Icons.error_outline_rounded,
-                                      color: Colors.redAccent, size: 15),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    _t('err_invalid_otp_retry'),
-                                    style: GoogleFonts.inter(
-                                      color: Colors.redAccent,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
+                        // ── Header ────────────────────────────────────────────
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: const BoxDecoration(
+                                color: Color(0xFFE5F5FF),
+                                shape: BoxShape.circle,
                               ),
-                            )
-                          : dialogErrorMsg != null
+                              child: const Icon(Icons.telegram_rounded, color: Color(0xFF0088CC), size: 26),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Text(
+                                _t('tg_otp_title'),
+                                style: GoogleFonts.inter(
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 19,
+                                  color: const Color(0xFF1A1D1E),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+
+                        // ── Description ───────────────────────────────────────
+                        Text(
+                          _t('tg_otp_desc'),
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.inter(
+                            color: Colors.black54,
+                            fontSize: 13,
+                            height: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+
+                        // ── Expiry badge ───────────────────────────────────────
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.timer_outlined, color: Colors.orange, size: 14),
+                              const SizedBox(width: 6),
+                              Text(
+                                _t('otp_valid_5m'),
+                                style: GoogleFonts.inter(
+                                  color: Colors.orange.shade800,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+
+                        // ── 6-box OTP input ────────────────────────────────────
+                        AbsorbPointer(
+                          absorbing: isDialogLoading,
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              Opacity(
+                                opacity: 0.0,
+                                child: TextField(
+                                  controller: otpCtrl,
+                                  keyboardType: TextInputType.number,
+                                  maxLength: 6,
+                                  autofocus: true,
+                                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                  onChanged: (val) {
+                                    ss(() {
+                                      isError = false;
+                                      dialogErrorMsg = null;
+                                    });
+                                    if (val.length == 6 && !isDialogLoading) {
+                                      onConfirm();
+                                    }
+                                  },
+                                  decoration: const InputDecoration(counterText: ''),
+                                ),
+                              ),
+                              IgnorePointer(
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: List.generate(6, (i) {
+                                    final char = otpCtrl.text.length > i ? otpCtrl.text[i] : '';
+                                    final focused = otpCtrl.text.length == i ||
+                                        (otpCtrl.text.length == 6 && i == 5);
+                                    return AnimatedContainer(
+                                      duration: const Duration(milliseconds: 120),
+                                      width: 38,
+                                      height: 48,
+                                      decoration: BoxDecoration(
+                                        color: isDialogLoading
+                                            ? const Color(0xFFF0F4F8)
+                                            : (focused ? Colors.white : const Color(0xFFF6F8FA)),
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                          color: isError
+                                              ? Colors.redAccent
+                                              : (focused
+                                                  ? const Color(0xFF0088CC)
+                                                  : const Color(0xFFE6E8EB)),
+                                          width: focused ? 2.2 : 1.0,
+                                        ),
+                                        boxShadow: focused
+                                            ? [
+                                                BoxShadow(
+                                                  color: const Color(0xFF0088CC).withValues(alpha: 0.15),
+                                                  blurRadius: 6,
+                                                  offset: const Offset(0, 2),
+                                                )
+                                              ]
+                                            : null,
+                                      ),
+                                      alignment: Alignment.center,
+                                      child: Text(
+                                        char,
+                                        style: GoogleFonts.inter(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.w900,
+                                          color: isDialogLoading
+                                              ? const Color(0xFF1A1D1E).withValues(alpha: 0.5)
+                                              : const Color(0xFF1A1D1E),
+                                        ),
+                                      ),
+                                    );
+                                  }),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // ── Error messages ─────────────────────────────────────
+                        AnimatedSize(
+                          duration: const Duration(milliseconds: 200),
+                          child: isError
                               ? Padding(
                                   padding: const EdgeInsets.only(top: 14),
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 14, vertical: 10),
-                                    decoration: BoxDecoration(
-                                      color: Colors.orange.withValues(alpha: 0.1),
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(
-                                          color: Colors.orange.withValues(alpha: 0.3)),
-                                    ),
-                                    child: Row(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        const Icon(Icons.wifi_off_rounded,
-                                            color: Colors.orange, size: 15),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: Text(
-                                            dialogErrorMsg!,
-                                            style: GoogleFonts.inter(
-                                              color: Colors.orange.shade800,
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w600,
-                                              height: 1.4,
-                                            ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const Icon(Icons.error_outline_rounded,
+                                          color: Colors.redAccent, size: 16),
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: Text(
+                                          dialogErrorMsg ?? _t('err_invalid_otp_retry'),
+                                          textAlign: TextAlign.center,
+                                          style: GoogleFonts.inter(
+                                            color: Colors.redAccent,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
                                           ),
                                         ),
-                                      ],
-                                    ),
+                                      ),
+                                    ],
                                   ),
                                 )
-                              : const SizedBox.shrink(),
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // ── Loading status text ────────────────────────────────
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 200),
-                      child: isDialogLoading
-                          ? Padding(
-                              key: const ValueKey('loading_status'),
-                              padding: const EdgeInsets.only(bottom: 14),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  SizedBox(
-                                    width: 14,
-                                    height: 14,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: const Color(0xFF0088CC).withValues(alpha: 0.7),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Text(
-                                    _t('logging_in'),
-                                    style: GoogleFonts.inter(
-                                      color: const Color(0xFF0088CC),
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            )
-                          : const SizedBox(key: ValueKey('idle_status')),
-                    ),
-
-                    // ── Buttons ────────────────────────────────────────────
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: isDialogLoading
-                                ? null
-                                : () => Navigator.of(ctx, rootNavigator: true).pop(),
-                            style: OutlinedButton.styleFrom(
-                              side: BorderSide(
-                                color: isDialogLoading
-                                    ? Colors.grey.shade200
-                                    : const Color(0xFFE6E8EB),
-                              ),
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16)),
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                            ),
-                            child: Text(
-                              _t('cancel'),
-                              style: GoogleFonts.inter(
-                                color: isDialogLoading
-                                    ? Colors.grey.shade300
-                                    : Colors.grey[600],
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ),
+                              : dialogErrorMsg != null
+                                  ? Padding(
+                                      padding: const EdgeInsets.only(top: 14),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 14, vertical: 10),
+                                        decoration: BoxDecoration(
+                                          color: Colors.orange.withValues(alpha: 0.1),
+                                          borderRadius: BorderRadius.circular(12),
+                                          border: Border.all(
+                                              color: Colors.orange.withValues(alpha: 0.3)),
+                                        ),
+                                        child: Row(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            const Icon(Icons.wifi_off_rounded,
+                                                color: Colors.orange, size: 16),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Text(
+                                                dialogErrorMsg!,
+                                                style: GoogleFonts.inter(
+                                                  color: Colors.orange.shade800,
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w600,
+                                                  height: 1.4,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    )
+                                  : const SizedBox.shrink(),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: (otpCtrl.text.length < 6 || isDialogLoading)
-                                ? null
-                                : onConfirm,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF0088CC),
-                              disabledBackgroundColor:
-                                  const Color(0xFF0088CC).withValues(alpha: 0.45),
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16)),
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              elevation: 0,
-                            ),
-                            child: isDialogLoading
-                                ? const SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2.5,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : Text(
-                                    dialogErrorMsg != null
-                                        ? _t('retry')
-                                        : _t('confirm'),
-                                    style: GoogleFonts.inter(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w900,
-                                      fontSize: 14,
-                                    ),
+
+                        const SizedBox(height: 20),
+
+                        // ── Loading status text ────────────────────────────────
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 200),
+                          child: isDialogLoading
+                              ? Padding(
+                                  key: const ValueKey('loading_status'),
+                                  padding: const EdgeInsets.only(bottom: 14),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const SizedBox(
+                                        width: 14,
+                                        height: 14,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Color(0xFF0088CC),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Text(
+                                        _t('logging_in'),
+                                        style: GoogleFonts.inter(
+                                          color: const Color(0xFF0088CC),
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                          ),
+                                )
+                              : const SizedBox(key: ValueKey('idle_status')),
+                        ),
+
+                        // ── Buttons ────────────────────────────────────────────
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: isDialogLoading
+                                    ? null
+                                    : () => Navigator.of(ctx, rootNavigator: true).pop(),
+                                style: OutlinedButton.styleFrom(
+                                  side: BorderSide(
+                                    color: isDialogLoading
+                                        ? Colors.grey.shade200
+                                        : const Color(0xFFE6E8EB),
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16)),
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                ),
+                                child: Text(
+                                  _t('cancel'),
+                                  style: GoogleFonts.inter(
+                                    color: isDialogLoading
+                                        ? Colors.grey.shade300
+                                        : Colors.grey[600],
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: (otpCtrl.text.length < 6 || isDialogLoading)
+                                    ? null
+                                    : onConfirm,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF0088CC),
+                                  disabledBackgroundColor:
+                                      const Color(0xFF0088CC).withValues(alpha: 0.45),
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16)),
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  elevation: 0,
+                                ),
+                                child: isDialogLoading
+                                    ? const SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2.5,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : Text(
+                                        dialogErrorMsg != null
+                                            ? _t('retry')
+                                            : _t('confirm'),
+                                        style: GoogleFonts.inter(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                  ],
-                ),
+                  ),
+
+                  // ── Top linear progress indicator during loading ──────────
+                  if (isDialogLoading)
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      child: ClipRRect(
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+                        child: const LinearProgressIndicator(
+                          minHeight: 4,
+                          backgroundColor: Color(0xFFE5F5FF),
+                          color: Color(0xFF0088CC),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
           );

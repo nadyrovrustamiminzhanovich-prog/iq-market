@@ -259,7 +259,7 @@ class NotificationService {
           'isRead': false,
           'senderId': senderId,
           'data': data,
-        }, SetOptions(merge: false)); // merge:false чтобы обновить весь документ
+        }, SetOptions(merge: true)); // merge:true для надёжного upsert — совместимо с Firestore rules
         return;
       }
 
