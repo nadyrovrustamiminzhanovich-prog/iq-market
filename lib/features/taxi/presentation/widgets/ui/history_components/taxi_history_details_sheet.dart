@@ -413,25 +413,37 @@ void showTaxiHistoryDetailsSheet(BuildContext context, Map<String, dynamic> trip
             const SizedBox(height: 10),
             GestureDetector(
               onTap: () async {
-                final url = Uri.parse('https://t.me/iqmarket_support');
-                if (await canLaunchUrl(url)) await launchUrl(url);
+                final String from = trip['from'] ?? '';
+                final String to = trip['to'] ?? '';
+                final String msg = Uri.encodeComponent('Здравствуйте! Нужна помощь администратора по поездке из $from в $to (ID: ${trip['id'] ?? ''}). Забыли вещи / не могу связаться.');
+                final Uri url = Uri.parse('https://wa.me/77089007030?text=$msg');
+                if (await canLaunchUrl(url)) {
+                  await launchUrl(url, mode: LaunchMode.externalApplication);
+                }
               },
               child: Container(
                 width: double.infinity,
-                height: 48,
+                height: 50,
                 decoration: BoxDecoration(
-                  color: t.card,
+                  color: const Color(0xFF25D366).withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: t.border),
+                  border: Border.all(color: const Color(0xFF25D366).withValues(alpha: 0.4)),
                 ),
                 child: Center(
-                  child: Text(
-                    '📞 Написать в поддержку',
-                    style: GoogleFonts.inter(
-                      color: t.sub,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13,
-                    ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.chat_bubble_rounded, color: Color(0xFF25D366), size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        '🆘 Забыли вещи? Написать в WhatsApp',
+                        style: GoogleFonts.inter(
+                          color: const Color(0xFF25D366),
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),

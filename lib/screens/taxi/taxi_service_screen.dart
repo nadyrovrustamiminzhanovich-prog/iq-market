@@ -93,6 +93,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen>
   late TaxiProvider _taxiProvider;
 
   // ── Auto-resolution: отслеживаем изменения, не спамим build() ────────────
+  // ignore: unused_field
   Set<String> _lastCheckedRideIds = {};
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -154,22 +155,8 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Вызываем авто-резолюцию только при реальном изменении набора поездок,
-    // чтобы не вызывать side-effects в методе build().
-    final provider = Provider.of<TaxiProvider>(context, listen: false);
-    final currentIds = {
-      ...provider.myAcceptedOrders.map((o) => o['id']?.toString() ?? ''),
-      ...provider.myAcceptedRides.map((r) => r['id']?.toString() ?? ''),
-    };
-    if (currentIds != _lastCheckedRideIds) {
-      _lastCheckedRideIds = currentIds;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        final p = Provider.of<TaxiProvider>(context, listen: false);
-        TaxiAutoResolutionController.checkAndShowPendingRidesDialog(
-            context, p, p.theme);
-      });
-    }
+    // ✅ Auto-Resolution отключен: объявления живут 24ч, диалог «Договорились?» 
+    // показывается только при возврате из звонка (didChangeAppLifecycleState).
   }
 
   @override

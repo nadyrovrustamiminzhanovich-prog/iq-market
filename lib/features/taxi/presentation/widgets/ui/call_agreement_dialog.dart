@@ -1,4 +1,4 @@
-﻿// FILE: lib/features/taxi/presentation/widgets/ui/call_agreement_dialog.dart
+// FILE: lib/features/taxi/presentation/widgets/ui/call_agreement_dialog.dart
 // ОТВЕЧАЕТ ЗА: диалог «Вы договорились?» — появляется при возврате из звонка.
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -64,6 +64,7 @@ class _CallAgreementSheet extends StatefulWidget {
 class _CallAgreementSheetState extends State<_CallAgreementSheet>
     with SingleTickerProviderStateMixin {
   late final TextEditingController _priceController;
+  late final TextEditingController _phoneController;
   late final AnimationController _animController;
   late final Animation<double> _scaleAnim;
   late final Animation<double> _fadeAnim;
@@ -77,6 +78,7 @@ class _CallAgreementSheetState extends State<_CallAgreementSheet>
     _priceController = TextEditingController(
       text: widget.suggestedPrice > 0 ? widget.suggestedPrice.toString() : '',
     );
+    _phoneController = TextEditingController(text: widget.provider.phone);
     _animController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 450),
@@ -89,6 +91,7 @@ class _CallAgreementSheetState extends State<_CallAgreementSheet>
   @override
   void dispose() {
     _priceController.dispose();
+    _phoneController.dispose();
     _animController.dispose();
     super.dispose();
   }
@@ -97,6 +100,17 @@ class _CallAgreementSheetState extends State<_CallAgreementSheet>
     if (_isProcessing) return;
     final priceText = _priceController.text.replaceAll(RegExp(r'\D'), '');
     final int price = int.tryParse(priceText) ?? widget.suggestedPrice;
+    
+    // Save phone if it was empty
+    final enteredPhone = _phoneController.text.trim();
+    if (widget.provider.phone.isEmpty && enteredPhone.isNotEmpty) {
+      widget.provider.updateProfile(
+        widget.provider.firstName,
+        widget.provider.lastName,
+        enteredPhone,
+      );
+    }
+
     HapticFeedback.heavyImpact();
     setState(() => _isProcessing = true);
     try {
@@ -253,6 +267,30 @@ class _CallAgreementSheetState extends State<_CallAgreementSheet>
                   ),
                   // Поле цены (только если согласились)
                   if (_agreed == true) ...[
+                    if (widget.provider.phone.isEmpty) ...[
+                      const SizedBox(height: 16),
+                      Text('ВАШ НОМЕР ТЕЛЕФОНА (ДЛЯ СВЯЗИ)', style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w800, color: t.sub, letterSpacing: 0.8)),
+                      const SizedBox(height: 8),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: t.card,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0xFF84CC16).withValues(alpha: 0.5), width: 1.5),
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: TextField(
+                          controller: _phoneController,
+                          keyboardType: TextInputType.phone,
+                          style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w700, color: t.text),
+                          decoration: InputDecoration(
+                            border: InputBorder.none,
+                            hintText: '+7 (700) 000-00-00',
+                            hintStyle: GoogleFonts.inter(color: t.sub),
+                            icon: const Icon(Icons.phone_rounded, color: Color(0xFF84CC16), size: 20),
+                          ),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 20),
                     Text(widget.provider.translate('ridePriceLabel'), style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w800, color: t.sub, letterSpacing: 0.8)),
                     const SizedBox(height: 10),

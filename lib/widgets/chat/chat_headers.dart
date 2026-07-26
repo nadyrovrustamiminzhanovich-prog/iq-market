@@ -11,6 +11,8 @@ import 'package:iqmarket/services/chat_service.dart';
 import 'package:iqmarket/services/translation_service.dart';
 import 'package:iqmarket/screens/product_details_screen.dart';
 import 'package:iqmarket/widgets/report_user_sheet.dart';
+import 'package:iqmarket/providers/taxi_provider.dart';
+import 'package:iqmarket/features/taxi/presentation/widgets/ui/call_agreement_dialog.dart';
 
 class ChatGlassHeader extends StatelessWidget {
   final AdModel ad;
@@ -209,6 +211,36 @@ class ChatAdInfoBar extends StatelessWidget {
           Text(ad.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A))),
           Text('${ad.price.toInt()} ₸', style: const TextStyle(color: Color(0xFF2563EB), fontWeight: FontWeight.w900, fontSize: 12)),
         ])),
+        if (ad.category == 'Taxi') ...[
+          ElevatedButton.icon(
+            onPressed: () {
+              final provider = Provider.of<TaxiProvider>(context, listen: false);
+              showCallAgreementDialog(
+                context: context,
+                provider: provider,
+                t: provider.theme,
+                targetId: ad.id,
+                targetType: 'drive',
+                counterpartName: ad.userName,
+                counterpartPhone: '',
+                counterpartImg: ad.images.isNotEmpty ? ad.images.first : '',
+                suggestedPrice: ad.price.toInt(),
+              );
+            },
+            icon: const Icon(Icons.handshake_rounded, size: 16),
+            label: const Text('Договорились', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF84CC16),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+          ),
+          const SizedBox(width: 8),
+        ],
         ElevatedButton(
           onPressed: () {
             if (ad.category == 'Taxi') {
@@ -221,7 +253,7 @@ class ChatAdInfoBar extends StatelessWidget {
             backgroundColor: const Color(0xFFEFF6FF),
             foregroundColor: const Color(0xFF2563EB),
             elevation: 0,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14),
             ),

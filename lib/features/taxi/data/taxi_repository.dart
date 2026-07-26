@@ -18,6 +18,7 @@ class TaxiRepository {
     required String firstName,
     required String lastName,
     required String phone,
+    String? profileImage,
     required String from,
     required String to,
     required String date,
@@ -31,13 +32,14 @@ class TaxiRepository {
 
     final safePhone = _sanitizePhone(phone);
     final docRef = FirebaseFirestore.instance.collection('taxi_orders').doc();
+    final String avatarUrl = (profileImage != null && profileImage.isNotEmpty) ? profileImage : (user.photoURL ?? '');
     
     final newOrder = {
       'id': docRef.id,
       'passengerId': user.uid,
       'passengerName': '$firstName $lastName'.trim().isEmpty ? 'Пассажир' : '$firstName $lastName'.trim(),
       'passengerPhone': safePhone,
-      'passengerImg': user.photoURL ?? '',
+      'passengerImg': avatarUrl,
       'from': from,
       'to': to,
       'date': date,
@@ -56,6 +58,7 @@ class TaxiRepository {
     required String firstName,
     required String lastName,
     required String phone,
+    String? profileImage,
     required String driverCar,
     required String driverPlate,
     required bool isVehicleVerified,
@@ -72,6 +75,7 @@ class TaxiRepository {
 
     final safePhone = _sanitizePhone(phone);
     final docRef = FirebaseFirestore.instance.collection('taxi_rides').doc();
+    final String avatarUrl = (profileImage != null && profileImage.isNotEmpty) ? profileImage : (user.photoURL ?? '');
     
     final newRide = {
       'id': docRef.id,
@@ -80,7 +84,7 @@ class TaxiRepository {
       'driverPhone': safePhone,
       'driverCar': driverCar,
       'driverPlate': driverPlate,
-      'driverImg': user.photoURL ?? '',
+      'driverImg': avatarUrl,
       'driverVerified': isVehicleVerified,
       'from': from,
       'to': to,
@@ -104,6 +108,7 @@ class TaxiRepository {
     required String firstName,
     required String lastName,
     required String phone,
+    String? profileImage,
     required String driverCar,
     required String driverPlate,
     required bool isVehicleVerified,
@@ -111,13 +116,13 @@ class TaxiRepository {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    // БЕЗОПАСНОСТЬ: Транзакция для проверки, актуален ли заказ перед отправкой ставки
     final db = FirebaseFirestore.instance;
     final collectionName = targetType == 'order' ? 'taxi_orders' : 'taxi_rides';
     final targetRef = db.collection(collectionName).doc(targetId);
 
     final safePhone = _sanitizePhone(phone);
     final docId = 'bid_${user.uid}_${DateTime.now().millisecondsSinceEpoch}';
+    final String avatarUrl = (profileImage != null && profileImage.isNotEmpty) ? profileImage : (user.photoURL ?? '');
 
     await db.runTransaction((transaction) async {
       final snap = await transaction.get(targetRef);
@@ -132,7 +137,7 @@ class TaxiRepository {
         'targetType': targetType,
         'senderId': user.uid,
         'senderName': '$firstName $lastName'.trim().isEmpty ? 'Пользователь' : '$firstName $lastName'.trim(),
-        'senderImg': user.photoURL ?? '',
+        'senderImg': avatarUrl,
         'senderPhone': safePhone,
         'senderCar': driverCar,
         'senderPlate': driverPlate,
@@ -578,10 +583,6 @@ class TaxiRepository {
     }
 
     final targetData = targetSnap.data()!;
-    final currentStatus = targetData['status']?.toString() ?? '';
-    if (currentStatus == 'completed') {
-      throw Exception('Эта поездка уже была завершена.');
-    }
 
     // ── Определяем контрагента по роли ───────────────────────────────────
     final String counterpartId;
@@ -658,15 +659,6 @@ class TaxiRepository {
     if (counterpartId.isNotEmpty) {
       final theirRef = db.collection('taxi_history').doc();
       batchWrite.set(theirRef, {...tripBase, 'id': theirRef.id, 'role': counterpartRole});
-    }
-
-    // Помечаем оригинальный документ как завершённый
-    if (currentStatus != 'completed') {
-      batchWrite.update(targetRef, {
-        'status': 'completed',
-        'matchedVia': 'direct_call',
-        'price': finalPrice,
-      });
     }
 
     await batchWrite.commit();

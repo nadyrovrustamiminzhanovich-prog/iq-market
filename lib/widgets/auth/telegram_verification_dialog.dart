@@ -193,6 +193,28 @@ class _TelegramVerificationDialogState extends State<TelegramVerificationDialog>
         });
 
         if (result.data['success'] == true) {
+          final cleanPhone = _phoneCtrl.text.replaceAll(RegExp(r'\D'), '');
+          
+          // Security Check: Phone Hijacking Protection
+          final existingQuery = await FirebaseFirestore.instance
+              .collection('users')
+              .where('verified_phone', isEqualTo: cleanPhone)
+              .get();
+
+          for (var doc in existingQuery.docs) {
+            if (doc.id != user.uid) {
+              throw Exception('Этот номер уже привязан к другому аккаунту.');
+            }
+          }
+
+          // Save verified_phone to Firestore
+          await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+            'verified_phone': cleanPhone,
+            'phone': _phoneCtrl.text,
+            'isVerified': true,
+            'isTelegramVerified': true,
+          }, SetOptions(merge: true));
+
           // Sync to local storage
           StorageService.saveProfile(
             widget.provider.firstName + " " + widget.provider.lastName,

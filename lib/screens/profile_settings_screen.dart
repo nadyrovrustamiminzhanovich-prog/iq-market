@@ -19,6 +19,7 @@ import 'package:iqmarket/services/user_service.dart';
 import 'package:iqmarket/services/file_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:iqmarket/widgets/secure_image_viewer.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ProfileSettingsScreen extends StatefulWidget {
   final String currentName;
@@ -65,6 +66,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   File? _newImage;
   final ImagePicker _picker = ImagePicker();
   bool _isSaving = false;
+  bool _isPhoneVerified = false;
 
   late bool _isNotificationsEnabled;
   late bool _isFaceIdEnabled;
@@ -114,8 +116,14 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
           final data = doc.data();
           if (data != null) {
             setState(() {
-              if (data['phone'] != null && data['phone'].toString().isNotEmpty) {
-                final rawPhone = data['phone'].toString();
+              _isPhoneVerified = data['isVerified'] == true ||
+                  data['isTelegramVerified'] == true ||
+                  data['verified_phone'] != null ||
+                  user.uid.startsWith('telegram_');
+
+              final phoneToUse = data['verified_phone'] ?? data['phone'];
+              if (phoneToUse != null && phoneToUse.toString().isNotEmpty) {
+                final rawPhone = phoneToUse.toString();
                 final digits = rawPhone.replaceAll(RegExp(r'\D'), '');
                 String localDigits = digits;
                 if (digits.length == 11 && (digits.startsWith('7') || digits.startsWith('8'))) {
@@ -394,7 +402,54 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                   const SizedBox(height: 24),
                   _buildSectionTitle(_t('personal')),
                   _buildTextField(_t('name_label'), _nameController, Icons.person_rounded, maxLength: 50),
-                  _buildTextField(_t('phone_label'), _phoneController, Icons.phone_android_rounded, formatters: [_phoneMask]),
+                  if (_isPhoneVerified) ...[
+                    _buildDisplayField(
+                      _t('phone_label'),
+                      _phoneController.text.isNotEmpty ? _phoneController.text : 'Номер подтверждён',
+                      Icons.verified_user_rounded,
+                      onTap: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('🛡️ Верифицированный номер меняется только через Модератора.'),
+                            backgroundColor: const Color(0xFF10B981),
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 6),
+                    GestureDetector(
+                      onTap: () async {
+                        final text = Uri.encodeComponent('Здравствуйте! Я хочу сменить свой верифицированный номер телефона в аккаунте IQ-Market.');
+                        final Uri url = Uri.parse('https://wa.me/77089007030?text=$text');
+                        if (await canLaunchUrl(url)) {
+                          await launchUrl(url, mode: LaunchMode.externalApplication);
+                        }
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.support_agent_rounded, size: 16, color: Color(0xFF25D366)),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                'Хотите сменить номер телефона? Написать модератору в WhatsApp 💬',
+                                style: GoogleFonts.inter(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: const Color(0xFF25D366),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ] else
+                    _buildTextField(_t('phone_label'), _phoneController, Icons.phone_android_rounded, formatters: [_phoneMask]),
                   if (_userEmail.isNotEmpty)
                     _buildDisplayField(
                       'Email', 

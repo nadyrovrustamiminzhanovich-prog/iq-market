@@ -319,7 +319,7 @@ class TaxiProvider extends ChangeNotifier {
     required String time, required int seats, required int price, required String comment,
   }) async {
     await _repo.createPassengerOrder(
-      firstName: _firstName, lastName: _lastName, phone: _phone,
+      firstName: _firstName, lastName: _lastName, phone: _phone, profileImage: _profileImage,
       from: from, to: to, date: date, time: time, seats: seats, price: price, comment: comment,
     );
   }
@@ -329,7 +329,7 @@ class TaxiProvider extends ChangeNotifier {
     required String time, required int seats, required int price, required String comment,
   }) async {
     await _repo.createDriverRide(
-      firstName: _firstName, lastName: _lastName, phone: _phone,
+      firstName: _firstName, lastName: _lastName, phone: _phone, profileImage: _profileImage,
       driverCar: _driverCar, driverPlate: _driverPlate, isVehicleVerified: _isVehicleVerified,
       from: from, to: to, date: date, time: time, seats: seats, price: price, comment: comment,
     );
@@ -340,7 +340,7 @@ class TaxiProvider extends ChangeNotifier {
   }) async {
     await _repo.sendBid(
       targetId: targetId, targetType: targetType, receiverId: receiverId, price: price,
-      firstName: _firstName, lastName: _lastName, phone: _phone,
+      firstName: _firstName, lastName: _lastName, phone: _phone, profileImage: _profileImage,
       driverCar: _driverCar, driverPlate: _driverPlate, isVehicleVerified: _isVehicleVerified,
     );
   }
