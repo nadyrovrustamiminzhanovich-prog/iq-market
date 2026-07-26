@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:line_icons/line_icons.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:iqmarket/theme/taxi_theme.dart';
 import 'package:iqmarket/providers/taxi_provider.dart';
@@ -52,6 +51,7 @@ class TaxiOrderCard extends StatefulWidget {
 
 class _TaxiOrderCardState extends State<TaxiOrderCard> {
   int _bidPrice = 0;
+  bool _isExpanded = false;
 
   @override
   void initState() {
@@ -67,341 +67,224 @@ class _TaxiOrderCardState extends State<TaxiOrderCard> {
     }
   }
 
+  String _formatSeats(int seats) {
+    if (seats == 1) return '1 место';
+    if (seats >= 2 && seats <= 4) return '$seats места';
+    return '$seats мест';
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = widget.provider;
     final t = widget.t;
-    final name = widget.name;
-    final from = widget.from;
-    final to = widget.to;
+    final name = widget.name.isNotEmpty ? widget.name : 'Пассажир';
+    final from = widget.from.isNotEmpty ? widget.from : 'Чунджа';
+    final to = widget.to.isNotEmpty ? widget.to : 'Алматы';
     final price = widget.price;
     final seats = widget.seats;
     final comment = widget.comment;
-    final isNegotiated = widget.isNegotiated;
     final created = widget.created;
     final img = widget.img;
     final passengerId = widget.passengerId;
-    final onShowProfile = widget.onShowProfile;
 
     final double realRating = provider.getUserRatingAsPassenger(passengerId);
     final int realReviewCount = provider.getUserReviewCountAsPassenger(passengerId);
 
-    final Color borderCol = t.isDark
-        ? const Color(0xFF6366F1).withValues(alpha: 0.35)
-        : const Color(0xFF4F46E5).withValues(alpha: 0.2);
+    // Passenger Verification Badge logic:
+    // For passengers, blue checkmark is granted if registered/logged in via Telegram!
+    final bool isPassengerTelegramVerified = passengerId.startsWith('telegram_') ||
+        provider.allPassengerOrders.any((o) =>
+            (o['passengerId'] == passengerId || o['userId'] == passengerId) &&
+            (o['isTelegramVerified'] == true ||
+                o['isTelegramAuth'] == true ||
+                o['authProvider'] == 'telegram' ||
+                o['telegramChatId'] != null ||
+                o['telegramId'] != null));
 
-    final Gradient bgGrad = t.isDark
-        ? const LinearGradient(
-            colors: [Color(0xFF1E1B4B), Color(0xFF0F172A)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          )
-        : const LinearGradient(
-            colors: [Color(0xFFEFF6FF), Color(0xFFF5F3FF)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          );
+    const Color primaryBlue = Color(0xFF2563EB);
+    final Color darkText = t.isDark ? Colors.white : const Color(0xFF1E293B);
+    final Color subText = t.isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+    final Color cardBg = t.isDark ? t.card : Colors.white;
+    final Color borderColor = t.isDark ? t.border : const Color(0xFFF1F5F9);
 
-    final List<BoxShadow> shadows = [
-      BoxShadow(
-        color: t.isDark 
-            ? const Color(0xFF6366F1).withValues(alpha: 0.12)
-            : const Color(0xFF4F46E5).withValues(alpha: 0.08),
-        blurRadius: 20,
-        offset: const Offset(0, 8),
-      )
-    ];
-
-    return RepaintBoundary(
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        decoration: BoxDecoration(
-          gradient: bgGrad,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: borderCol,
-            width: 1.5,
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: borderColor, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: t.isDark ? 0.2 : 0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
-          boxShadow: shadows,
-        ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ── TOP ROW: Avatar, Name + Verified Badge, Rating/Time, Price ──
           Padding(
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    GestureDetector(
-                      onTap: onShowProfile,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(color: t.accent.withValues(alpha: 0.2), width: 2),
-                        ),
-                        child: CircleAvatar(
-                          backgroundColor: t.accent.withValues(alpha: 0.1),
-                          radius: 26,
-                          backgroundImage: img.isNotEmpty ? CachedNetworkImageProvider(img) : null,
-                          child: img.isEmpty
-                              ? Text(name.isNotEmpty ? name[0] : '?',
-                                  style: GoogleFonts.inter(
-                                      color: t.accent, fontWeight: FontWeight.bold, fontSize: 20))
-                              : null,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    // Issue #1 msg2: Use Flexible to prevent name clipping
-                    Flexible(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          GestureDetector(
-                            onTap: onShowProfile,
-                            child: Text(name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.inter(
-                                    color: t.text, fontWeight: FontWeight.w900, fontSize: 15)),
-                          ),
-                          const SizedBox(height: 3),
-                          // Issue #1 msg2: Rating shown below name, not competing with price
-                          Row(
-                            children: [
-                              const Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 13),
-                              const SizedBox(width: 3),
-                              Text(
-                                realReviewCount < 5 ? 'Новичок' : '$realRating ($realReviewCount)',
-                                style: GoogleFonts.inter(
-                                  fontSize: 11,
-                                  color: const Color(0xFF3B82F6),
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              if (realReviewCount < 5) ...[
-                                const SizedBox(width: 3),
-                                Tooltip(
-                                  message: 'Рейтинг формируется после 5 оценок от других пользователей',
-                                  child: Icon(Icons.info_outline_rounded, size: 11, color: const Color(0xFF94A3B8)),
-                                ),
-                              ],
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              Icon(LineIcons.clock, color: t.sub.withValues(alpha: 0.5), size: 12),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                child: Text(created,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: GoogleFonts.inter(
-                                        color: t.sub, fontSize: 10, fontWeight: FontWeight.w600)),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    // Price on the right - no longer competed by novice badge
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text('$price ₸',
-                            style: GoogleFonts.inter(
-                                color: const Color(0xFF4F46E5), fontWeight: FontWeight.w900, fontSize: 18)),
-                        const SizedBox(height: 6),
-                        if (isNegotiated)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                                color: t.accent.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(8)),
-                            child: Text(provider.translate('offer').toUpperCase(),
-                                style: GoogleFonts.inter(
-                                    color: t.accent,
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: 0.5)),
-                          ),
-                      ],
-                    ),
-                  ],
+                GestureDetector(
+                  onTap: widget.onShowProfile,
+                  child: CircleAvatar(
+                    radius: 24,
+                    backgroundColor: primaryBlue.withValues(alpha: 0.1),
+                    backgroundImage: (img.isNotEmpty && img.startsWith('http'))
+                        ? CachedNetworkImageProvider(img)
+                        : null,
+                    child: (img.isEmpty || !img.startsWith('http'))
+                        ? const Icon(Icons.person_rounded, color: primaryBlue, size: 24)
+                        : null,
+                  ),
                 ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                      color: t.isDark 
-                          ? Colors.black.withValues(alpha: 0.2) 
-                          : Colors.white.withValues(alpha: 0.5),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: borderCol.withValues(alpha: 0.15))),
+                const SizedBox(width: 12),
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.location_on_rounded, color: t.accent, size: 18),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text('$from → $to',
+                          Flexible(
+                            child: GestureDetector(
+                              onTap: widget.onShowProfile,
+                              child: Text(
+                                name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                                 style: GoogleFonts.inter(
-                                    color: t.text, fontSize: 15, fontWeight: FontWeight.w700))),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF4F46E5).withValues(alpha: 0.08),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: const Color(0xFF4F46E5).withValues(alpha: 0.15)),
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                  color: darkText,
+                                ),
+                              ),
                             ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.person_rounded, size: 14, color: Color(0xFF4F46E5)),
-                                const SizedBox(width: 4),
-                                Text('$seats',
-                                    style: GoogleFonts.inter(
-                                        fontSize: 14, fontWeight: FontWeight.w800, color: const Color(0xFF4F46E5))),
-                              ],
+                          ),
+                          if (isPassengerTelegramVerified) ...[
+                            const SizedBox(width: 4),
+                            const Icon(
+                              Icons.verified,
+                              color: primaryBlue,
+                              size: 18,
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      Row(
+                        children: [
+                          const Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 14),
+                          const SizedBox(width: 3),
+                          Text(
+                            realReviewCount < 5 ? 'Новичок' : '$realRating ($realReviewCount)',
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              color: primaryBlue,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text('•', style: TextStyle(color: subText, fontSize: 12)),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              created,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                color: subText,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                           ),
                         ],
                       ),
-                      if (comment.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        Padding(
-                          padding: const EdgeInsets.only(left: 28),
-                          child: Text(comment,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.inter(
-                                  color: t.sub,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  fontStyle: FontStyle.italic)),
-                        ),
-                      ],
                     ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  '$price ₸',
+                  style: GoogleFonts.inter(
+                    fontSize: 19,
+                    fontWeight: FontWeight.w800,
+                    color: primaryBlue,
                   ),
                 ),
               ],
             ),
           ),
-          _buildBargainSection(context),
-          _actionStrip(context),
-        ],
-      ),
-    ),
-  );
-}
 
-  Widget _buildBargainSection(BuildContext context) {
-    final t = widget.t;
-    final Color borderCol = t.isDark
-        ? const Color(0xFF6366F1).withValues(alpha: 0.35)
-        : const Color(0xFF4F46E5).withValues(alpha: 0.2);
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 18),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: t.isDark 
-              ? const Color(0xFF1E1B4B).withValues(alpha: 0.3) 
-              : const Color(0xFFEFF6FF).withValues(alpha: 0.6),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: borderCol,
-            width: 1.5,
-          ),
-        ),
-        child: Row(
-          children: [
-            Expanded(
+          // ── ROUTE LINE (Clickable to Expand/Collapse Order Info) ──
+          InkWell(
+            onTap: () {
+              setState(() {
+                _isExpanded = !_isExpanded;
+              });
+            },
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(
-                      widget.provider.translate('suggest_price').toUpperCase(),
-                      style: GoogleFonts.inter(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w900,
-                        color: const Color(0xFF4F46E5),
-                        letterSpacing: 0.6,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
                   Row(
                     children: [
-                      GestureDetector(
-                        onTap: () {
-                          HapticFeedback.lightImpact();
-                          if (_bidPrice > 100) {
-                            setState(() {
-                              _bidPrice -= 100;
-                              if (_bidPrice < 100) {
-                                _bidPrice = 100;
-                              }
-                            });
-                          }
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: const Color(0xFF4F46E5).withValues(alpha: 0.3),
-                              width: 1.5,
-                            ),
-                          ),
-                          child: const Icon(
-                            Icons.remove_rounded,
-                            size: 14,
-                            color: Color(0xFF4F46E5),
+                      const Icon(Icons.location_on_rounded, color: primaryBlue, size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '$from ➔ $to',
+                          style: GoogleFonts.inter(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: darkText,
                           ),
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      Icon(
+                        _isExpanded ? Icons.keyboard_arrow_up_rounded : Icons.chevron_right_rounded,
+                        color: subText,
+                        size: 22,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  // ── SUB-LINE: Seats & User Comment (Luggage indicator is removed!) ──
+                  Row(
+                    children: [
+                      const SizedBox(width: 26),
+                      Icon(Icons.people_alt_outlined, color: subText, size: 15),
+                      const SizedBox(width: 5),
                       Text(
-                        '$_bidPrice ₸',
+                        _formatSeats(seats),
                         style: GoogleFonts.inter(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w900,
-                          color: t.isDark ? Colors.white : const Color(0xFF1E1B4B),
+                          fontSize: 12.5,
+                          color: subText,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      GestureDetector(
-                        onTap: () {
-                          HapticFeedback.lightImpact();
-                          setState(() {
-                            _bidPrice += 100;
-                          });
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: const Color(0xFF4F46E5).withValues(alpha: 0.3),
-                              width: 1.5,
-                            ),
-                          ),
-                          child: const Icon(
-                            Icons.add_rounded,
-                            size: 14,
-                            color: Color(0xFF4F46E5),
+                      const SizedBox(width: 8),
+                      Text('•', style: TextStyle(color: subText, fontSize: 12)),
+                      const SizedBox(width: 8),
+                      const Icon(Icons.chat_bubble_outline_rounded, color: Color(0xFF94A3B8), size: 13),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          comment.isNotEmpty ? comment : 'Без комментария',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: subText,
+                            fontWeight: FontWeight.w500,
+                            fontStyle: comment.isNotEmpty ? FontStyle.italic : FontStyle.normal,
                           ),
                         ),
                       ),
@@ -410,97 +293,208 @@ class _TaxiOrderCardState extends State<TaxiOrderCard> {
                 ],
               ),
             ),
-            const SizedBox(width: 12),
-            ElevatedButton(
-              onPressed: () => widget.onNegotiate(_bidPrice),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF10B981),
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shadowColor: Colors.transparent,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+          ),
+
+          // ── EXPANDED FULL DETAILS & BARGAIN SECTION ──
+          if (_isExpanded) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Divider(color: borderColor, height: 1),
+                  const SizedBox(height: 12),
+                  if (comment.isNotEmpty) ...[
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: t.isDark ? Colors.black26 : const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: borderColor),
+                      ),
+                      child: Text(
+                        'Комментарий от пассажира: $comment',
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: darkText,
+                          height: 1.35,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  // Price offer section when order details are opened
+                  _buildBargainSection(context, primaryBlue),
+                ],
               ),
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  widget.provider.translate('send').toUpperCase(),
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 0.2,
+            ),
+          ],
+
+          const SizedBox(height: 12),
+
+          // ── BOTTOM ACTION BUTTONS: Call & Message ──
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Row(
+              children: [
+                // Outlined "Позвонить" Button
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: widget.onCall,
+                    icon: const Icon(Icons.phone_outlined, color: primaryBlue, size: 18),
+                    label: Text(
+                      'Позвонить',
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: primaryBlue,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      side: const BorderSide(color: Color(0xFFE2E8F0), width: 1.2),
+                      backgroundColor: t.isDark ? Colors.transparent : Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _actionStrip(BuildContext context) => Container(
-        padding: const EdgeInsets.fromLTRB(18, 12, 18, 18),
-        child: Row(
-          children: [
-            Expanded(
-              child: _stripBtn(
-                widget.provider.translate('call'),
-                LineIcons.phone,
-                const Color(0xFF4F46E5),
-                widget.onCall,
-                isFilled: false,
-                fontSize: 13,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _stripBtn(
-                widget.provider.translate('message'),
-                LineIcons.comment,
-                const Color(0xFF4F46E5),
-                widget.onChat,
-                isFilled: true,
-                fontSize: 13,
-              ),
-            ),
-          ],
-        ),
-      );
-
-  Widget _stripBtn(String l, IconData i, Color c, VoidCallback onTap, {bool isFilled = false, double fontSize = 10}) =>
-      Material(
-        color: isFilled ? c : Colors.transparent,
-        borderRadius: BorderRadius.circular(16),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(16),
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 13),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              border: isFilled ? null : Border.all(color: c.withValues(alpha: 0.3)),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(i, size: 18, color: isFilled ? Colors.white : c),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(l,
-                        style: GoogleFonts.inter(
-                            fontSize: fontSize,
-                            fontWeight: FontWeight.w900,
-                            color: isFilled ? Colors.white : c)),
+                const SizedBox(width: 12),
+                // Filled "Написать" Button
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: widget.onChat,
+                    icon: const Icon(Icons.chat_bubble_outline_rounded, color: Colors.white, size: 18),
+                    label: Text(
+                      'Написать',
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      backgroundColor: primaryBlue,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
                   ),
                 ),
               ],
             ),
           ),
-        ),
-      );
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBargainSection(BuildContext context, Color primaryBlue) {
+    final t = widget.t;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: primaryBlue.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: primaryBlue.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'ПРЕДЛОЖИТЬ СВОЮ ЦЕНУ',
+                  style: GoogleFonts.inter(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    color: primaryBlue,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    GestureDetector(
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        if (_bidPrice > 100) {
+                          setState(() {
+                            _bidPrice -= 100;
+                            if (_bidPrice < 100) _bidPrice = 100;
+                          });
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: primaryBlue.withValues(alpha: 0.3), width: 1.5),
+                          color: Colors.white,
+                        ),
+                        child: Icon(Icons.remove_rounded, size: 16, color: primaryBlue),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      '$_bidPrice ₸',
+                      style: GoogleFonts.inter(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: t.isDark ? Colors.white : const Color(0xFF1E293B),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    GestureDetector(
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        setState(() {
+                          _bidPrice += 100;
+                        });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: primaryBlue.withValues(alpha: 0.3), width: 1.5),
+                          color: Colors.white,
+                        ),
+                        child: Icon(Icons.add_rounded, size: 16, color: primaryBlue),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton(
+            onPressed: () => widget.onNegotiate(_bidPrice),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryBlue,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: Text(
+              'Предложить',
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
+
