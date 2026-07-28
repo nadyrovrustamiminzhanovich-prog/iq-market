@@ -33,31 +33,34 @@ class TaxiDriverRideDatetimeSeats extends StatelessWidget {
       children: [
         Expanded(
           flex: 3,
-          child: GestureDetector(
+          child: InkWell(
             onTap: onDateTimeTap,
+            borderRadius: BorderRadius.circular(20),
             child: Container(
-              height: 56,
+              height: 60,
               padding: const EdgeInsets.symmetric(horizontal: 14),
               decoration: BoxDecoration(
-                color: (sDateError || sTimeError)
-                    ? const Color(0xFFFFF1F2)
-                    : const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(16),
+                color: (sDateError || sTimeError) ? const Color(0xFFFFF1F2) : const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                  color: (sDateError || sTimeError)
-                      ? const Color(0xFFFDA4AF)
-                      : const Color(0xFFE2E8F0),
-                  width: 1.5,
+                  color: (sDateError || sTimeError) ? const Color(0xFFFDA4AF) : const Color(0xFFE2E8F0),
+                  width: (sDateError || sTimeError) ? 2.0 : 1.5,
                 ),
               ),
               child: Row(
                 children: [
-                  Icon(
-                    Icons.calendar_today_rounded,
-                    color: (sDateError || sTimeError)
-                        ? const Color(0xFFE11D48)
-                        : const Color(0xFF4A80F0),
-                    size: 18,
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: (sDateError || sTimeError) ? const Color(0xFFE11D48).withValues(alpha: 0.1) : const Color(0xFF2563EB).withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.calendar_today_rounded,
+                      color: (sDateError || sTimeError) ? const Color(0xFFE11D48) : const Color(0xFF2563EB),
+                      size: 16,
+                    ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -66,17 +69,15 @@ class TaxiDriverRideDatetimeSeats extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          provider.translate('date_time_label'),
+                          provider.translate('date_time_label').toUpperCase(),
                           style: GoogleFonts.inter(
                             fontSize: 9,
-                            color: (sDateError || sTimeError)
-                                ? const Color(0xFFE11D48)
-                                : const Color(0xFF64748B),
+                            color: (sDateError || sTimeError) ? const Color(0xFFE11D48) : const Color(0xFF64748B),
                             fontWeight: FontWeight.w800,
-                            letterSpacing: 0.3,
+                            letterSpacing: 0.5,
                           ),
                         ),
-                        const SizedBox(height: 1),
+                        const SizedBox(height: 2),
                         FittedBox(
                           fit: BoxFit.scaleDown,
                           child: Text(
@@ -85,10 +86,8 @@ class TaxiDriverRideDatetimeSeats extends StatelessWidget {
                                 : '${localDate == 'today' ? provider.translate('today') : localDate == 'tomorrow' ? provider.translate('tomorrow') : localDate}${localTime.isEmpty || localTime == 'time' ? '' : ', ' + localTime}',
                             style: GoogleFonts.inter(
                               fontSize: 13,
-                              color: (localDate.isEmpty || localDate == 'date')
-                                  ? const Color(0xFF94A3B8)
-                                  : const Color(0xFF1E293B),
-                              fontWeight: FontWeight.w700,
+                              color: (localDate.isEmpty || localDate == 'date') ? const Color(0xFF94A3B8) : const Color(0xFF0F172A),
+                              fontWeight: FontWeight.w800,
                             ),
                           ),
                         ),
@@ -103,14 +102,15 @@ class TaxiDriverRideDatetimeSeats extends StatelessWidget {
         const SizedBox(width: 12),
         Expanded(
           flex: 2,
-          child: GestureDetector(
+          child: InkWell(
             onTap: onSeatsTap,
+            borderRadius: BorderRadius.circular(20),
             child: Container(
-              height: 56,
+              height: 60,
               padding: const EdgeInsets.symmetric(horizontal: 14),
               decoration: BoxDecoration(
                 color: const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(20),
                 border: Border.all(
                   color: const Color(0xFFE2E8F0),
                   width: 1.5,
@@ -118,10 +118,18 @@ class TaxiDriverRideDatetimeSeats extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  const Icon(
-                    Icons.group_rounded,
-                    color: Color(0xFF4A80F0),
-                    size: 20,
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF10B981).withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.event_seat_rounded,
+                      color: Color(0xFF10B981),
+                      size: 16,
+                    ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -130,21 +138,21 @@ class TaxiDriverRideDatetimeSeats extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          provider.translate('seats_label'),
+                          provider.translate('seats_label').toUpperCase(),
                           style: GoogleFonts.inter(
                             fontSize: 9,
                             color: const Color(0xFF64748B),
                             fontWeight: FontWeight.w800,
-                            letterSpacing: 0.3,
+                            letterSpacing: 0.5,
                           ),
                         ),
-                        const SizedBox(height: 1),
+                        const SizedBox(height: 2),
                         Text(
-                          '$seats',
+                          '$seats ${seats == 1 ? 'место' : seats < 5 ? 'места' : 'мест'}',
                           style: GoogleFonts.inter(
-                            fontSize: 14,
-                            color: const Color(0xFF1E293B),
-                            fontWeight: FontWeight.w900,
+                            fontSize: 13,
+                            color: const Color(0xFF0F172A),
+                            fontWeight: FontWeight.w800,
                           ),
                         ),
                       ],

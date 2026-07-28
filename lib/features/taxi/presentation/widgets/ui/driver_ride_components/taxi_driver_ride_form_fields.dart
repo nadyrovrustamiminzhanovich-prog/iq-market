@@ -40,59 +40,68 @@ class TaxiDriverRideFormFields extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Телефон
+        // Phone Input
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          height: 56,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          height: 60,
           decoration: BoxDecoration(
             color: sPhoneError ? const Color(0xFFFFF1F2) : const Color(0xFFF8FAFC),
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(20),
             border: Border.all(
               color: sPhoneError ? const Color(0xFFFDA4AF) : const Color(0xFFE2E8F0),
-              width: 1.5,
+              width: sPhoneError ? 2.0 : 1.5,
             ),
           ),
           child: Row(
             children: [
-              const SizedBox(width: 4),
-              Icon(
-                Icons.phone_iphone_rounded,
-                color: sPhoneError ? const Color(0xFFE11D48) : const Color(0xFF4A80F0),
-                size: 22,
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: sPhoneError ? const Color(0xFFE11D48).withValues(alpha: 0.1) : const Color(0xFF2563EB).withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.phone_iphone_rounded,
+                  color: sPhoneError ? const Color(0xFFE11D48) : const Color(0xFF2563EB),
+                  size: 16,
+                ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      provider.translate('your_phone'),
+                      provider.translate('your_phone').toUpperCase(),
                       style: GoogleFonts.inter(
-                        fontSize: 8.5,
+                        fontSize: 9,
                         color: sPhoneError ? const Color(0xFFE11D48) : const Color(0xFF64748B),
                         fontWeight: FontWeight.w800,
+                        letterSpacing: 0.5,
                       ),
                     ),
+                    const SizedBox(height: 2),
                     Expanded(
                       child: TextField(
                         controller: phoneC,
                         keyboardType: TextInputType.phone,
                         inputFormatters: [phoneMask],
                         style: GoogleFonts.inter(
-                          color: sPhoneError ? const Color(0xFFE11D48) : const Color(0xFF1E293B),
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
+                          color: sPhoneError ? const Color(0xFFE11D48) : const Color(0xFF0F172A),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
                         ),
                         decoration: InputDecoration(
                           border: InputBorder.none,
                           isDense: true,
-                          contentPadding: const EdgeInsets.symmetric(vertical: 4),
+                          contentPadding: const EdgeInsets.symmetric(vertical: 2),
                           hintText: '+7 (700) 000-00-00',
                           hintStyle: GoogleFonts.inter(
-                            color: sPhoneError ? const Color(0xFFFDA4AF) : t.sub.withValues(alpha: 0.5),
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
+                            color: sPhoneError ? const Color(0xFFFDA4AF) : const Color(0xFF94A3B8),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
                           ),
                           counterText: '',
                         ),
@@ -105,116 +114,16 @@ class TaxiDriverRideFormFields extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 16),
 
-        // Цена
-        Text(
-          provider.translate('price_per_seat'),
-          style: GoogleFonts.inter(
-            color: t.sub,
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 0.5,
-          ),
-        ),
-        const SizedBox(height: 10),
+        // Price Input
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
             color: sPriceError ? const Color(0xFFFFF1F2) : const Color(0xFFF8FAFC),
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(20),
             border: Border.all(
               color: sPriceError ? const Color(0xFFFDA4AF) : const Color(0xFFE2E8F0),
-              width: 1.5,
-            ),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              GestureDetector(
-                onTap: onPriceDecrement,
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
-                  ),
-                  child: const Icon(Icons.remove, color: Color(0xFF1E293B), size: 16),
-                ),
-              ),
-              Container(
-                width: 120,
-                alignment: Alignment.center,
-                child: TextField(
-                  controller: priceCtrl,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                    LengthLimitingTextInputFormatter(7),
-                  ],
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.inter(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900,
-                    color: sPriceError ? const Color(0xFFE11D48) : t.text,
-                  ),
-                  decoration: InputDecoration(
-                    suffixText: ' ₸',
-                    suffixStyle: GoogleFonts.inter(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                      color: sPriceError ? const Color(0xFFE11D48) : t.text,
-                    ),
-                    border: InputBorder.none,
-                    isDense: true,
-                  ),
-                  onChanged: onPriceChanged,
-                ),
-              ),
-              GestureDetector(
-                onTap: onPriceIncrement,
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
-                  ),
-                  child: const Icon(Icons.add, color: Color(0xFF1E293B), size: 16),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 20),
-
-        // Комментарий
-        Text(
-          provider.translate('ride_comment_label'),
-          style: GoogleFonts.inter(
-            color: t.sub,
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 0.5,
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextField(
-          controller: commentC,
-          maxLength: 200,
-          style: GoogleFonts.inter(
-            color: t.text,
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-          ),
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: const Color(0xFFF8FAFC),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(18),
-              borderSide: const BorderSide(color: Color(0xFFE2E8F0), width: 1.5),
-            ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(18),
               borderSide: const BorderSide(color: Color(0xFF4A80F0), width: 1.5),

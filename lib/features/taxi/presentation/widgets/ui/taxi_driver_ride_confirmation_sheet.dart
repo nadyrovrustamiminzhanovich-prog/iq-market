@@ -442,31 +442,62 @@ class _TaxiDriverRideConfirmationSheetContentState
           children: [
             Center(
               child: Container(
-                width: 40,
+                width: 44,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: widget.t.border,
+                  color: const Color(0xFFCBD5E1),
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
             ),
-            const SizedBox(height: 24),
-            Text(
-              widget.provider.translate('create_ride_btn'),
-              style: GoogleFonts.inter(
-                fontWeight: FontWeight.w900,
-                color: widget.t.text,
-                fontSize: 18,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              widget.provider.translate('create_ride_desc_driver'),
-              style: GoogleFonts.inter(
-                fontWeight: FontWeight.w500,
-                color: widget.t.sub,
-                fontSize: 12,
-              ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF2563EB).withValues(alpha: 0.3),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(Icons.add_road_rounded, color: Colors.white, size: 24),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.provider.translate('create_ride_btn'),
+                        style: GoogleFonts.inter(
+                          fontWeight: FontWeight.w900,
+                          color: const Color(0xFF0F172A),
+                          fontSize: 20,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        widget.provider.translate('create_ride_desc_driver'),
+                        style: GoogleFonts.inter(
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF64748B),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 20),
             Container(
@@ -598,30 +629,34 @@ class _TaxiDriverRideConfirmationSheetContentState
                       height: 56,
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
-                          colors: [Color(0xFF4A80F0), Color(0xFF4A80F0)],
+                          colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
                         borderRadius: BorderRadius.circular(20),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF4A80F0)
-                                .withValues(alpha: 0.3),
-                            blurRadius: 15,
+                            color: const Color(0xFF2563EB).withValues(alpha: 0.35),
+                            blurRadius: 16,
                             offset: const Offset(0, 6),
                           ),
                         ],
                       ),
-                      child: Center(
-                        child: Text(
-                          widget.provider.translate('publish_ride_btn'),
-                          style: GoogleFonts.inter(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w900,
-                            fontSize: 15,
-                            letterSpacing: 0.5,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.rocket_launch_rounded, color: Colors.white, size: 20),
+                          const SizedBox(width: 10),
+                          Text(
+                            widget.provider.translate('publish_ride_btn').toUpperCase(),
+                            style: GoogleFonts.inter(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 15,
+                              letterSpacing: 0.8,
+                            ),
                           ),
-                        ),
+                        ],
                       ),
                     ),
                   ),
@@ -634,72 +669,122 @@ class _TaxiDriverRideConfirmationSheetContentState
 
   Widget _buildCarSelectionCard() {
     final hasCar = selectedBrand.isNotEmpty && selectedModel.isNotEmpty;
-    final displayCarName = hasCar ? '$selectedBrand $selectedModel' : 'Выберите автомобиль';
-    final displayMeta = '$selectedColor, $selectedYear г.';
-    final displayPlate = plateC.text.isNotEmpty ? plateC.text.toUpperCase() : 'НЕТ НОМЕРА';
+    final displayCarName = hasCar ? '$selectedBrand $selectedModel' : 'Выберите Ваш автомобиль';
+    final displayMeta = '$selectedColor • $selectedYear г.';
+    final displayPlate = plateC.text.isNotEmpty ? plateC.text.toUpperCase() : '000 AAA 05';
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(22),
         border: Border.all(color: const Color(0xFFE2E8F0), width: 1.5),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: const Color(0xFF4A80F0).withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.directions_car_filled_rounded, color: Color(0xFF4A80F0), size: 28),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  displayCarName,
-                  style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: const Color(0xFF1E293B), fontSize: 15),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  displayMeta,
-                  style: GoogleFonts.inter(color: const Color(0xFF64748B), fontSize: 12, fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 6),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFCBD5E1)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF3B82F6), Color(0xFF2563EB)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
-                  child: Text(
-                    displayPlate,
-                    style: GoogleFonts.firaCode(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A), letterSpacing: 0.5),
-                  ),
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF2563EB).withValues(alpha: 0.25),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: const Icon(Icons.directions_car_filled_rounded, color: Colors.white, size: 24),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      displayCarName,
+                      style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: const Color(0xFF0F172A), fontSize: 16),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      displayMeta,
+                      style: GoogleFonts.inter(color: const Color(0xFF64748B), fontSize: 12, fontWeight: FontWeight.w700),
+                    ),
+                  ],
+                ),
+              ),
+              ElevatedButton.icon(
+                onPressed: _showCarSelectionBottomSheet,
+                icon: const Icon(Icons.edit_rounded, size: 14),
+                label: const Text('Изменить'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFEFF6FF),
+                  foregroundColor: const Color(0xFF2563EB),
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  textStyle: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w800),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // Stylized KZ License Plate Badge
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFF000000), width: 1.5),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
                 ),
               ],
             ),
-          ),
-          const SizedBox(width: 12),
-          TextButton(
-            onPressed: _showCarSelectionBottomSheet,
-            style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFF4A80F0),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                side: BorderSide(color: const Color(0xFF4A80F0).withValues(alpha: 0.3)),
-              ),
-            ),
-            child: Text(
-              'Изменить',
-              style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 12),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF00A3E0),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Text('KZ', style: TextStyle(color: Colors.yellow, fontSize: 10, fontWeight: FontWeight.w900)),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  displayPlate,
+                  style: GoogleFonts.firaCode(
+                    fontSize: 14, 
+                    fontWeight: FontWeight.w900, 
+                    color: const Color(0xFF000000), 
+                    letterSpacing: 2.0
+                  ),
+                ),
+              ],
             ),
           ),
         ],
