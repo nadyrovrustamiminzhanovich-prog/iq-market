@@ -124,17 +124,160 @@ class TaxiDriverRideFormFields extends StatelessWidget {
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
               color: sPriceError ? const Color(0xFFFDA4AF) : const Color(0xFFE2E8F0),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(18),
-              borderSide: const BorderSide(color: Color(0xFF4A80F0), width: 1.5),
+              width: sPriceError ? 2.0 : 1.5,
             ),
-            hintText: provider.translate('comment_placeholder_driver'),
-            hintStyle: GoogleFonts.inter(
-              color: t.sub.withValues(alpha: 0.4),
-              fontSize: 12,
-            ),
-            counterText: '',
-            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: sPriceError ? const Color(0xFFE11D48).withValues(alpha: 0.1) : const Color(0xFF10B981).withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.payments_rounded,
+                  color: sPriceError ? const Color(0xFFE11D48) : const Color(0xFF10B981),
+                  size: 16,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      provider.translate('price_per_seat').toUpperCase(),
+                      style: GoogleFonts.inter(
+                        fontSize: 9,
+                        color: sPriceError ? const Color(0xFFE11D48) : const Color(0xFF64748B),
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        IntrinsicWidth(
+                          child: TextField(
+                            controller: priceCtrl,
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                            style: GoogleFonts.inter(
+                              color: sPriceError ? const Color(0xFFE11D48) : const Color(0xFF0F172A),
+                              fontSize: 16,
+                              fontWeight: FontWeight.w900,
+                            ),
+                            decoration: const InputDecoration(
+                              hintText: '2500',
+                              hintStyle: TextStyle(color: Color(0xFF94A3B8)),
+                              border: InputBorder.none,
+                              isDense: true,
+                              contentPadding: EdgeInsets.zero,
+                            ),
+                            onChanged: onPriceChanged,
+                          ),
+                        ),
+                        Text(
+                          ' ₸',
+                          style: GoogleFonts.inter(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                            color: const Color(0xFF2563EB),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Row(
+                children: [
+                  IconButton(
+                    onPressed: onPriceDecrement,
+                    icon: const Icon(Icons.remove_circle_outline_rounded, color: Color(0xFF64748B), size: 28),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    onPressed: onPriceIncrement,
+                    icon: const Icon(Icons.add_circle_rounded, color: Color(0xFF2563EB), size: 28),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // Comment Input
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFFE2E8F0), width: 1.5),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 2),
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF8B5CF6).withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.chat_bubble_outline_rounded,
+                  color: Color(0xFF8B5CF6),
+                  size: 16,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      provider.translate('comment_label').toUpperCase(),
+                      style: GoogleFonts.inter(
+                        fontSize: 9,
+                        color: const Color(0xFF64748B),
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    TextField(
+                      controller: commentC,
+                      maxLines: 2,
+                      style: GoogleFonts.inter(
+                        color: const Color(0xFF0F172A),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: provider.translate('comment_hint'),
+                        hintStyle: GoogleFonts.inter(
+                          color: const Color(0xFF94A3B8),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        border: InputBorder.none,
+                        isDense: true,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ],
