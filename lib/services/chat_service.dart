@@ -787,43 +787,6 @@ class ChatService {
         });
   }
 
-  static Future<void> markAllChatsAsRead() async {
-    final uid = UserService.currentUid;
-    if (uid == null) return;
-    
-    try {
-      final chats = await _db
-          .collection('chats')
-          .where('users', arrayContains: uid)
-          .get();
-
-      final batch = _db.batch();
-      for (var doc in chats.docs) {
-        final data = doc.data();
-        final unreadCount = data['unreadCount_$uid'] ?? 0;
-        if (unreadCount > 0) {
-          batch.set(doc.reference, {
-            'unreadCount_$uid': 0,
-            'isRead': true,
-          }, SetOptions(merge: true));
-          
-          final unreadMessages = await doc.reference
-              .collection('messages')
-              .where('isRead', isEqualTo: false)
-              .get();
-          for (var msgDoc in unreadMessages.docs) {
-            if (msgDoc.data()['senderId'] != uid) {
-              batch.update(msgDoc.reference, {'isRead': true});
-            }
-          }
-        }
-      }
-      await batch.commit();
-    } catch (e) {
-      debugPrint('[ChatService.markAllChatsAsRead] Error: $e');
-    }
-  }
-
   /// Seed test data for UI testing
   static Future<void> seedTestData(String otherUserId) async {
     final chatId = getChatId(otherUserId);
