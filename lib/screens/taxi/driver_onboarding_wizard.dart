@@ -51,14 +51,12 @@ class _DriverOnboardingWizardState extends State<DriverOnboardingWizard>
     type: MaskAutoCompletionType.lazy,
   );
   bool _isWaitingForBot = false;
-  bool _isTimerRunning = false;
   int _timerSeconds = 180;
   Timer? _timer;
   String? _tgSessionToken;
   String? _chatId;
   StreamSubscription? _tgSessionSub;
   String? _tgErrorText;
-  bool _isTgVerified = false;
 
   // ── Step 2: Documents & Car State ──────────────────────────────────────────
   final ImagePicker _picker = ImagePicker();
@@ -219,8 +217,6 @@ class _DriverOnboardingWizardState extends State<DriverOnboardingWizard>
         
         final int savedStep = data['driverOnboardingStep'] is int ? data['driverOnboardingStep'] : 1;
 
-        _isTgVerified = isTgVerified;
-
         if (widget.initialStep != null) {
           _step = widget.initialStep!;
         } else if (savedStep >= 3) {
@@ -257,12 +253,10 @@ class _DriverOnboardingWizardState extends State<DriverOnboardingWizard>
   void _startTimer() {
     setState(() {
       _timerSeconds = 180;
-      _isTimerRunning = true;
     });
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_timerSeconds == 0) {
-        if (mounted) setState(() => _isTimerRunning = false);
         timer.cancel();
       } else {
         if (mounted) setState(() => _timerSeconds--);
