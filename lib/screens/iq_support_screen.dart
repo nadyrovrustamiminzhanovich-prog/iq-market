@@ -877,6 +877,8 @@ class _IqSupportScreenState extends State<IqSupportScreen>
         ],
       ),
     );
+  }
+
   // ── INPUT BAR ─────────────────────────────────────────────────────
   Widget _buildInputBar() {
     return Container(
