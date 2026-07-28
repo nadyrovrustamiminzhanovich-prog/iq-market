@@ -4,7 +4,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:iqmarket/providers/taxi_provider.dart';
 import 'package:iqmarket/theme/taxi_theme.dart';
 import 'package:iqmarket/services/notification_service.dart';
-import 'package:iqmarket/features/taxi/presentation/widgets/ui/taxi_assigned_passenger_view.dart';
 import 'package:iqmarket/features/taxi/presentation/widgets/ui/taxi_active_ride_tracking_view.dart';
 import 'package:iqmarket/features/taxi/presentation/widgets/ui/taxi_active_bids_widget.dart';
 import 'package:iqmarket/features/taxi/presentation/widgets/ui/taxi_create_ride_button.dart';

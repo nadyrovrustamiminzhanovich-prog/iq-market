@@ -284,8 +284,6 @@ class TaxiRepository {
       }
       await batch.commit();
 
-      // Notify winner AFTER batch is committed
-      final targetType = bidData['targetType'];
       if (targetType == 'order') {
         NotificationService.saveNotificationToFirestore(
           title: 'Предложение принято! 🎉',
