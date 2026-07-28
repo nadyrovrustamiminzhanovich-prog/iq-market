@@ -307,9 +307,8 @@ void showTaxiPassengerOrderConfirmationSheet({
                             provider.translate('order_create_err'),
                             isSuccess: false,
                           );
+                          ss(() => isPublishing = false);
                         }
-                      } finally {
-                        ss(() => isPublishing = false);
                       }
                     },
                   ),

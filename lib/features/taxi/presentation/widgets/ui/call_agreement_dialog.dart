@@ -99,7 +99,7 @@ class _CallAgreementSheetState extends State<_CallAgreementSheet>
   Future<void> _confirmAgreement() async {
     if (_isProcessing) return;
     final priceText = _priceController.text.replaceAll(RegExp(r'\D'), '');
-    final int price = int.tryParse(priceText) ?? widget.suggestedPrice;
+    final int price = (int.tryParse(priceText) ?? widget.suggestedPrice).clamp(0, 1000000);
     
     // Save phone if it was empty
     final enteredPhone = _phoneController.text.trim();
@@ -133,8 +133,7 @@ class _CallAgreementSheetState extends State<_CallAgreementSheet>
           ? 'Эта поездка уже была записана ранее'
           : 'Не удалось записать поездку. Попробуйте снова.';
       NotificationService.notify(context, widget.provider.translate('errorTitle'), msg, isSuccess: false);
-    } finally {
-      if (mounted) setState(() => _isProcessing = false);
+      setState(() => _isProcessing = false);
     }
   }
 
@@ -307,8 +306,22 @@ class _CallAgreementSheetState extends State<_CallAgreementSheet>
                             child: TextField(
                               controller: _priceController,
                               keyboardType: TextInputType.number,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                                LengthLimitingTextInputFormatter(7),
+                              ],
                               autofocus: true,
                               style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w900, color: t.text),
+                              onChanged: (val) {
+                                final clean = val.replaceAll(RegExp(r'\D'), '');
+                                int parsed = clean.isNotEmpty ? (int.tryParse(clean) ?? 0) : 0;
+                                if (parsed > 1000000) {
+                                  _priceController.text = '1000000';
+                                  _priceController.selection = TextSelection.fromPosition(
+                                    TextPosition(offset: _priceController.text.length),
+                                  );
+                                }
+                              },
                               decoration: InputDecoration(
                                 border: InputBorder.none,
                                 hintText: '0',

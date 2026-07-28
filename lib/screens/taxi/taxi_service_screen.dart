@@ -47,7 +47,6 @@ import 'package:iqmarket/features/taxi/presentation/widgets/ui/service_component
 
 // ── Features: controllers ─────────────────────────────────────────────────────
 import 'package:iqmarket/features/taxi/presentation/controllers/taxi_action_gate_controller.dart';
-import 'package:iqmarket/features/taxi/presentation/controllers/taxi_auto_resolution_controller.dart';
 
 /// Главный экран такси-сервиса.
 ///
@@ -330,20 +329,30 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen>
                   Expanded(
                     child: provider.loading
                         ? _loader(t)
-                        : ListView(
-                            padding: EdgeInsets.zero,
-                            physics: const BouncingScrollPhysics(),
-                            children: [
-                              const TaxiServiceHeader(),
-                              TaxiRoleSelector(
-                                provider: provider,
-                                t: t,
-                                onRoleChanged: _resetErrors,
+                        : RefreshIndicator(
+                            color: const Color(0xFF4A80F0),
+                            backgroundColor: t.card,
+                            onRefresh: () async {
+                              HapticFeedback.mediumImpact();
+                              await provider.refreshData();
+                            },
+                            child: ListView(
+                              padding: EdgeInsets.zero,
+                              physics: const AlwaysScrollableScrollPhysics(
+                                parent: BouncingScrollPhysics(),
                               ),
-                              provider.tab == 0
-                                  ? _passengerView(provider, t)
-                                  : _driverView(provider, t),
-                            ],
+                              children: [
+                                const TaxiServiceHeader(),
+                                TaxiRoleSelector(
+                                  provider: provider,
+                                  t: t,
+                                  onRoleChanged: _resetErrors,
+                                ),
+                                provider.tab == 0
+                                    ? _passengerView(provider, t)
+                                    : _driverView(provider, t),
+                              ],
+                            ),
                           ),
                   ),
                 ],
@@ -425,8 +434,15 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen>
         priceController: _priceController,
         hasPriceError: _showPriceError,
         onPriceChanged: (v) {
-          final val =
+          int val =
               int.tryParse(v.replaceAll(RegExp(r'[^\d]'), '')) ?? 0;
+          if (val > 1000000) {
+            val = 1000000;
+            _priceController.text = '1000000';
+            _priceController.selection = TextSelection.fromPosition(
+              TextPosition(offset: _priceController.text.length),
+            );
+          }
           provider.setMaxPrice(val);
           if (val > 0) setState(() => _showPriceError = false);
         },
@@ -755,7 +771,7 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen>
         }
       }
     } else {
-      Navigator.push(
+      await Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => ChatScreen(
@@ -779,6 +795,28 @@ class _TaxiServiceScreenState extends State<TaxiServiceScreen>
           ),
         ),
       );
+
+      if (mounted) {
+        final counterpartName =
+            d['driverName']?.toString() ?? d['name']?.toString() ?? 'Водитель';
+        final counterpartPhone =
+            d['driverPhone']?.toString() ?? d['phone']?.toString() ?? '';
+        final counterpartImg =
+            d['driverImg']?.toString() ?? d['img']?.toString() ?? '';
+        final suggestedPrice = (d['price'] as num?)?.toInt() ?? 0;
+
+        showCallAgreementDialog(
+          context: context,
+          provider: provider,
+          t: t,
+          targetId: d['id']?.toString() ?? '',
+          targetType: 'drive',
+          counterpartName: counterpartName,
+          counterpartPhone: counterpartPhone,
+          counterpartImg: counterpartImg,
+          suggestedPrice: suggestedPrice,
+        );
+      }
     }
   }
 

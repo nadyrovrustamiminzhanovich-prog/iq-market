@@ -421,9 +421,6 @@ class _TaxiDriverRideConfirmationSheetContentState
           widget.provider.translate('ride_create_err'),
           isSuccess: false,
         );
-      }
-    } finally {
-      if (mounted) {
         setState(() => isPublishing = false);
       }
     }
@@ -545,11 +542,13 @@ class _TaxiDriverRideConfirmationSheetContentState
                     },
                     onPriceIncrement: () {
                       HapticFeedback.lightImpact();
-                      setState(() {
-                        price += 100;
-                        priceCtrl.text = price.toString();
-                        sPriceError = false;
-                      });
+                      if (price < 1000000) {
+                        setState(() {
+                          price = (price + 100).clamp(0, 1000000);
+                          priceCtrl.text = price.toString();
+                          sPriceError = false;
+                        });
+                      }
                     },
                     onPhoneChanged: (val) {
                       final cleanVal = val.replaceAll(RegExp(r'\D'), '');
@@ -559,9 +558,16 @@ class _TaxiDriverRideConfirmationSheetContentState
                     },
                     onPriceChanged: (val) {
                       final valClean = val.replaceAll(RegExp(r'\D'), '');
-                      final newPrice = valClean.isNotEmpty
+                      int newPrice = valClean.isNotEmpty
                           ? (int.tryParse(valClean) ?? 0)
                           : 0;
+                      if (newPrice > 1000000) {
+                        newPrice = 1000000;
+                        priceCtrl.text = '1000000';
+                        priceCtrl.selection = TextSelection.fromPosition(
+                          TextPosition(offset: priceCtrl.text.length),
+                        );
+                      }
                       
                       // Only call setState if error state needs to change to avoid rebuilding on every keystroke
                       if (sPriceError && newPrice >= 100) {
@@ -714,14 +720,21 @@ class _TaxiDriverRideConfirmationSheetContentState
       backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheetState) {
-          return Container(
-            height: MediaQuery.of(context).size.height * 0.85,
-            decoration: BoxDecoration(
-              color: widget.t.bg,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
-            ),
-            child: Column(
-              children: [
+          final keyboardPadding = MediaQuery.of(ctx).viewInsets.bottom;
+          return AnimatedPadding(
+            duration: const Duration(milliseconds: 150),
+            padding: EdgeInsets.only(bottom: keyboardPadding),
+            child: Container(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.85,
+              ),
+              decoration: BoxDecoration(
+                color: widget.t.bg,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
                 Container(
                   width: 40,
                   height: 4,
@@ -843,6 +856,7 @@ class _TaxiDriverRideConfirmationSheetContentState
                         ),
                         child: TextField(
                           controller: tempPlateC,
+                          scrollPadding: const EdgeInsets.only(bottom: 140),
                           style: GoogleFonts.firaCode(fontWeight: FontWeight.bold, color: widget.t.text),
                           inputFormatters: [plateMask, UpperCaseTextFormatter()],
                           decoration: InputDecoration(
@@ -886,10 +900,11 @@ class _TaxiDriverRideConfirmationSheetContentState
                 ),
               ],
             ),
-          );
-        },
-      ),
-    );
+          ),
+        );
+      },
+    ),
+  );
   }
 
   Widget _buildSelectorRow({

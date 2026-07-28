@@ -282,11 +282,18 @@ exports.telegramWebhook = functions.https.onRequest(async (req, res) => {
         console.error(`[contact] FAILED to get customToken for chatId=${chatId}`);
       }
 
+      const tgUsername  = msg.from.username ? `@${msg.from.username}` : '';
+      const tgFirstName = msg.from.first_name || '';
+      const tgLastName  = msg.from.last_name || '';
+
       await sessionDoc.ref.update({
-        chat_id   : chatId,
-        otp       : 'sent',
-        verified  : true,
-        linked_at : admin.firestore.FieldValue.serverTimestamp(),
+        chat_id            : chatId,
+        telegram_username  : tgUsername,
+        telegram_first_name: tgFirstName,
+        telegram_last_name : tgLastName,
+        otp                : 'sent',
+        verified           : true,
+        linked_at          : admin.firestore.FieldValue.serverTimestamp(),
       });
       
       await db.collection('tg_auth_sessions_secure').doc(sessionDoc.id).set({
@@ -328,11 +335,18 @@ exports.telegramWebhook = functions.https.onRequest(async (req, res) => {
             return res.sendStatus(200);
           }
 
+          const tgUsername  = msg.from.username ? `@${msg.from.username}` : '';
+          const tgFirstName = msg.from.first_name || '';
+          const tgLastName  = msg.from.last_name || '';
+
           if (sessionData.phone) {
             // X10 Secure Contact-Sharing flow (verification after Google/Email login)
             await ref.update({
-              chat_id  : chatId,
-              linked_at: admin.firestore.FieldValue.serverTimestamp(),
+              chat_id            : chatId,
+              telegram_username  : tgUsername,
+              telegram_first_name: tgFirstName,
+              telegram_last_name : tgLastName,
+              linked_at          : admin.firestore.FieldValue.serverTimestamp(),
             });
             await tgSend(chatId,
               `👋 <b>${name}, добро пожаловать в IQ-Market!</b>\n\n`
@@ -363,10 +377,13 @@ exports.telegramWebhook = functions.https.onRequest(async (req, res) => {
             }
 
             await ref.update({
-              chat_id   : chatId,
-              verified  : true,   // ✅ Direct Telegram login = verified by definition
-              otp       : 'sent',
-              linked_at : admin.firestore.FieldValue.serverTimestamp(),
+              chat_id            : chatId,
+              telegram_username  : tgUsername,
+              telegram_first_name: tgFirstName,
+              telegram_last_name : tgLastName,
+              verified           : true,   // ✅ Direct Telegram login = verified by definition
+              otp                : 'sent',
+              linked_at          : admin.firestore.FieldValue.serverTimestamp(),
             });
 
             await db.collection('tg_auth_sessions_secure').doc(sessionToken).set({
@@ -679,20 +696,36 @@ exports.verifyTelegramOtp = functions.https.onCall(async (data, context) => {
       const userRef = db.collection('users').doc(userUid);
       
       const phoneToUse = data.phone || sessionData.phone || '';
+      const tgUsername = sessionData.telegram_username || '';
+      const tgFirstName = sessionData.telegram_first_name || '';
+      const tgLastName = sessionData.telegram_last_name || '';
       
-      await userRef.update({
-        isVerified: true
-      });
+      await userRef.set({
+        isVerified: true,
+        isTelegramVerified: true,
+        telegramChatId: sessionData.chat_id || '',
+        telegram_username: tgUsername,
+        telegram_first_name: tgFirstName,
+        telegram_last_name: tgLastName,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
 
       await userRef.collection('private').doc('contact').set({
         phone: phoneToUse,
         telegram_chat_id: sessionData.chat_id || '',
         telegramChatId: sessionData.chat_id || '',
+        telegram_username: tgUsername,
         updated_at: admin.firestore.FieldValue.serverTimestamp()
       }, { merge: true });
 
-      console.log(`[verifyTelegramOtp] User ${userUid} successfully verified via Telegram.`);
-      return { success: true };
+      console.log(`[verifyTelegramOtp] User ${userUid} successfully verified via Telegram. TgUser=${tgUsername}`);
+      return {
+        success: true,
+        chatId: sessionData.chat_id || '',
+        telegramUsername: tgUsername,
+        telegramFirstName: tgFirstName,
+        telegramLastName: tgLastName,
+      };
     }
 
     // Case 2: Guest user (Logging in via Telegram)

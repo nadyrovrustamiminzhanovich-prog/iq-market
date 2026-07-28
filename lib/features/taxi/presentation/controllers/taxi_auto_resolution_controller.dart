@@ -36,7 +36,7 @@ class TaxiAutoResolutionController {
         DateTime createdDateTime = _parseDateTime(createdAt);
         final diff = DateTime.now().difference(createdDateTime);
         
-        if (diff.inMinutes > 90) { // 1.5 hours
+        if (diff.inHours >= 24) { // 24 hours TTL
           _shownAutoResolutionRides.add(orderId);
           WidgetsBinding.instance.addPostFrameCallback((_) {
             showAutoResolutionDialog(context, provider, t, order, isOrder: true);
@@ -56,7 +56,7 @@ class TaxiAutoResolutionController {
         DateTime createdDateTime = _parseDateTime(createdAt);
         final diff = DateTime.now().difference(createdDateTime);
         
-        if (diff.inMinutes > 90) {
+        if (diff.inHours >= 24) { // 24 hours TTL
           _shownAutoResolutionRides.add(rideId);
           WidgetsBinding.instance.addPostFrameCallback((_) {
             showAutoResolutionDialog(context, provider, t, ride, isOrder: false);

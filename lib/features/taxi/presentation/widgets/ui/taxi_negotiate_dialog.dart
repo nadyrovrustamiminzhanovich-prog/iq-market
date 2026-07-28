@@ -23,7 +23,7 @@ void showTaxiNegotiateDialog(
     return;
   }
 
-  int myPrice = (d['price'] as num?)?.toInt() ?? 0;
+  int myPrice = ((d['price'] as num?)?.toInt() ?? 0).clamp(0, 1000000);
   final priceCtrl = TextEditingController(text: myPrice.toString());
 
   bool isSending = false;
@@ -91,6 +91,10 @@ void showTaxiNegotiateDialog(
                   child: TextField(
                     controller: priceCtrl,
                     keyboardType: TextInputType.number,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(7),
+                    ],
                     textAlign: TextAlign.center,
                     style: GoogleFonts.inter(
                       fontSize: 32,
@@ -108,9 +112,17 @@ void showTaxiNegotiateDialog(
                     ),
                     onChanged: (val) {
                       final clean = val.replaceAll(RegExp(r'\D'), '');
-                      myPrice = clean.isNotEmpty
+                      int parsed = clean.isNotEmpty
                           ? (int.tryParse(clean) ?? 0)
                           : 0;
+                      if (parsed > 1000000) {
+                        parsed = 1000000;
+                        priceCtrl.text = '1000000';
+                        priceCtrl.selection = TextSelection.fromPosition(
+                          TextPosition(offset: priceCtrl.text.length),
+                        );
+                      }
+                      myPrice = parsed;
                     },
                   ),
                 ),
@@ -119,10 +131,12 @@ void showTaxiNegotiateDialog(
                 GestureDetector(
                   onTap: () {
                     HapticFeedback.lightImpact();
-                    ss(() {
-                      myPrice += 100;
-                      priceCtrl.text = myPrice.toString();
-                    });
+                    if (myPrice < 1000000) {
+                      ss(() {
+                        myPrice = (myPrice + 100).clamp(0, 1000000);
+                        priceCtrl.text = myPrice.toString();
+                      });
+                    }
                   },
                   child: _circleBtn(t, Icons.add),
                 ),
@@ -188,9 +202,6 @@ void showTaxiNegotiateDialog(
                               provider.translate('general_error_desc'),
                               isSuccess: false,
                             );
-                          }
-                        } finally {
-                          if (c.mounted) {
                             ss(() => isSending = false);
                           }
                         }

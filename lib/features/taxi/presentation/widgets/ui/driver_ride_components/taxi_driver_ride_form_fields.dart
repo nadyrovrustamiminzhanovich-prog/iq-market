@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:iqmarket/theme/taxi_theme.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
@@ -148,6 +149,10 @@ class TaxiDriverRideFormFields extends StatelessWidget {
                 child: TextField(
                   controller: priceCtrl,
                   keyboardType: TextInputType.number,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(7),
+                  ],
                   textAlign: TextAlign.center,
                   style: GoogleFonts.inter(
                     fontSize: 22,

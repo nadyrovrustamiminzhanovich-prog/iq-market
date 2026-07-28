@@ -5,6 +5,7 @@ import 'package:iqmarket/services/ad_service.dart';
 import 'package:iqmarket/models/ad_model.dart';
 import 'package:iqmarket/models/user_model.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:iqmarket/services/user_service.dart';
 import 'package:iqmarket/data/category_data.dart';
@@ -101,22 +102,28 @@ class _PostAdScreenState extends State<PostAdScreen> {
     final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
     _currentUser = await UserService.getUserById(uid);
     
-    // 🔒 Pre-fill phone number from profile
+    // 🔒 Pre-fill phone number from profile / verified_phone
     if (_currentUser != null) {
-      final String profilePhone = _currentUser!.phone;
-      if (profilePhone.isNotEmpty) {
-        final digits = profilePhone.replaceAll(RegExp(r'\D'), '');
-        String localDigits = digits;
-        if (digits.length == 11 && (digits.startsWith('7') || digits.startsWith('8'))) {
-          localDigits = digits.substring(1);
-        } else if (digits.length > 11) {
-          localDigits = digits.substring(digits.length - 10);
+      try {
+        final docSnap = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+        final docData = docSnap.data();
+        final String profilePhone = (docData?['verified_phone'] ?? docData?['phone'] ?? _currentUser!.phone).toString().trim();
+        if (profilePhone.isNotEmpty) {
+          final digits = profilePhone.replaceAll(RegExp(r'\D'), '');
+          String localDigits = digits;
+          if (digits.length == 11 && (digits.startsWith('7') || digits.startsWith('8'))) {
+            localDigits = digits.substring(1);
+          } else if (digits.length > 11) {
+            localDigits = digits.substring(digits.length - 10);
+          }
+          if (mounted && _phoneController.text.isEmpty) {
+            setState(() {
+              _phoneController.text = _phoneMask.maskText(localDigits);
+            });
+          }
         }
-        if (mounted) {
-          setState(() {
-            _phoneController.text = _phoneMask.maskText(localDigits);
-          });
-        }
+      } catch (e) {
+        debugPrint('[PostAd] Error loading verified phone: $e');
       }
     }
 

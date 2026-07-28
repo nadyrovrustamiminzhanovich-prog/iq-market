@@ -57,6 +57,10 @@ class TaxiPriceInputWidget extends StatelessWidget {
             child: TextField(
               controller: priceController,
               keyboardType: TextInputType.number,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(7),
+              ],
               style: GoogleFonts.inter(color: hasPriceError ? const Color(0xFFE11D48) : const Color(0xFF1E293B), fontWeight: FontWeight.w800, fontSize: 16),
               onChanged: onPriceChanged,
               decoration: InputDecoration(

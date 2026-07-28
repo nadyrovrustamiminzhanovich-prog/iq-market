@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:iqmarket/theme/taxi_theme.dart';
 import 'package:iqmarket/providers/taxi_provider.dart';
+import 'package:iqmarket/features/taxi/presentation/widgets/ui/kazakhstan_license_plate.dart';
 import 'taxi_history_rating_sheet.dart';
 
 void showTaxiHistoryDetailsSheet(BuildContext context, Map<String, dynamic> trip, TaxiProvider provider, TaxiTheme t) {
@@ -34,7 +35,7 @@ void showTaxiHistoryDetailsSheet(BuildContext context, Map<String, dynamic> trip
     backgroundColor: Colors.transparent,
     builder: (ctx) => Container(
       constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(ctx).size.height * 0.85,
+        maxHeight: MediaQuery.of(ctx).size.height * 0.88,
       ),
       decoration: BoxDecoration(
         color: t.bg,
@@ -206,63 +207,87 @@ void showTaxiHistoryDetailsSheet(BuildContext context, Map<String, dynamic> trip
             ),
             const SizedBox(height: 14),
 
-            // Counterpart info
+            // Counterpart info card
             Container(
-              padding: const EdgeInsets.all(14),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: t.card,
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: t.border),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    role == 'driver' ? 'ПАССАЖИР' : 'ВОДИТЕЛЬ',
-                    style: GoogleFonts.inter(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                      color: t.sub,
-                      letterSpacing: 1,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
                   Row(
                     children: [
                       CircleAvatar(
-                        radius: 20,
-                        backgroundColor: const Color(0xFF4A80F0).withValues(alpha: 0.1),
+                        radius: 22,
+                        backgroundColor: const Color(0xFF4A80F0).withValues(alpha: 0.12),
                         child: Text(
                           counterpartName.isNotEmpty ? counterpartName[0].toUpperCase() : '?',
                           style: GoogleFonts.inter(
                             color: const Color(0xFF4A80F0),
                             fontWeight: FontWeight.w900,
-                            fontSize: 16,
+                            fontSize: 18,
                           ),
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 14),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              counterpartName,
-                              style: GoogleFonts.inter(
-                                color: t.text,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 15,
-                              ),
-                            ),
-                            if (counterpartPhone.isNotEmpty)
-                              Text(
-                                counterpartPhone,
-                                style: GoogleFonts.inter(
-                                  color: t.sub,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    counterpartName,
+                                    style: GoogleFonts.inter(
+                                      color: t.text,
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 15,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: role == 'driver'
+                                        ? const Color(0xFF84CC16).withValues(alpha: 0.12)
+                                        : const Color(0xFF4A80F0).withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    role == 'driver' ? 'Пассажир' : 'Водитель',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      color: role == 'driver' ? const Color(0xFF4D7C0F) : const Color(0xFF4A80F0),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (counterpartPhone.isNotEmpty) ...[
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  Icon(Icons.phone_rounded, size: 13, color: t.sub),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    counterpartPhone,
+                                    style: GoogleFonts.inter(
+                                      color: t.sub,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
                               ),
+                            ],
                           ],
                         ),
                       ),
@@ -273,53 +298,55 @@ void showTaxiHistoryDetailsSheet(BuildContext context, Map<String, dynamic> trip
                             if (await canLaunchUrl(url)) await launchUrl(url);
                           },
                           child: Container(
-                            padding: const EdgeInsets.all(8),
+                            padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF10B981).withValues(alpha: 0.1),
+                              color: const Color(0xFF4A80F0).withValues(alpha: 0.1),
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(Icons.phone_rounded, color: Color(0xFF10B981), size: 18),
+                            child: const Icon(Icons.phone_rounded, color: Color(0xFF4A80F0), size: 20),
                           ),
                         ),
                     ],
                   ),
-                  // Car info (only show for passenger role or if data exists)
                   if (carModel.isNotEmpty || carPlate.isNotEmpty) ...[
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 14),
                     Divider(height: 1, color: t.border),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 14),
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        Icon(Icons.directions_car_rounded, color: t.sub, size: 16),
-                        const SizedBox(width: 8),
-                        Text(
-                          carModel.isNotEmpty ? carModel : 'Машина',
-                          style: GoogleFonts.inter(
-                            color: t.text,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: t.bg,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: t.border),
+                          ),
+                          child: const Icon(Icons.directions_car_rounded, color: Color(0xFF4A80F0), size: 20),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (carModel.isNotEmpty)
+                                Text(
+                                  carModel,
+                                  style: GoogleFonts.inter(
+                                    color: t.text,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              if (carPlate.isNotEmpty) ...[
+                                const SizedBox(height: 6),
+                                KazakhstanLicensePlate(plate: carPlate, fontSize: 11),
+                              ],
+                            ],
                           ),
                         ),
-                        if (carPlate.isNotEmpty) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: t.bg,
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: t.border),
-                            ),
-                            child: Text(
-                              carPlate,
-                              style: GoogleFonts.inter(
-                                color: t.text,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                          ),
-                        ],
                       ],
                     ),
                   ],
@@ -365,8 +392,8 @@ void showTaxiHistoryDetailsSheet(BuildContext context, Map<String, dynamic> trip
             ],
             const SizedBox(height: 20),
 
-            // Action buttons
-            if (targetUserId.isNotEmpty)
+            // Action buttons: Rating button
+            if (targetUserId.isNotEmpty) ...[
               GestureDetector(
                 onTap: () {
                   Navigator.pop(ctx);
@@ -410,45 +437,99 @@ void showTaxiHistoryDetailsSheet(BuildContext context, Map<String, dynamic> trip
                   ),
                 ),
               ),
-            const SizedBox(height: 10),
-            GestureDetector(
-              onTap: () async {
-                final String from = trip['from'] ?? '';
-                final String to = trip['to'] ?? '';
-                final String msg = Uri.encodeComponent('Здравствуйте! Нужна помощь администратора по поездке из $from в $to (ID: ${trip['id'] ?? ''}). Забыли вещи / не могу связаться.');
-                final Uri url = Uri.parse('https://wa.me/77089007030?text=$msg');
-                if (await canLaunchUrl(url)) {
-                  await launchUrl(url, mode: LaunchMode.externalApplication);
-                }
-              },
-              child: Container(
-                width: double.infinity,
-                height: 50,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF25D366).withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFF25D366).withValues(alpha: 0.4)),
-                ),
-                child: Center(
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+              const SizedBox(height: 14),
+            ],
+
+            // WhatsApp Support Card (Harmonious modern style)
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: t.card,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: t.border),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.02),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  Row(
                     children: [
-                      const Icon(Icons.chat_bubble_rounded, color: Color(0xFF25D366), size: 20),
-                      const SizedBox(width: 8),
-                      Text(
-                        '🆘 Забыли вещи? Написать в WhatsApp',
-                        style: GoogleFonts.inter(
-                          color: const Color(0xFF25D366),
-                          fontWeight: FontWeight.w800,
-                          fontSize: 13,
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF25D366).withValues(alpha: 0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.help_outline_rounded, color: Color(0xFF25D366), size: 22),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Забыли вещи в авто?',
+                              style: GoogleFonts.inter(
+                                color: t.text,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 14,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Напишите в службу поддержки WhatsApp',
+                              style: GoogleFonts.inter(
+                                color: t.sub,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
-                ),
+                  const SizedBox(height: 14),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton.icon(
+                      onPressed: () async {
+                        final String from = trip['from'] ?? '';
+                        final String to = trip['to'] ?? '';
+                        final String msg = Uri.encodeComponent('Здравствуйте! Нужна помощь администратора по поездке из $from в $to (ID: ${trip['id'] ?? ''}). Забыли вещи / не могу связаться.');
+                        final Uri url = Uri.parse('https://wa.me/77089007030?text=$msg');
+                        if (await canLaunchUrl(url)) {
+                          await launchUrl(url, mode: LaunchMode.externalApplication);
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF1E293B),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      icon: const Icon(Icons.chat_bubble_rounded, color: Color(0xFF25D366), size: 18),
+                      label: Text(
+                        'Написать в WhatsApp',
+                        style: GoogleFonts.inter(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
           ],
         ),
       ),
@@ -491,3 +572,4 @@ Widget _detailTile(IconData icon, String label, String value, TaxiTheme t) => Co
     ],
   ),
 );
+

@@ -13,7 +13,6 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:iqmarket/providers/taxi_provider.dart';
 import 'package:iqmarket/services/auth_service.dart';
 import 'package:iqmarket/services/telegram_bot_service.dart';
-import 'package:iqmarket/services/user_service.dart';
 import 'package:iqmarket/services/storage_service.dart';
 import 'package:iqmarket/theme/taxi_theme.dart';
 
@@ -54,7 +53,6 @@ class _TelegramVerificationDialogState extends State<TelegramVerificationDialog>
   Timer? _timer;
   
   String? _tgSessionToken;
-  String? _tgCode;
   String? _chatId;
   StreamSubscription? _tgSessionSub;
   String? _errorText;
@@ -94,7 +92,7 @@ class _TelegramVerificationDialogState extends State<TelegramVerificationDialog>
 
   void _startTimer() {
     setState(() {
-      _timerSeconds = 60;
+      _timerSeconds = 180; // 3 minutes TTL
       _isTimerRunning = true;
     });
     _timer?.cancel();
@@ -166,7 +164,6 @@ class _TelegramVerificationDialogState extends State<TelegramVerificationDialog>
         if (chatId != null && otp != null && otp.isNotEmpty) {
           _tgSessionSub?.cancel();
           setState(() {
-            _tgCode = otp;
             _chatId = chatId;
             _isWaitingForBot = false;
             _step = 1;
@@ -208,12 +205,22 @@ class _TelegramVerificationDialogState extends State<TelegramVerificationDialog>
             }
           }
 
-          // Save verified_phone to Firestore
+          final tgData = result.data;
+          final String? returnedChatId = tgData is Map ? (tgData['chatId']?.toString() ?? _chatId) : _chatId;
+          final String? returnedTgUser = tgData is Map ? tgData['telegramUsername']?.toString() : null;
+          final String? returnedTgFirst = tgData is Map ? tgData['telegramFirstName']?.toString() : null;
+          final String? returnedTgLast = tgData is Map ? tgData['telegramLastName']?.toString() : null;
+
+          // Save verified_phone & Telegram metadata to Firestore
           await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
             'verified_phone': cleanPhone,
             'phone': _phoneCtrl.text,
             'isVerified': true,
             'isTelegramVerified': true,
+            if (returnedChatId != null) 'telegramChatId': returnedChatId,
+            if (returnedTgUser != null && returnedTgUser.isNotEmpty) 'telegram_username': returnedTgUser,
+            if (returnedTgFirst != null && returnedTgFirst.isNotEmpty) 'telegram_first_name': returnedTgFirst,
+            if (returnedTgLast != null && returnedTgLast.isNotEmpty) 'telegram_last_name': returnedTgLast,
           }, SetOptions(merge: true));
 
           // Sync to local storage
@@ -226,9 +233,15 @@ class _TelegramVerificationDialogState extends State<TelegramVerificationDialog>
           );
           await StorageService.setString('user_phone', _phoneCtrl.text);
 
-          // Update Provider state
-          if (_chatId != null) {
-            widget.provider.setTelegramAuth(_chatId!);
+          // Update Provider state with full Telegram metadata
+          final finalChatId = returnedChatId ?? _chatId;
+          if (finalChatId != null) {
+            widget.provider.setTelegramAuth(
+              finalChatId,
+              username: returnedTgUser,
+              firstName: returnedTgFirst,
+              lastName: returnedTgLast,
+            );
             widget.provider.updateProfile(widget.provider.firstName, widget.provider.lastName, _phoneCtrl.text);
           }
           
@@ -494,11 +507,17 @@ class _TelegramVerificationDialogState extends State<TelegramVerificationDialog>
         ],
 
         const SizedBox(height: 24),
-        if (_isTimerRunning)
+        if (_isTimerRunning) ...[
           Text(
-            'Запросить код повторно через $_timerSeconds с',
-            style: GoogleFonts.inter(color: t.sub, fontSize: 12, fontWeight: FontWeight.w600),
-          )
+            'Код действителен 3 минуты',
+            style: GoogleFonts.inter(color: t.sub, fontSize: 12, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Запросить повторно через ${(_timerSeconds ~/ 60).toString().padLeft(2, '0')}:${(_timerSeconds % 60).toString().padLeft(2, '0')}',
+            style: GoogleFonts.inter(color: const Color(0xFF0088CC), fontSize: 13, fontWeight: FontWeight.w800),
+          ),
+        ]
         else
           TextButton(
             onPressed: () {

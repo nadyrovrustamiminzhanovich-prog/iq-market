@@ -4,7 +4,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:iqmarket/providers/taxi_provider.dart';
 import 'package:iqmarket/theme/taxi_theme.dart';
 import 'package:iqmarket/features/taxi/presentation/widgets/ui/taxi_active_order_tracking_view.dart';
-import 'package:iqmarket/features/taxi/presentation/widgets/ui/taxi_assigned_driver_view.dart';
 import 'package:iqmarket/features/taxi/presentation/widgets/ui/taxi_verification_info_dialog.dart';
 import 'package:iqmarket/widgets/taxi/taxi_driver_card.dart';
 import 'package:iqmarket/features/taxi/presentation/controllers/taxi_dialogs_controller.dart';
@@ -43,11 +42,7 @@ class TaxiPassengerView extends StatelessWidget {
       orElse: () => <String, dynamic>{},
     );
 
-    // Check if the current passenger has an accepted/in progress order
-    final myAssignedOrder = currentUser == null ? <String, dynamic>{} : provider.allPassengerOrders.firstWhere(
-      (o) => o['passengerId'] == currentUser.uid && o['status'] == 'accepted',
-      orElse: () => <String, dynamic>{},
-    );
+
 
     if (myActiveOrder.isNotEmpty) {
       return Column(
@@ -130,9 +125,7 @@ class TaxiPassengerView extends StatelessWidget {
       );
     }
 
-    if (myAssignedOrder.isNotEmpty) {
-      return TaxiAssignedDriverView(provider: provider, t: t, order: myAssignedOrder);
-    }
+
 
     // Default search/create order view
     final hasActiveFilter = provider.from.isNotEmpty || provider.to.isNotEmpty;

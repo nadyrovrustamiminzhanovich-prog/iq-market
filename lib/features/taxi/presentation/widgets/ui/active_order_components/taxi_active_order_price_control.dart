@@ -62,18 +62,18 @@ class _TaxiActiveOrderPriceControlState extends State<TaxiActiveOrderPriceContro
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFFEFF6FF), Color(0xFFF5F3FF)],
+          colors: [Color(0xFFEFF6FF), Color(0xFFE0F2FE)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: const Color(0xFF4F46E5).withValues(alpha: 0.2),
+          color: const Color(0xFF2563EB).withValues(alpha: 0.25),
           width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF4F46E5).withValues(alpha: 0.08),
+            color: const Color(0xFF2563EB).withValues(alpha: 0.08),
             blurRadius: 20,
             offset: const Offset(0, 8),
           )
@@ -85,7 +85,7 @@ class _TaxiActiveOrderPriceControlState extends State<TaxiActiveOrderPriceContro
             'Предложить новую стоимость',
             style: GoogleFonts.inter(
               fontSize: 14,
-              color: const Color(0xFF1E1B4B),
+              color: const Color(0xFF1E3A8A),
               fontWeight: FontWeight.w900,
             ),
           ),
@@ -107,14 +107,14 @@ class _TaxiActiveOrderPriceControlState extends State<TaxiActiveOrderPriceContro
                   width: 50,
                   height: 50,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF4F46E5).withValues(alpha: 0.05),
+                    color: const Color(0xFF2563EB).withValues(alpha: 0.08),
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: const Color(0xFF4F46E5).withValues(alpha: 0.15),
+                      color: const Color(0xFF2563EB).withValues(alpha: 0.2),
                       width: 1.5,
                     ),
                   ),
-                  child: const Icon(Icons.remove, color: Color(0xFF4F46E5)),
+                  child: const Icon(Icons.remove, color: Color(0xFF2563EB)),
                 ),
               ),
               const SizedBox(width: 15),
@@ -125,6 +125,10 @@ class _TaxiActiveOrderPriceControlState extends State<TaxiActiveOrderPriceContro
                   controller: _controller,
                   focusNode: _focusNode,
                   keyboardType: TextInputType.number,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(7),
+                  ],
                   textAlign: TextAlign.center,
                   style: GoogleFonts.inter(
                       fontSize: 24, fontWeight: FontWeight.w900, color: t.text),
@@ -140,7 +144,15 @@ class _TaxiActiveOrderPriceControlState extends State<TaxiActiveOrderPriceContro
                     final valClean = val.replaceAll(RegExp(r'\D'), '');
                     setState(() {
                       if (valClean.isNotEmpty) {
-                        _typedPrice = int.tryParse(valClean) ?? widget.currentPrice;
+                        int parsed = int.tryParse(valClean) ?? widget.currentPrice;
+                        if (parsed > 1000000) {
+                          parsed = 1000000;
+                          _controller.text = '1000000';
+                          _controller.selection = TextSelection.fromPosition(
+                            TextPosition(offset: _controller.text.length),
+                          );
+                        }
+                        _typedPrice = parsed;
                       } else {
                         _typedPrice = widget.currentPrice;
                       }
@@ -152,23 +164,25 @@ class _TaxiActiveOrderPriceControlState extends State<TaxiActiveOrderPriceContro
               GestureDetector(
                 onTap: () {
                   HapticFeedback.lightImpact();
-                  setState(() {
-                    _typedPrice += 100;
-                    _controller.text = _typedPrice.toString();
-                  });
+                  if (_typedPrice < 1000000) {
+                    setState(() {
+                      _typedPrice = (_typedPrice + 100).clamp(0, 1000000);
+                      _controller.text = _typedPrice.toString();
+                    });
+                  }
                 },
                 child: Container(
                   width: 50,
                   height: 50,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF4F46E5).withValues(alpha: 0.05),
+                    color: const Color(0xFF2563EB).withValues(alpha: 0.08),
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: const Color(0xFF4F46E5).withValues(alpha: 0.15),
+                      color: const Color(0xFF2563EB).withValues(alpha: 0.2),
                       width: 1.5,
                     ),
                   ),
-                  child: const Icon(Icons.add, color: Color(0xFF4F46E5)),
+                  child: const Icon(Icons.add, color: Color(0xFF2563EB)),
                 ),
               ),
             ],
@@ -196,7 +210,7 @@ class _TaxiActiveOrderPriceControlState extends State<TaxiActiveOrderPriceContro
                 gradient: _typedPrice < 100
                     ? null
                     : const LinearGradient(
-                        colors: [Color(0xFF4F46E5), Color(0xFF6366F1)],
+                        colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
@@ -206,7 +220,7 @@ class _TaxiActiveOrderPriceControlState extends State<TaxiActiveOrderPriceContro
                     ? null
                     : [
                         BoxShadow(
-                          color: const Color(0xFF4F46E5).withValues(alpha: 0.25),
+                          color: const Color(0xFF2563EB).withValues(alpha: 0.25),
                           blurRadius: 12,
                           offset: const Offset(0, 4),
                         )

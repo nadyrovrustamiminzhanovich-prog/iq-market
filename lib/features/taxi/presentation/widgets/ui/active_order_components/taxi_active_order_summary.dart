@@ -33,20 +33,20 @@ class TaxiActiveOrderSummary extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFFEFF6FF), Color(0xFFF5F3FF)],
+          colors: [Color(0xFFEFF6FF), Color(0xFFE0F2FE)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF4F46E5).withValues(alpha: 0.08),
+            color: const Color(0xFF2563EB).withValues(alpha: 0.08),
             blurRadius: 20,
             offset: const Offset(0, 8),
           )
         ],
         border: Border.all(
-          color: const Color(0xFF4F46E5).withValues(alpha: 0.2),
+          color: const Color(0xFF2563EB).withValues(alpha: 0.25),
           width: 1.5,
         ),
       ),
@@ -62,7 +62,7 @@ class TaxiActiveOrderSummary extends StatelessWidget {
                     width: 8,
                     height: 8,
                     decoration: const BoxDecoration(
-                      color: Color(0xFF6366F1),
+                      color: Color(0xFF2563EB),
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -71,7 +71,7 @@ class TaxiActiveOrderSummary extends StatelessWidget {
                     'АКТИВНЫЙ ЗАКАЗ',
                     style: GoogleFonts.inter(
                       fontWeight: FontWeight.w900,
-                      color: const Color(0xFF4F46E5),
+                      color: const Color(0xFF1E3A8A),
                       fontSize: 10,
                       letterSpacing: 1.2,
                     ),
@@ -82,12 +82,12 @@ class TaxiActiveOrderSummary extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [Color(0xFF4F46E5), Color(0xFF6366F1)],
+                    colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
                   ),
                   borderRadius: BorderRadius.circular(14),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF4F46E5).withValues(alpha: 0.25),
+                      color: const Color(0xFF2563EB).withValues(alpha: 0.25),
                       blurRadius: 8,
                       offset: const Offset(0, 3),
                     )
@@ -109,7 +109,7 @@ class TaxiActiveOrderSummary extends StatelessWidget {
             '${order['from']} → ${order['to']}',
             style: GoogleFonts.inter(
               fontWeight: FontWeight.w900,
-              color: const Color(0xFF1E1B4B),
+              color: const Color(0xFF1E3A8A),
               fontSize: 17,
               letterSpacing: -0.2,
             ),
@@ -121,17 +121,17 @@ class TaxiActiveOrderSummary extends StatelessWidget {
               TaxiBlueInfoChip(
                 icon: Icons.calendar_today_rounded,
                 text: displayDate.isEmpty ? 'Дата' : displayDate,
-                color: const Color(0xFF4F46E5),
+                color: const Color(0xFF2563EB),
               ),
               TaxiBlueInfoChip(
                 icon: Icons.access_time_rounded,
                 text: displayTime.isEmpty ? 'Время не указано' : displayTime,
-                color: const Color(0xFF4F46E5),
+                color: const Color(0xFF2563EB),
               ),
               TaxiBlueInfoChip(
                 icon: Icons.group_rounded,
                 text: '${order['seats'] ?? 1} мест',
-                color: const Color(0xFF4F46E5),
+                color: const Color(0xFF2563EB),
               ),
             ],
           ),
@@ -170,22 +170,22 @@ class TaxiActiveOrderSummary extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF4F46E5).withValues(alpha: 0.05),
+                      color: const Color(0xFF2563EB).withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: const Color(0xFF4F46E5).withValues(alpha: 0.12),
+                        color: const Color(0xFF2563EB).withValues(alpha: 0.2),
                       ),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         const Icon(Icons.edit_rounded,
-                            color: Color(0xFF4F46E5), size: 14),
+                            color: Color(0xFF2563EB), size: 14),
                         const SizedBox(width: 6),
                         Text(
                           'ИЗМЕНИТЬ',
                           style: GoogleFonts.inter(
-                            color: const Color(0xFF4F46E5),
+                            color: const Color(0xFF2563EB),
                             fontWeight: FontWeight.w800,
                             fontSize: 11,
                             letterSpacing: 0.5,

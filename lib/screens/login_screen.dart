@@ -21,6 +21,7 @@ import 'package:iqmarket/services/user_service.dart';
 import 'package:iqmarket/services/auth_service.dart';
 import 'package:iqmarket/services/telegram_bot_service.dart';
 import 'package:iqmarket/services/network_service.dart';
+import 'package:iqmarket/screens/legal_info_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -1404,6 +1405,30 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 20),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Text.rich(
+            TextSpan(
+              text: 'Входя в приложение, вы соглашаетесь с ',
+              style: GoogleFonts.inter(fontSize: 11.5, color: Colors.black45, height: 1.3),
+              children: [
+                WidgetSpan(
+                  child: GestureDetector(
+                    onTap: () {
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const LegalInfoScreen()));
+                    },
+                    child: Text(
+                      'Правилами пользования (EULA) и Политикой конфиденциальности',
+                      style: GoogleFonts.inter(fontSize: 11.5, color: const Color(0xFF4A80F0), fontWeight: FontWeight.bold, decoration: TextDecoration.underline),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            textAlign: TextAlign.center,
+          ),
         ),
         const SizedBox(height: 30),
       ],

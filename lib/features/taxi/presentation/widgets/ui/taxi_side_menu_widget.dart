@@ -95,14 +95,14 @@ class TaxiSideMenuWidget extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: t.accent.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
-                  border: Border.all(color: t.lime, width: 2),
+                  border: Border.all(color: t.accent, width: 2),
                 ),
                 child: ClipOval(
                   child: (profileImage != null && profileImage!.isNotEmpty)
                       ? (profileImage!.startsWith('http')
-                          ? Image.network(profileImage!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Center(child: Icon(LineIcons.user, color: t.lime, size: 30)))
-                          : Image.file(File(profileImage!), fit: BoxFit.cover, errorBuilder: (_, __, ___) => Center(child: Icon(LineIcons.user, color: t.lime, size: 30))))
-                      : Center(child: Icon(LineIcons.user, color: t.lime, size: 30)),
+                          ? Image.network(profileImage!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Center(child: Icon(LineIcons.user, color: t.accent, size: 30)))
+                          : Image.file(File(profileImage!), fit: BoxFit.cover, errorBuilder: (_, __, ___) => Center(child: Icon(LineIcons.user, color: t.accent, size: 30))))
+                      : Center(child: Icon(LineIcons.user, color: t.accent, size: 30)),
                 ),
               ),
               const SizedBox(width: 16),
@@ -143,7 +143,7 @@ class TaxiSideMenuWidget extends StatelessWidget {
   // ── Пункт меню ────────────────────────────────────────────────────────────
   Widget _buildItem(TaxiDrawerItem item) {
     return ListTile(
-      leading: Icon(item.icon, color: item.color ?? t.lime),
+      leading: Icon(item.icon, color: item.color ?? t.accent),
       title: Text(
         item.label,
         style: GoogleFonts.inter(

@@ -9,6 +9,7 @@ import 'package:iqmarket/screens/chat_screen.dart';
 import 'package:iqmarket/models/ad_model.dart';
 import 'package:iqmarket/features/taxi/presentation/widgets/ui/taxi_rating_widget.dart';
 import 'package:iqmarket/features/taxi/presentation/controllers/taxi_dialogs_controller.dart';
+import 'package:iqmarket/features/taxi/presentation/widgets/ui/kazakhstan_license_plate.dart';
 
 /// Виджет отслеживания поездки пассажиром после того,
 /// как он был назначен (совпал с водителем).
@@ -184,11 +185,8 @@ class _TaxiAssignedDriverViewState extends State<TaxiAssignedDriverView> {
                             driverCar,
                             style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 14, color: const Color(0xFF1E293B)),
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Гос. номер: $driverPlate',
-                            style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B), fontWeight: FontWeight.w600),
-                          ),
+                          const SizedBox(height: 6),
+                          KazakhstanLicensePlate(plate: driverPlate),
                         ],
                       ),
                     ),

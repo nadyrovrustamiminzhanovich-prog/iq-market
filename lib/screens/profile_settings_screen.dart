@@ -19,6 +19,7 @@ import 'package:iqmarket/services/user_service.dart';
 import 'package:iqmarket/services/file_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:iqmarket/widgets/secure_image_viewer.dart';
+import 'package:iqmarket/widgets/auth/telegram_verification_dialog.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class ProfileSettingsScreen extends StatefulWidget {
@@ -79,8 +80,8 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   Color get _surfaceColor => widget.themes[_currentTheme]?['surface'] ?? (_isDark ? const Color(0xFF1E293B) : Colors.white);
   Color get _txtColor => widget.themes[_currentTheme]?['text'] ?? (_isDark ? Colors.white : const Color(0xFF1A1D1E));
   Color get _subtxtColor => widget.themes[_currentTheme]?['subtext'] ?? (_isDark ? Colors.white60 : const Color(0xFF64748B));
-  Color get _primaryColor => widget.themes[_currentTheme]?['primary'] ?? const Color(0xFF1E5EE6);
-  Color get _secondaryColor => _isDark ? const Color(0xFF6366F1) : const Color(0xFF4F46E5);
+  Color get _primaryColor => widget.themes[_currentTheme]?['primary'] ?? const Color(0xFF2563EB);
+  Color get _secondaryColor => _isDark ? const Color(0xFF3B82F6) : const Color(0xFF1D4ED8);
 
   @override
   void initState() {
@@ -116,15 +117,16 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
           final data = doc.data();
           if (data != null) {
             setState(() {
-              _isPhoneVerified = data['isVerified'] == true ||
-                  data['isTelegramVerified'] == true ||
-                  data['verified_phone'] != null ||
-                  user.uid.startsWith('telegram_');
-
               final phoneToUse = data['verified_phone'] ?? data['phone'];
-              if (phoneToUse != null && phoneToUse.toString().isNotEmpty) {
-                final rawPhone = phoneToUse.toString();
-                final digits = rawPhone.replaceAll(RegExp(r'\D'), '');
+              final String rawPhoneStr = (phoneToUse != null) ? phoneToUse.toString().trim() : '';
+
+              _isPhoneVerified = rawPhoneStr.isNotEmpty &&
+                  (data['isTelegramVerified'] == true ||
+                   data['verified_phone'] != null ||
+                   user.uid.startsWith('telegram_'));
+
+              if (rawPhoneStr.isNotEmpty) {
+                final digits = rawPhoneStr.replaceAll(RegExp(r'\D'), '');
                 String localDigits = digits;
                 if (digits.length == 11 && (digits.startsWith('7') || digits.startsWith('8'))) {
                   localDigits = digits.substring(1);
@@ -405,12 +407,13 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                   if (_isPhoneVerified) ...[
                     _buildDisplayField(
                       _t('phone_label'),
-                      _phoneController.text.isNotEmpty ? _phoneController.text : 'Номер подтверждён',
+                      _phoneController.text.trim().isNotEmpty ? _phoneController.text.trim() : 'Номер не указан',
                       Icons.verified_user_rounded,
+                      trailingIcon: Icons.verified_rounded,
                       onTap: () {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('🛡️ Верифицированный номер меняется только через Модератора.'),
+                            content: Text('🛡️ Номер верифицирован через Telegram. Смена производится через Модератора.'),
                             backgroundColor: const Color(0xFF10B981),
                             behavior: SnackBarBehavior.floating,
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -418,7 +421,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                         );
                       },
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 8),
                     GestureDetector(
                       onTap: () async {
                         final text = Uri.encodeComponent('Здравствуйте! Я хочу сменить свой верифицированный номер телефона в аккаунте IQ-Market.');
@@ -427,29 +430,113 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                           await launchUrl(url, mode: LaunchMode.externalApplication);
                         }
                       },
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: _primaryColor.withValues(alpha: 0.06),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: _primaryColor.withValues(alpha: 0.15)),
+                        ),
                         child: Row(
                           children: [
-                            const Icon(Icons.support_agent_rounded, size: 16, color: Color(0xFF25D366)),
-                            const SizedBox(width: 6),
+                            Icon(Icons.headset_mic_rounded, size: 18, color: _primaryColor),
+                            const SizedBox(width: 10),
                             Expanded(
                               child: Text(
-                                'Хотите сменить номер телефона? Написать модератору в WhatsApp 💬',
+                                'Хотите сменить номер? Напишите модератору (+7 708 900 70 30)',
                                 style: GoogleFonts.inter(
                                   fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  color: const Color(0xFF25D366),
+                                  fontWeight: FontWeight.w600,
+                                  color: _primaryColor,
                                 ),
                               ),
                             ),
+                            Icon(Icons.arrow_forward_ios_rounded, size: 12, color: _primaryColor.withValues(alpha: 0.5)),
                           ],
                         ),
                       ),
                     ),
                     const SizedBox(height: 12),
-                  ] else
+                  ] else ...[
                     _buildTextField(_t('phone_label'), _phoneController, Icons.phone_android_rounded, formatters: [_phoneMask]),
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0088CC).withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: const Color(0xFF0088CC).withValues(alpha: 0.25), width: 1.2),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFF0088CC),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.telegram_rounded, color: Colors.white, size: 20),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  'Укажите ваш номер телефона',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 14,
+                                    color: _txtColor,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Укажите контактный номер телефона, чтобы с вами могли быстро связаться водители, пассажиры или покупатели.',
+                            style: GoogleFonts.inter(
+                              fontSize: 12.5,
+                              color: _subtxtColor,
+                              height: 1.4,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              onPressed: () async {
+                                try {
+                                  final taxiProvider = Provider.of<TaxiProvider>(context, listen: false);
+                                  final verified = await TelegramVerificationDialog.show(context, provider: taxiProvider);
+                                  if (verified == true && mounted) {
+                                    _loadFirestoreUserData();
+                                  }
+                                } catch (e) {
+                                  debugPrint('Verification error: $e');
+                                }
+                              },
+                              icon: const Icon(Icons.phone_outlined, size: 18),
+                              label: Text(
+                                'ПОДТВЕРДИТЬ НОМЕР ЧЕРЕЗ TELEGRAM',
+                                style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w900, fontSize: 12),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF0088CC),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                elevation: 0,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   if (_userEmail.isNotEmpty)
                     _buildDisplayField(
                       'Email', 
@@ -980,7 +1067,11 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
               color: isDark ? Colors.white.withValues(alpha: 0.05) : const Color(0xFFF1F5F9),
             ),
             child: Center(
-              child: Icon(trailingIcon, color: const Color(0xFF94A3B8), size: 14),
+              child: Icon(
+                trailingIcon, 
+                color: trailingIcon == Icons.verified_rounded ? const Color(0xFF10B981) : const Color(0xFF94A3B8), 
+                size: 16,
+              ),
             ),
           ),
         ] else if (isCopyable) ...[

@@ -24,9 +24,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:iqmarket/screens/admin/admin_panel_screen.dart';
 import 'package:iqmarket/translations/profile_strings.dart';
 import 'package:iqmarket/services/auth_service.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:iqmarket/models/user_model.dart';
-import 'package:iqmarket/constants/app_constants.dart';
 import 'package:iqmarket/services/telegram_bot_service.dart';
 import 'package:iqmarket/models/review_model.dart';
 import 'package:iqmarket/services/review_service.dart';
@@ -140,7 +138,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Color get _surfaceColor => widget.themes[_currentTheme]?['surface'] ?? (_isDark ? const Color(0xFF1E293B) : Colors.white);
   Color get _txtColor => widget.themes[_currentTheme]?['text'] ?? (_isDark ? Colors.white : const Color(0xFF1A1D1E));
   Color get _subtxtColor => widget.themes[_currentTheme]?['subtext'] ?? (_isDark ? Colors.white60 : const Color(0xFF64748B));
-  Color get _primaryColor => widget.themes[_currentTheme]?['primary'] ?? const Color(0xFF4A80F0);
+  Color get _primaryColor => widget.themes[_currentTheme]?['primary'] ?? const Color(0xFF2563EB);
 
   @override
   void initState() {
@@ -194,7 +192,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 expandedHeight: 200,
                 pinned: true,
                 elevation: 0,
-                backgroundColor: const Color(0xFF4A80F0),
+                backgroundColor: const Color(0xFF2563EB),
                 leading: Padding(
                   padding: const EdgeInsets.only(left: 16),
                   child: Center(
@@ -216,7 +214,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       Container(
                         decoration: const BoxDecoration(
                           gradient: LinearGradient(
-                            colors: [Color(0xFF4A80F0), Color(0xFF6366F1)],
+                            colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           ),
@@ -249,7 +247,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       : (_localImage != null ? FileImage(_localImage!) : null),
 
                                     child: (photoUrl.isEmpty && _localImage == null) 
-                                      ? const Icon(Icons.person_rounded, size: 56, color: Color(0xFF4A80F0))
+                                      ? const Icon(Icons.person_rounded, size: 56, color: Color(0xFF2563EB))
                                       : null,
                                   ),
                                 ),
@@ -270,55 +268,75 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       displayName,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.inter(fontSize: 28, fontWeight: FontWeight.w900, color: _txtColor),
+                      style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w800, color: _txtColor, letterSpacing: -0.3),
                     ),
                     if (!_isGuest && user != null) ...[
-                      const SizedBox(height: 8),
-                      GestureDetector(
-                        onTap: () {
-                          Clipboard.setData(ClipboardData(text: user.uid));
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(_t('idCopiedMsg').replaceAll('{uid}', user.uid)),
-                              behavior: SnackBarBehavior.floating,
-                              duration: const Duration(seconds: 2),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                            ),
-                          );
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: _isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: _isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                'ID: ${user.uid.length > 8 ? user.uid.substring(0, 8) : user.uid}',
-                                style: GoogleFonts.firaCode(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: const Color(0xFF4A80F0),
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              const Icon(Icons.copy_rounded, size: 14, color: Color(0xFF4A80F0)),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                    if (_isVerified) ...[
                       const SizedBox(height: 8),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(Icons.verified_rounded, color: Color(0xFF4A80F0), size: 20),
-                          const SizedBox(width: 6),
-                          Text(_t('badge_verified'), style: GoogleFonts.inter(color: const Color(0xFF4A80F0), fontWeight: FontWeight.bold, fontSize: 13)),
+                          GestureDetector(
+                            onTap: () {
+                              Clipboard.setData(ClipboardData(text: user.uid));
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(_t('idCopiedMsg').replaceAll('{uid}', user.uid)),
+                                  behavior: SnackBarBehavior.floating,
+                                  duration: const Duration(seconds: 2),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                ),
+                              );
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: _isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: _isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    'ID: ${user.uid.length > 8 ? user.uid.substring(0, 8) : user.uid}',
+                                    style: GoogleFonts.firaCode(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: const Color(0xFF2563EB),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  const Icon(Icons.copy_rounded, size: 14, color: Color(0xFF2563EB)),
+                                ],
+                              ),
+                            ),
+                          ),
+                          if (_isVerified) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF2563EB).withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: const Color(0xFF2563EB).withValues(alpha: 0.3)),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.verified_rounded, color: Color(0xFF2563EB), size: 16),
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    _t('badge_verified'),
+                                    style: GoogleFonts.inter(
+                                      color: const Color(0xFF2563EB),
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ],
@@ -615,29 +633,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildVerificationSection() {
-    if (_isGuest) return const SizedBox.shrink();
+    if (_isGuest || _isVerified) return const SizedBox.shrink();
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Container(
         width: double.infinity,
         decoration: BoxDecoration(
-          gradient: _isVerified 
-            ? const LinearGradient(
-                colors: [Color(0xFF0088CC), Color(0xFF229ED9)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              )
-            : const LinearGradient(
-                colors: [Color(0xFF229ED9), Color(0xFF2AABEE)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+          gradient: const LinearGradient(
+            colors: [Color(0xFF0088CC), Color(0xFF229ED9)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
           borderRadius: BorderRadius.circular(22),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF229ED9).withValues(alpha: 0.15), 
-              blurRadius: 10, 
+              color: const Color(0xFF0088CC).withValues(alpha: 0.25), 
+              blurRadius: 12, 
               offset: const Offset(0, 6),
             )
           ],
@@ -646,23 +658,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
           color: Colors.transparent,
           child: InkWell(
             borderRadius: BorderRadius.circular(22),
-            onTap: _isVerified ? null : () => _showVerificationBottomSheet(),
+            onTap: () => _showVerificationBottomSheet(),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
               child: Row(
                 children: [
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.18),
-                      borderRadius: BorderRadius.circular(12),
+                      color: Colors.white.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(14),
                     ),
-                    child: Icon(
-                      _isVerified 
-                        ? Icons.verified_rounded 
-                        : PhosphorIcons.telegramLogo(PhosphorIconsStyle.fill), 
+                    child: const Icon(
+                      Icons.shield_outlined, 
                       color: Colors.white, 
-                      size: 20,
+                      size: 22,
                     ),
                   ),
                   const SizedBox(width: 14),
@@ -671,7 +681,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          _isVerified ? _t('badge_verified') : 'Верификация через Telegram',
+                          'Профиль не верифицирован',
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: 14, 
                             fontWeight: FontWeight.w900, 
@@ -680,20 +690,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          _isVerified ? _t('verified_info') : 'Подтвердите номер телефона в один клик',
+                          'Пройдите верификацию в Telegram для доступа к поездкам',
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: 11, 
                             fontWeight: FontWeight.w600, 
-                            color: Colors.white.withValues(alpha: 0.9),
+                            color: Colors.white.withValues(alpha: 0.95),
                           ),
                         ),
                       ],
                     ),
                   ),
-                  if (!_isVerified) ...[
-                    const SizedBox(width: 8),
-                    const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white, size: 12),
-                  ],
+                  const SizedBox(width: 8),
+                  const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white, size: 14),
                 ],
               ),
             ),

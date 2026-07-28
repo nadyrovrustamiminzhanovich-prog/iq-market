@@ -227,9 +227,6 @@ void showTaxiFeedbackDialog(
                             provider.translate('general_error_desc'),
                             isSuccess: false,
                           );
-                        }
-                      } finally {
-                        if (c.mounted) {
                           ss(() => isSubmitting = false);
                         }
                       }

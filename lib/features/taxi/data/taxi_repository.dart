@@ -45,7 +45,7 @@ class TaxiRepository {
       'date': date,
       'time': time,
       'seats': seats,
-      'price': price,
+      'price': price.clamp(0, 1000000),
       'comment': comment,
       'status': 'active',
       'createdAt': FieldValue.serverTimestamp(),
@@ -91,7 +91,7 @@ class TaxiRepository {
       'date': date,
       'time': time,
       'seats': seats,
-      'price': price,
+      'price': price.clamp(0, 1000000),
       'comment': comment,
       'status': 'active',
       'createdAt': FieldValue.serverTimestamp(),
@@ -359,7 +359,7 @@ class TaxiRepository {
       if (snap.data()!['status'] != 'active') {
         throw Exception('Нельзя изменить цену, так как заказ уже обрабатывается.');
       }
-      transaction.update(docRef, {'price': newPrice});
+      transaction.update(docRef, {'price': newPrice.clamp(0, 1000000)});
     });
   }
 

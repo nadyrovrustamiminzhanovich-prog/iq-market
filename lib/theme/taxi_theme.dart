@@ -21,7 +21,7 @@ class TaxiTheme {
       sub    = const Color(0xFFCBD5E1);
       border = const Color(0xFF334155);
       accent = const Color(0xFF4A80F0); // Action blue
-      lime   = const Color(0xFF10B981); // Success / price green
+      lime   = const Color(0xFF4A80F0); // Unified royal blue
       shadow = Colors.black.withValues(alpha: 0.5);
     } else {
       bg     = const Color(0xFFF8FAFC);
@@ -31,7 +31,7 @@ class TaxiTheme {
       sub    = const Color(0xFF475569);
       border = const Color(0xFFE2E8F0);
       accent = const Color(0xFF1E5EE6); // Action royal blue
-      lime   = const Color(0xFF10B981); // Success / price green
+      lime   = const Color(0xFF1E5EE6); // Unified royal blue
       shadow = const Color(0xFF1E5EE6).withValues(alpha: 0.08);
     }
   }

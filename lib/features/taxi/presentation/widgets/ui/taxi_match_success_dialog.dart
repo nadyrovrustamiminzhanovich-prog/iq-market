@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:iqmarket/providers/taxi_provider.dart';
 import 'package:iqmarket/theme/taxi_theme.dart';
+import 'package:iqmarket/features/taxi/presentation/widgets/ui/kazakhstan_license_plate.dart';
 
 void showTaxiMatchSuccessDialog({
   required BuildContext context,
@@ -22,188 +23,217 @@ void showTaxiMatchSuccessDialog({
 
   showModalBottomSheet(
     context: context,
-    isDismissible: false,
-    enableDrag: false,
-    backgroundColor: t.bg,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-    ),
+    isScrollControlled: true,
+    isDismissible: true,
+    enableDrag: true,
+    backgroundColor: Colors.transparent,
     builder: (ctx) => StatefulBuilder(
       builder: (c, ss) => Container(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 50,
-              height: 50,
-              decoration: const BoxDecoration(
-                color: Color(0xFF84CC16),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.check_rounded,
-                  color: Colors.white, size: 28),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Вы успешно договорились!',
-              style: GoogleFonts.inter(
-                fontSize: 20,
-                fontWeight: FontWeight.w900,
-                color: t.text,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Вы приняли предложение от водителя за $price ₸',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.inter(
-                fontSize: 13,
-                color: t.sub,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 24),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: t.card,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: t.border),
-              ),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 24,
-                    backgroundImage:
-                        (driverImg.isNotEmpty && driverImg.startsWith('http'))
-                            ? NetworkImage(driverImg)
-                            : null,
-                    child: (driverImg.isEmpty || !driverImg.startsWith('http'))
-                        ? const Icon(Icons.person,
-                            color: Color(0xFF64748B))
-                        : null,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          driverName,
-                          style: GoogleFonts.inter(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 15,
-                            color: t.text,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '$driverCar • $driverPlate',
-                          style: GoogleFonts.inter(
-                            fontSize: 12,
-                            color: t.sub,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
+        decoration: BoxDecoration(
+          color: t.bg,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+        ),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // ── Drag handle & Close Button bar ───────────────────
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const SizedBox(width: 40),
+                    Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: t.border,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
+                    IconButton(
+                      icon: Icon(Icons.close_rounded, color: t.sub, size: 24),
+                      onPressed: () => Navigator.pop(c),
+                      tooltip: 'Закрыть',
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+
+                // ── Green Check Icon ────────────────────────────────
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF84CC16),
+                    shape: BoxShape.circle,
                   ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: GestureDetector(
-                onTap: () async {
-                  if (isProcessing) return;
-                  HapticFeedback.lightImpact();
-                  if (driverPhone.isNotEmpty) {
-                    launchUrl(Uri.parse('tel:$driverPhone'));
-                  }
-                },
-                child: Container(
-                  height: 56,
+                  child: const Icon(Icons.check_rounded,
+                      color: Colors.white, size: 34),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Вы успешно договорились!',
+                  style: GoogleFonts.inter(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                    color: t.text,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Вы приняли предложение от водителя за $price ₸',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    color: t.sub,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // ── Driver Info Card ────────────────────────────────
+                Container(
+                  padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF4A80F0),
+                    color: t.card,
                     borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color:
-                            const Color(0xFF4A80F0).withValues(alpha: 0.25),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
+                    border: Border.all(color: t.border),
+                  ),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 24,
+                        backgroundImage:
+                            (driverImg.isNotEmpty && driverImg.startsWith('http'))
+                                ? NetworkImage(driverImg)
+                                : null,
+                        child: (driverImg.isEmpty || !driverImg.startsWith('http'))
+                            ? const Icon(Icons.person,
+                                color: Color(0xFF64748B))
+                            : null,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              driverName,
+                              style: GoogleFonts.inter(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 15,
+                                color: t.text,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              driverCar,
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                color: t.sub,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            KazakhstanLicensePlate(plate: driverPlate),
+                          ],
+                        ),
                       ),
                     ],
                   ),
-                  child: Center(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.phone_rounded,
-                            color: Colors.white, size: 20),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Позвонить водителю',
-                          style: GoogleFonts.inter(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
                 ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            isProcessing
-                ? const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(8.0),
-                      child: CircularProgressIndicator(),
-                    ),
-                  )
-                : TextButton(
+                const SizedBox(height: 20),
+
+                // ── Call Driver Button ──────────────────────────────
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
                     onPressed: () async {
                       if (isProcessing) return;
-                      HapticFeedback.mediumImpact();
-                      ss(() => isProcessing = true);
-                      try {
-                        await provider.acceptBid(bidId);
-                        final orderId = provider.allPassengerOrders.firstWhere(
-                          (o) =>
-                              o['passengerId'] ==
-                                  FirebaseAuth.instance.currentUser?.uid &&
-                              o['status'] == 'active',
-                          orElse: () => <String, dynamic>{},
-                        )['id'];
-                        if (orderId != null) {
-                          await provider.completeOrder(orderId);
-                        }
-                        if (c.mounted) {
-                          Navigator.pop(c);
-                        }
-                      } catch (e) {
-                        // error handling
-                      } finally {
-                        if (c.mounted) {
-                          ss(() => isProcessing = false);
-                        }
+                      HapticFeedback.lightImpact();
+                      if (driverPhone.isNotEmpty) {
+                        launchUrl(Uri.parse('tel:$driverPhone'));
                       }
                     },
-                    child: Text(
-                      'Готово (Закрыть)',
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF4A80F0),
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size.fromHeight(54),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      elevation: 0,
+                    ),
+                    icon: const Icon(Icons.phone_rounded, size: 20),
+                    label: Text(
+                      'Позвонить водителю',
                       style: GoogleFonts.inter(
-                        color: t.sub,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
                       ),
                     ),
                   ),
-          ],
+                ),
+                const SizedBox(height: 12),
+
+                // ── Done / Close Button ─────────────────────────────
+                isProcessing
+                    ? const Padding(
+                        padding: EdgeInsets.all(12.0),
+                        child: CircularProgressIndicator(),
+                      )
+                    : SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton(
+                          onPressed: () async {
+                            if (isProcessing) return;
+                            HapticFeedback.mediumImpact();
+                            ss(() => isProcessing = true);
+                            try {
+                              await provider.acceptBid(bidId);
+                              final orderId = provider.allPassengerOrders.firstWhere(
+                                (o) =>
+                                    o['passengerId'] ==
+                                        FirebaseAuth.instance.currentUser?.uid &&
+                                    o['status'] == 'active',
+                                orElse: () => <String, dynamic>{},
+                              )['id'];
+                              if (orderId != null) {
+                                await provider.completeOrder(orderId);
+                              }
+                              if (c.mounted) {
+                                Navigator.pop(c);
+                              }
+                            } catch (_) {
+                              if (c.mounted) {
+                                ss(() => isProcessing = false);
+                              }
+                            }
+                          },
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size.fromHeight(50),
+                            side: BorderSide(color: t.border, width: 1.5),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(18),
+                            ),
+                          ),
+                          child: Text(
+                            'Готово (Закрыть)',
+                            style: GoogleFonts.inter(
+                              color: t.sub,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                      ),
+              ],
+            ),
+          ),
         ),
       ),
     ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:line_icons/line_icons.dart';
 import 'package:iqmarket/theme/taxi_theme.dart';
@@ -25,7 +26,15 @@ class TaxiHistoryScreen extends StatelessWidget {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: _buildBody(context, provider),
+      body: RefreshIndicator(
+        color: const Color(0xFF4A80F0),
+        backgroundColor: t.card,
+        onRefresh: () async {
+          HapticFeedback.mediumImpact();
+          await provider.refreshData();
+        },
+        child: _buildBody(context, provider),
+      ),
     );
   }
 
@@ -33,29 +42,40 @@ class TaxiHistoryScreen extends StatelessWidget {
     final trips = provider.historyTrips;
 
     if (trips.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(LineIcons.history, size: 72, color: t.sub.withValues(alpha: 0.3)),
-            const SizedBox(height: 24),
-            Text(
-              provider.translate('no_history'),
-              style: GoogleFonts.inter(color: t.sub, fontSize: 16, fontWeight: FontWeight.w700),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 10),
-            Text(
-              provider.translate('no_history_sub'),
-              style: GoogleFonts.inter(color: t.sub.withValues(alpha: 0.6), fontSize: 13),
-              textAlign: TextAlign.center,
-            ),
-          ],
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics(),
         ),
+        children: [
+          SizedBox(height: MediaQuery.of(context).size.height * 0.25),
+          Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(LineIcons.history, size: 72, color: t.sub.withValues(alpha: 0.3)),
+                const SizedBox(height: 24),
+                Text(
+                  provider.translate('no_history'),
+                  style: GoogleFonts.inter(color: t.sub, fontSize: 16, fontWeight: FontWeight.w700),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  provider.translate('no_history_sub'),
+                  style: GoogleFonts.inter(color: t.sub.withValues(alpha: 0.6), fontSize: 13),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ],
       );
     }
 
     return ListView(
+      physics: const AlwaysScrollableScrollPhysics(
+        parent: BouncingScrollPhysics(),
+      ),
       padding: const EdgeInsets.all(16),
       children: trips.map((trip) {
         final String from = trip['from'] ?? '';

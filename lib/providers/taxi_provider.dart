@@ -56,6 +56,9 @@ class TaxiProvider extends ChangeNotifier {
   bool _isVehicleVerified = false;
   bool _notifEnabled = true;
   String? _telegramChatId;
+  String? _telegramUsername;
+  String? _telegramFirstName;
+  String? _telegramLastName;
   bool _isTelegramVerified = false;
 
   // ─── Getters ───
@@ -78,7 +81,17 @@ class TaxiProvider extends ChangeNotifier {
   bool get notifEnabled => _notifEnabled;
   int get maxPrice => _maxPrice;
   String? get telegramChatId => _telegramChatId;
+  String? get telegramUsername => _telegramUsername;
+  String? get telegramFirstName => _telegramFirstName;
+  String? get telegramLastName => _telegramLastName;
   bool get isTelegramVerified => _isTelegramVerified;
+
+  /// Helper for formatted @username (e.g. '@username')
+  String get formattedTelegramUsername {
+    if (_telegramUsername == null || _telegramUsername!.trim().isEmpty) return '';
+    final trimmed = _telegramUsername!.trim();
+    return trimmed.startsWith('@') ? trimmed : '@$trimmed';
+  }
 
   /// ✅ ISSUE-07 FIX: Single source of truth for full Telegram verification.
   /// Previously this check was duplicated 4+ times in taxi_service_screen.dart.
@@ -177,7 +190,7 @@ class TaxiProvider extends ChangeNotifier {
   void setDate(String date) { _selDate = date; notifyListeners(); }
   void setTime(String time) { _selTime = time; notifyListeners(); }
   void setPassCnt(int cnt) { _passCnt = cnt; notifyListeners(); }
-  void setMaxPrice(int price) { _maxPrice = price; notifyListeners(); }
+  void setMaxPrice(int price) { _maxPrice = price.clamp(0, 1000000); notifyListeners(); }
   void setLoading(bool val) { _loading = val; notifyListeners(); }
   void setDriverOnline(bool v) { _isDriverOnline = v; notifyListeners(); }
   void setComment(String v) { _comment = v; notifyListeners(); }
@@ -240,11 +253,15 @@ class TaxiProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setTelegramAuth(String chatId) {
+  void setTelegramAuth(String chatId, {String? username, String? firstName, String? lastName}) {
     _telegramChatId = chatId;
+    if (username != null && username.isNotEmpty) _telegramUsername = username;
+    if (firstName != null && firstName.isNotEmpty) _telegramFirstName = firstName;
+    if (lastName != null && lastName.isNotEmpty) _telegramLastName = lastName;
     _isTelegramVerified = true;
     _isLoggedIn = true;
     _prefs.save('taxi_tg_chat_id', chatId);
+    if (_telegramUsername != null) _prefs.save('taxi_tg_username', _telegramUsername);
     _prefs.save('taxi_logged_in', true);
     notifyListeners();
   }
@@ -261,7 +278,12 @@ class TaxiProvider extends ChangeNotifier {
       final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
       if (doc.exists) {
         final data = doc.data();
-        final verified = data?['isVerified'] == true;
+        final verified = data?['isVerified'] == true || data?['isTelegramVerified'] == true;
+        _telegramUsername = data?['telegram_username'] ?? data?['telegramUsername'] ?? _telegramUsername;
+        _telegramFirstName = data?['telegram_first_name'] ?? _telegramFirstName;
+        _telegramLastName = data?['telegram_last_name'] ?? _telegramLastName;
+        _telegramChatId = data?['telegramChatId'] ?? data?['telegram_chat_id'] ?? _telegramChatId;
+        
         if (verified != _isTelegramVerified) {
           _isTelegramVerified = verified;
           notifyListeners();
@@ -313,6 +335,15 @@ class TaxiProvider extends ChangeNotifier {
 
   void resumeFirebaseSync() => _sync.startSync();
   void pauseFirebaseSync() => _sync.pauseSync();
+
+  /// Сброс и принудительное обновление данных такси (pull-to-refresh)
+  Future<void> refreshData() async {
+    await checkUserTelegramVerification();
+    _sync.pauseSync();
+    _sync.startSync();
+    await Future.delayed(const Duration(milliseconds: 600));
+    notifyListeners();
+  }
 
   Future<void> createPassengerOrder({
     required String from, required String to, required String date, 
