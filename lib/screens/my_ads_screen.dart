@@ -467,6 +467,9 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           ),
+        );
+      }
+    }
   }
 
   Widget _miniTag(String label, Color color) => Container(
