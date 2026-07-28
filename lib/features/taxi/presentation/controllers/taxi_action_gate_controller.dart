@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:iqmarket/providers/taxi_provider.dart';
 import 'package:iqmarket/theme/taxi_theme.dart';
 import 'package:iqmarket/widgets/auth/telegram_verification_dialog.dart';
+import 'package:iqmarket/screens/taxi/driver_onboarding_wizard.dart';
 
 /// Контроллер-делегат для проверки права водителя принимать заказ.
 ///
@@ -230,11 +231,14 @@ class TaxiActionGateController {
     );
 
     if (result == true && context.mounted) {
-      final bool verified = await TelegramVerificationDialog.show(context, provider: provider);
-      if (verified && onSuccess != null) {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const DriverOnboardingWizard()),
+      );
+      if (provider.isVehicleVerified && onSuccess != null) {
         onSuccess();
       }
-      return verified;
+      return provider.isVehicleVerified;
     }
     return false;
   }
