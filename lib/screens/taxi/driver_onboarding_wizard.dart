@@ -626,11 +626,12 @@ class _DriverOnboardingWizardState extends State<DriverOnboardingWizard>
       });
 
       // Update user step & verification status
+      await _updateOnboardingStep(3);
       await FirebaseFirestore.instance.collection('users').doc(uid).set({
         'driverOnboardingStep': 3,
         'carModel': carFullModel,
         'carPlate': _plateC.text.trim().toUpperCase(),
-        if (!needsManual) 'isVerified': true,
+        if (!_needsManual) 'isVerified': true,
       }, SetOptions(merge: true));
 
       // Notify Telegram Admin
