@@ -648,21 +648,57 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
           ),
           const SizedBox(height: 12),
           Text(r.comment, style: GoogleFonts.inter(fontSize: 14, color: const Color(0xFF334155), height: 1.5), maxLines: 3, overflow: TextOverflow.ellipsis),
-          if (r.adTitle.isNotEmpty) ...[
+          if (r.adTitle.isNotEmpty || r.adId.isNotEmpty) ...[
             const SizedBox(height: 10),
-            Row(
-              children: [
-                const Icon(Icons.shopping_bag_outlined, size: 14, color: Color(0xFF4A80F0)),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    'К объявлению: ${r.adTitle}',
-                    style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF4A80F0)),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+            InkWell(
+              onTap: () async {
+                if (r.adId.isEmpty) return;
+                try {
+                  final ad = await AdService.getAdById(r.adId);
+                  if (ad != null && context.mounted) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ProductDetailsScreen(ad: ad, onReport: (_) {}, lang: widget.lang, heroPrefix: 'seller_review_ad_${r.adId}'),
+                      ),
+                    );
+                  } else if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          widget.lang == 'Қазақша'
+                              ? 'Хабарландыру табылмады немесе өшірілген'
+                              : widget.lang == 'Уйғурчә'
+                                  ? 'Елан тепильмиди йаки өчүрүлгән'
+                                  : 'Объявление не найдено или удалено',
+                        ),
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  debugPrint('Error opening ad from seller review: $e');
+                }
+              },
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+                child: Row(
+                  children: [
+                    const Icon(Icons.shopping_bag_outlined, size: 14, color: Color(0xFF4A80F0)),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'К объявлению: ${r.adTitle.isNotEmpty ? r.adTitle : "Объявление"}',
+                        style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF4A80F0), decoration: TextDecoration.underline),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.arrow_forward_ios_rounded, size: 11, color: Color(0xFF4A80F0)),
+                  ],
                 ),
-              ],
+              ),
             ),
           ],
           if (r.images.isNotEmpty) ...[

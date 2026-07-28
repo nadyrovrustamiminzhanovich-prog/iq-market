@@ -1417,7 +1417,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                 WidgetSpan(
                   child: GestureDetector(
                     onTap: () {
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => const LegalInfoScreen()));
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => LegalInfoScreen(lang: widget.lang)));
                     },
                     child: Text(
                       'Правилами пользования (EULA) и Политикой конфиденциальности',

@@ -28,6 +28,8 @@ import 'package:iqmarket/models/user_model.dart';
 import 'package:iqmarket/services/telegram_bot_service.dart';
 import 'package:iqmarket/models/review_model.dart';
 import 'package:iqmarket/services/review_service.dart';
+import 'package:iqmarket/services/ad_service.dart';
+import 'package:iqmarket/screens/product_details_screen.dart';
 import 'package:iqmarket/widgets/secure_image_viewer.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -567,21 +569,71 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 size: 16, color: const Color(0xFFF59E0B),
                               )),
                             ),
-                            if (r.adTitle.isNotEmpty) ...[
+                            if (r.adTitle.isNotEmpty || r.adId.isNotEmpty) ...[
                               const SizedBox(height: 10),
-                              Row(
-                                children: [
-                                  Icon(Icons.shopping_bag_outlined, size: 14, color: _primaryColor),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(
-                                      '${_t('for_ad')}: ${r.adTitle}',
-                                      style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: _primaryColor),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
+                              Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(8),
+                                  onTap: () async {
+                                    if (r.adId.isEmpty) return;
+                                    try {
+                                      final ad = await AdService.getAdById(r.adId);
+                                      if (ad != null && context.mounted) {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) => ProductDetailsScreen(
+                                              ad: ad,
+                                              onReport: (_) {},
+                                              lang: widget.lang,
+                                              heroPrefix: 'my_review_ad_${r.adId}',
+                                            ),
+                                          ),
+                                        );
+                                      } else if (context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              widget.lang == 'Қазақша'
+                                                  ? 'Хабарландыру табылмады немесе өшірілген'
+                                                  : widget.lang == 'Уйғурчә'
+                                                      ? 'Елан тепильмиди йаки өчүрүлгән'
+                                                      : 'Объявление не найдено или удалено',
+                                            ),
+                                          ),
+                                        );
+                                      }
+                                    } catch (e) {
+                                      debugPrint('Error opening ad from review: $e');
+                                    }
+                                  },
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.shopping_bag_outlined, size: 14, color: _primaryColor),
+                                        const SizedBox(width: 6),
+                                        Expanded(
+                                          child: Text(
+                                            '${_t('for_ad')}: ${r.adTitle.isNotEmpty ? r.adTitle : "Объявление"}',
+                                            style: GoogleFonts.inter(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w700,
+                                              color: _primaryColor,
+                                              decoration: TextDecoration.underline,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Icon(Icons.arrow_forward_ios_rounded, size: 11, color: _primaryColor),
+                                      ],
                                     ),
                                   ),
-                                ],
+                                ),
                               ),
                             ],
                             const SizedBox(height: 10),
