@@ -27,7 +27,7 @@ import 'package:iqmarket/theme/taxi_theme.dart';
 /// Состоит из 3 шагов:
 ///   Шаг 1 из 3: Подтверждение номера телефона через Telegram (Telegram OTP)
 ///   Шаг 2 из 3: Загрузка 3 фото (авто с номерами, удостоверение, техпаспорт) + выбор авто
-///   Шаг 3 из 3: Заявка отправлена на проверку (Модерация)
+///   Шаг 3 из 3: Статус заявки (Модерация / Одобрено ИИ / Отклонено)
 class DriverOnboardingWizard extends StatefulWidget {
   final int? initialStep;
   const DriverOnboardingWizard({super.key, this.initialStep});
@@ -38,7 +38,7 @@ class DriverOnboardingWizard extends StatefulWidget {
 
 class _DriverOnboardingWizardState extends State<DriverOnboardingWizard>
     with TickerProviderStateMixin {
-  int _step = 0; // 0: Telegram, 1: Docs & Car, 2: Moderation Pending
+  int _step = 0; // 0: Telegram, 1: Docs & Car, 2: Status View
   bool _isLoadingState = true;
 
   // ── Step 1: Telegram State ──────────────────────────────────────────────────
@@ -57,6 +57,7 @@ class _DriverOnboardingWizardState extends State<DriverOnboardingWizard>
   String? _chatId;
   StreamSubscription? _tgSessionSub;
   String? _tgErrorText;
+  bool _isVerifyingOtp = false;
 
   // ── Step 2: Documents & Car State ──────────────────────────────────────────
   final ImagePicker _picker = ImagePicker();
@@ -129,6 +130,8 @@ class _DriverOnboardingWizardState extends State<DriverOnboardingWizard>
 
   bool _analyzing = false;
   bool _needsManual = false;
+  bool _isRejected = false;
+  String _rejectedReason = '';
   String _aiMsg = '';
   late AnimationController _dotCtrl;
   late AnimationController _fadeCtrl;
@@ -158,7 +161,7 @@ class _DriverOnboardingWizardState extends State<DriverOnboardingWizard>
     super.dispose();
   }
 
-  // ── Load User Progress from Firestore & Local State ─────────────────────────
+  // ── Load User Progress & Verification Status ─────────────────────────────
   Future<void> _loadUserProgress() async {
     final user = FirebaseAuth.instance.currentUser;
     final provider = Provider.of<TaxiProvider>(context, listen: false);
@@ -187,7 +190,7 @@ class _DriverOnboardingWizardState extends State<DriverOnboardingWizard>
     try {
       final uid = user.uid;
 
-      // 1. Check existing driver_verifications submissions
+      // 1. Query REAL driver_verifications submission document
       final verifSnap = await FirebaseFirestore.instance
           .collection('driver_verifications')
           .where('userId', isEqualTo: uid)
@@ -197,17 +200,28 @@ class _DriverOnboardingWizardState extends State<DriverOnboardingWizard>
       if (verifSnap.docs.isNotEmpty) {
         final verifData = verifSnap.docs.first.data();
         final status = verifData['status']?.toString() ?? '';
+        final reason = verifData['rejection_reason'] ?? verifData['reason'] ?? 'Документы не соответствуют требованиям';
+
         if (status == 'pending_manual' || status == 'approved_by_ai') {
           setState(() {
             _needsManual = (status == 'pending_manual');
-            _step = 2; // Step 3 of 3: Moderation Pending
+            _isRejected = false;
+            _step = 2; // Step 3 of 3: Status View
+            _isLoadingState = false;
+          });
+          return;
+        } else if (status == 'rejected') {
+          setState(() {
+            _isRejected = true;
+            _rejectedReason = reason.toString();
+            _step = 2; // Step 3 of 3: Status View showing Rejection Card
             _isLoadingState = false;
           });
           return;
         }
       }
 
-      // 2. Check user document for onboarding step & Telegram verification status
+      // 2. If NO real document exists in driver_verifications, check Telegram verification state
       final userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
       if (userDoc.exists) {
         final data = userDoc.data() ?? {};
@@ -219,12 +233,15 @@ class _DriverOnboardingWizardState extends State<DriverOnboardingWizard>
 
         if (widget.initialStep != null) {
           _step = widget.initialStep!;
-        } else if (savedStep >= 3) {
-          _step = 2;
         } else if (isTgVerified || savedStep >= 2) {
-          _step = 1; // Step 2 of 3: Docs & Car
+          // If no driver_verifications doc exists, user MUST be on Step 2 (upload photos/car)
+          _step = 1;
+          if (savedStep >= 3) {
+            // Repair inconsistent step in Firestore
+            await _updateOnboardingStep(2);
+          }
         } else {
-          _step = 0; // Step 1 of 3: Telegram
+          _step = 0; // Step 1 of 3: Telegram OTP
         }
       }
     } catch (e) {
@@ -236,7 +253,7 @@ class _DriverOnboardingWizardState extends State<DriverOnboardingWizard>
     }
   }
 
-  // ── Save Progress Step to Firestore ─────────────────────────────────────────
+  // ── Save Onboarding Step to Firestore ─────────────────────────────────────
   Future<void> _updateOnboardingStep(int stepNumber) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
@@ -249,7 +266,7 @@ class _DriverOnboardingWizardState extends State<DriverOnboardingWizard>
     }
   }
 
-  // ── Step 1: Telegram Logic ──────────────────────────────────────────────────
+  // ── Step 1: Telegram OTP Logic ─────────────────────────────────────────────
   void _startTimer() {
     setState(() {
       _timerSeconds = 180;
@@ -337,91 +354,109 @@ class _DriverOnboardingWizardState extends State<DriverOnboardingWizard>
   }
 
   Future<void> _verifyTelegramOtp() async {
+    if (_isVerifyingOtp) return;
+    setState(() {
+      _isVerifyingOtp = true;
+      _tgErrorText = null;
+    });
+
     try {
       final user = FirebaseAuth.instance.currentUser;
       final provider = Provider.of<TaxiProvider>(context, listen: false);
-      if (user != null) {
-        final callable = FirebaseFunctions.instance.httpsCallable('verifyTelegramOtp');
-        final result = await callable.call({
-          'otp': _otpCtrl.text.trim(),
-          'phone': _phoneCtrl.text,
-          'sessionToken': _tgSessionToken,
-        });
+      if (user == null) {
+        throw Exception('Вы не авторизованы!');
+      }
 
-        if (result.data['success'] == true) {
-          final cleanPhone = _phoneCtrl.text.replaceAll(RegExp(r'\D'), '');
+      final callable = FirebaseFunctions.instance.httpsCallable('verifyTelegramOtp');
+      final result = await callable.call({
+        'otp': _otpCtrl.text.trim(),
+        'phone': _phoneCtrl.text,
+        'sessionToken': _tgSessionToken,
+      });
 
-          final existingQuery = await FirebaseFirestore.instance
-              .collection('users')
-              .where('verified_phone', isEqualTo: cleanPhone)
-              .get();
+      if (result.data != null && result.data['success'] == true) {
+        final cleanPhone = _phoneCtrl.text.replaceAll(RegExp(r'\D'), '');
 
-          for (var doc in existingQuery.docs) {
-            if (doc.id != user.uid) {
-              throw Exception('Этот номер уже привязан к другому аккаунту.');
-            }
+        final existingQuery = await FirebaseFirestore.instance
+            .collection('users')
+            .where('verified_phone', isEqualTo: cleanPhone)
+            .get();
+
+        for (var doc in existingQuery.docs) {
+          if (doc.id != user.uid) {
+            throw Exception('Этот номер уже привязан к другому аккаунту.');
           }
-
-          final tgData = result.data;
-          final String? returnedChatId = tgData is Map ? (tgData['chatId']?.toString() ?? _chatId) : _chatId;
-          final String? returnedTgUser = tgData is Map ? tgData['telegramUsername']?.toString() : null;
-          final String? returnedTgFirst = tgData is Map ? tgData['telegramFirstName']?.toString() : null;
-          final String? returnedTgLast = tgData is Map ? tgData['telegramLastName']?.toString() : null;
-
-          await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-            'verified_phone': cleanPhone,
-            'phone': _phoneCtrl.text,
-            'isTelegramVerified': true,
-            'driverOnboardingStep': 2,
-            if (returnedChatId != null) 'telegramChatId': returnedChatId,
-            if (returnedTgUser != null && returnedTgUser.isNotEmpty) 'telegram_username': returnedTgUser,
-            if (returnedTgFirst != null && returnedTgFirst.isNotEmpty) 'telegram_first_name': returnedTgFirst,
-            if (returnedTgLast != null && returnedTgLast.isNotEmpty) 'telegram_last_name': returnedTgLast,
-          }, SetOptions(merge: true));
-
-          StorageService.saveProfile(
-            '${provider.firstName} ${provider.lastName}',
-            null,
-            false,
-            provider.verificationStatus,
-            isVerified: provider.isVehicleVerified,
-          );
-          await StorageService.setString('user_phone', _phoneCtrl.text);
-
-          final finalChatId = returnedChatId ?? _chatId;
-          if (finalChatId != null) {
-            provider.setTelegramAuth(
-              finalChatId,
-              username: returnedTgUser,
-              firstName: returnedTgFirst,
-              lastName: returnedTgLast,
-            );
-            provider.updateProfile(provider.firstName, provider.lastName, _phoneCtrl.text);
-          }
-
-          if (mounted) {
-            setState(() {
-              _isTgVerified = true;
-              _step = 1; // Advance to Step 2 of 3 (Docs & Car)
-            });
-            _fadeCtrl.reset();
-            _fadeCtrl.forward();
-          }
-        } else {
-          throw Exception('Ошибка проверки кода');
         }
+
+        final tgData = result.data;
+        final String? returnedChatId = tgData is Map ? (tgData['chatId']?.toString() ?? _chatId) : _chatId;
+        final String? returnedTgUser = tgData is Map ? tgData['telegramUsername']?.toString() : null;
+        final String? returnedTgFirst = tgData is Map ? tgData['telegramFirstName']?.toString() : null;
+        final String? returnedTgLast = tgData is Map ? tgData['telegramLastName']?.toString() : null;
+
+        await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+          'verified_phone': cleanPhone,
+          'phone': _phoneCtrl.text,
+          'isTelegramVerified': true,
+          'driverOnboardingStep': 2,
+          if (returnedChatId != null) 'telegramChatId': returnedChatId,
+          if (returnedTgUser != null && returnedTgUser.isNotEmpty) 'telegram_username': returnedTgUser,
+          if (returnedTgFirst != null && returnedTgFirst.isNotEmpty) 'telegram_first_name': returnedTgFirst,
+          if (returnedTgLast != null && returnedTgLast.isNotEmpty) 'telegram_last_name': returnedTgLast,
+        }, SetOptions(merge: true));
+
+        StorageService.saveProfile(
+          '${provider.firstName} ${provider.lastName}',
+          null,
+          false,
+          provider.verificationStatus,
+          isVerified: provider.isVehicleVerified,
+        );
+        await StorageService.setString('user_phone', _phoneCtrl.text);
+
+        final finalChatId = returnedChatId ?? _chatId;
+        if (finalChatId != null) {
+          provider.setTelegramAuth(
+            finalChatId,
+            username: returnedTgUser,
+            firstName: returnedTgFirst,
+            lastName: returnedTgLast,
+          );
+          provider.updateProfile(provider.firstName, provider.lastName, _phoneCtrl.text);
+        }
+
+        if (mounted) {
+          setState(() {
+            _isVerifyingOtp = false;
+            _step = 1; // Advance to Step 2 of 3 (Docs & Car)
+          });
+          _fadeCtrl.reset();
+          _fadeCtrl.forward();
+        }
+      } else {
+        final msg = result.data is Map ? (result.data['message'] ?? 'Неверный код!') : 'Неверный код!';
+        throw Exception(msg);
+      }
+    } on FirebaseException catch (fe) {
+      if (mounted) {
+        setState(() {
+          _isVerifyingOtp = false;
+          _otpCtrl.clear();
+          _tgErrorText = fe.message ?? 'Ошибка сервера при проверке кода OTP. ❌';
+        });
       }
     } catch (e) {
       if (mounted) {
         setState(() {
+          _isVerifyingOtp = false;
           _otpCtrl.clear();
-          _tgErrorText = 'Неверный код! Проверьте и попробуйте еще раз. ❌';
+          _tgErrorText = 'Ошибка: ${e.toString().replaceAll('Exception: ', '')} ❌';
         });
       }
     }
   }
 
-  // ── Step 2: Photo Pickers & Analysis ────────────────────────────────────────
+  // ── Step 2: Photo Pickers & Submission Logic ────────────────────────────────
   Future<ImageSource?> _showSourcePicker() async {
     return showModalBottomSheet<ImageSource>(
       context: context,
@@ -567,7 +602,7 @@ class _DriverOnboardingWizardState extends State<DriverOnboardingWizard>
       );
 
       if (licFUrl == null || techFUrl == null || carFrontUrl == null) {
-        throw Exception(' Ошибка загрузки фотографий. Попробуйте снова.');
+        throw Exception('Ошибка загрузки фотографий. Попробуйте снова.');
       }
 
       if (mounted) setState(() => _aiMsg = 'ИИ анализирует документы... 🤖');
@@ -578,29 +613,33 @@ class _DriverOnboardingWizardState extends State<DriverOnboardingWizard>
       final aiResult = await gemini.analyzeDriverDocuments(
         license: compLicF ?? _licF!,
         techPassport: compTechF ?? _techF!,
-        selfie: compLicF ?? _licF!, // Reuse license for facial selfie check
+        selfie: compLicF ?? _licF!,
         carFront: compCarFront ?? _carFront!,
         driverName: '${provider.firstName} ${provider.lastName}',
         plate: _plateC.text.trim().toUpperCase(),
         carModel: carFullModel,
       );
 
-      final bool isLicenseValid = aiResult['license_valid'] ?? false;
-      final bool isTechPassportValid = aiResult['tech_passport_valid'] ?? false;
-      final bool isCarValid = aiResult['car_valid'] ?? false;
-      final bool isPlateMatches = aiResult['plate_matches'] ?? false;
-      final bool isBlurry = aiResult['blurry_photo_detected'] ?? false;
+      final bool isLicenseValid = aiResult['license_valid'] == true;
+      final bool isTechPassportValid = aiResult['tech_passport_valid'] == true;
+      final bool isCarValid = aiResult['car_valid'] == true;
+      final bool isPlateMatches = aiResult['plate_matches'] == true;
+      final bool isBlurry = aiResult['blurry_photo_detected'] == true;
       final String aiReason = aiResult['reason'] ?? 'На проверке модератором';
-      final String aiConfidence = aiResult['confidence'] ?? 'low';
+      final String aiConfidence = aiResult['confidence'] ?? 'medium';
 
+      // 🤖 DEFAULT AUTOMATIC VERIFICATION LOGIC:
+      // Automatic approval (approved_by_ai) occurs unless there are suspicious red flags/blurriness/discrepancies.
       final bool aiApproved = isLicenseValid &&
           isTechPassportValid &&
           isCarValid &&
           isPlateMatches &&
           !isBlurry &&
-          aiConfidence == 'high';
+          aiConfidence != 'low';
 
       _needsManual = !aiApproved;
+      _isRejected = false;
+      final finalStatus = _needsManual ? 'pending_manual' : 'approved_by_ai';
 
       // Save driver_verifications record
       await FirebaseFirestore.instance.collection('driver_verifications').doc(docId).set({
@@ -610,7 +649,7 @@ class _DriverOnboardingWizardState extends State<DriverOnboardingWizard>
         'car': carFullModel,
         'color': _selectedColor ?? '',
         'driver_chat_id': chatId,
-        'status': _needsManual ? 'pending_manual' : 'approved_by_ai',
+        'status': finalStatus,
         'ai_result': aiResult,
         'ai_quality': aiConfidence,
         'submitted_at': FieldValue.serverTimestamp(),
@@ -619,7 +658,7 @@ class _DriverOnboardingWizardState extends State<DriverOnboardingWizard>
         'carFront': carFrontUrl,
       });
 
-      // Update user step & verification status
+      // Save step 3 & update user profile in Firestore
       await _updateOnboardingStep(3);
       await FirebaseFirestore.instance.collection('users').doc(uid).set({
         'driverOnboardingStep': 3,
@@ -627,6 +666,25 @@ class _DriverOnboardingWizardState extends State<DriverOnboardingWizard>
         'carPlate': _plateC.text.trim().toUpperCase(),
         if (!_needsManual) 'isVerified': true,
       }, SetOptions(merge: true));
+
+      // 📩 TELEGRAM NOTIFICATIONS FOR ALL STATUS TRANSITIONS:
+      if (chatId.isNotEmpty) {
+        if (!_needsManual) {
+          // Send Telegram notification to driver on Auto-Approval!
+          await TelegramBotService.notifyDriverResult(
+            driverChatId: chatId,
+            isApproved: true,
+            reason: '🎉 Ваша верификация водителя автоматически одобрена ИИ!',
+          );
+        } else {
+          // Send Telegram notification to driver on Manual Review Submission!
+          await TelegramBotService.notifyDriverResult(
+            driverChatId: chatId,
+            isApproved: false,
+            reason: '⏳ Ваша заявка передана модератору на ручную проверку. Обычно это занимает от 10 до 30 минут.',
+          );
+        }
+      }
 
       // Notify Telegram Admin
       if (_needsManual) {
@@ -636,7 +694,7 @@ class _DriverOnboardingWizardState extends State<DriverOnboardingWizard>
           carModel: carFullModel,
           driverChatId: chatId,
           reviewDocId: docId,
-          reason: '⚠️ Требуется проверка модератора: $aiReason',
+          reason: '⚠️ Требуется ручная проверка: $aiReason',
           licF: licFUrl,
           techF: techFUrl,
           selfie: licFUrl,
@@ -650,7 +708,7 @@ class _DriverOnboardingWizardState extends State<DriverOnboardingWizard>
           carModel: carFullModel,
           driverChatId: chatId,
           reviewDocId: docId,
-          reason: '🤖 ИИ автоматически одобрил документы.',
+          reason: '🤖 ИИ автоматически одобрил документы без участия человека.',
           licF: licFUrl,
           techF: techFUrl,
           selfie: licFUrl,
@@ -663,7 +721,7 @@ class _DriverOnboardingWizardState extends State<DriverOnboardingWizard>
       if (mounted) {
         setState(() {
           _analyzing = false;
-          _step = 2; // Advance to Step 3 of 3 (Moderation Pending Screen)
+          _step = 2; // Step 3 of 3: Status View
         });
         _fadeCtrl.reset();
         _fadeCtrl.forward();
@@ -681,6 +739,20 @@ class _DriverOnboardingWizardState extends State<DriverOnboardingWizard>
         );
       }
     }
+  }
+
+  void _restartVerification() async {
+    setState(() {
+      _isRejected = false;
+      _rejectedReason = '';
+      _licF = null;
+      _techF = null;
+      _carFront = null;
+      _step = 1; // Return to Step 2 of 3: Photos & Car upload
+    });
+    await _updateOnboardingStep(2);
+    _fadeCtrl.reset();
+    _fadeCtrl.forward();
   }
 
   // ── BUILD MAIN SCREEN ────────────────────────────────────────────────────────
@@ -759,7 +831,7 @@ class _DriverOnboardingWizardState extends State<DriverOnboardingWizard>
                       ? 'Шаг 1 из 3 — Подтверждение Telegram'
                       : _step == 1
                           ? 'Шаг 2 из 3 — Фото и данные автомобиля'
-                          : 'Шаг 3 из 3 — Модерация заявки',
+                          : 'Шаг 3 из 3 — Статус проверки',
                   style: GoogleFonts.inter(color: Colors.white.withValues(alpha: 0.8), fontSize: 11, fontWeight: FontWeight.w600),
                 ),
               ],
@@ -865,7 +937,7 @@ class _DriverOnboardingWizardState extends State<DriverOnboardingWizard>
         child: [
           _buildStep1TelegramView(t, provider),
           _buildStep2DocsAndCarView(t),
-          _buildStep3ModerationPendingView(t),
+          _buildStep3StatusView(t),
         ][_step],
       ),
     );
@@ -882,7 +954,7 @@ class _DriverOnboardingWizardState extends State<DriverOnboardingWizard>
           'Жолаушылардың қауіпсіздігі үшін телефон нөмірін Telegram арқылы растау қажет. Бұл аккаунтқа қайта кіру емес, бөлек тексеру.';
     } else if (lang == 'uyg') {
       explainText =
-          'Йоловчиларниң бихәтарлиғи үчүн телефон номурини Telegram арқилиқ тәстиқләш керәк. Бу һесабатқа қайта кириш әмәс, бөләк тәкшүрүш.';
+          'Йоловчиларниң бихәтарлиғи үчүн телефон номурини Telegram арқилик тәстиқләш керәк. Бу һесабатқа қайта кириш әмәс, бөләк тәкшүрүш.';
     }
 
     return Column(
@@ -1051,6 +1123,7 @@ class _DriverOnboardingWizardState extends State<DriverOnboardingWizard>
             keyboardType: TextInputType.number,
             maxLength: 6,
             autofocus: true,
+            enabled: !_isVerifyingOtp,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
             style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: 8, color: t.text),
             textAlign: TextAlign.center,
@@ -1063,7 +1136,7 @@ class _DriverOnboardingWizardState extends State<DriverOnboardingWizard>
               focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFF0088CC), width: 2)),
             ),
             onChanged: (v) {
-              if (v.length == 6) _verifyTelegramOtp();
+              if (v.length == 6 && !_isVerifyingOtp) _verifyTelegramOtp();
             },
           ),
 
@@ -1077,14 +1150,16 @@ class _DriverOnboardingWizardState extends State<DriverOnboardingWizard>
             width: double.infinity,
             height: 54,
             child: ElevatedButton(
-              onPressed: _otpCtrl.text.length == 6 ? _verifyTelegramOtp : null,
+              onPressed: (_otpCtrl.text.length == 6 && !_isVerifyingOtp) ? _verifyTelegramOtp : null,
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF2563EB),
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
                 elevation: 0,
               ),
-              child: Text('ПОДТВЕРДИТЬ И ПЕРЕЙТИ К ШАГУ 2 →', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w900, fontSize: 13)),
+              child: _isVerifyingOtp
+                  ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
+                  : Text('ПОДТВЕРДИТЬ И ПЕРЕЙТИ К ШАГУ 2 →', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w900, fontSize: 13)),
             ),
           ),
         ],
@@ -1265,8 +1340,75 @@ class _DriverOnboardingWizardState extends State<DriverOnboardingWizard>
     );
   }
 
-  // ── STEP 3 VIEW: Moderation Pending Screen ───────────────────────────────────
-  Widget _buildStep3ModerationPendingView(TaxiTheme t) {
+  // ── STEP 3 VIEW: Status View (Moderation Pending / Approved / Rejected) ──────
+  Widget _buildStep3StatusView(TaxiTheme t) {
+    if (_isRejected) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.red.withValues(alpha: 0.12),
+                  border: Border.all(color: Colors.red, width: 3),
+                ),
+                child: const Icon(Icons.cancel_rounded, color: Colors.red, size: 54),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'Заявка отклонена ❌',
+                style: GoogleFonts.inter(color: t.text, fontWeight: FontWeight.w900, fontSize: 22),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.red.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: Colors.red.withValues(alpha: 0.2)),
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      'Причина отказа:',
+                      style: GoogleFonts.inter(color: Colors.red, fontWeight: FontWeight.w800, fontSize: 13),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      _rejectedReason,
+                      style: GoogleFonts.inter(color: t.text, fontSize: 13.5, height: 1.4, fontWeight: FontWeight.w600),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 28),
+              SizedBox(
+                width: double.infinity,
+                height: 54,
+                child: ElevatedButton.icon(
+                  onPressed: _restartVerification,
+                  icon: const Icon(Icons.refresh_rounded, color: Colors.white, size: 22),
+                  label: Text('ПОДАТЬ ЗАЯВКУ ЗАНОВО', style: GoogleFonts.plusJakartaSans(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 14)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF2563EB),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                    elevation: 0,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 32),

@@ -41,10 +41,10 @@ service cloud.firestore {
         && (!request.resource.data.keys().hasAny(['accountType']) || request.resource.data.accountType in ['user', 'driver'])
         && (!request.resource.data.keys().hasAny(['isVerified']) || request.resource.data.isVerified == false || (request.auth.uid.size() >= 9 && request.auth.uid[0:9] == 'telegram_'));
       allow delete: if isOwner(userId);
-      // Пользователь может обновить свой профиль (в т.ч. driverOnboardingStep), но не может изменить роль/рейтинг/верификацию/контакты
+      // Пользователь может обновить свой профиль (в т.ч. driverOnboardingStep в диапазоне 0..3), но не может изменить роль/рейтинг/верификацию/контакты
       allow update: if isAdmin() || (isOwner(userId) 
         && !request.resource.data.keys().hasAny(['phone', 'email', 'telegram_chat_id', 'telegramChatId'])
-        && (!request.resource.data.keys().hasAny(['driverOnboardingStep']) || request.resource.data.driverOnboardingStep is int)
+        && (!request.resource.data.keys().hasAny(['driverOnboardingStep']) || (request.resource.data.driverOnboardingStep is int && request.resource.data.driverOnboardingStep >= 0 && request.resource.data.driverOnboardingStep <= 3))
         && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['accountType', 'rating', 'reviewsCount', 'status', 'isVerified'])));
 
       match /private/contact {
