@@ -266,16 +266,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: Column(
                   children: [
                     const SizedBox(height: 15),
-                    Text(
-                      displayName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w800, color: _txtColor, letterSpacing: -0.3),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Text(
+                        displayName,
+                        maxLines: 2,
+                        textAlign: TextAlign.center,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w800, color: _txtColor, letterSpacing: -0.3),
+                      ),
                     ),
                     if (!_isGuest && user != null) ...[
-                      const SizedBox(height: 8),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                      const SizedBox(height: 10),
+                      Wrap(
+                        alignment: WrapAlignment.center,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 8,
+                        runSpacing: 8,
                         children: [
                           GestureDetector(
                             onTap: () {
@@ -313,8 +320,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ),
                             ),
                           ),
-                          if (_isVerified) ...[
-                            const SizedBox(width: 8),
+                          if (_isVerified)
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                               decoration: BoxDecoration(
@@ -338,7 +344,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ],
                               ),
                             ),
-                          ],
                         ],
                       ),
                     ],
