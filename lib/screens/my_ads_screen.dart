@@ -282,105 +282,195 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
                 ),
               ),
             ),
-            Container(height: 1, color: const Color(0xFFF1F5F9)),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              child: isArchived
-                  ? Row(
-                      children: [
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: () async {
-                              try {
-                                await AdService.extendAd(ad.id);
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(TranslationService.t('adExtendedSuccessMsg', widget.lang), style: GoogleFonts.inter()),
-                                      backgroundColor: Colors.green,
-                                    ),
-                                  );
-                                }
-                              } catch (e) {
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(TranslationService.t('errExtendAd', widget.lang).replaceAll('{error}', e.toString())),
-                                      backgroundColor: Colors.redAccent,
-                                    ),
-                                  );
-                                }
-                              }
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF10B981),
-                              foregroundColor: Colors.white,
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                            ),
-                            icon: const Icon(Icons.rocket_launch_rounded, size: 15),
-                            label: Text('Активировать (+30 дней)', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold)),
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: () => _confirmDelete(ad.id),
-                          icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 22),
-                        ),
-                      ],
-                    )
-                  : Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        if (isNearExpiry)
-                          Flexible(
-                            child: TextButton.icon(
-                              onPressed: () async {
-                                try {
-                                  await AdService.extendAd(ad.id);
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text(TranslationService.t('adExtendedSuccessMsg', widget.lang), style: GoogleFonts.inter()), backgroundColor: Colors.green),
-                                    );
-                                  }
-                                } catch (e) {
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text(TranslationService.t('errExtendAd', widget.lang).replaceAll('{error}', e.toString())), backgroundColor: Colors.redAccent),
-                                    );
-                                  }
-                                }
-                              },
-                              style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 6)),
-                              icon: const Icon(Icons.update_rounded, size: 16, color: Colors.green),
-                              label: Text(_t('extend'), style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12)),
-                            ),
-                          ),
-                        Flexible(
-                          child: TextButton.icon(
-                            onPressed: () => _editAd(ad),
-                            style: TextButton.styleFrom(foregroundColor: const Color(0xFF4A80F0), padding: const EdgeInsets.symmetric(horizontal: 6)),
-                            icon: const Icon(Icons.edit_outlined, size: 16),
-                            label: Text(TranslationService.t('actionEditShort', widget.lang), style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 12)),
-                          ),
-                        ),
-                        Flexible(
-                          child: TextButton.icon(
-                            onPressed: () => AdService.toggleAdStatus(ad.id, false),
-                            style: TextButton.styleFrom(foregroundColor: const Color(0xFF64748B), padding: const EdgeInsets.symmetric(horizontal: 6)),
-                            icon: const Icon(Icons.archive_outlined, size: 16),
-                            label: Text(TranslationService.t('actionToArchive', widget.lang), style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 12)),
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: () => _confirmDelete(ad.id),
-                          icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 22),
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                        ),
-                      ],
-                    ),
+            _buildCardActions(ad, isArchived, isPending, isNearExpiry),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCardActions(AdModel ad, bool isArchived, bool isPending, bool isNearExpiry) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: const BoxDecoration(
+        color: Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(24),
+          bottomRight: Radius.circular(24),
+        ),
+      ),
+      child: Column(
+        children: [
+          if (isNearExpiry && !isArchived) ...[
+            SizedBox(
+              width: double.infinity,
+              height: 38,
+              child: ElevatedButton.icon(
+                onPressed: () => _extendAd(ad.id),
+                icon: const Icon(Icons.rocket_launch_rounded, size: 16, color: Colors.white),
+                label: Text(
+                  'Продлить еще на 30 дней',
+                  style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF10B981),
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
             ),
+            const SizedBox(height: 8),
+          ],
+          Row(
+            children: [
+              if (isArchived) ...[
+                Expanded(
+                  child: SizedBox(
+                    height: 38,
+                    child: OutlinedButton.icon(
+                      onPressed: () => _editAd(ad),
+                      icon: const Icon(Icons.edit_outlined, size: 15, color: Color(0xFF2563EB)),
+                      label: Text(
+                        TranslationService.t('actionEditShort', widget.lang),
+                        style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF2563EB)),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        backgroundColor: const Color(0xFF2563EB).withValues(alpha: 0.05),
+                        side: BorderSide(color: const Color(0xFF2563EB).withValues(alpha: 0.2)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        padding: EdgeInsets.zero,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  flex: 2,
+                  child: SizedBox(
+                    height: 38,
+                    child: ElevatedButton.icon(
+                      onPressed: () => _extendAd(ad.id),
+                      icon: const Icon(Icons.rocket_launch_rounded, size: 15, color: Colors.white),
+                      label: Text(
+                        'Активировать (+30д)',
+                        style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.white),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF10B981),
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        padding: EdgeInsets.zero,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ] else ...[
+                Expanded(
+                  child: SizedBox(
+                    height: 38,
+                    child: OutlinedButton.icon(
+                      onPressed: () => _editAd(ad),
+                      icon: const Icon(Icons.edit_outlined, size: 15, color: Color(0xFF2563EB)),
+                      label: Text(
+                        TranslationService.t('actionEditShort', widget.lang),
+                        style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF2563EB)),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        backgroundColor: const Color(0xFF2563EB).withValues(alpha: 0.05),
+                        side: BorderSide(color: const Color(0xFF2563EB).withValues(alpha: 0.2)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        padding: EdgeInsets.zero,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: SizedBox(
+                    height: 38,
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        try {
+                          await AdService.toggleAdStatus(ad.id, false);
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('📁 ' + TranslationService.t('adArchivedSuccessMsg', widget.lang)),
+                                backgroundColor: const Color(0xFF64748B),
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          debugPrint('Error archiving ad: $e');
+                        }
+                      },
+                      icon: const Icon(Icons.archive_outlined, size: 15, color: Color(0xFF64748B)),
+                      label: Text(
+                        TranslationService.t('actionToArchive', widget.lang),
+                        style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF64748B)),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        backgroundColor: const Color(0xFF64748B).withValues(alpha: 0.05),
+                        side: BorderSide(color: const Color(0xFF64748B).withValues(alpha: 0.2)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        padding: EdgeInsets.zero,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
+              SizedBox(
+                width: 38,
+                height: 38,
+                child: Material(
+                  color: const Color(0xFFEF4444).withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(12),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: () => _confirmDelete(ad.id),
+                    child: const Center(
+                      child: Icon(Icons.delete_outline_rounded, color: Color(0xFFEF4444), size: 18),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _extendAd(String adId) async {
+    try {
+      await AdService.extendAd(adId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('🚀 ' + TranslationService.t('adExtendedSuccessMsg', widget.lang), style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+            backgroundColor: const Color(0xFF10B981),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(TranslationService.t('errExtendAd', widget.lang).replaceAll('{error}', e.toString())),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          ),
+        );
+      }
+    }
+  }
           ],
         ),
       ),
