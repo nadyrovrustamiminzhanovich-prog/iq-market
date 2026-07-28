@@ -23,6 +23,7 @@ import 'package:iqmarket/widgets/post_ad/image_picker_section.dart';
 import 'package:lottie/lottie.dart';
 import 'package:iqmarket/services/translation_service.dart';
 import 'package:iqmarket/services/category_auto_detector.dart';
+import 'package:iqmarket/screens/help_center_screen.dart';
 
 import '../widgets/post_ad/post_ad_components.dart';
 import '../widgets/post_ad/category_specs_widgets.dart';
