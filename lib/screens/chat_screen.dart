@@ -1248,7 +1248,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('🎉 Предложение принято! Товар зарезервирован.'),
+                    content: Text('🎉 Предложение принято! Вы можете связаться с покупателем.'),
                     backgroundColor: Color(0xFF10B981),
                     behavior: SnackBarBehavior.floating,
                   ),
