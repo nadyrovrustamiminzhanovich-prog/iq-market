@@ -193,20 +193,6 @@ class TaxiRepository {
 
         transaction.update(bidRef, {'status': 'accepted'});
 
-        if (targetType == 'order') {
-          transaction.update(targetRef, {
-            'status': 'completed',
-            'driverId': bidData['senderId'],
-            'driverName': bidData['senderName'],
-            'driverPhone': bidData['senderPhone'],
-            'driverImg': bidData['senderImg'],
-            'driverCar': bidData['senderCar'] ?? 'Машина не указана',
-            'driverPlate': bidData['senderPlate'] ?? 'Б/Н',
-            'driverVerified': bidData['senderVerified'] ?? false,
-            'price': bidData['offeredPrice'],
-          });
-        }
-
         // ✅ BUG-01 FIX: Capture bid data inside transaction — no second .get() race
         capturedBidData = Map<String, dynamic>.from(bidData);
       });
