@@ -11,7 +11,8 @@
         && (
           isAdmin() || (
             isOwner(resource.data.userId)
-            && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['userId', 'status', 'active', 'views', 'favorites'])
+            && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['userId', 'views', 'favorites'])
+            && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['status']) || request.resource.data.status in ['active', 'reserved', 'sold', 'archived'])
           )
         );
       allow delete: if isSignedIn()

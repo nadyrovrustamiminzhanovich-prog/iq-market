@@ -312,7 +312,7 @@ class ChatService {
     final uid = UserService.currentUid;
     if (uid == null) return;
 
-    final chatId = getChatId(sellerId);
+    final chatId = activeChatId ?? getChatId(sellerId);
     final docRef = _db.collection('chats').doc(chatId).collection('messages').doc(messageId);
 
     late Map<String, dynamic> offerData;

@@ -1242,9 +1242,46 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           currentDur: _currentDur,
           onLongPress: _showContextMenu,
           onImageTap: _showFullScreenImage,
-          localImagePath: _localImagePaths[msg.id],
-          onAcceptOffer: () => ChatService.updateOfferStatus(msg.senderId, msg.id, 'accepted'),
-          onDeclineOffer: () => ChatService.updateOfferStatus(msg.senderId, msg.id, 'rejected'),
+          onAcceptOffer: () async {
+            try {
+              await ChatService.updateOfferStatus(msg.senderId, msg.id, 'accepted');
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('🎉 Предложение принято! Товар зарезервирован.'),
+                    backgroundColor: Color(0xFF10B981),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              }
+            } catch (e) {
+              debugPrint('Error accepting offer: $e');
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Ошибка при принятии: $e'),
+                    backgroundColor: Colors.redAccent,
+                  ),
+                );
+              }
+            }
+          },
+          onDeclineOffer: () async {
+            try {
+              await ChatService.updateOfferStatus(msg.senderId, msg.id, 'rejected');
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Предложение отклонено'),
+                    backgroundColor: Color(0xFFEF4444),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              }
+            } catch (e) {
+              debugPrint('Error declining offer: $e');
+            }
+          },
           onWriteOffer: () {
             _msgController.text = TranslationService.t('chat_input_bargain_text', lang);
             _msgFocusNode.requestFocus();

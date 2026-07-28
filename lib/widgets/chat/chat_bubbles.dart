@@ -313,38 +313,23 @@ class _ChatBubbleState extends State<ChatBubble> {
                 ),
               ],
             ),
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 14),
-              child: Divider(color: Color(0xFFF1F5F9), height: 1, thickness: 1),
-            ),
-            Row(
-              children: [
-                Expanded(
-                  child: _quickActionButton(
-                    icon: Icons.phone_in_talk_rounded,
-                    label: TranslationService.t('call_btn', widget.lang),
-                    color: const Color(0xFF10B981),
-                    onTap: widget.onCallOffer,
-                  ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              height: 44,
+              child: ElevatedButton.icon(
+                onPressed: widget.onCallOffer,
+                icon: const Icon(Icons.phone_in_talk_rounded, size: 18, color: Colors.white),
+                label: Text(
+                  TranslationService.t('call_btn', widget.lang),
+                  style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: Colors.white),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _quickActionButton(
-                    icon: Icons.edit_note_rounded,
-                    label: TranslationService.t('write_btn_short', widget.lang),
-                    color: const Color(0xFF3B82F6),
-                    onTap: widget.onWriteOffer,
-                  ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF10B981),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Center(
-              child: _quickActionButton(
-                icon: Icons.keyboard_voice_rounded,
-                label: TranslationService.t('voice_btn', widget.lang),
-                color: const Color(0xFF8B5CF6),
-                onTap: widget.onVoiceOffer,
               ),
             ),
           ] else ...[
