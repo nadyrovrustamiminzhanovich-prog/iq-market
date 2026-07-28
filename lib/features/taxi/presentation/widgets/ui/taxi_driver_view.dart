@@ -59,23 +59,7 @@ class TaxiDriverView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final currentUser = FirebaseAuth.instance.currentUser;
-    if (currentUser != null) {
-      final myAssignedOrderAsDriver = provider.allPassengerOrders.firstWhere(
-        (o) => o['driverId'] == currentUser.uid && o['status'] == 'accepted',
-        orElse: () => <String, dynamic>{},
-      );
 
-      final myAssignedRideAsDriver = provider.allDrives.firstWhere(
-        (d) => d['driverId'] == currentUser.uid && d['status'] == 'accepted',
-        orElse: () => <String, dynamic>{},
-      );
-
-      if (myAssignedOrderAsDriver.isNotEmpty) {
-        return TaxiAssignedPassengerView(provider: provider, t: t, data: myAssignedOrderAsDriver, isOrder: true);
-      } else if (myAssignedRideAsDriver.isNotEmpty) {
-        return TaxiAssignedPassengerView(provider: provider, t: t, data: myAssignedRideAsDriver, isOrder: false);
-      }
-    }
 
     final orders = provider.filteredOrders;
     

@@ -195,7 +195,7 @@ class TaxiRepository {
 
         if (targetType == 'order') {
           transaction.update(targetRef, {
-            'status': 'accepted',
+            'status': 'completed',
             'driverId': bidData['senderId'],
             'driverName': bidData['senderName'],
             'driverPhone': bidData['senderPhone'],
@@ -203,15 +203,6 @@ class TaxiRepository {
             'driverCar': bidData['senderCar'] ?? 'Машина не указана',
             'driverPlate': bidData['senderPlate'] ?? 'Б/Н',
             'driverVerified': bidData['senderVerified'] ?? false,
-            'price': bidData['offeredPrice'],
-          });
-        } else if (targetType == 'ride') {
-          transaction.update(targetRef, {
-            'status': 'accepted',
-            'passengerId': bidData['senderId'],
-            'passengerName': bidData['senderName'],
-            'passengerPhone': bidData['senderPhone'],
-            'passengerImg': bidData['senderImg'],
             'price': bidData['offeredPrice'],
           });
         }
@@ -222,6 +213,57 @@ class TaxiRepository {
 
       final bidData = capturedBidData!;
       final targetId = bidData['targetId'];
+
+      // ── Атомарная запись в taxi_history для обоих участников ─────────────
+      final targetType = bidData['targetType'];
+      final targetSnap = await db.collection(targetType == 'order' ? 'taxi_orders' : 'taxi_rides').doc(targetId).get();
+      final targetData = targetSnap.data() ?? {};
+
+      final String driverId = targetType == 'order' ? (bidData['senderId'] ?? '') : (targetData['driverId'] ?? targetData['userId'] ?? '');
+      final String driverName = targetType == 'order' ? (bidData['senderName'] ?? 'Водитель') : (targetData['driverName'] ?? targetData['name'] ?? 'Водитель');
+      final String driverPhone = targetType == 'order' ? (bidData['senderPhone'] ?? '') : (targetData['driverPhone'] ?? targetData['phone'] ?? '');
+      final String driverImg = targetType == 'order' ? (bidData['senderImg'] ?? '') : (targetData['driverImg'] ?? '');
+      final String driverCar = targetType == 'order' ? (bidData['senderCar'] ?? '') : (targetData['driverCar'] ?? '');
+      final String driverPlate = targetType == 'order' ? (bidData['senderPlate'] ?? '') : (targetData['driverPlate'] ?? '');
+
+      final String passengerId = targetType == 'order' ? (targetData['passengerId'] ?? targetData['userId'] ?? '') : (bidData['senderId'] ?? '');
+      final String passengerName = targetType == 'order' ? (targetData['passengerName'] ?? targetData['name'] ?? 'Пассажир') : (bidData['senderName'] ?? 'Пассажир');
+      final String passengerPhone = targetType == 'order' ? (targetData['passengerPhone'] ?? targetData['phone'] ?? '') : (bidData['senderPhone'] ?? '');
+      final String passengerImg = targetType == 'order' ? (targetData['passengerImg'] ?? '') : (bidData['senderImg'] ?? '');
+
+      final int finalPrice = (bidData['offeredPrice'] as num?)?.toInt() ?? (targetData['price'] as num?)?.toInt() ?? 0;
+
+      final historyBatch = db.batch();
+      final tripBase = {
+        'matchedVia': 'bid_accepted',
+        'status': 'completed',
+        'from': targetData['from'] ?? '',
+        'to': targetData['to'] ?? '',
+        'date': targetData['date'] ?? '',
+        'time': targetData['time'] ?? '',
+        'price': finalPrice,
+        'driverId': driverId,
+        'driverName': driverName,
+        'driverPhone': driverPhone,
+        'driverCar': driverCar,
+        'driverPlate': driverPlate,
+        'driverImg': driverImg,
+        'passengerId': passengerId,
+        'passengerName': passengerName,
+        'passengerPhone': passengerPhone,
+        'passengerImg': passengerImg,
+        'createdAt': FieldValue.serverTimestamp(),
+      };
+
+      if (driverId.isNotEmpty) {
+        final dRef = db.collection('taxi_history').doc();
+        historyBatch.set(dRef, {...tripBase, 'id': dRef.id, 'role': 'driver'});
+      }
+      if (passengerId.isNotEmpty) {
+        final pRef = db.collection('taxi_history').doc();
+        historyBatch.set(pRef, {...tripBase, 'id': pRef.id, 'role': 'passenger'});
+      }
+      await historyBatch.commit();
 
       // ✅ ISSUE-03 FIX: Batch-reject ALL other pending bids FIRST, then notify.
       // Previously: notify winner → then reject others.

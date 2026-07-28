@@ -212,32 +212,72 @@ class ChatAdInfoBar extends StatelessWidget {
           Text('${ad.price.toInt()} ₸', style: const TextStyle(color: Color(0xFF2563EB), fontWeight: FontWeight.w900, fontSize: 12)),
         ])),
         if (ad.category == 'Taxi') ...[
-          ElevatedButton.icon(
-            onPressed: () {
-              final provider = Provider.of<TaxiProvider>(context, listen: false);
-              showCallAgreementDialog(
-                context: context,
-                provider: provider,
-                t: provider.theme,
-                targetId: ad.id,
-                targetType: 'drive',
-                counterpartName: ad.userName,
-                counterpartPhone: '',
-                counterpartImg: ad.images.isNotEmpty ? ad.images.first : '',
-                suggestedPrice: ad.price.toInt(),
+          StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('taxi_history')
+                .where('driverId', whereIn: [FirebaseAuth.instance.currentUser?.uid ?? '', ad.userId])
+                .snapshots(),
+            builder: (context, snapshot) {
+              bool isAgreed = false;
+              if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
+                final myUid = FirebaseAuth.instance.currentUser?.uid ?? '';
+                isAgreed = snapshot.data!.docs.any((doc) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  return (data['driverId'] == myUid && data['passengerId'] == ad.userId) ||
+                         (data['passengerId'] == myUid && data['driverId'] == ad.userId);
+                });
+              }
+
+              if (isAgreed) {
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF84CC16).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFF84CC16)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.check_circle_rounded, color: Color(0xFF4D7C0F), size: 14),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Договорились ✓',
+                        style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w800, color: const Color(0xFF4D7C0F)),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              return ElevatedButton.icon(
+                onPressed: () {
+                  final provider = Provider.of<TaxiProvider>(context, listen: false);
+                  showCallAgreementDialog(
+                    context: context,
+                    provider: provider,
+                    t: provider.theme,
+                    targetId: ad.id,
+                    targetType: 'drive',
+                    counterpartName: ad.userName,
+                    counterpartPhone: '',
+                    counterpartImg: ad.images.isNotEmpty ? ad.images.first : '',
+                    suggestedPrice: ad.price.toInt(),
+                  );
+                },
+                icon: const Icon(Icons.handshake_rounded, size: 16),
+                label: const Text('Договорились', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF84CC16),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
               );
             },
-            icon: const Icon(Icons.handshake_rounded, size: 16),
-            label: const Text('Договорились', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF84CC16),
-              foregroundColor: Colors.white,
-              elevation: 0,
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              minimumSize: Size.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
           ),
           const SizedBox(width: 8),
         ],
