@@ -1111,6 +1111,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator(color: Color(0xFF4A80F0)));
                   final messages = snapshot.data ?? [];
                   if (messages.isEmpty) return _buildEmptyState();
+                  
+                  // ✅ Real-time WhatsApp read receipt trigger: mark unread incoming messages as read
+                  if (messages.any((m) => m.senderId == _otherUserId && !m.isRead)) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      ChatService.markAsRead(_otherUserId, targetChatId: ChatService.activeChatId);
+                    });
+                  }
+
                   return _buildMessageList(messages, myBubbleColor, otherBubbleColor);
                 },
               ),

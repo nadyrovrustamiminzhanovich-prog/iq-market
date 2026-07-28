@@ -180,8 +180,23 @@ class _ChatBubbleState extends State<ChatBubble> {
                   if (widget.msg.type == 'offer') _buildOfferCard(context, isMe),
                   const SizedBox(height: 4),
                   Row(mainAxisSize: MainAxisSize.min, children: [
-                    Text(DateFormat('HH:mm').format(widget.msg.timestamp), style: TextStyle(fontSize: 10, color: widget.msg.type == 'offer' ? const Color(0xFF94A3B8) : (isMe ? Colors.white70 : const Color(0xFF64748B)))),
-                    if (isMe && widget.msg.type != 'offer') ...[const SizedBox(width: 4), Icon(widget.msg.isRead ? Icons.done_all_rounded : Icons.done_rounded, size: 14, color: widget.msg.isRead ? const Color(0xFF00E5FF) : Colors.white38)],
+                    Text(
+                      DateFormat('HH:mm').format(widget.msg.timestamp), 
+                      style: TextStyle(
+                        fontSize: 10, 
+                        color: widget.msg.type == 'offer' ? const Color(0xFF94A3B8) : (isMe ? Colors.white70 : const Color(0xFF64748B)),
+                      ),
+                    ),
+                    if (isMe) ...[
+                      const SizedBox(width: 4),
+                      Icon(
+                        widget.msg.isRead ? Icons.done_all_rounded : Icons.done_rounded, 
+                        size: 15, 
+                        color: widget.msg.isRead 
+                            ? (widget.msg.type == 'offer' ? const Color(0xFF0284C7) : const Color(0xFF38BDF8))
+                            : (widget.msg.type == 'offer' ? const Color(0xFF94A3B8) : Colors.white60),
+                      ),
+                    ],
                   ]),
                 ]),
               ),

@@ -127,7 +127,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
         ),
         actions: [
           TextButton(
-            onPressed: () => NotificationService.markAllAsRead(),
+            onPressed: () async {
+              await NotificationService.markAllAsRead();
+              await ChatService.markAllChatsAsRead();
+            },
             child: Text(_t('mark_all'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF4A80F0))),
           ),
         ],

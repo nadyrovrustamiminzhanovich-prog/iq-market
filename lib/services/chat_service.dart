@@ -519,10 +519,10 @@ class ChatService {
   }
 
   /// Mark all messages as read for current user
-  static Future<void> markAsRead(String sellerId) async {
+  static Future<void> markAsRead(String sellerId, {String? targetChatId}) async {
     final uid = UserService.currentUid;
     if (uid == null) return;
-    final chatId = getChatId(sellerId);
+    final chatId = targetChatId ?? ChatService.activeChatId ?? getChatId(sellerId);
 
     try {
       // Update unread count in main doc
@@ -531,7 +531,7 @@ class ChatService {
         'isRead': true,
       }, SetOptions(merge: true));
 
-      // Update individual messages
+      // Update individual messages sent by counterpart
       final unreadMessages = await _db
           .collection('chats')
           .doc(chatId)
@@ -540,14 +540,57 @@ class ChatService {
           .where('isRead', isEqualTo: false)
           .get();
 
-      final batch = _db.batch();
-      for (var doc in unreadMessages.docs) {
-        batch.update(doc.reference, {'isRead': true});
+      if (unreadMessages.docs.isNotEmpty) {
+        final batch = _db.batch();
+        for (var doc in unreadMessages.docs) {
+          batch.update(doc.reference, {
+            'isRead': true,
+            'readAt': FieldValue.serverTimestamp(),
+          });
+        }
+        await batch.commit();
       }
-      await batch.commit();
     } catch (e, stack) {
       debugPrint('[ChatService.markAsRead] Error: $e');
       AnalyticsService.logFirestorePermissionError(e, stack, chatId, 'write', 'mark_as_read');
+    }
+  }
+
+  /// Mark all chats as read across all conversations for current user
+  static Future<void> markAllChatsAsRead() async {
+    final uid = UserService.currentUid;
+    if (uid == null) return;
+    try {
+      final unreadChats = await _db
+          .collection('chats')
+          .where('users', arrayContains: uid)
+          .get();
+
+      for (var chatDoc in unreadChats.docs) {
+        await _db.collection('chats').doc(chatDoc.id).set({
+          'unreadCount_$uid': 0,
+        }, SetOptions(merge: true));
+
+        final unreadMsgs = await chatDoc.reference
+            .collection('messages')
+            .where('isRead', isEqualTo: false)
+            .get();
+
+        if (unreadMsgs.docs.isNotEmpty) {
+          final batch = _db.batch();
+          for (var msgDoc in unreadMsgs.docs) {
+            if (msgDoc.data()['senderId'] != uid) {
+              batch.update(msgDoc.reference, {
+                'isRead': true,
+                'readAt': FieldValue.serverTimestamp(),
+              });
+            }
+          }
+          await batch.commit();
+        }
+      }
+    } catch (e) {
+      debugPrint('[ChatService.markAllChatsAsRead] Error: $e');
     }
   }
 
