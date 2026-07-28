@@ -322,15 +322,14 @@ class _IqSupportScreenState extends State<IqSupportScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F4FC),
+      backgroundColor: const Color(0xFFF8FAFC),
       body: Column(
         children: [
           _buildHeader(),
-          _buildModeSwitch(),
           Expanded(child: _buildMessages()),
           if (_messages.length <= 2) _buildTemplates(),
+          _buildLiveSupportHeaderPill(),
           _buildInputBar(),
-          _buildContactFooter(),
         ],
       ),
     );
@@ -341,90 +340,95 @@ class _IqSupportScreenState extends State<IqSupportScreen>
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [Color(0xFF3A6FE0), Color(0xFF5B5FDB)],
+          colors: [Color(0xFF1E3A8A), Color(0xFF2563EB)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
       ),
       child: SafeArea(
         bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(4, 8, 16, 16),
-          child: Row(
-            children: [
-              IconButton(
-                onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.arrow_back_ios_new_rounded,
-                    color: Colors.white, size: 20),
-              ),
-              // Bot avatar with pulse
-              Stack(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(4, 8, 16, 12),
+              child: Row(
                 children: [
-                  Container(
-                    width: 42,
-                    height: 42,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: const Icon(Icons.support_agent_rounded,
-                        color: Colors.white, size: 26),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.arrow_back_ios_new_rounded,
+                        color: Colors.white, size: 20),
                   ),
-                  Positioned(
-                    right: 0,
-                    bottom: 0,
-                    child: Container(
-                      width: 12,
-                      height: 12,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF4ADE80),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2),
+                  Stack(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 1.5),
+                        ),
+                        child: const Icon(Icons.smart_toy_rounded,
+                            color: Colors.white, size: 26),
                       ),
+                      Positioned(
+                        right: 0,
+                        bottom: 0,
+                        child: Container(
+                          width: 12,
+                          height: 12,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF10B981),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 2),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _t('title'),
+                          style: GoogleFonts.plusJakartaSans(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 18,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                        Row(
+                          children: [
+                            Container(
+                              width: 6,
+                              height: 6,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFF10B981),
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              'IQ GPT • Online',
+                              style: GoogleFonts.inter(
+                                color: Colors.white.withValues(alpha: 0.85),
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _t('title'),
-                      style: GoogleFonts.plusJakartaSans(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 18,
-                        letterSpacing: 0.3,
-                      ),
-                    ),
-                    Row(
-                      children: [
-                        Container(
-                          width: 7,
-                          height: 7,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFF4ADE80),
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 5),
-                        Text(
-                          'IQ GPT • Online',
-                          style: GoogleFonts.inter(
-                            color: Colors.white70,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+            ),
+            _buildModeSwitch(),
+          ],
         ),
       ),
     );
@@ -432,15 +436,14 @@ class _IqSupportScreenState extends State<IqSupportScreen>
 
   // ── MODE SWITCH ───────────────────────────────────────────────────
   Widget _buildModeSwitch() {
-    return Container(
-      color: const Color(0xFF3A6FE0),
+    return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.18),
-          borderRadius: BorderRadius.circular(14),
+          color: Colors.black.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(16),
         ),
-        padding: const EdgeInsets.all(3),
+        padding: const EdgeInsets.all(4),
         child: Row(
           children: [
             _modeTab('market', Icons.storefront_rounded, _t('market')),
@@ -458,14 +461,14 @@ class _IqSupportScreenState extends State<IqSupportScreen>
         onTap: () => _switchMode(mode),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 9),
+          padding: const EdgeInsets.symmetric(vertical: 8),
           decoration: BoxDecoration(
             color: selected ? Colors.white : Colors.transparent,
-            borderRadius: BorderRadius.circular(11),
+            borderRadius: BorderRadius.circular(12),
             boxShadow: selected
                 ? [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.08),
+                      color: Colors.black.withValues(alpha: 0.1),
                       blurRadius: 8,
                       offset: const Offset(0, 2),
                     )
@@ -476,19 +479,19 @@ class _IqSupportScreenState extends State<IqSupportScreen>
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(icon,
-                  size: 15,
+                  size: 16,
                   color: selected
-                      ? const Color(0xFF3A6FE0)
-                      : Colors.white70),
+                      ? const Color(0xFF1E3A8A)
+                      : Colors.white.withValues(alpha: 0.8)),
               const SizedBox(width: 6),
               Text(
                 label,
                 style: GoogleFonts.plusJakartaSans(
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w900,
                   fontSize: 13,
                   color: selected
-                      ? const Color(0xFF3A6FE0)
-                      : Colors.white70,
+                      ? const Color(0xFF1E3A8A)
+                      : Colors.white.withValues(alpha: 0.8),
                 ),
               ),
             ],
@@ -504,7 +507,7 @@ class _IqSupportScreenState extends State<IqSupportScreen>
   Widget _buildMessages() {
     return ListView.builder(
       controller: _scrollController,
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 8),
       itemCount: _messages.length,
       itemBuilder: (ctx, i) {
         final msg = _messages[i];
@@ -530,43 +533,44 @@ class _IqSupportScreenState extends State<IqSupportScreen>
                       SnackBar(
                         content: Text(_t('copy')),
                         duration: const Duration(seconds: 1),
-                        backgroundColor: const Color(0xFF3A6FE0),
+                        backgroundColor: const Color(0xFF2563EB),
                       ),
                     );
                   }
                 },
                 child: Container(
                   constraints: BoxConstraints(
-                    maxWidth: MediaQuery.of(context).size.width * 0.82,
+                    maxWidth: MediaQuery.of(context).size.width * 0.84,
                   ),
                   margin: const EdgeInsets.only(bottom: 4),
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 13),
+                      horizontal: 16, vertical: 14),
                   decoration: BoxDecoration(
                     gradient: isMe
                         ? const LinearGradient(
-                            colors: [Color(0xFF3A6FE0), Color(0xFF5B5FDB)],
+                            colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           )
                         : null,
                     color: isMe ? null : Colors.white,
                     borderRadius: BorderRadius.only(
-                      topLeft: const Radius.circular(18),
-                      topRight: const Radius.circular(18),
+                      topLeft: const Radius.circular(20),
+                      topRight: const Radius.circular(20),
                       bottomLeft: isMe
-                          ? const Radius.circular(18)
+                          ? const Radius.circular(20)
                           : const Radius.circular(4),
                       bottomRight: isMe
                           ? const Radius.circular(4)
-                          : const Radius.circular(18),
+                          : const Radius.circular(20),
                     ),
+                    border: isMe ? null : Border.all(color: const Color(0xFFE2E8F0)),
                     boxShadow: [
                       BoxShadow(
                         color: (isMe
-                                ? const Color(0xFF3A6FE0)
+                                ? const Color(0xFF2563EB)
                                 : Colors.black)
-                            .withValues(alpha: isMe ? 0.2 : 0.05),
+                            .withValues(alpha: isMe ? 0.25 : 0.03),
                         blurRadius: 12,
                         offset: const Offset(0, 4),
                       ),
@@ -591,9 +595,9 @@ class _IqSupportScreenState extends State<IqSupportScreen>
                             fontSize: 14,
                             color: isMe
                                 ? Colors.white
-                                : const Color(0xFF1A1D1E),
-                            fontWeight: FontWeight.w500,
-                            height: 1.55,
+                                : const Color(0xFF0F172A),
+                            fontWeight: FontWeight.w600,
+                            height: 1.5,
                           ),
                         ),
                       if (showContact && !loading) ...[
@@ -605,13 +609,13 @@ class _IqSupportScreenState extends State<IqSupportScreen>
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.only(bottom: 12, left: 4, right: 4),
                 child: Text(
                   time,
                   style: GoogleFonts.inter(
                       fontSize: 10,
-                      color: Colors.grey.shade400,
-                      fontWeight: FontWeight.w500),
+                      color: const Color(0xFF94A3B8),
+                      fontWeight: FontWeight.w600),
                 ),
               ),
             ],
@@ -632,24 +636,24 @@ class _IqSupportScreenState extends State<IqSupportScreen>
       icon = Icons.bolt_rounded;
     } else if (isOffline) {
       label = _lang == 'KZ' ? 'Офлайн' : _lang == 'UG' ? 'Оффлайн' : 'Офлайн';
-      color = const Color(0xFF6366F1);
+      color = const Color(0xFF8B5CF6);
       icon = Icons.offline_bolt_rounded;
     } else {
       label = 'IQ GPT';
-      color = const Color(0xFF3A6FE0);
+      color = const Color(0xFF2563EB);
       icon = Icons.auto_awesome_rounded;
     }
 
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 11, color: color),
-        const SizedBox(width: 3),
+        Icon(icon, size: 12, color: color),
+        const SizedBox(width: 4),
         Text(
           label,
           style: GoogleFonts.inter(
             fontSize: 10,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w800,
             color: color,
           ),
         ),
@@ -669,7 +673,7 @@ class _IqSupportScreenState extends State<IqSupportScreen>
             width: 8,
             height: 8,
             decoration: BoxDecoration(
-              color: const Color(0xFF3A6FE0).withValues(alpha: val),
+              color: const Color(0xFF2563EB).withValues(alpha: val),
               shape: BoxShape.circle,
             ),
           ),
@@ -684,14 +688,14 @@ class _IqSupportScreenState extends State<IqSupportScreen>
       children: [
         _miniContactBtn(
           icon: PhosphorIcons.whatsappLogo(PhosphorIconsStyle.fill),
-          color: const Color(0xFF25D366),
+          color: const Color(0xFF10B981),
           label: 'WhatsApp',
           onTap: _openWhatsApp,
         ),
         const SizedBox(width: 8),
         _miniContactBtn(
           icon: PhosphorIcons.telegramLogo(PhosphorIconsStyle.fill),
-          color: const Color(0xFF24A1DE),
+          color: const Color(0xFF0284C7),
           label: 'Telegram',
           onTap: _openTelegram,
         ),
@@ -711,7 +715,7 @@ class _IqSupportScreenState extends State<IqSupportScreen>
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: color,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
               color: color.withValues(alpha: 0.3),
@@ -729,7 +733,7 @@ class _IqSupportScreenState extends State<IqSupportScreen>
               label,
               style: GoogleFonts.inter(
                 color: Colors.white,
-                fontWeight: FontWeight.bold,
+                fontWeight: FontWeight.w800,
                 fontSize: 12,
               ),
             ),
@@ -742,24 +746,25 @@ class _IqSupportScreenState extends State<IqSupportScreen>
   // ── TEMPLATES ─────────────────────────────────────────────────────
   Widget _buildTemplates() {
     return Container(
-      color: const Color(0xFFF0F4FC),
-      padding: const EdgeInsets.fromLTRB(12, 6, 0, 6),
+      color: const Color(0xFFF8FAFC),
+      padding: const EdgeInsets.fromLTRB(14, 6, 0, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
             padding: const EdgeInsets.only(bottom: 6, right: 12),
             child: Text(
-              _t('templates_title'),
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 12,
+              _t('templates_title').toUpperCase(),
+              style: GoogleFonts.inter(
+                fontSize: 10,
                 fontWeight: FontWeight.w800,
-                color: Colors.grey.shade500,
+                color: const Color(0xFF64748B),
+                letterSpacing: 0.5,
               ),
             ),
           ),
           SizedBox(
-            height: 36,
+            height: 38,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               itemCount: _templates.length,
@@ -770,16 +775,15 @@ class _IqSupportScreenState extends State<IqSupportScreen>
                   child: Container(
                     margin: const EdgeInsets.only(right: 8),
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 6),
+                        horizontal: 14, vertical: 8),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                          color: const Color(0xFF3A6FE0)
-                              .withValues(alpha: 0.2)),
+                          color: const Color(0xFFE2E8F0)),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.04),
+                          color: Colors.black.withValues(alpha: 0.03),
                           blurRadius: 6,
                           offset: const Offset(0, 2),
                         ),
@@ -796,7 +800,7 @@ class _IqSupportScreenState extends State<IqSupportScreen>
                           style: GoogleFonts.inter(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
-                            color: const Color(0xFF1A1D1E),
+                            color: const Color(0xFF0F172A),
                           ),
                         ),
                       ],
@@ -811,171 +815,147 @@ class _IqSupportScreenState extends State<IqSupportScreen>
     );
   }
 
-  // ── INPUT BAR ─────────────────────────────────────────────────────
-  Widget _buildInputBar() {
+  // ── LIVE SUPPORT COMPACT BAR ──────────────────────────────────────
+  Widget _buildLiveSupportHeaderPill() {
     return Container(
       color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFFF4F6FB),
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(
-                    color: const Color(0xFF3A6FE0).withValues(alpha: 0.15)),
+          Row(
+            children: [
+              const Icon(Icons.headset_mic_rounded, size: 14, color: Color(0xFF64748B)),
+              const SizedBox(width: 6),
+              Text(
+                'Живой оператор:',
+                style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: const Color(0xFF64748B)),
               ),
-              child: TextField(
-                controller: _controller,
-                maxLines: 4,
-                minLines: 1,
-                textCapitalization: TextCapitalization.sentences,
-                style: GoogleFonts.inter(
-                    fontSize: 14, fontWeight: FontWeight.w500),
-                decoration: InputDecoration(
-                  hintText: _t('hint'),
-                  hintStyle: GoogleFonts.inter(
-                      color: Colors.grey.shade400,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500),
-                  contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 18, vertical: 12),
-                  border: InputBorder.none,
-                ),
-                onSubmitted: (_) => _sendMessage(),
-              ),
-            ),
+            ],
           ),
-          const SizedBox(width: 8),
-          GestureDetector(
-            onTap: _isLoading ? null : _sendMessage,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                gradient: _isLoading
-                    ? const LinearGradient(
-                        colors: [Color(0xFFCBD5E1), Color(0xFFCBD5E1)],
-                      )
-                    : const LinearGradient(
-                        colors: [Color(0xFF3A6FE0), Color(0xFF5B5FDB)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: _isLoading
-                    ? []
-                    : [
-                        BoxShadow(
-                          color: const Color(0xFF3A6FE0)
-                              .withValues(alpha: 0.35),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
+          Row(
+            children: [
+              GestureDetector(
+                onTap: _openWhatsApp,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFECFDF5),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(PhosphorIcons.whatsappLogo(PhosphorIconsStyle.fill), color: const Color(0xFF10B981), size: 13),
+                      const SizedBox(width: 4),
+                      Text('WhatsApp', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w800, color: const Color(0xFF047857))),
+                    ],
+                  ),
+                ),
               ),
-              child: _isLoading
-                  ? const Padding(
-                      padding: EdgeInsets.all(14),
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Icon(
-                      Icons.send_rounded,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-            ),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: _openTelegram,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF0F9FF),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFF0284C7).withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(PhosphorIcons.telegramLogo(PhosphorIconsStyle.fill), color: const Color(0xFF0284C7), size: 13),
+                      const SizedBox(width: 4),
+                      Text('Telegram', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w800, color: const Color(0xFF0369A1))),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
-  }
-
-  // ── CONTACT FOOTER ────────────────────────────────────────────────
-  Widget _buildContactFooter() {
+  // ── INPUT BAR ─────────────────────────────────────────────────────
+  Widget _buildInputBar() {
     return Container(
       color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+      padding: const EdgeInsets.fromLTRB(14, 6, 14, 14),
       child: SafeArea(
         top: false,
         child: Row(
           children: [
             Expanded(
-              child: GestureDetector(
-                onTap: _openWhatsApp,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 11),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                        colors: [Color(0xFF128C7E), Color(0xFF075E54)]),
-                    borderRadius: BorderRadius.circular(14),
-                    boxShadow: [
-                      BoxShadow(
-                          color: const Color(0xFF075E54)
-                              .withValues(alpha: 0.25),
-                          blurRadius: 8,
-                          offset: const Offset(0, 4)),
-                    ],
+              child: Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(
+                      color: const Color(0xFFE2E8F0), width: 1.5),
+                ),
+                child: TextField(
+                  controller: _controller,
+                  maxLines: 4,
+                  minLines: 1,
+                  textCapitalization: TextCapitalization.sentences,
+                  style: GoogleFonts.inter(
+                      fontSize: 14, fontWeight: FontWeight.w600, color: const Color(0xFF0F172A)),
+                  decoration: InputDecoration(
+                    hintText: _t('hint'),
+                    hintStyle: GoogleFonts.inter(
+                        color: const Color(0xFF94A3B8),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 18, vertical: 12),
+                    border: InputBorder.none,
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        PhosphorIcons.whatsappLogo(PhosphorIconsStyle.fill),
-                        color: Colors.white,
-                        size: 17,
-                      ),
-                      const SizedBox(width: 7),
-                      Text('WhatsApp',
-                          style: GoogleFonts.plusJakartaSans(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 13)),
-                    ],
-                  ),
+                  onSubmitted: (_) => _sendMessage(),
                 ),
               ),
             ),
             const SizedBox(width: 10),
-            Expanded(
-              child: GestureDetector(
-                onTap: _openTelegram,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 11),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                        colors: [Color(0xFF24A1DE), Color(0xFF0088CC)]),
-                    borderRadius: BorderRadius.circular(14),
-                    boxShadow: [
-                      BoxShadow(
-                          color: const Color(0xFF0088CC)
-                              .withValues(alpha: 0.25),
-                          blurRadius: 8,
-                          offset: const Offset(0, 4)),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        PhosphorIcons.telegramLogo(PhosphorIconsStyle.fill),
-                        color: Colors.white,
-                        size: 17,
-                      ),
-                      const SizedBox(width: 7),
-                      Text('Telegram',
-                          style: GoogleFonts.plusJakartaSans(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 13)),
-                    ],
-                  ),
+            GestureDetector(
+              onTap: _isLoading ? null : _sendMessage,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  gradient: _isLoading
+                      ? const LinearGradient(
+                          colors: [Color(0xFFCBD5E1), Color(0xFFCBD5E1)],
+                        )
+                      : const LinearGradient(
+                          colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: _isLoading
+                      ? []
+                      : [
+                          BoxShadow(
+                            color: const Color(0xFF2563EB).withValues(alpha: 0.35),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                 ),
+                child: _isLoading
+                    ? const Padding(
+                        padding: EdgeInsets.all(14),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(
+                        Icons.send_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
               ),
             ),
           ],

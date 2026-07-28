@@ -220,19 +220,19 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
         ),
       ),
       child: Container(
-        margin: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-        padding: const EdgeInsets.all(18),
+        margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+        padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
-            colors: [Color(0xFF4A80F0), Color(0xFF6366F1)],
+            colors: [Color(0xFF1E3A8A), Color(0xFF2563EB)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF4A80F0).withValues(alpha: 0.3),
-              blurRadius: 16,
+              color: const Color(0xFF2563EB).withValues(alpha: 0.35),
+              blurRadius: 20,
               offset: const Offset(0, 8),
             ),
           ],
@@ -244,9 +244,10 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
               height: 52,
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 1.5),
               ),
-              child: const Icon(Icons.support_agent_rounded, color: Colors.white, size: 28),
+              child: const Icon(Icons.smart_toy_rounded, color: Colors.white, size: 28),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -273,19 +274,33 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
                 ],
               ),
             ),
+            const SizedBox(width: 8),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
-              child: Text(
-                _t('ai_chat_btn'),
-                style: GoogleFonts.plusJakartaSans(
-                  color: const Color(0xFF4A80F0),
-                  fontWeight: FontWeight.w900,
-                  fontSize: 12,
-                ),
+              child: Row(
+                children: [
+                  Text(
+                    _t('ai_chat_btn'),
+                    style: GoogleFonts.plusJakartaSans(
+                      color: const Color(0xFF1E3A8A),
+                      fontWeight: FontWeight.w900,
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(Icons.arrow_forward_rounded, color: Color(0xFF1E3A8A), size: 14),
+                ],
               ),
             ),
           ],
@@ -296,9 +311,9 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
 
   Widget _buildSliverHeader(BuildContext context) {
     return SliverAppBar(
-      expandedHeight: 130,
+      expandedHeight: 120,
       pinned: true,
-      backgroundColor: const Color(0xFF4A80F0),
+      backgroundColor: const Color(0xFF1E3A8A),
       leading: IconButton(
         icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
         onPressed: () => Navigator.pop(context),
@@ -307,21 +322,28 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
         background: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
-              colors: [Color(0xFF4A80F0), Color(0xFF6366F1)],
+              colors: [Color(0xFF1E3A8A), Color(0xFF2563EB)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
           ),
           child: SafeArea(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(60, 16, 20, 16),
+              padding: const EdgeInsets.fromLTRB(60, 12, 20, 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   Text(_t('title'), style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 24)),
                   const SizedBox(height: 4),
-                  Text('${_filtered.length} ${_t('questions')}', style: GoogleFonts.inter(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600)),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text('${_filtered.length} ${_t('questions')}', style: GoogleFonts.inter(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
+                  ),
                 ],
               ),
             ),
@@ -333,25 +355,25 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
 
   Widget _buildSearchBar() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 20, offset: const Offset(0, 4))],
-          border: Border.all(color: Colors.black.withValues(alpha: 0.03)),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 16, offset: const Offset(0, 4))],
+          border: Border.all(color: const Color(0xFFE2E8F0)),
         ),
         child: TextField(
           onChanged: (v) => setState(() => _query = v),
-          style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w700),
+          style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A)),
           decoration: InputDecoration(
             hintText: _t('search_hint'),
-            hintStyle: GoogleFonts.inter(color: Colors.grey.shade400, fontSize: 13, fontWeight: FontWeight.w600),
+            hintStyle: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 13, fontWeight: FontWeight.w600),
             border: InputBorder.none,
-            icon: const Icon(Icons.search_rounded, color: Color(0xFF4A80F0)),
+            icon: const Icon(Icons.search_rounded, color: Color(0xFF2563EB)),
             suffixIcon: _query.isNotEmpty
-                ? IconButton(icon: const Icon(Icons.close_rounded, color: Colors.grey), onPressed: () => setState(() => _query = ''))
+                ? IconButton(icon: const Icon(Icons.close_rounded, color: Color(0xFF94A3B8)), onPressed: () => setState(() => _query = ''))
                 : null,
           ),
         ),
@@ -360,12 +382,12 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
   }
 
   Widget _buildCategories() {
-    final icons = [Icons.apps_rounded, Icons.store_rounded, Icons.local_taxi_rounded, Icons.person_rounded];
+    final icons = [Icons.grid_view_rounded, Icons.storefront_rounded, Icons.local_taxi_rounded, Icons.person_rounded];
     return SizedBox(
-      height: 60,
+      height: 56,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
         itemCount: _cats.length,
         itemBuilder: (ctx, i) {
           final sel = i == _selectedCat;
@@ -373,18 +395,18 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
             onTap: () => setState(() => _selectedCat = i),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
-              margin: const EdgeInsets.only(right: 10),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              margin: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
-                color: sel ? const Color(0xFF4A80F0) : Colors.white,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: sel ? Colors.transparent : Colors.black.withValues(alpha: 0.04)),
-                boxShadow: sel ? [BoxShadow(color: const Color(0xFF4A80F0).withValues(alpha: 0.25), blurRadius: 10, offset: const Offset(0, 4))] : [],
+                color: sel ? const Color(0xFF2563EB) : Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: sel ? Colors.transparent : const Color(0xFFE2E8F0)),
+                boxShadow: sel ? [BoxShadow(color: const Color(0xFF2563EB).withValues(alpha: 0.3), blurRadius: 10, offset: const Offset(0, 4))] : [],
               ),
               child: Row(children: [
-                Icon(icons[i], color: sel ? Colors.white : Colors.grey, size: 15),
+                Icon(icons[i], color: sel ? Colors.white : const Color(0xFF64748B), size: 16),
                 const SizedBox(width: 6),
-                Text(_cats[i], style: GoogleFonts.inter(color: sel ? Colors.white : Colors.black87, fontWeight: FontWeight.w800, fontSize: 13)),
+                Text(_cats[i], style: GoogleFonts.inter(color: sel ? Colors.white : const Color(0xFF1E293B), fontWeight: FontWeight.w800, fontSize: 13)),
               ]),
             ),
           );
@@ -393,32 +415,25 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
     );
   }
 
-
-
   Widget _buildOperatorCard(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     
     return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(24),
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF1E293B) : Colors.white,
-        borderRadius: BorderRadius.circular(30),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04), 
-            blurRadius: 24, 
-            offset: const Offset(0, 12),
+            color: Colors.black.withValues(alpha: 0.03), 
+            blurRadius: 20, 
+            offset: const Offset(0, 6),
           ),
-          BoxShadow(
-            color: const Color(0xFF4A80F0).withValues(alpha: 0.02),
-            blurRadius: 40,
-            offset: const Offset(0, 4),
-          )
         ],
         border: Border.all(
-          color: const Color(0xFF4A80F0).withValues(alpha: 0.08), 
+          color: const Color(0xFFE2E8F0), 
           width: 1.5,
         ),
       ),
@@ -426,24 +441,16 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      const Color(0xFF4A80F0).withValues(alpha: 0.15),
-                      const Color(0xFF6366F1).withValues(alpha: 0.05),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+                  color: const Color(0xFF2563EB).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: const Icon(Icons.headset_mic_rounded, color: Color(0xFF4A80F0), size: 28),
+                child: const Icon(Icons.headset_mic_rounded, color: Color(0xFF2563EB), size: 24),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -456,16 +463,16 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
                             style: GoogleFonts.plusJakartaSans(
                               fontWeight: FontWeight.w900, 
                               fontSize: 16, 
-                              color: theme.colorScheme.onSurface,
+                              color: const Color(0xFF0F172A),
                             ),
                           ),
                         ),
-                        const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF25D366).withValues(alpha: 0.1),
+                            color: const Color(0xFFECFDF5),
                             borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.3)),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
@@ -474,16 +481,16 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
                                 width: 6,
                                 height: 6,
                                 decoration: const BoxDecoration(
-                                  color: Color(0xFF25D366),
+                                  color: Color(0xFF10B981),
                                   shape: BoxShape.circle,
                                 ),
                               ),
-                              const SizedBox(width: 6),
+                              const SizedBox(width: 5),
                               Text(
                                 'ONLINE',
                                 style: GoogleFonts.plusJakartaSans(
-                                  color: const Color(0xFF25D366),
-                                  fontSize: 8.5,
+                                  color: const Color(0xFF047857),
+                                  fontSize: 9,
                                   fontWeight: FontWeight.w900,
                                   letterSpacing: 0.5,
                                 ),
@@ -493,13 +500,13 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 3),
                     Text(
                       _t('operator_hours'), 
-                      style: GoogleFonts.plusJakartaSans(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.5), 
+                      style: GoogleFonts.inter(
+                        color: const Color(0xFF64748B), 
                         fontSize: 12, 
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
@@ -507,7 +514,7 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 18),
           
           Row(
             children: [
@@ -515,11 +522,11 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
                 child: _contactItem(
                   _t('wa_support'), 
                   const LinearGradient(
-                    colors: [Color(0xFF128C7E), Color(0xFF075E54)],
+                    colors: [Color(0xFF10B981), Color(0xFF047857)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
-                  const Color(0xFF075E54),
+                  const Color(0xFF10B981),
                   'whatsapp://send?phone=77089007030&text=${Uri.encodeComponent(_t("wa_message"))}', 
                   'https://wa.me/77089007030?text=${Uri.encodeComponent(_t("wa_message"))}',
                   PhosphorIcons.whatsappLogo(PhosphorIconsStyle.fill)
@@ -530,11 +537,11 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
                 child: _contactItem(
                   _t('tg_support'), 
                   const LinearGradient(
-                    colors: [Color(0xFF24A1DE), Color(0xFF0088CC)],
+                    colors: [Color(0xFF0284C7), Color(0xFF0369A1)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
-                  const Color(0xFF0088CC),
+                  const Color(0xFF0284C7),
                   'tg://resolve?phone=77089007030&text=${Uri.encodeComponent(_t("wa_message"))}', 
                   'https://t.me/+77089007030?text=${Uri.encodeComponent(_t("wa_message"))}',
                   PhosphorIcons.telegramLogo(PhosphorIconsStyle.fill)
@@ -568,28 +575,28 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
         }
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16),
+        padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
           gradient: gradient,
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(18),
           boxShadow: [
             BoxShadow(
-              color: shadowColor.withValues(alpha: 0.25),
-              blurRadius: 12,
-              offset: const Offset(0, 6),
+              color: shadowColor.withValues(alpha: 0.3),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
             )
           ],
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: Colors.white, size: 20),
+            Icon(icon, color: Colors.white, size: 18),
             const SizedBox(width: 8),
             Text(
               title, 
               style: GoogleFonts.plusJakartaSans(
-                fontWeight: FontWeight.w800, 
-                fontSize: 14, 
+                fontWeight: FontWeight.w900, 
+                fontSize: 13.5, 
                 color: Colors.white,
               ),
             ),
