@@ -190,6 +190,7 @@ class _ReportUserSheetContentState extends State<_ReportUserSheetContent> {
                             'reportedUserId': widget.reportedUserId,
                             'reportedUserName': widget.reportedUserName,
                             'reporterUserId': reporterId ?? 'anonymous',
+                            'userId': reporterId ?? 'anonymous',
                             'type': _selectedType,
                             'comment': _commentCtrl.text.trim(),
                             'isRead': false,

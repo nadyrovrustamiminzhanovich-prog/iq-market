@@ -136,6 +136,7 @@ class _ReportAdSheetContentState extends State<ReportAdSheetContent> {
                             'adTitle': widget.adTitle,
                             'reportedUserId': widget.reportedUserId,
                             'reporterUserId': reporterId ?? 'anonymous',
+                            'userId': reporterId ?? 'anonymous',
                             'type': _selectedType,
                             'comment': _commentCtrl.text.trim(),
                             'isRead': false,
