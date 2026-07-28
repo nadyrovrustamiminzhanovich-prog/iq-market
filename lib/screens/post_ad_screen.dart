@@ -22,7 +22,7 @@ import 'package:iqmarket/widgets/post_ad/location_selector.dart';
 import 'package:iqmarket/widgets/post_ad/image_picker_section.dart';
 import 'package:lottie/lottie.dart';
 import 'package:iqmarket/services/translation_service.dart';
-import 'package:iqmarket/screens/help_center_screen.dart';
+import 'package:iqmarket/services/category_auto_detector.dart';
 
 import '../widgets/post_ad/post_ad_components.dart';
 import '../widgets/post_ad/category_specs_widgets.dart';
@@ -56,6 +56,8 @@ class _PostAdScreenState extends State<PostAdScreen> {
   // --- State Variables ---
   String _selectedCategory = 'all'; // Usually ID or key
   String? _selectedSubCategory;
+  bool _isCategoryUserOverridden = false;
+  bool _isAutoDetectedCategory = false;
   String _selectedLocation = 'Чунджа';
   String? _condition;
   bool _bargainAvailable = false;
@@ -64,6 +66,21 @@ class _PostAdScreenState extends State<PostAdScreen> {
   bool _isLoading = false;
   bool _isSubmitting = false;
   String _uploadStatus = '';
+
+  void _onTitleOrDescriptionInput() {
+    _saveDraft();
+    if (_isCategoryUserOverridden) return;
+    final result = CategoryAutoDetector.detect(_titleController.text, _descriptionController.text);
+    if (result != null) {
+      if (_selectedCategory != result.categoryId || _selectedSubCategory != result.subCategoryId) {
+        setState(() {
+          _selectedCategory = result.categoryId;
+          _selectedSubCategory = result.subCategoryId;
+          _isAutoDetectedCategory = true;
+        });
+      }
+    }
+  }
   
   // Media
   final List<File> _imageFiles = [];
@@ -240,8 +257,18 @@ class _PostAdScreenState extends State<PostAdScreen> {
                     categories: categories,
                     selectedCategoryId: _selectedCategory,
                     selectedSubCategoryId: _selectedSubCategory,
-                    onCategorySelected: (cat) => setState(() { _selectedCategory = cat; _selectedSubCategory = null; _saveDraft(); }),
-                    onSubCategorySelected: (sub) => setState(() { _selectedSubCategory = sub; _saveDraft(); }),
+                    isAutoDetected: _isAutoDetectedCategory,
+                    onCategorySelected: (cat) => setState(() { 
+                      _selectedCategory = cat; 
+                      _selectedSubCategory = null; 
+                      _isCategoryUserOverridden = true;
+                      _isAutoDetectedCategory = false;
+                      _saveDraft(); 
+                    }),
+                    onSubCategorySelected: (sub) => setState(() { 
+                      _selectedSubCategory = sub; 
+                      _saveDraft(); 
+                    }),
                   ),
                   _buildCategorySpecs(),
                   const SizedBox(height: 30),
@@ -262,9 +289,23 @@ class _PostAdScreenState extends State<PostAdScreen> {
   }
 
   Widget _buildFormFields() => Column(children: [
-    PostAdInput(label: TranslationService.t('title_label', widget.lang), controller: _titleController, hint: TranslationService.t('title_hint', widget.lang), isRequired: true, maxLength: 50, onChanged: (_) => _saveDraft()),
+    PostAdInput(
+      label: TranslationService.t('title_label', widget.lang), 
+      controller: _titleController, 
+      hint: TranslationService.t('title_hint', widget.lang), 
+      isRequired: true, 
+      maxLength: 50, 
+      onChanged: (_) => _onTitleOrDescriptionInput(),
+    ),
     const SizedBox(height: 20),
-    PostAdInput(label: TranslationService.t('description_label', widget.lang), controller: _descriptionController, hint: TranslationService.t('description_hint', widget.lang), maxLines: 5, maxLength: 1000, onChanged: (_) => _saveDraft()),
+    PostAdInput(
+      label: TranslationService.t('description_label', widget.lang), 
+      controller: _descriptionController, 
+      hint: TranslationService.t('description_hint', widget.lang), 
+      maxLines: 5, 
+      maxLength: 1000, 
+      onChanged: (_) => _onTitleOrDescriptionInput(),
+    ),
     const SizedBox(height: 20),
     if (_selectedCategory != 'Отдам даром') ...[
       PostAdInput(

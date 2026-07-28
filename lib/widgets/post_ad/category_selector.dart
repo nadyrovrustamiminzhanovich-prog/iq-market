@@ -12,6 +12,8 @@ class CategorySelector extends StatelessWidget {
   final Function(String categoryId) onCategorySelected;
   final Function(String? subCategoryId) onSubCategorySelected;
 
+  final bool isAutoDetected;
+
   const CategorySelector({
     super.key,
     required this.categories,
@@ -19,6 +21,7 @@ class CategorySelector extends StatelessWidget {
     this.selectedSubCategoryId,
     required this.onCategorySelected,
     required this.onSubCategorySelected,
+    this.isAutoDetected = false,
   });
 
   String _getCatName(CategoryModel cat, String lang) {
@@ -59,8 +62,32 @@ class CategorySelector extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(TranslationService.t('category_label', lang), style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 15, color: const Color(0xFF0F172A))),
-        const SizedBox(height: 16),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(TranslationService.t('category_label', lang), style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 15, color: const Color(0xFF0F172A))),
+            if (isAutoDetected && selectedCategoryId != 'all' && selectedCategoryId.isNotEmpty)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFECFDF5),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.auto_awesome, color: Color(0xFF10B981), size: 13),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Автовыбор',
+                      style: GoogleFonts.inter(color: const Color(0xFF047857), fontWeight: FontWeight.w800, fontSize: 11),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
         SizedBox(
           height: 48,
           child: ListView(

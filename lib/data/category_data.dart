@@ -176,6 +176,31 @@ class CategoryData {
       ],
     ),
     CategoryModel(
+      id: 'Сельхоз и Корма', 
+      ru: 'Корма/Сельхоз', 
+      kz: 'Ауыл шаруашылығы', 
+      ug: 'Деһқанчилик', 
+      icon: Icons.grass_rounded, 
+      color: const Color(0xFF10B981),
+      subCategories: [
+        SubCategoryModel(id: 'feed', ru: 'Корма (Сено/Зерно)', kz: 'Жем-шөп', ug: 'Йәм-шөп'),
+        SubCategoryModel(id: 'machinery', ru: 'Сельхозтехника', kz: 'Ауыл шаруашылық техникасы', ug: 'Деһқанчилик техникаси'),
+      ],
+    ),
+    CategoryModel(
+      id: 'Стройматериалы', 
+      ru: 'Стройматериалы', 
+      kz: 'Құрылыс заттары', 
+      ug: 'Қурулуш мал-мүлки', 
+      icon: Icons.construction_rounded, 
+      color: const Color(0xFFF59E0B),
+      subCategories: [
+        SubCategoryModel(id: 'lumber', ru: 'Лес и Брус', kz: 'Ағаш материалдары', ug: 'Яғач'),
+        SubCategoryModel(id: 'cement', ru: 'Цемент и Кирпич', kz: 'Цемент пен кирпиш', ug: 'Цемент вә ғиш'),
+        SubCategoryModel(id: 'metal', ru: 'Металл и Профнастил', kz: 'Металл бұйымдары', ug: 'Металл'),
+      ],
+    ),
+    CategoryModel(
       id: 'Отдам даром', 
       ru: 'Отдам даром', 
       kz: 'Тегін беремін', 
