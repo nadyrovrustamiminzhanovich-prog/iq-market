@@ -283,23 +283,43 @@ class _TaxiActiveOrderBidsListState extends State<TaxiActiveOrderBidsList> {
                               ),
                             ),
                             const SizedBox(width: 12),
-                            Expanded(
-                              child: GestureDetector(
-                                onTap: () {
-                                  HapticFeedback.mediumImpact();
-                                  TaxiDialogsController.showMatchSuccessDialog(
-                                    context: context,
-                                    driverName: driverName,
-                                    driverPhone: bid['senderPhone'] ?? '',
-                                    driverImg: bid['senderImg'] ?? '',
-                                    driverCar: bid['senderCar'] ?? 'Машина не указана',
-                                    driverPlate: bid['senderPlate'] ?? 'Б/Н',
-                                    price: bidPrice,
-                                    bidId: bidId,
-                                    provider: provider,
-                                    t: t,
-                                  );
-                                },
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: () async {
+                                    if (_processingBidIds.contains(bidId)) return;
+                                    HapticFeedback.mediumImpact();
+                                    setState(() => _processingBidIds.add(bidId));
+                                    try {
+                                      await provider.acceptBid(bidId);
+                                      if (context.mounted) {
+                                        TaxiDialogsController.showMatchSuccessDialog(
+                                          context: context,
+                                          driverName: driverName,
+                                          driverPhone: bid['senderPhone'] ?? '',
+                                          driverImg: bid['senderImg'] ?? '',
+                                          driverCar: bid['senderCar'] ?? 'Машина не указана',
+                                          driverPlate: bid['senderPlate'] ?? 'Б/Н',
+                                          price: bidPrice,
+                                          bidId: bidId,
+                                          provider: provider,
+                                          t: t,
+                                        );
+                                      }
+                                    } catch (e) {
+                                      if (context.mounted) {
+                                        NotificationService.notify(
+                                          context,
+                                          provider.translate('errorTitle'),
+                                          provider.translate('errAcceptOffer'),
+                                          isSuccess: false,
+                                        );
+                                      }
+                                    } finally {
+                                      if (mounted) {
+                                        setState(() => _processingBidIds.remove(bidId));
+                                      }
+                                    }
+                                  },
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(vertical: 10),
                                   decoration: BoxDecoration(

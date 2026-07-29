@@ -20,8 +20,6 @@ void showTaxiMatchSuccessDialog({
   required int price,
   required String bidId,
 }) {
-  bool isProcessing = false;
-
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
@@ -153,8 +151,7 @@ void showTaxiMatchSuccessDialog({
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    onPressed: () async {
-                      if (isProcessing) return;
+                    onPressed: () {
                       HapticFeedback.lightImpact();
                       if (driverPhone.isNotEmpty) {
                         launchUrl(Uri.parse('tel:$driverPhone'));
@@ -182,61 +179,30 @@ void showTaxiMatchSuccessDialog({
                 const SizedBox(height: 12),
 
                 // ── Done / Close Button ─────────────────────────────
-                isProcessing
-                    ? const Padding(
-                        padding: EdgeInsets.all(12.0),
-                        child: CircularProgressIndicator(),
-                      )
-                    : SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton(
-                          onPressed: () async {
-                            if (isProcessing) return;
-                            HapticFeedback.mediumImpact();
-                            ss(() => isProcessing = true);
-                            try {
-                              await provider.acceptBid(bidId);
-                              if (c.mounted) {
-                                NotificationService.notify(
-                                  c,
-                                  provider.translate('acceptedTitle'),
-                                  provider.translate('agreedToPriceMsg').replaceAll('{price}', price.toString()),
-                                  isSuccess: true,
-                                );
-                                Navigator.pop(c);
-                              }
-                            } catch (e) {
-                              if (c.mounted) {
-                                NotificationService.notify(
-                                  c,
-                                  provider.translate('error_label'),
-                                  provider.translate('general_error_desc'),
-                                  isSuccess: false,
-                                );
-                              }
-                            } finally {
-                              if (c.mounted) {
-                                ss(() => isProcessing = false);
-                              }
-                            }
-                          },
-                          style: OutlinedButton.styleFrom(
-                            minimumSize: const Size.fromHeight(50),
-                            side: BorderSide(color: t.border, width: 1.5),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(18),
-                            ),
-                          ),
-                          child: Text(
-                            'Готово (Закрыть)',
-                            style: GoogleFonts.inter(
-                              color: t.sub,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: () {
+                      HapticFeedback.lightImpact();
+                      Navigator.pop(c);
+                    },
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(50),
+                      side: BorderSide(color: t.border, width: 1.5),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
                       ),
+                    ),
+                    child: Text(
+                      'ГОТОВО (ЗАКРЫТЬ)',
+                      style: GoogleFonts.inter(
+                        color: t.sub,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
