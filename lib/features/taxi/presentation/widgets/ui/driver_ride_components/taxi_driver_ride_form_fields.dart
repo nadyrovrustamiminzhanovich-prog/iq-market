@@ -42,40 +42,40 @@ class TaxiDriverRideFormFields extends StatelessWidget {
       children: [
         // 1. PHONE CARD
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: sPhoneError ? const Color(0xFFFDA4AF) : const Color(0xFFF1F5F9),
-              width: sPhoneError ? 2.0 : 1.5,
+              color: sPhoneError ? const Color(0xFFFDA4AF) : const Color(0xFFE2E8F0),
+              width: sPhoneError ? 2.0 : 1.2,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.03),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
+                color: Colors.black.withValues(alpha: 0.02),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
               ),
             ],
           ),
           child: Row(
             children: [
               Container(
-                width: 40,
-                height: 40,
+                width: 36,
+                height: 36,
                 decoration: BoxDecoration(
                   color: sPhoneError ? const Color(0xFFFFF1F2) : const Color(0xFFEFF6FF),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Center(
                   child: Icon(
                     Icons.call_outlined,
                     color: sPhoneError ? const Color(0xFFE11D48) : const Color(0xFF2563EB),
-                    size: 20,
+                    size: 18,
                   ),
                 ),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -84,8 +84,8 @@ class TaxiDriverRideFormFields extends StatelessWidget {
                     Text(
                       provider.translate('your_phone').toUpperCase(),
                       style: GoogleFonts.inter(
-                        fontSize: 10,
-                        color: sPhoneError ? const Color(0xFFE11D48) : const Color(0xFF94A3B8),
+                        fontSize: 11,
+                        color: sPhoneError ? const Color(0xFFE11D48) : const Color(0xFF1E293B),
                         fontWeight: FontWeight.w800,
                         letterSpacing: 0.5,
                       ),
@@ -97,8 +97,8 @@ class TaxiDriverRideFormFields extends StatelessWidget {
                       inputFormatters: [phoneMask],
                       style: GoogleFonts.inter(
                         color: sPhoneError ? const Color(0xFFE11D48) : const Color(0xFF0F172A),
-                        fontSize: 17,
-                        fontWeight: FontWeight.w900,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
                       ),
                       decoration: InputDecoration(
                         border: InputBorder.none,
@@ -106,8 +106,8 @@ class TaxiDriverRideFormFields extends StatelessWidget {
                         contentPadding: EdgeInsets.zero,
                         hintText: '+7 (708) 900-70-30',
                         hintStyle: GoogleFonts.inter(
-                          color: sPhoneError ? const Color(0xFFFDA4AF) : const Color(0xFF94A3B8),
-                          fontSize: 17,
+                          color: sPhoneError ? const Color(0xFFFDA4AF) : const Color(0xFF64748B),
+                          fontSize: 15,
                           fontWeight: FontWeight.w600,
                         ),
                         counterText: '',
@@ -119,51 +119,51 @@ class TaxiDriverRideFormFields extends StatelessWidget {
               ),
               const Icon(
                 Icons.chevron_right_rounded,
-                color: Color(0xFF64748B),
-                size: 24,
+                color: Color(0xFF334155),
+                size: 20,
               ),
             ],
           ),
         ),
 
-        const SizedBox(height: 12),
+        const SizedBox(height: 6),
 
         // 2. PRICE PER SEAT CARD
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: sPriceError ? const Color(0xFFFDA4AF) : const Color(0xFFF1F5F9),
-              width: sPriceError ? 2.0 : 1.5,
+              color: sPriceError ? const Color(0xFFFDA4AF) : const Color(0xFFE2E8F0),
+              width: sPriceError ? 2.0 : 1.2,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.03),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
+                color: Colors.black.withValues(alpha: 0.02),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
               ),
             ],
           ),
           child: Row(
             children: [
               Container(
-                width: 40,
-                height: 40,
+                width: 36,
+                height: 36,
                 decoration: BoxDecoration(
                   color: sPriceError ? const Color(0xFFFFF1F2) : const Color(0xFFEFF6FF),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Center(
                   child: Icon(
                     Icons.account_balance_wallet_outlined,
                     color: sPriceError ? const Color(0xFFE11D48) : const Color(0xFF2563EB),
-                    size: 20,
+                    size: 18,
                   ),
                 ),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -172,8 +172,8 @@ class TaxiDriverRideFormFields extends StatelessWidget {
                     Text(
                       provider.translate('price_per_seat').toUpperCase(),
                       style: GoogleFonts.inter(
-                        fontSize: 10,
-                        color: sPriceError ? const Color(0xFFE11D48) : const Color(0xFF94A3B8),
+                        fontSize: 11,
+                        color: sPriceError ? const Color(0xFFE11D48) : const Color(0xFF1E293B),
                         fontWeight: FontWeight.w800,
                         letterSpacing: 0.5,
                       ),
@@ -188,15 +188,15 @@ class TaxiDriverRideFormFields extends StatelessWidget {
                             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                             style: GoogleFonts.inter(
                               color: sPriceError ? const Color(0xFFE11D48) : const Color(0xFF0F172A),
-                              fontSize: 19,
-                              fontWeight: FontWeight.w900,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
                             ),
                             decoration: InputDecoration(
                               hintText: '2500',
                               hintStyle: GoogleFonts.inter(
-                                color: const Color(0xFF94A3B8),
-                                fontSize: 19,
-                                fontWeight: FontWeight.w900,
+                                color: const Color(0xFF64748B),
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
                               ),
                               border: InputBorder.none,
                               isDense: true,
@@ -208,8 +208,8 @@ class TaxiDriverRideFormFields extends StatelessWidget {
                         Text(
                           ' ₸',
                           style: GoogleFonts.inter(
-                            fontSize: 19,
-                            fontWeight: FontWeight.w900,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
                             color: sPriceError ? const Color(0xFFE11D48) : const Color(0xFF0F172A),
                           ),
                         ),
@@ -222,39 +222,39 @@ class TaxiDriverRideFormFields extends StatelessWidget {
                 children: [
                   InkWell(
                     onTap: onPriceDecrement,
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(8),
                     child: Container(
-                      width: 40,
-                      height: 40,
+                      width: 34,
+                      height: 34,
                       decoration: BoxDecoration(
                         color: const Color(0xFFEFF6FF),
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Center(
                         child: Icon(
                           Icons.remove_rounded,
                           color: Color(0xFF2563EB),
-                          size: 22,
+                          size: 18,
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 6),
                   InkWell(
                     onTap: onPriceIncrement,
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(8),
                     child: Container(
-                      width: 40,
-                      height: 40,
+                      width: 34,
+                      height: 34,
                       decoration: BoxDecoration(
                         color: const Color(0xFF2563EB),
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Center(
                         child: Icon(
                           Icons.add_rounded,
                           color: Colors.white,
-                          size: 22,
+                          size: 18,
                         ),
                       ),
                     ),
@@ -265,23 +265,23 @@ class TaxiDriverRideFormFields extends StatelessWidget {
           ),
         ),
 
-        const SizedBox(height: 12),
+        const SizedBox(height: 6),
 
         // 3. COMMENT CARD
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: const Color(0xFFF1F5F9),
-              width: 1.5,
+              color: const Color(0xFFE2E8F0),
+              width: 1.2,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.03),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
+                color: Colors.black.withValues(alpha: 0.02),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
               ),
             ],
           ),
@@ -289,35 +289,35 @@ class TaxiDriverRideFormFields extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                width: 40,
-                height: 40,
+                width: 36,
+                height: 36,
                 decoration: BoxDecoration(
                   color: const Color(0xFFEFF6FF),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Center(
                   child: Icon(
                     Icons.chat_bubble_outline_rounded,
                     color: Color(0xFF2563EB),
-                    size: 20,
+                    size: 18,
                   ),
                 ),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      provider.translate('comment_label').toUpperCase(),
+                      'КОММЕНТАРИЙ К ПОЕЗДКЕ',
                       style: GoogleFonts.inter(
-                        fontSize: 10,
-                        color: const Color(0xFF94A3B8),
+                        fontSize: 11,
+                        color: const Color(0xFF1E293B),
                         fontWeight: FontWeight.w800,
                         letterSpacing: 0.5,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 2),
                     TextField(
                       controller: commentC,
                       maxLines: 2,
@@ -329,8 +329,8 @@ class TaxiDriverRideFormFields extends StatelessWidget {
                       decoration: InputDecoration(
                         hintText: provider.translate('comment_hint'),
                         hintStyle: GoogleFonts.inter(
-                          color: const Color(0xFF94A3B8),
-                          fontSize: 14,
+                          color: const Color(0xFF64748B),
+                          fontSize: 13,
                           fontWeight: FontWeight.w500,
                         ),
                         border: InputBorder.none,

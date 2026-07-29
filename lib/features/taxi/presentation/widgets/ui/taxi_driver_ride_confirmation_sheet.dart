@@ -478,7 +478,7 @@ class _TaxiDriverRideConfirmationSheetContentState
               },
             ),
 
-            const SizedBox(height: 12),
+            const SizedBox(height: 6),
 
             // Date & Time + Seats Row Cards
             TaxiDriverRideDatetimeSeats(
@@ -492,12 +492,12 @@ class _TaxiDriverRideConfirmationSheetContentState
               onSeatsTap: _pickDriverSeats,
             ),
 
-            const SizedBox(height: 12),
+            const SizedBox(height: 6),
 
             // Car Selection Card
             _buildCarSelectionCard(),
 
-            const SizedBox(height: 12),
+            const SizedBox(height: 6),
 
             // Form Fields Cards (Phone, Price, Comment)
             TaxiDriverRideFormFields(
@@ -558,9 +558,9 @@ class _TaxiDriverRideConfirmationSheetContentState
               },
             ),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 14),
 
-            // Submit Button (WITHOUT ROCKET ICON!)
+            // Submit Button
             isPublishing
                 ? const Center(
                     child: Padding(
@@ -572,32 +572,32 @@ class _TaxiDriverRideConfirmationSheetContentState
                     onTap: _publishRide,
                     child: Container(
                       width: double.infinity,
-                      height: 56,
+                      height: 52,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF3B82F6),
-                        borderRadius: BorderRadius.circular(18),
+                        color: const Color(0xFF2563EB),
+                        borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF3B82F6).withValues(alpha: 0.35),
-                            blurRadius: 14,
-                            offset: const Offset(0, 5),
+                            color: const Color(0xFF2563EB).withValues(alpha: 0.3),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
                           ),
                         ],
                       ),
                       child: Center(
                         child: Text(
-                          btnText,
+                          'СОЗДАТЬ ПОЕЗДКУ',
                           style: GoogleFonts.inter(
                             color: Colors.white,
                             fontWeight: FontWeight.w900,
                             fontSize: 16,
-                            letterSpacing: 0.8,
+                            letterSpacing: 0.5,
                           ),
                         ),
                       ),
                     ),
                   ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
           ],
         ),
       ),
@@ -612,19 +612,19 @@ class _TaxiDriverRideConfirmationSheetContentState
 
     return InkWell(
       onTap: _showCarSelectionBottomSheet,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(16),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFFF1F5F9), width: 1.5),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFE2E8F0), width: 1.2),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
+              color: Colors.black.withValues(alpha: 0.02),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
             ),
           ],
         ),
@@ -634,30 +634,30 @@ class _TaxiDriverRideConfirmationSheetContentState
             Row(
               children: [
                 Container(
-                  width: 40,
-                  height: 40,
+                  width: 36,
+                  height: 36,
                   decoration: BoxDecoration(
                     color: const Color(0xFFEFF6FF),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Center(
                     child: Icon(
                       Icons.directions_car_outlined,
                       color: Color(0xFF2563EB),
-                      size: 20,
+                      size: 18,
                     ),
                   ),
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        widget.provider.translate('carBrandLabel').toUpperCase(),
+                        'ВЫБОР АВТОМОБИЛЯ',
                         style: GoogleFonts.inter(
-                          fontSize: 10,
-                          color: const Color(0xFF94A3B8),
+                          fontSize: 11,
+                          color: const Color(0xFF1E293B),
                           fontWeight: FontWeight.w800,
                           letterSpacing: 0.5,
                         ),
@@ -666,17 +666,17 @@ class _TaxiDriverRideConfirmationSheetContentState
                       Text(
                         displayCarName,
                         style: GoogleFonts.inter(
-                          fontWeight: FontWeight.w900,
+                          fontWeight: FontWeight.w800,
                           color: const Color(0xFF0F172A),
-                          fontSize: 17,
+                          fontSize: 15,
                         ),
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 1),
                       Text(
                         displayMeta,
                         style: GoogleFonts.inter(
                           color: const Color(0xFF64748B),
-                          fontSize: 13,
+                          fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
