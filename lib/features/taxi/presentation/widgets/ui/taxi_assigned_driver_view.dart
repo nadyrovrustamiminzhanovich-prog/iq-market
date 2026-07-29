@@ -33,6 +33,8 @@ class TaxiAssignedDriverView extends StatefulWidget {
 }
 
 class _TaxiAssignedDriverViewState extends State<TaxiAssignedDriverView> {
+  bool _isCompleting = false;
+
   @override
   Widget build(BuildContext context) {
     final provider = widget.provider;
@@ -297,14 +299,33 @@ class _TaxiAssignedDriverViewState extends State<TaxiAssignedDriverView> {
           
           // Complete ride button
           GestureDetector(
-            onTap: () async {
-              HapticFeedback.heavyImpact();
-              await provider.completeOrder(orderId);
-              if (mounted) {
-                NotificationService.notify(context, provider.translate('rideCompletedTitle'), provider.translate('thanksForChoosingMsg'), isSuccess: true);
-                TaxiDialogsController.showFeedbackDialog(context, provider, t, driverId, driverName, 'driver');
-              }
-            },
+            onTap: _isCompleting
+                ? null
+                : () async {
+                    if (_isCompleting) return;
+                    HapticFeedback.heavyImpact();
+                    setState(() => _isCompleting = true);
+                    try {
+                      await provider.completeOrder(orderId);
+                      if (mounted) {
+                        NotificationService.notify(context, provider.translate('rideCompletedTitle'), provider.translate('thanksForWorkMsg'), isSuccess: true);
+                        TaxiDialogsController.showFeedbackDialog(context, provider, t, driverId, driverName, 'driver');
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        NotificationService.notify(
+                          context,
+                          provider.translate('error_label'),
+                          provider.translate('general_error_desc'),
+                          isSuccess: false,
+                        );
+                      }
+                    } finally {
+                      if (mounted) {
+                        setState(() => _isCompleting = false);
+                      }
+                    }
+                  },
             child: Container(
               width: double.infinity,
               height: 60,
@@ -320,10 +341,16 @@ class _TaxiAssignedDriverViewState extends State<TaxiAssignedDriverView> {
                 ],
               ),
               child: Center(
-                child: Text(
-                  'ЗАВЕРШИТЬ ПОЕЗДКУ',
-                  style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 14, letterSpacing: 0.5),
-                ),
+                child: _isCompleting
+                    ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                      )
+                    : Text(
+                        'ЗАВЕРШИТЬ ПОЕЗДКУ',
+                        style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 14, letterSpacing: 0.5),
+                      ),
               ),
             ),
           ),

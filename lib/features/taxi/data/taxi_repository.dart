@@ -14,6 +14,15 @@ class TaxiRepository {
     return phone.isNotEmpty ? phone : '';
   }
 
+  int _parsePrice(dynamic raw) {
+    if (raw is num) return raw.toInt();
+    if (raw is String) {
+      final clean = raw.replaceAll(RegExp(r'\D'), '');
+      return int.tryParse(clean) ?? 0;
+    }
+    return 0;
+  }
+
   Future<void> createPassengerOrder({
     required String firstName,
     required String lastName,
@@ -165,7 +174,6 @@ class TaxiRepository {
     final db = FirebaseFirestore.instance;
     final bidRef = db.collection('taxi_bids').doc(bidId);
 
-    // Capture bid data from within the transaction — no second .get() needed
     Map<String, dynamic>? capturedBidData;
 
     try {
@@ -191,69 +199,47 @@ class TaxiRepository {
           throw Exception('Извините, этот заказ уже принят другим пользователем.');
         }
 
+        // 1. Mark bid as accepted
         transaction.update(bidRef, {'status': 'accepted'});
 
-        // ✅ BUG-01 FIX: Capture bid data inside transaction — no second .get() race
+        // 2. ✅ FIX BUG-01 & BUG-02: Atomically update parent document status to 'accepted' and write counterparty details
+        final int offeredPrice = _parsePrice(bidData['offeredPrice']);
+
+        if (targetType == 'order') {
+          transaction.update(targetRef, {
+            'status': 'accepted',
+            'driverId': bidData['senderId'] ?? '',
+            'driverName': bidData['senderName'] ?? 'Водитель',
+            'driverPhone': bidData['senderPhone'] ?? '',
+            'driverImg': bidData['senderImg'] ?? '',
+            'driverCar': bidData['senderCar'] ?? '',
+            'driverPlate': bidData['senderPlate'] ?? '',
+            'driverVerified': bidData['senderVerified'] == true,
+            'price': offeredPrice,
+            'acceptedAt': FieldValue.serverTimestamp(),
+          });
+        } else {
+          transaction.update(targetRef, {
+            'status': 'accepted',
+            'passengerId': bidData['senderId'] ?? '',
+            'passengerName': bidData['senderName'] ?? 'Пассажир',
+            'passengerPhone': bidData['senderPhone'] ?? '',
+            'passengerImg': bidData['senderImg'] ?? '',
+            'price': offeredPrice,
+            'acceptedAt': FieldValue.serverTimestamp(),
+          });
+        }
+
         capturedBidData = Map<String, dynamic>.from(bidData);
       });
 
       final bidData = capturedBidData!;
       final targetId = bidData['targetId'];
 
-      // ── Атомарная запись в taxi_history для обоих участников ─────────────
-      final targetType = bidData['targetType'];
-      final targetSnap = await db.collection(targetType == 'order' ? 'taxi_orders' : 'taxi_rides').doc(targetId).get();
-      final targetData = targetSnap.data() ?? {};
-
-      final String driverId = targetType == 'order' ? (bidData['senderId'] ?? '') : (targetData['driverId'] ?? targetData['userId'] ?? '');
-      final String driverName = targetType == 'order' ? (bidData['senderName'] ?? 'Водитель') : (targetData['driverName'] ?? targetData['name'] ?? 'Водитель');
-      final String driverPhone = targetType == 'order' ? (bidData['senderPhone'] ?? '') : (targetData['driverPhone'] ?? targetData['phone'] ?? '');
-      final String driverImg = targetType == 'order' ? (bidData['senderImg'] ?? '') : (targetData['driverImg'] ?? '');
-      final String driverCar = targetType == 'order' ? (bidData['senderCar'] ?? '') : (targetData['driverCar'] ?? '');
-      final String driverPlate = targetType == 'order' ? (bidData['senderPlate'] ?? '') : (targetData['driverPlate'] ?? '');
-
-      final String passengerId = targetType == 'order' ? (targetData['passengerId'] ?? targetData['userId'] ?? '') : (bidData['senderId'] ?? '');
-      final String passengerName = targetType == 'order' ? (targetData['passengerName'] ?? targetData['name'] ?? 'Пассажир') : (bidData['senderName'] ?? 'Пассажир');
-      final String passengerPhone = targetType == 'order' ? (targetData['passengerPhone'] ?? targetData['phone'] ?? '') : (bidData['senderPhone'] ?? '');
-      final String passengerImg = targetType == 'order' ? (targetData['passengerImg'] ?? '') : (bidData['senderImg'] ?? '');
-
-      final int finalPrice = (bidData['offeredPrice'] as num?)?.toInt() ?? (targetData['price'] as num?)?.toInt() ?? 0;
-
-      final historyBatch = db.batch();
-      final tripBase = {
-        'matchedVia': 'bid_accepted',
-        'status': 'completed',
-        'from': targetData['from'] ?? '',
-        'to': targetData['to'] ?? '',
-        'date': targetData['date'] ?? '',
-        'time': targetData['time'] ?? '',
-        'price': finalPrice,
-        'driverId': driverId,
-        'driverName': driverName,
-        'driverPhone': driverPhone,
-        'driverCar': driverCar,
-        'driverPlate': driverPlate,
-        'driverImg': driverImg,
-        'passengerId': passengerId,
-        'passengerName': passengerName,
-        'passengerPhone': passengerPhone,
-        'passengerImg': passengerImg,
-        'createdAt': FieldValue.serverTimestamp(),
-      };
-
-      if (driverId.isNotEmpty) {
-        final dRef = db.collection('taxi_history').doc();
-        historyBatch.set(dRef, {...tripBase, 'id': dRef.id, 'role': 'driver'});
-      }
-      if (passengerId.isNotEmpty) {
-        final pRef = db.collection('taxi_history').doc();
-        historyBatch.set(pRef, {...tripBase, 'id': pRef.id, 'role': 'passenger'});
-      }
-      await historyBatch.commit();
+      // ✅ FIX BUG-03: Premature taxi_history creation REMOVED from acceptBid.
+      // History is written ONLY when the trip is completed (completeOrder / completeRide).
 
       // ✅ ISSUE-03 FIX: Batch-reject ALL other pending bids FIRST, then notify.
-      // Previously: notify winner → then reject others.
-      // If batch failed, others stayed pending. Now order is correct.
       final otherBids = await db
           .collection('taxi_bids')
           .where('targetId', isEqualTo: targetId)
@@ -270,10 +256,10 @@ class TaxiRepository {
       }
       await batch.commit();
 
-      if (targetType == 'order') {
+      if (bidData['targetType'] == 'order') {
         NotificationService.saveNotificationToFirestore(
           title: 'Предложение принято! 🎉',
-          body: 'Пассажир принял вашу ставку на ${bidData['offeredPrice']} ₸. Свяжитесь для выезда!',
+          body: 'Пассажир принял вашу ставку на ${_parsePrice(bidData['offeredPrice'])} ₸. Свяжитесь для выезда!',
           type: 'taxi_bid_accepted',
           uid: bidData['senderId'],
         ).catchError((e) {
@@ -282,7 +268,7 @@ class TaxiRepository {
       } else {
         NotificationService.saveNotificationToFirestore(
           title: 'Поездка подтверждена! 🚙',
-          body: 'Водитель принял вашу ставку на ${bidData['offeredPrice']} ₸. Свяжитесь для выезда!',
+          body: 'Водитель принял вашу ставку на ${_parsePrice(bidData['offeredPrice'])} ₸. Свяжитесь для выезда!',
           type: 'taxi_bid_accepted',
           uid: bidData['senderId'],
         ).catchError((e) {
@@ -294,7 +280,7 @@ class TaxiRepository {
       for (var bid in rejectedBidsData) {
         NotificationService.saveNotificationToFirestore(
           title: 'Предложение отклонено ❌',
-          body: 'Ваша ставка на ${bid['offeredPrice']} ₸ была отклонена, так как была выбрана другая.',
+          body: 'Ваша ставка на ${_parsePrice(bid['offeredPrice'])} ₸ была отклонена, так как была выбрана другая.',
           type: 'taxi_bid_rejected',
           uid: bid['senderId'],
         ).catchError((e) {
@@ -314,7 +300,6 @@ class TaxiRepository {
     
     Map<String, dynamic>? capturedBidData;
     
-    // БЕЗОПАСНОСТЬ: Использовать транзакцию, чтобы нельзя было отменить уже принятую ставку
     await db.runTransaction((transaction) async {
       final snap = await transaction.get(bidRef);
       if (!snap.exists) return;
@@ -328,7 +313,7 @@ class TaxiRepository {
     if (capturedBidData != null) {
       NotificationService.saveNotificationToFirestore(
         title: 'Предложение отклонено ❌',
-        body: 'Ваша ставка на ${capturedBidData!['offeredPrice']} ₸ была отклонена.',
+        body: 'Ваша ставка на ${_parsePrice(capturedBidData!['offeredPrice'])} ₸ была отклонена.',
         type: 'taxi_bid_rejected',
         uid: capturedBidData!['senderId'],
       ).catchError((e) {
@@ -341,7 +326,6 @@ class TaxiRepository {
     final db = FirebaseFirestore.instance;
     final docRef = db.collection('taxi_orders').doc(orderId);
 
-    // БЕЗОПАСНОСТЬ: Предотвращение Race Condition при отмене.
     await db.runTransaction((transaction) async {
       final snap = await transaction.get(docRef);
       if (!snap.exists) throw Exception('Заказ не найден');
@@ -357,8 +341,6 @@ class TaxiRepository {
       });
     });
 
-    // Извлекаем все активные ставки (как ожидающие, так и уже принятые),
-    // чтобы при отмене заказа освободить всех водителей.
     final bids = await db
         .collection('taxi_bids')
         .where('targetId', isEqualTo: orderId)
@@ -378,7 +360,6 @@ class TaxiRepository {
     final db = FirebaseFirestore.instance;
     final docRef = db.collection('taxi_orders').doc(orderId);
 
-    // БЕЗОПАСНОСТЬ: Нельзя изменить цену принятого заказа
     await db.runTransaction((transaction) async {
       final snap = await transaction.get(docRef);
       if (!snap.exists) return;
@@ -400,10 +381,6 @@ class TaxiRepository {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    // ✅ BUG-03 FIX: Composite docId ensures ONE review per author→target pair.
-    // Using millisecondsSinceEpoch as suffix meant unlimited duplicates.
-    // Now re-submitting simply overwrites the existing review (last write wins),
-    // which is the intended "edit your review" UX.
     final docId = 'review_${user.uid}_to_${targetUserId}_as_$targetRole';
 
     final newReview = {
@@ -435,15 +412,55 @@ class TaxiRepository {
       final snap = await transaction.get(docRef);
       if (!snap.exists) return;
       final data = snap.data()!;
-      if (data['status'] != 'accepted') return;
 
-      final passengerId = data['passengerId'];
-      final driverId = data['driverId'];
+      // ✅ IDEMPOTENCY CHECK: If already completed, exit cleanly without duplicate writes
+      if (data['status'] == 'completed') return;
+
+      if (data['status'] != 'accepted') {
+        throw Exception('Нельзя завершить поездку в текущем статусе (${data['status']})');
+      }
+
+      final passengerId = data['passengerId']?.toString() ?? '';
+      final driverId = data['driverId']?.toString() ?? '';
       if (user.uid != passengerId && user.uid != driverId) {
         throw Exception('Вы не являетесь участником этой поездки');
       }
 
-      transaction.update(docRef, {'status': 'completed'});
+      transaction.update(docRef, {
+        'status': 'completed',
+        'completedAt': FieldValue.serverTimestamp(),
+      });
+
+      // ✅ FIX BUG-03: Write to taxi_history ONLY on valid trip completion
+      final tripBase = {
+        'matchedVia': 'bid_accepted',
+        'status': 'completed',
+        'from': data['from'] ?? '',
+        'to': data['to'] ?? '',
+        'date': data['date'] ?? '',
+        'time': data['time'] ?? '',
+        'price': _parsePrice(data['price']),
+        'driverId': driverId,
+        'driverName': data['driverName'] ?? 'Водитель',
+        'driverPhone': data['driverPhone'] ?? '',
+        'driverCar': data['driverCar'] ?? '',
+        'driverPlate': data['driverPlate'] ?? '',
+        'driverImg': data['driverImg'] ?? '',
+        'passengerId': passengerId,
+        'passengerName': data['passengerName'] ?? 'Пассажир',
+        'passengerPhone': data['passengerPhone'] ?? '',
+        'passengerImg': data['passengerImg'] ?? '',
+        'createdAt': FieldValue.serverTimestamp(),
+      };
+
+      if (driverId.isNotEmpty) {
+        final dRef = db.collection('taxi_history').doc();
+        transaction.set(dRef, {...tripBase, 'id': dRef.id, 'role': 'driver'});
+      }
+      if (passengerId.isNotEmpty) {
+        final pRef = db.collection('taxi_history').doc();
+        transaction.set(pRef, {...tripBase, 'id': pRef.id, 'role': 'passenger'});
+      }
     });
   }
 
@@ -458,8 +475,6 @@ class TaxiRepository {
       transaction.update(docRef, {'status': 'cancelled'});
     });
 
-    // ✅ BUG-04 FIX: Reject all pending bids when a ride is cancelled.
-    // cancelOrder already did this correctly. Now cancelRide matches.
     final bids = await db
         .collection('taxi_bids')
         .where('targetId', isEqualTo: rideId)
@@ -486,15 +501,55 @@ class TaxiRepository {
       final snap = await transaction.get(docRef);
       if (!snap.exists) return;
       final data = snap.data()!;
-      if (data['status'] != 'accepted') return;
 
-      final passengerId = data['passengerId'];
-      final driverId = data['driverId'];
+      // ✅ IDEMPOTENCY CHECK: If already completed, exit cleanly without duplicate writes
+      if (data['status'] == 'completed') return;
+
+      if (data['status'] != 'accepted') {
+        throw Exception('Нельзя завершить заказ в текущем статусе (${data['status']})');
+      }
+
+      final passengerId = data['passengerId']?.toString() ?? '';
+      final driverId = data['driverId']?.toString() ?? '';
       if (user.uid != passengerId && user.uid != driverId) {
         throw Exception('Вы не являетесь участником этого заказа');
       }
 
-      transaction.update(docRef, {'status': 'completed'});
+      transaction.update(docRef, {
+        'status': 'completed',
+        'completedAt': FieldValue.serverTimestamp(),
+      });
+
+      // ✅ FIX BUG-03: Write to taxi_history ONLY on valid trip completion
+      final tripBase = {
+        'matchedVia': 'bid_accepted',
+        'status': 'completed',
+        'from': data['from'] ?? '',
+        'to': data['to'] ?? '',
+        'date': data['date'] ?? '',
+        'time': data['time'] ?? '',
+        'price': _parsePrice(data['price']),
+        'driverId': driverId,
+        'driverName': data['driverName'] ?? 'Водитель',
+        'driverPhone': data['driverPhone'] ?? '',
+        'driverCar': data['driverCar'] ?? '',
+        'driverPlate': data['driverPlate'] ?? '',
+        'driverImg': data['driverImg'] ?? '',
+        'passengerId': passengerId,
+        'passengerName': data['passengerName'] ?? 'Пассажир',
+        'passengerPhone': data['passengerPhone'] ?? '',
+        'passengerImg': data['passengerImg'] ?? '',
+        'createdAt': FieldValue.serverTimestamp(),
+      };
+
+      if (driverId.isNotEmpty) {
+        final dRef = db.collection('taxi_history').doc();
+        transaction.set(dRef, {...tripBase, 'id': dRef.id, 'role': 'driver'});
+      }
+      if (passengerId.isNotEmpty) {
+        final pRef = db.collection('taxi_history').doc();
+        transaction.set(pRef, {...tripBase, 'id': pRef.id, 'role': 'passenger'});
+      }
     });
   }
 

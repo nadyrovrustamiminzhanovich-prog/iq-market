@@ -195,20 +195,25 @@ void showTaxiMatchSuccessDialog({
                             ss(() => isProcessing = true);
                             try {
                               await provider.acceptBid(bidId);
-                              final orderId = provider.allPassengerOrders.firstWhere(
-                                (o) =>
-                                    o['passengerId'] ==
-                                        FirebaseAuth.instance.currentUser?.uid &&
-                                    o['status'] == 'active',
-                                orElse: () => <String, dynamic>{},
-                              )['id'];
-                              if (orderId != null) {
-                                await provider.completeOrder(orderId);
-                              }
                               if (c.mounted) {
+                                NotificationService.notify(
+                                  c,
+                                  provider.translate('acceptedTitle'),
+                                  provider.translate('agreedToPriceMsg').replaceAll('{price}', price.toString()),
+                                  isSuccess: true,
+                                );
                                 Navigator.pop(c);
                               }
-                            } catch (_) {
+                            } catch (e) {
+                              if (c.mounted) {
+                                NotificationService.notify(
+                                  c,
+                                  provider.translate('error_label'),
+                                  provider.translate('general_error_desc'),
+                                  isSuccess: false,
+                                );
+                              }
+                            } finally {
                               if (c.mounted) {
                                 ss(() => isProcessing = false);
                               }
