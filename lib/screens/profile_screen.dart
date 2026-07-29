@@ -278,11 +278,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     if (!_isGuest && user != null) ...[
                       const SizedBox(height: 10),
-                      Wrap(
-                        alignment: WrapAlignment.center,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        spacing: 8,
-                        runSpacing: 8,
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           GestureDetector(
                             onTap: () {
@@ -320,7 +318,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ),
                             ),
                           ),
-                          if (_isVerified)
+                          if (_isVerified) ...[
+                            const SizedBox(height: 8),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                               decoration: BoxDecoration(
@@ -344,6 +343,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ],
                               ),
                             ),
+                          ],
                         ],
                       ),
                     ],
@@ -702,63 +702,77 @@ class _ProfileScreenState extends State<ProfileScreen> {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF0088CC).withValues(alpha: 0.25), 
-              blurRadius: 12, 
-              offset: const Offset(0, 6),
+              color: const Color(0xFF0088CC).withValues(alpha: 0.2), 
+              blurRadius: 10, 
+              offset: const Offset(0, 4),
             )
           ],
         ),
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            borderRadius: BorderRadius.circular(22),
+            borderRadius: BorderRadius.circular(16),
             onTap: () => _showVerificationBottomSheet(),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               child: Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(10),
+                    padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(14),
+                      shape: BoxShape.circle,
                     ),
                     child: const Icon(
-                      Icons.shield_outlined, 
+                      Icons.telegram, 
                       color: Colors.white, 
-                      size: 22,
+                      size: 20,
                     ),
                   ),
-                  const SizedBox(width: 14),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Профиль не верифицирован',
+                          'Верификация через Telegram',
                           style: GoogleFonts.plusJakartaSans(
-                            fontSize: 14, 
-                            fontWeight: FontWeight.w900, 
+                            fontSize: 13, 
+                            fontWeight: FontWeight.w800, 
                             color: Colors.white,
                           ),
                         ),
-                        const SizedBox(height: 2),
+                        const SizedBox(height: 1),
                         Text(
-                          'Пройдите верификацию в Telegram для доступа к поездкам',
+                          'Подтвердите ваш номер телефона',
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: 11, 
                             fontWeight: FontWeight.w600, 
-                            color: Colors.white.withValues(alpha: 0.95),
+                            color: Colors.white.withValues(alpha: 0.9),
                           ),
                         ),
                       ],
                     ),
                   ),
                   const SizedBox(width: 8),
-                  const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white, size: 14),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      'Пройти',
+                      style: GoogleFonts.inter(
+                        color: const Color(0xFF0088CC),
+                        fontWeight: FontWeight.w800,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),

@@ -124,7 +124,6 @@ class _DriverOnboardingWizardState extends State<DriverOnboardingWizard>
     type: MaskAutoCompletionType.lazy,
   );
 
-  File? _licF;     // Фото удостоверения личности
   File? _techF;    // Фото техпаспорта
   File? _carFront; // Фото автомобиля с читаемыми номерами
 
@@ -531,7 +530,6 @@ class _DriverOnboardingWizardState extends State<DriverOnboardingWizard>
         setState(() {
           switch (slot) {
             case 'cf': _carFront = File(f.path); break;
-            case 'lf': _licF     = File(f.path); break;
             case 'tf': _techF    = File(f.path); break;
           }
         });
@@ -543,7 +541,6 @@ class _DriverOnboardingWizardState extends State<DriverOnboardingWizard>
 
   bool get _canSubmitStep2 {
     return _carFront != null &&
-        _licF != null &&
         _techF != null &&
         _plateC.text.trim().length >= 5 &&
         (_selectedBrand != null || _carC.text.trim().length >= 4);
@@ -565,62 +562,48 @@ class _DriverOnboardingWizardState extends State<DriverOnboardingWizard>
       if (mounted) setState(() { _analyzing = true; _aiMsg = 'Сжимаем фотографии... 📸'; });
       
       final results = await Future.wait([
-        FileService.compressImage(_licF!),
         FileService.compressImage(_techF!),
         FileService.compressImage(_carFront!),
       ]);
-      final compLicF = results[0];
-      final compTechF = results[1];
-      final compCarFront = results[2];
+      final compTechF = results[0];
+      final compCarFront = results[1];
 
       // Upload files
-      if (mounted) setState(() => _aiMsg = 'Загружаем документы (1/3) 🪪');
-      final licFUrl = await FileService.uploadFile(
-        compLicF ?? _licF!,
-        'driver_documents/$uid/license_front',
-        onProgress: (p, a) {
-          if (mounted) setState(() => _aiMsg = 'Загружаем документы (1/3) 🪪 — ${(p * 100).toInt()}%');
-        },
-      );
-
-      if (mounted) setState(() => _aiMsg = 'Загружаем техпаспорт (2/3) 📄');
+      if (mounted) setState(() => _aiMsg = 'Загружаем техпаспорт (1/2) 📄');
       final techFUrl = await FileService.uploadFile(
         compTechF ?? _techF!,
         'driver_documents/$uid/tech_front',
         onProgress: (p, a) {
-          if (mounted) setState(() => _aiMsg = 'Загружаем техпаспорт (2/3) 📄 — ${(p * 100).toInt()}%');
+          if (mounted) setState(() => _aiMsg = 'Загружаем техпаспорт (1/2) 📄 — ${(p * 100).toInt()}%');
         },
       );
 
-      if (mounted) setState(() => _aiMsg = 'Загружаем фото авто (3/3) 🚘');
+      if (mounted) setState(() => _aiMsg = 'Загружаем фото авто (2/2) 🚘');
       final carFrontUrl = await FileService.uploadFile(
         compCarFront ?? _carFront!,
         'driver_documents/$uid/car_front',
         onProgress: (p, a) {
-          if (mounted) setState(() => _aiMsg = 'Загружаем фото авто (3/3) 🚘 — ${(p * 100).toInt()}%');
+          if (mounted) setState(() => _aiMsg = 'Загружаем фото авто (2/2) 🚘 — ${(p * 100).toInt()}%');
         },
       );
 
-      if (licFUrl == null || techFUrl == null || carFrontUrl == null) {
+      if (techFUrl == null || carFrontUrl == null) {
         throw Exception('Ошибка загрузки фотографий. Попробуйте снова.');
       }
 
-      if (mounted) setState(() => _aiMsg = 'ИИ анализирует документы... 🤖');
+      if (mounted) setState(() => _aiMsg = 'ИИ анализирует фото авто и техпаспорт... 🤖');
 
       final gemini = GeminiService();
       gemini.init(provider.curLang);
 
       final aiResult = await gemini.analyzeDriverDocuments(
-        license: compLicF ?? _licF!,
         techPassport: compTechF ?? _techF!,
-        selfie: compLicF ?? _licF!,
         carFront: compCarFront ?? _carFront!,
         driverName: '${provider.firstName} ${provider.lastName}',
         plate: _plateC.text.trim().toUpperCase(),
         carModel: carFullModel,
       );
 
-      final bool isLicenseValid = aiResult['license_valid'] == true;
       final bool isTechPassportValid = aiResult['tech_passport_valid'] == true;
       final bool isCarValid = aiResult['car_valid'] == true;
       final bool isPlateMatches = aiResult['plate_matches'] == true;
@@ -628,10 +611,9 @@ class _DriverOnboardingWizardState extends State<DriverOnboardingWizard>
       final String aiReason = aiResult['reason'] ?? 'На проверке модератором';
       final String aiConfidence = aiResult['confidence'] ?? 'medium';
 
-      // 🤖 DEFAULT AUTOMATIC VERIFICATION LOGIC:
-      // Automatic approval (approved_by_ai) occurs unless there are suspicious red flags/blurriness/discrepancies.
-      final bool aiApproved = isLicenseValid &&
-          isTechPassportValid &&
+      // 🤖 AUTOMATIC VERIFICATION LOGIC:
+      // Auto-approval if car photo, tech passport, and plate match are valid.
+      final bool aiApproved = isTechPassportValid &&
           isCarValid &&
           isPlateMatches &&
           !isBlurry &&
@@ -653,7 +635,6 @@ class _DriverOnboardingWizardState extends State<DriverOnboardingWizard>
         'ai_result': aiResult,
         'ai_quality': aiConfidence,
         'submitted_at': FieldValue.serverTimestamp(),
-        'licF': licFUrl,
         'techF': techFUrl,
         'carFront': carFrontUrl,
       });
@@ -667,17 +648,15 @@ class _DriverOnboardingWizardState extends State<DriverOnboardingWizard>
         if (!_needsManual) 'isVerified': true,
       }, SetOptions(merge: true));
 
-      // 📩 TELEGRAM NOTIFICATIONS FOR ALL STATUS TRANSITIONS:
+      // 📩 TELEGRAM NOTIFICATIONS FOR ALL REGISTRATIONS:
       if (chatId.isNotEmpty) {
         if (!_needsManual) {
-          // Send Telegram notification to driver on Auto-Approval!
           await TelegramBotService.notifyDriverResult(
             driverChatId: chatId,
             isApproved: true,
-            reason: '🎉 Ваша верификация водителя автоматически одобрена ИИ!',
+            reason: '🎉 Ваша верификация водителя (фото авто + техпаспорт) автоматически одобрена ИИ!',
           );
         } else {
-          // Send Telegram notification to driver on Manual Review Submission!
           await TelegramBotService.notifyDriverResult(
             driverChatId: chatId,
             isApproved: false,
@@ -686,7 +665,7 @@ class _DriverOnboardingWizardState extends State<DriverOnboardingWizard>
         }
       }
 
-      // Notify Telegram Admin
+      // Always notify Telegram Admin for all registrations!
       if (_needsManual) {
         await TelegramBotService.notifyAdminManualReview(
           driverName: '${provider.firstName} ${provider.lastName}',
@@ -695,9 +674,9 @@ class _DriverOnboardingWizardState extends State<DriverOnboardingWizard>
           driverChatId: chatId,
           reviewDocId: docId,
           reason: '⚠️ Требуется ручная проверка: $aiReason',
-          licF: licFUrl,
+          licF: techFUrl,
           techF: techFUrl,
-          selfie: licFUrl,
+          selfie: carFrontUrl,
           carFront: carFrontUrl,
         );
       } else {
@@ -708,10 +687,10 @@ class _DriverOnboardingWizardState extends State<DriverOnboardingWizard>
           carModel: carFullModel,
           driverChatId: chatId,
           reviewDocId: docId,
-          reason: '🤖 ИИ автоматически одобрил документы без участия человека.',
-          licF: licFUrl,
+          reason: '🤖 ИИ автоматически одобрил документы (фото авто и техпаспорт сверены).',
+          licF: techFUrl,
           techF: techFUrl,
-          selfie: licFUrl,
+          selfie: carFrontUrl,
           carFront: carFrontUrl,
         );
       }
@@ -745,7 +724,6 @@ class _DriverOnboardingWizardState extends State<DriverOnboardingWizard>
     setState(() {
       _isRejected = false;
       _rejectedReason = '';
-      _licF = null;
       _techF = null;
       _carFront = null;
       _step = 1; // Return to Step 2 of 3: Photos & Car upload
@@ -1173,21 +1151,19 @@ class _DriverOnboardingWizardState extends State<DriverOnboardingWizard>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '1. Загрузите 3 фотографии',
+          '1. Загрузите 2 фотографии',
           style: GoogleFonts.inter(color: t.text, fontWeight: FontWeight.w900, fontSize: 16),
         ),
         const SizedBox(height: 6),
         Text(
-          'Убедитесь, что все документы и госномер автомобиля хорошо читаемы.',
+          'Загрузите фото автомобиля спереди и фото техпаспорта для сверки госномера.',
           style: GoogleFonts.inter(color: t.sub, fontSize: 12),
         ),
         const SizedBox(height: 16),
 
-        _photoUploadCard(t, 'Фото автомобиля', 'С читаемым госномером спереди', _carFront, () => _pickPhoto('cf')),
+        _photoUploadCard(t, 'Фото автомобиля спереди', 'С читаемым госномером спереди', _carFront, () => _pickPhoto('cf')),
         const SizedBox(height: 12),
-        _photoUploadCard(t, 'Удостоверение личности / Права', 'Лицевая сторона документа', _licF, () => _pickPhoto('lf')),
-        const SizedBox(height: 12),
-        _photoUploadCard(t, 'Техпаспорт автомобиля', 'Свидетельство о регистрации ТС', _techF, () => _pickPhoto('tf')),
+        _photoUploadCard(t, 'Техпаспорт автомобиля', 'Свидетельство о регистрации ТС (для сверки с авто)', _techF, () => _pickPhoto('tf')),
 
         const SizedBox(height: 24),
         Text(

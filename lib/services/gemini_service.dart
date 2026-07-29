@@ -125,11 +125,11 @@ class GeminiService {
     }
   }
 
-  /// AI Driver Document Verification Method (Multimodal Gemini 1.5 Flash)
+  /// Анализ 2 основных документов водителя (фото авто спереди + техпаспорт) с помощью Gemini Vision
   Future<Map<String, dynamic>> analyzeDriverDocuments({
-    required File license,
+    File? license,
     required File techPassport,
-    required File selfie,
+    File? selfie,
     required File carFront,
     required String driverName,
     required String plate,
@@ -137,8 +137,8 @@ class GeminiService {
   }) async {
     try {
       final List<DataPart> imageParts = [];
-      
-      if (await license.exists()) {
+
+      if (license != null && await license.exists()) {
         final bytes = await license.readAsBytes();
         imageParts.add(DataPart('image/jpeg', bytes));
       }
@@ -146,7 +146,7 @@ class GeminiService {
         final bytes = await techPassport.readAsBytes();
         imageParts.add(DataPart('image/jpeg', bytes));
       }
-      if (await selfie.exists()) {
+      if (selfie != null && await selfie.exists()) {
         final bytes = await selfie.readAsBytes();
         imageParts.add(DataPart('image/jpeg', bytes));
       }
@@ -157,11 +157,7 @@ class GeminiService {
 
       final prompt = """
 Вы являетесь экспертной системой искусственного интеллекта для верификации водителей такси в IQ-Taxi.
-Ваша задача — тщательно проанализировать 4 предоставленные фотографии:
-1. Водительское удостоверение (License)
-2. Техпаспорт автомобиля (Tech Passport)
-3. Селфи водителя (Selfie)
-4. Фото автомобиля спереди (Car Front)
+Ваша задача — тщательно проанализировать предоставленные фотографии (Фото автомобиля спереди с читаемым госномером и Техпаспорт автомобиля).
 
 Сравните данные с введенными водителем:
 - Имя водителя: $driverName
@@ -169,23 +165,22 @@ class GeminiService {
 - Модель автомобиля: $carModel
 
 Проверьте:
-1. Имя на водительском удостоверении совпадает с "$driverName".
-2. Госномер на фото автомобиля спереди и в техпаспорте совпадает с "$plate".
-3. Модель автомобиля на фото совпадает с "$carModel".
-4. Селфи является реальным фото лица человека, а не картинкой или фото экрана.
-5. Нет ли признаков сильного размытия или подделки документов (Photoshop, фото экрана).
+1. Госномер на фото автомобиля спереди и в техпаспорте совпадает с "$plate".
+2. Модель и цвет автомобиля на фото совпадает с "$carModel".
+3. Техпаспорт чёткий, читаемый и действительный.
+4. Нет ли признаков сильного размытия или подделки документов (Photoshop, фото экрана, нечитаемый госномер).
 
 Верните строго валидный JSON-ответ без markdown (без ```json), содержащий следующие поля:
 {
-  "license_valid": true/false (водительские права четкие и действительные),
+  "license_valid": true,
   "tech_passport_valid": true/false (техпаспорт четкий и действительный),
-  "selfie_valid": true/false (селфи нормального качества),
+  "selfie_valid": true,
   "car_valid": true/false (фото машины соответствует),
-  "name_matches": true/false (имя совпадает с правами),
-  "plate_matches": true/false (госномер совпадает),
+  "name_matches": true,
+  "plate_matches": true/false (госномер на авто и техпаспорте совпадает),
   "car_model_matches": true/false (марка авто совпадает),
-  "blurry_photo_detected": true/false (обнаружено ли сильное размытие),
-  "reason": "описание найденных несоответствий на русском языке, либо 'Документы успешно проверены ИИ'",
+  "blurry_photo_detected": true/false (обнаружено ли сильное размытие или нечитаемый номер),
+  "reason": "описание найденных несоответствий на русском языке, либо 'Документы и госномер успешно сверены ИИ'",
   "confidence": "high/medium/low" (уровень уверенности ИИ)
 }
 """;

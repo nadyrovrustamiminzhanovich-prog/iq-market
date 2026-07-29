@@ -28,9 +28,9 @@ void showTaxiDriverRideConfirmationSheet({
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
-    backgroundColor: t.bg,
+    backgroundColor: const Color(0xFFF8FAFC),
     shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+      borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
     ),
     builder: (ctx) => _TaxiDriverRideConfirmationSheetContent(
       provider: provider,
@@ -428,12 +428,15 @@ class _TaxiDriverRideConfirmationSheetContentState
 
   @override
   Widget build(BuildContext context) {
+    final rawBtnText = widget.provider.translate('publish_ride_btn');
+    final btnText = rawBtnText.replaceAll('🚀', '').trim().toUpperCase();
+
     return Padding(
       padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-        top: 20,
-        left: 24,
-        right: 24,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+        top: 12,
+        left: 16,
+        right: 16,
       ),
       child: SingleChildScrollView(
         child: Column(
@@ -442,183 +445,126 @@ class _TaxiDriverRideConfirmationSheetContentState
           children: [
             Center(
               child: Container(
-                width: 44,
+                width: 38,
                 height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
                 decoration: BoxDecoration(
                   color: const Color(0xFFCBD5E1),
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
             ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF2563EB).withValues(alpha: 0.3),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(Icons.add_road_rounded, color: Colors.white, size: 24),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        widget.provider.translate('create_ride_btn'),
-                        style: GoogleFonts.inter(
-                          fontWeight: FontWeight.w900,
-                          color: const Color(0xFF0F172A),
-                          fontSize: 20,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        widget.provider.translate('create_ride_desc_driver'),
-                        style: GoogleFonts.inter(
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFF64748B),
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+
+            // Route Selector (FROM & TO Cards)
+            TaxiDriverRideRouteSelector(
+              t: widget.t,
+              localFrom: localFrom,
+              localTo: localTo,
+              sFromError: sFromError,
+              sToError: sToError,
+              onFromTap: () async {
+                await widget.onOpenPicker(true, true);
+                setState(() {
+                  localFrom = widget.provider.driverFrom;
+                  sFromError = false;
+                });
+              },
+              onToTap: () async {
+                await widget.onOpenPicker(false, true);
+                setState(() {
+                  localTo = widget.provider.driverTo;
+                  sToError = false;
+                });
+              },
             ),
-            const SizedBox(height: 20),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: widget.t.border, width: 1.5),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.02),
-                    blurRadius: 15,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TaxiDriverRideRouteSelector(
-                    t: widget.t,
-                    localFrom: localFrom,
-                    localTo: localTo,
-                    sFromError: sFromError,
-                    sToError: sToError,
-                    onFromTap: () async {
-                      await widget.onOpenPicker(true, true);
-                      setState(() {
-                        localFrom = widget.provider.driverFrom;
-                        sFromError = false;
-                      });
-                    },
-                    onToTap: () async {
-                      await widget.onOpenPicker(false, true);
-                      setState(() {
-                        localTo = widget.provider.driverTo;
-                        sToError = false;
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  TaxiDriverRideDatetimeSeats(
-                    t: widget.t,
-                    localDate: localDate,
-                    localTime: localTime,
-                    seats: seats,
-                    sDateError: sDateError,
-                    sTimeError: sTimeError,
-                    onDateTimeTap: _pickDateTime,
-                    onSeatsTap: _pickDriverSeats,
-                  ),
-                  const SizedBox(height: 16),
-                  _buildCarSelectionCard(),
-                  const SizedBox(height: 16),
-                  TaxiDriverRideFormFields(
-                    t: widget.t,
-                    phoneC: phoneC,
-                    priceCtrl: priceCtrl,
-                    commentC: commentC,
-                    phoneMask: phoneMask,
-                    sPhoneError: sPhoneError,
-                    sPriceError: sPriceError,
-                    onPriceDecrement: () {
-                      HapticFeedback.lightImpact();
-                      if (price > 100) {
-                        setState(() {
-                          price -= 100;
-                          priceCtrl.text = price.toString();
-                          sPriceError = false;
-                        });
-                      }
-                    },
-                    onPriceIncrement: () {
-                      HapticFeedback.lightImpact();
-                      if (price < 1000000) {
-                        setState(() {
-                          price = (price + 100).clamp(0, 1000000);
-                          priceCtrl.text = price.toString();
-                          sPriceError = false;
-                        });
-                      }
-                    },
-                    onPhoneChanged: (val) {
-                      final cleanVal = val.replaceAll(RegExp(r'\D'), '');
-                      if (cleanVal.length == 10 && sPhoneError) {
-                        setState(() => sPhoneError = false);
-                      }
-                    },
-                    onPriceChanged: (val) {
-                      final valClean = val.replaceAll(RegExp(r'\D'), '');
-                      int newPrice = valClean.isNotEmpty
-                          ? (int.tryParse(valClean) ?? 0)
-                          : 0;
-                      if (newPrice > 1000000) {
-                        newPrice = 1000000;
-                        priceCtrl.text = '1000000';
-                        priceCtrl.selection = TextSelection.fromPosition(
-                          TextPosition(offset: priceCtrl.text.length),
-                        );
-                      }
-                      
-                      // Only call setState if error state needs to change to avoid rebuilding on every keystroke
-                      if (sPriceError && newPrice >= 100) {
-                        setState(() {
-                          price = newPrice;
-                          sPriceError = false;
-                        });
-                      } else {
-                        price = newPrice;
-                      }
-                    },
-                  ),
-                ],
-              ),
+
+            const SizedBox(height: 12),
+
+            // Date & Time + Seats Row Cards
+            TaxiDriverRideDatetimeSeats(
+              t: widget.t,
+              localDate: localDate,
+              localTime: localTime,
+              seats: seats,
+              sDateError: sDateError,
+              sTimeError: sTimeError,
+              onDateTimeTap: _pickDateTime,
+              onSeatsTap: _pickDriverSeats,
             ),
-            const SizedBox(height: 24),
+
+            const SizedBox(height: 12),
+
+            // Car Selection Card
+            _buildCarSelectionCard(),
+
+            const SizedBox(height: 12),
+
+            // Form Fields Cards (Phone, Price, Comment)
+            TaxiDriverRideFormFields(
+              t: widget.t,
+              phoneC: phoneC,
+              priceCtrl: priceCtrl,
+              commentC: commentC,
+              phoneMask: phoneMask,
+              sPhoneError: sPhoneError,
+              sPriceError: sPriceError,
+              onPriceDecrement: () {
+                HapticFeedback.lightImpact();
+                if (price > 100) {
+                  setState(() {
+                    price -= 100;
+                    priceCtrl.text = price.toString();
+                    sPriceError = false;
+                  });
+                }
+              },
+              onPriceIncrement: () {
+                HapticFeedback.lightImpact();
+                if (price < 1000000) {
+                  setState(() {
+                    price = (price + 100).clamp(0, 1000000);
+                    priceCtrl.text = price.toString();
+                    sPriceError = false;
+                  });
+                }
+              },
+              onPhoneChanged: (val) {
+                final cleanVal = val.replaceAll(RegExp(r'\D'), '');
+                if (cleanVal.length == 10 && sPhoneError) {
+                  setState(() => sPhoneError = false);
+                }
+              },
+              onPriceChanged: (val) {
+                final valClean = val.replaceAll(RegExp(r'\D'), '');
+                int newPrice = valClean.isNotEmpty
+                    ? (int.tryParse(valClean) ?? 0)
+                    : 0;
+                if (newPrice > 1000000) {
+                  newPrice = 1000000;
+                  priceCtrl.text = '1000000';
+                  priceCtrl.selection = TextSelection.fromPosition(
+                    TextPosition(offset: priceCtrl.text.length),
+                  );
+                }
+                
+                if (sPriceError && newPrice >= 100) {
+                  setState(() {
+                    price = newPrice;
+                    sPriceError = false;
+                  });
+                } else {
+                  price = newPrice;
+                }
+              },
+            ),
+
+            const SizedBox(height: 20),
+
+            // Submit Button (WITHOUT ROCKET ICON!)
             isPublishing
                 ? const Center(
                     child: Padding(
-                      padding: EdgeInsets.all(8.0),
+                      padding: EdgeInsets.all(12.0),
                       child: CircularProgressIndicator(),
                     ),
                   )
@@ -628,39 +574,30 @@ class _TaxiDriverRideConfirmationSheetContentState
                       width: double.infinity,
                       height: 56,
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(20),
+                        color: const Color(0xFF3B82F6),
+                        borderRadius: BorderRadius.circular(18),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF2563EB).withValues(alpha: 0.35),
-                            blurRadius: 16,
-                            offset: const Offset(0, 6),
+                            color: const Color(0xFF3B82F6).withValues(alpha: 0.35),
+                            blurRadius: 14,
+                            offset: const Offset(0, 5),
                           ),
                         ],
                       ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.rocket_launch_rounded, color: Colors.white, size: 20),
-                          const SizedBox(width: 10),
-                          Text(
-                            widget.provider.translate('publish_ride_btn').toUpperCase(),
-                            style: GoogleFonts.inter(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w900,
-                              fontSize: 15,
-                              letterSpacing: 0.8,
-                            ),
+                      child: Center(
+                        child: Text(
+                          btnText,
+                          style: GoogleFonts.inter(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 16,
+                            letterSpacing: 0.8,
                           ),
-                        ],
+                        ),
                       ),
                     ),
                   ),
-            const SizedBox(height: 30),
+            const SizedBox(height: 16),
           ],
         ),
       ),
@@ -671,123 +608,160 @@ class _TaxiDriverRideConfirmationSheetContentState
     final hasCar = selectedBrand.isNotEmpty && selectedModel.isNotEmpty;
     final displayCarName = hasCar ? '$selectedBrand $selectedModel' : 'Выберите Ваш автомобиль';
     final displayMeta = '$selectedColor • $selectedYear г.';
-    final displayPlate = plateC.text.isNotEmpty ? plateC.text.toUpperCase() : '000 AAA 05';
+    final displayPlate = plateC.text.isNotEmpty ? plateC.text.toUpperCase() : '677 AEY 05';
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFE2E8F0), width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF3B82F6), Color(0xFF2563EB)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(14),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF2563EB).withValues(alpha: 0.25),
-                      blurRadius: 8,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: const Icon(Icons.directions_car_filled_rounded, color: Colors.white, size: 24),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      displayCarName,
-                      style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: const Color(0xFF0F172A), fontSize: 16),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      displayMeta,
-                      style: GoogleFonts.inter(color: const Color(0xFF64748B), fontSize: 12, fontWeight: FontWeight.w700),
-                    ),
-                  ],
-                ),
-              ),
-              ElevatedButton.icon(
-                onPressed: _showCarSelectionBottomSheet,
-                icon: const Icon(Icons.edit_rounded, size: 14),
-                label: const Text('Изменить'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFEFF6FF),
-                  foregroundColor: const Color(0xFF2563EB),
-                  elevation: 0,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  textStyle: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w800),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          // Stylized KZ License Plate Badge
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFF000000), width: 1.5),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
+    return InkWell(
+      onTap: _showCarSelectionBottomSheet,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFFF1F5F9), width: 1.5),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  width: 40,
+                  height: 40,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF00A3E0),
-                    borderRadius: BorderRadius.circular(4),
+                    color: const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Text('KZ', style: TextStyle(color: Colors.yellow, fontSize: 10, fontWeight: FontWeight.w900)),
+                  child: const Center(
+                    child: Icon(
+                      Icons.directions_car_outlined,
+                      color: Color(0xFF2563EB),
+                      size: 20,
+                    ),
+                  ),
                 ),
-                const SizedBox(width: 8),
-                Text(
-                  displayPlate,
-                  style: GoogleFonts.firaCode(
-                    fontSize: 14, 
-                    fontWeight: FontWeight.w900, 
-                    color: const Color(0xFF000000), 
-                    letterSpacing: 2.0
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.provider.translate('carBrandLabel').toUpperCase(),
+                        style: GoogleFonts.inter(
+                          fontSize: 10,
+                          color: const Color(0xFF94A3B8),
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        displayCarName,
+                        style: GoogleFonts.inter(
+                          fontWeight: FontWeight.w900,
+                          color: const Color(0xFF0F172A),
+                          fontSize: 17,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        displayMeta,
+                        style: GoogleFonts.inter(
+                          color: const Color(0xFF64748B),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.edit_outlined, size: 14, color: Color(0xFF2563EB)),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Изменить',
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: const Color(0xFF2563EB),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
-          ),
-        ],
+            const SizedBox(height: 10),
+            // Stylized KZ License Plate Badge
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFF000000), width: 1.5),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF00A3E0),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Row(
+                      children: [
+                        const Text('🇰🇿', style: TextStyle(fontSize: 10)),
+                        const SizedBox(width: 3),
+                        Text(
+                          'KZ',
+                          style: GoogleFonts.inter(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    displayPlate,
+                    style: GoogleFonts.firaCode(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                      color: const Color(0xFF000000),
+                      letterSpacing: 2.0,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
