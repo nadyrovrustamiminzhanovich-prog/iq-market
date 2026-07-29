@@ -1374,3 +1374,44 @@ exports.cleanupExpiredSessions = functions.pubsub.schedule('every 10 minutes').o
     console.error('[cleanupExpiredSessions] Error:', err);
   }
 });
+
+// ─── CRON: Auto-expire Taxi Orders and Rides older than 24 hours ─────────────
+exports.expireOldTaxiEntries = functions.region('europe-west1').pubsub.schedule('every 24 hours').timeZone('Asia/Almaty').onRun(async (context) => {
+  const cutOffDate = admin.firestore.Timestamp.fromDate(new Date(Date.now() - 24 * 60 * 60 * 1000));
+  const collections = ['taxi_orders', 'taxi_rides'];
+
+  for (const collName of collections) {
+    try {
+      const snapshot = await db.collection(collName)
+        .where('status', '==', 'active')
+        .where('createdAt', '<=', cutOffDate)
+        .get();
+
+      if (snapshot.empty) {
+        console.log(`[expireOldTaxiEntries] No expired active entries in ${collName}.`);
+        continue;
+      }
+
+      console.log(`[expireOldTaxiEntries] Found ${snapshot.size} expired active entries in ${collName}. Processing batch update...`);
+
+      const docs = snapshot.docs;
+      for (let i = 0; i < docs.length; i += 500) {
+        const batch = db.batch();
+        const chunk = docs.slice(i, i + 500);
+
+        chunk.forEach((doc) => {
+          batch.update(doc.ref, {
+            status: 'expired',
+            expiredAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+        });
+
+        await batch.commit();
+      }
+
+      console.log(`[expireOldTaxiEntries] Successfully updated ${docs.length} entries to 'expired' status in ${collName}.`);
+    } catch (err) {
+      console.error(`[expireOldTaxiEntries] Error updating ${collName}:`, err);
+    }
+  }
+});
