@@ -144,9 +144,17 @@ class NotificationService {
     final incomingChatId = message.data['chatId'];
     final senderId = message.data['senderId'];
     if (incomingChatId != null && incomingChatId == ChatService.activeChatId) {
+      // ✅ Пользователь в чате → прочитано (2 синие галочки)
       if (senderId != null) ChatService.markAsRead(senderId);
       return;
     }
+
+    // ✅ WhatsApp-style: пользователь онлайн, получил уведомление, но не в чате
+    // → ставим "доставлено" (2 серые галочки)
+    if (incomingChatId != null && senderId != null) {
+      ChatService.markAsDelivered(senderId, incomingChatId);
+    }
+
 
     // ✅ NOTE: We do NOT call saveNotificationToFirestore here.
     // Notifications are already saved to Firestore at the time of sending

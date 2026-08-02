@@ -99,12 +99,24 @@ class MainApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
+      // ✅ 'ug' (уйгурский) не поддерживается GlobalMaterialLocalizations,
+      // поэтому Flutter сам сделает fallback на ближайший поддерживаемый locale.
+      // localeResolutionCallback ниже гарантирует безопасный fallback на 'ru'.
       supportedLocales: const [
         Locale('ru', 'RU'),
         Locale('kk', 'KZ'),
-        Locale('ug'),
         Locale('en', 'US'),
       ],
+      localeResolutionCallback: (locale, supportedLocales) {
+        // Уйгурский (`ug`) и любой другой неподдерживаемый язык
+        // безопасно фоллбэчится на русский.
+        for (final supported in supportedLocales) {
+          if (supported.languageCode == (locale?.languageCode ?? 'ru')) {
+            return supported;
+          }
+        }
+        return const Locale('ru', 'RU');
+      },
       locale: config.locale,
     );
   }

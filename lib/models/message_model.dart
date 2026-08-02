@@ -7,6 +7,7 @@ class MessageModel {
   final String type; // text, voice, image, offer
   final DateTime timestamp;
   final bool isRead;
+  final bool isDelivered; // ✅ WhatsApp-style: доставлено получателю
   final String? mediaUrl;
   final int? duration;
   final String? offerPrice;
@@ -19,6 +20,7 @@ class MessageModel {
     required this.type,
     required this.timestamp,
     this.isRead = false,
+    this.isDelivered = false,
     this.mediaUrl,
     this.duration,
     this.offerPrice,
@@ -32,6 +34,7 @@ class MessageModel {
       'type': type,
       'timestamp': Timestamp.now(),
       'isRead': isRead,
+      'isDelivered': isDelivered,
       'mediaUrl': mediaUrl,
       'duration': duration,
       'offerPrice': offerPrice,
@@ -47,6 +50,7 @@ class MessageModel {
       type: map['type'] ?? 'text',
       timestamp: (map['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
       isRead: map['isRead'] ?? false,
+      isDelivered: map['isDelivered'] ?? map['isRead'] ?? false, // fallback: если прочитано — значит доставлено
       mediaUrl: map['mediaUrl'],
       duration: map['duration'],
       offerPrice: map['offerPrice']?.toString(),

@@ -519,6 +519,7 @@ class ChatService {
   }
 
   /// Mark all messages as read for current user
+  /// ✅ WhatsApp-style: также устанавливает isDelivered: true
   static Future<void> markAsRead(String sellerId, {String? targetChatId}) async {
     final uid = UserService.currentUid;
     if (uid == null) return;
@@ -545,6 +546,7 @@ class ChatService {
         for (var doc in unreadMessages.docs) {
           batch.update(doc.reference, {
             'isRead': true,
+            'isDelivered': true, // ✅ если прочитано — значит доставлено
             'readAt': FieldValue.serverTimestamp(),
           });
         }
@@ -553,6 +555,31 @@ class ChatService {
     } catch (e, stack) {
       debugPrint('[ChatService.markAsRead] Error: $e');
       AnalyticsService.logFirestorePermissionError(e, stack, chatId, 'write', 'mark_as_read');
+    }
+  }
+
+  /// ✅ WhatsApp-style: помечает сообщения как ДОСТАВЛЕННЫЕ (две серые галочки) без пометки прочитано.
+  /// Вызывается когда получатель онлайн (открыл приложение), но не открыл чат.
+  static Future<void> markAsDelivered(String senderId, String chatId) async {
+    try {
+      final undelivered = await _db
+          .collection('chats')
+          .doc(chatId)
+          .collection('messages')
+          .where('senderId', isEqualTo: senderId)
+          .where('isDelivered', isEqualTo: false)
+          .get();
+
+      if (undelivered.docs.isNotEmpty) {
+        final batch = _db.batch();
+        for (var doc in undelivered.docs) {
+          batch.update(doc.reference, {'isDelivered': true});
+        }
+        await batch.commit();
+        debugPrint('[ChatService.markAsDelivered] Marked ${undelivered.docs.length} messages as delivered in $chatId');
+      }
+    } catch (e) {
+      debugPrint('[ChatService.markAsDelivered] Error: $e');
     }
   }
 

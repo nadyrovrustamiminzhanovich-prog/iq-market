@@ -22,7 +22,7 @@ class ChatDateHeader extends StatelessWidget {
     } else if (now.day - 1 == date.day && now.month == date.month && now.year == date.year) {
       text = TranslationService.t('yesterday', lang);
     } else {
-      final locale = lang == 'Қазақша' ? 'kk' : (lang == 'Уйғурчә' ? 'ug' : 'ru');
+      final locale = lang == 'Қазақша' ? 'kk' : 'ru'; // 'ug' не поддерживается пакетом intl
       text = DateFormat('d MMMM', locale).format(date);
     }
     return Center(

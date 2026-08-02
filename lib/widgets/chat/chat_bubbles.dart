@@ -189,13 +189,11 @@ class _ChatBubbleState extends State<ChatBubble> {
                     ),
                     if (isMe) ...[
                       const SizedBox(width: 4),
-                      Icon(
-                        widget.msg.isRead ? Icons.done_all_rounded : Icons.done_rounded, 
-                        size: 15, 
-                        color: widget.msg.isRead 
-                            ? (widget.msg.type == 'offer' ? const Color(0xFF0284C7) : const Color(0xFF38BDF8))
-                            : (widget.msg.type == 'offer' ? const Color(0xFF94A3B8) : Colors.white60),
-                      ),
+                      // ✅ WhatsApp-style галочки:
+                      // 1 серая  = отправлено (isDelivered: false, isRead: false)
+                      // 2 серые  = доставлено (isDelivered: true,  isRead: false)
+                      // 2 синие  = прочитано  (isRead: true)
+                      _buildCheckmarks(widget.msg),
                     ],
                   ]),
                 ]),
@@ -399,10 +397,35 @@ class _ChatBubbleState extends State<ChatBubble> {
       default:          return TranslationService.t('offer_pending', widget.lang);
     }
   }
+
+  /// ✅ WhatsApp-style галочки:
+  /// • 1 серая  = сообщение отправлено на сервер (isDelivered: false, isRead: false)
+  /// • 2 серые  = доставлено получателю, но не прочитано (isDelivered: true, isRead: false)
+  /// • 2 синие  = прочитано (isRead: true)
+  Widget _buildCheckmarks(MessageModel msg) {
+    final bool isOffer = msg.type == 'offer';
+
+    // Цвет галочек
+    final Color blueColor  = isOffer ? const Color(0xFF0284C7) : const Color(0xFF38BDF8);
+    final Color greyColor  = isOffer ? const Color(0xFF94A3B8) : Colors.white60;
+
+    if (msg.isRead) {
+      // ══ 2 СИНИЕ галочки ════════════════════════════════
+      return Icon(Icons.done_all_rounded, size: 15, color: blueColor);
+    }
+
+    if (msg.isDelivered) {
+      // ══ 2 СЕРЫЕ галочки ════════════════════════════════
+      return Icon(Icons.done_all_rounded, size: 15, color: greyColor);
+    }
+
+    // ══ 1 СЕРАЯ галочка ════════════════════════════════
+    return Icon(Icons.done_rounded, size: 15, color: greyColor);
+  }
 }
 
-
 class _AudioPlayerWidget extends StatelessWidget {
+
   final MessageModel msg;
   final bool isMe;
   final Color color;
