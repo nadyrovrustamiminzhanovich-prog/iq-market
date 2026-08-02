@@ -177,6 +177,25 @@ class _PostAdScreenState extends State<PostAdScreen> {
       }
       _phoneController.text = _phoneMask.maskText(localDigits);
     }
+    if (ad.extraFields != null) {
+      _selectedSubCategory = ad.extraFields!['subCategory'] as String?;
+      if (ad.category == 'Авто') {
+        _carBrand = ad.extraFields!['carBrand'] as String?;
+        _carModel = ad.extraFields!['carModel'] as String?;
+        _carYear = ad.extraFields!['carYear'] as String?;
+        _carBody = ad.extraFields!['carBody'] as String?;
+        _carTransmission = ad.extraFields!['carTransmission'] as String?;
+        _carDrive = ad.extraFields!['carDrive'] as String?;
+        _carFuel = ad.extraFields!['carFuel'] as String?;
+        _carColor = ad.extraFields!['carColor'] as String?;
+        _carMileageController.text = ad.extraFields!['carMileage']?.toString() ?? '';
+        _carEngineController.text = ad.extraFields!['carEngine']?.toString() ?? '';
+      } else if (ad.category == 'Недвижимость') {
+        _reRooms = ad.extraFields!['reRooms'] as String?;
+        _reFloor = ad.extraFields!['reFloor'] as String?;
+        _reAreaController.text = ad.extraFields!['reArea']?.toString() ?? '';
+      }
+    }
   }
 
   @override

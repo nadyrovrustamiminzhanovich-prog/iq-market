@@ -305,20 +305,24 @@ class AdService {
         }
       }
 
-      // Get original ad owner if editing (to prevent changing userId and failing firestore rules)
+      // Get original ad owner & stats if editing (to prevent changing userId and failing firestore rules)
       String finalUserId = user.uid;
       String finalUserName = user.displayName ?? 'Пользователь';
       String finalUserEmail = user.email ?? '';
+      int existingViews = 0;
+      int existingFavorites = 0;
 
       if (initialAdId != null) {
         try {
           final existingAdDoc = await _adsCollection.doc(initialAdId).get();
           if (existingAdDoc.exists) {
             final existingData = existingAdDoc.data() as Map<String, dynamic>?;
-            if (existingData != null && existingData.containsKey('userId')) {
-              finalUserId = existingData['userId'];
-              finalUserName = existingData['userName'] ?? finalUserName;
-              finalUserEmail = existingData['userEmail'] ?? finalUserEmail;
+            if (existingData != null) {
+              if (existingData.containsKey('userId')) finalUserId = existingData['userId'];
+              if (existingData.containsKey('userName')) finalUserName = existingData['userName'] ?? finalUserName;
+              if (existingData.containsKey('userEmail')) finalUserEmail = existingData['userEmail'] ?? finalUserEmail;
+              existingViews = existingData['views'] ?? 0;
+              existingFavorites = existingData['favorites'] ?? 0;
             }
           }
         } catch (e) {
@@ -354,6 +358,8 @@ class AdService {
         userEmail: finalUserEmail,
         userPhone: userPhone,
         timestamp: DateTime.now(),
+        views: existingViews,
+        favoritesCount: existingFavorites,
         location: location,
         condition: condition,
         isBargainAllowed: bargain,
@@ -673,7 +679,21 @@ class AdService {
       if (!doc.exists) return;
       final oldAd = AdModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
 
-      // 2. Авто-обновление поисковых токенов при изменении текста
+      // 2. 🔒 Strip protected keys (views, favorites, userId) for non-admins so Firestore Security Rules pass cleanly
+      final String? currentUid = _auth.currentUser?.uid;
+      bool isAdmin = false;
+      if (currentUid != null) {
+        final userData = await UserService.getUserById(currentUid);
+        isAdmin = userData?.accountType == 'admin';
+      }
+
+      if (!isAdmin) {
+        updates.remove('views');
+        updates.remove('favorites');
+        updates.remove('userId');
+      }
+
+      // 3. Авто-обновление поисковых токенов при изменении текста
       final String title = updates['title'] ?? oldAd.title;
       final String description = updates['description'] ?? oldAd.description;
       final String category = updates['category'] ?? oldAd.category;
@@ -686,7 +706,7 @@ class AdService {
         location: location,
       );
 
-      // 3. Выполняем обновление
+      // 4. Выполняем обновление
       await _adsCollection.doc(adId).update(updates);
 
       // 3. Логика уведомления о снижении цены

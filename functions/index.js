@@ -1179,25 +1179,19 @@ exports.incrementViewCount = functions.https.onCall(async (data, context) => {
       );
     }
 
-    // 2. Чтение лога дедупликации
+    // 2. Чтение лога вечной дедупликации (1 Уникальный Пользователь = 1 Просмотр НАВСЕГДА)
     const logSnap = await transaction.get(logRef);
-    const now = Date.now();
 
     if (logSnap.exists) {
-      const lastViewedAt = logSnap.data().lastViewedAt;
-      if (lastViewedAt) {
-        const lastViewedMs = lastViewedAt.toDate().getTime();
-        const diffMs = now - lastViewedMs;
-        if (diffMs < 60 * 60 * 1000) { // 1 час
-          return { success: false, reason: 'duplicate' };
-        }
-      }
+      // Пользователь уже просматривал это объявление ранее -> блокируем повторный инкремент
+      return { success: false, reason: 'duplicate' };
     }
 
-    // 3. Запись лога с TTL-полем createdAt
+    // 3. Запись бессрочного лога уникального просмотра
     transaction.set(logRef, {
-      lastViewedAt: admin.firestore.FieldValue.serverTimestamp(),
-      createdAt: admin.firestore.FieldValue.serverTimestamp() // для TTL политики (удаление через 24 часа)
+      firstViewedAt: admin.firestore.FieldValue.serverTimestamp(),
+      userId: userId,
+      listingId: listingId
     });
 
     // 4. Атомарный инкремент счетчика просмотров прямо в документе объявления ads/{listingId}

@@ -739,7 +739,121 @@ class _IQMarketHomeState extends State<IQMarketHome> with WidgetsBindingObserver
     ),
   );
   
-  void _navToTaxi(AppConfigProvider config) => Navigator.push(context, MaterialPageRoute(builder: (_) => TaxiServiceScreen(lang: config.language)));
+  void _navToTaxi(AppConfigProvider config) {
+    if (_isAdmin) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => TaxiServiceScreen(lang: config.language)),
+      );
+    } else {
+      _showTaxiComingSoonDialog(config.language);
+    }
+  }
+
+  void _showTaxiComingSoonDialog(String lang) {
+    String title;
+    String desc;
+    String btnText;
+
+    if (lang == 'Уйғурчә') {
+      title = '🚀 Тәкшилик: Такси хизмити йеқин арида ишке қошулиду!';
+      desc = 'Биз IQ-Market Такси хизмитини сиз үчүн бәк қолайлиқ вә бихәтәр қилип тәйярлаватимиз. Тез арада йеңи йоллар вә арзан баһалар билән хизмитиңиздә болиду!';
+      btnText = 'Уқтум, күтидим';
+    } else if (lang == 'Қазақша') {
+      title = '🚀 Такси қызметі жақында іске қосылады!';
+      desc = 'Бұл бөлімді сіздер үшін мейлінше ыңғайлы, қауіпсіз және тиімді ету үшін соңғы дайындықтарды аяқтап жатырмыз. Жақында іске қосылады!';
+      btnText = 'Түсінікті, күтемін!';
+    } else {
+      title = '🚀 Сервис Такси скоро откроется!';
+      desc = 'Мы завершаем последние приготовления, чтобы поездки по району и межгороду были максимально комфортными, безопасными и выгодными. Запуск уже очень скоро!';
+      btnText = 'Отлично, жду!';
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        backgroundColor: Colors.white,
+        elevation: 16,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFF59E0B).withValues(alpha: 0.35),
+                      blurRadius: 16,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.local_taxi_rounded,
+                  color: Colors.white,
+                  size: 36,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  color: const Color(0xFF0F172A),
+                  height: 1.3,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                desc,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: const Color(0xFF64748B),
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF4A80F0),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    textStyle: GoogleFonts.inter(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  child: Text(btnText),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
   void _showDetails(AdModel ad) {
     final lang = Provider.of<AppConfigProvider>(context, listen: false).language;
     Navigator.push(context, MaterialPageRoute(builder: (_) => ProductDetailsScreen(ad: ad, lang: lang, onReport: (_){}, heroPrefix: 'home_')));
