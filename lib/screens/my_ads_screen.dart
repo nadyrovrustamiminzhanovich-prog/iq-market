@@ -167,6 +167,10 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
 
   Widget _buildAdCard(AdModel ad) {
     final bool isPending = ad.status == 'pending';
+    // Отклонено модератором (через Telegram-бот или админку) — статус ставится
+    // напрямую в Firestore, документ не удаляется. Нельзя путать с обычным
+    // архивом: см. isRejected ниже — там запрещена мгновенная реактивация.
+    final bool isRejected = ad.status == 'rejected';
     // FIX: pending-объявления тоже хранятся с active == false — без исключения
     // isPending они ошибочно считались "архивными" (двойной бейдж + кнопка
     // "Активировать", публикующая объявление в обход модерации).
@@ -238,7 +242,16 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
                               child: Text(TranslationService.t('badgeUnderReview', widget.lang), style: GoogleFonts.inter(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
                             ),
                           ),
-                        if (isArchived)
+                        if (isRejected)
+                          Positioned(
+                            top: 4, left: 4,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(color: const Color(0xFFEF4444), borderRadius: BorderRadius.circular(6)),
+                              child: Text(TranslationService.t('badgeRejected', widget.lang), style: GoogleFonts.inter(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
+                            ),
+                          ),
+                        if (isArchived && !isRejected)
                           Positioned(
                             top: 4, left: 4,
                             child: Container(
@@ -271,19 +284,6 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
                               ],
                             ],
                           ),
-                          if (!isPending && !isArchived && ad.expiresAt != null) ...[
-                            const SizedBox(height: 6),
-                            Row(
-                              children: [
-                                Icon(Icons.schedule_rounded, size: 12, color: isNearExpiry ? const Color(0xFFF97316) : Colors.grey[500]),
-                                const SizedBox(width: 4),
-                                Text(
-                                  _daysLeftText(ad.expiresAt!.difference(DateTime.now()).inDays),
-                                  style: GoogleFonts.inter(fontSize: 11.5, fontWeight: FontWeight.w600, color: isNearExpiry ? const Color(0xFFF97316) : Colors.grey[500]),
-                                ),
-                              ],
-                            ),
-                          ],
                           const SizedBox(height: 8),
                           Row(
                             children: [
@@ -302,14 +302,14 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
                 ),
               ),
             ),
-            _buildCardActions(ad, isArchived, isPending, isNearExpiry),
+            _buildCardActions(ad, isArchived, isPending, isNearExpiry, isRejected),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildCardActions(AdModel ad, bool isArchived, bool isPending, bool isNearExpiry) {
+  Widget _buildCardActions(AdModel ad, bool isArchived, bool isPending, bool isNearExpiry, bool isRejected) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: const BoxDecoration(
@@ -363,27 +363,32 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  flex: 2,
-                  child: SizedBox(
-                    height: 38,
-                    child: ElevatedButton.icon(
-                      onPressed: () => _extendAd(ad.id),
-                      icon: const Icon(Icons.rocket_launch_rounded, size: 15, color: Colors.white),
-                      label: Text(
-                        'Активировать (+30д)',
-                        style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.white),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF10B981),
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        padding: EdgeInsets.zero,
+                // FIX: отклонённое модератором (Telegram/админка) объявление
+                // НЕ должно мочь мгновенно вернуться в ленту без повторной
+                // проверки — только через "Редактировать" (снова идёт на ИИ-модерацию).
+                if (!isRejected) ...[
+                  const SizedBox(width: 8),
+                  Expanded(
+                    flex: 2,
+                    child: SizedBox(
+                      height: 38,
+                      child: ElevatedButton.icon(
+                        onPressed: () => _extendAd(ad.id),
+                        icon: const Icon(Icons.rocket_launch_rounded, size: 15, color: Colors.white),
+                        label: Text(
+                          'Активировать (+30д)',
+                          style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.white),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF10B981),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          padding: EdgeInsets.zero,
+                        ),
                       ),
                     ),
                   ),
-                ),
+                ],
                 const SizedBox(width: 8),
               ] else ...[
                 Expanded(
@@ -490,20 +495,6 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
         );
       }
     }
-  }
-
-  /// Счётчик оставшихся дней до истечения объявления (30-дневный цикл), с
-  /// корректным склонением для русского ("1 день" / "3 дня" / "5 дней").
-  String _daysLeftText(int daysLeft) {
-    final int days = daysLeft < 0 ? 0 : daysLeft;
-    if (widget.lang == 'Қазақша') return '$days күн қалды';
-    if (widget.lang == 'Уйғурчә') return '$days күн қалди';
-    final int n = days % 100;
-    final int n1 = n % 10;
-    final String word = (n > 10 && n < 20)
-        ? 'дней'
-        : (n1 == 1 ? 'день' : (n1 >= 2 && n1 <= 4 ? 'дня' : 'дней'));
-    return days == 0 ? 'Истекает сегодня' : 'Осталось $days $word';
   }
 
   Widget _miniTag(String label, Color color) => Container(
