@@ -44,9 +44,9 @@
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['offerStatus'])
             && request.resource.data.offerStatus == 'cancelled'
           ) ||
-          // 3. Only the recipient (not the sender) marking messages as read
+          // 3. Only the recipient (not the sender) marking messages as read/delivered
           (
-            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead'])
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead', 'isDelivered', 'readAt'])
             && request.auth.uid != resource.data.senderId
           ) ||
           // 4. Only the RECEIVER of an offer can change its status (accept/reject) while pending

@@ -46,8 +46,8 @@ class ChatBubble extends StatefulWidget {
     this.lang = 'Русский',
   });
 
-  final VoidCallback? onAcceptOffer;
-  final VoidCallback? onDeclineOffer;
+  final Future<void> Function()? onAcceptOffer;
+  final Future<void> Function()? onDeclineOffer;
   final VoidCallback? onWriteOffer;
   final VoidCallback? onVoiceOffer;
   final VoidCallback? onCallOffer;
@@ -246,7 +246,7 @@ class _ChatBubbleState extends State<ChatBubble> {
                       onPressed: _isOfferLoading ? null : () async {
                         setState(() => _isOfferLoading = true);
                         try {
-                          await Future.microtask(() => widget.onDeclineOffer?.call());
+                          await widget.onDeclineOffer?.call();
                         } finally {
                           if (mounted) setState(() => _isOfferLoading = false);
                         }
@@ -289,7 +289,7 @@ class _ChatBubbleState extends State<ChatBubble> {
                       onPressed: _isOfferLoading ? null : () async {
                         setState(() => _isOfferLoading = true);
                         try {
-                          await Future.microtask(() => widget.onAcceptOffer?.call());
+                          await widget.onAcceptOffer?.call();
                         } finally {
                           if (mounted) setState(() => _isOfferLoading = false);
                         }

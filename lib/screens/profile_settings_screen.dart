@@ -458,83 +458,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                     ),
                     const SizedBox(height: 12),
                   ] else ...[
-                    _buildTextField(_t('phone_label'), _phoneController, Icons.phone_android_rounded, formatters: [_phoneMask]),
-                    const SizedBox(height: 10),
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF0088CC).withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: const Color(0xFF0088CC).withValues(alpha: 0.25), width: 1.2),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: const BoxDecoration(
-                                  color: Color(0xFF0088CC),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(Icons.telegram_rounded, color: Colors.white, size: 20),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  'Укажите ваш номер телефона',
-                                  style: GoogleFonts.plusJakartaSans(
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 14,
-                                    color: _txtColor,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Укажите контактный номер телефона, чтобы с вами могли быстро связаться водители, пассажиры или покупатели.',
-                            style: GoogleFonts.inter(
-                              fontSize: 12.5,
-                              color: _subtxtColor,
-                              height: 1.4,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(height: 14),
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton.icon(
-                              onPressed: () async {
-                                try {
-                                  final taxiProvider = Provider.of<TaxiProvider>(context, listen: false);
-                                  final verified = await TelegramVerificationDialog.show(context, provider: taxiProvider);
-                                  if (verified == true && mounted) {
-                                    _loadFirestoreUserData();
-                                  }
-                                } catch (e) {
-                                  debugPrint('Verification error: $e');
-                                }
-                              },
-                              icon: const Icon(Icons.phone_outlined, size: 18),
-                              label: Text(
-                                'ПОДТВЕРДИТЬ НОМЕР ЧЕРЕЗ TELEGRAM',
-                                style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w900, fontSize: 12),
-                              ),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF0088CC),
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 12),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                                elevation: 0,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                    _buildTextField(_t('phone_label'), _phoneController, Icons.phone_android_rounded, formatters: [_phoneMask], hintText: '+7 (700) 000-00-00'),
                     const SizedBox(height: 12),
                   ],
                   if (_userEmail.isNotEmpty)
@@ -987,12 +911,13 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
 
   Widget _buildDivider() => Divider(height: 1, color: _subtxtColor.withValues(alpha: 0.1), indent: 70, endIndent: 20);
 
-  Widget _buildTextField(String label, TextEditingController controller, IconData icon, {List<TextInputFormatter>? formatters, int? maxLength}) => _PremiumTextField(
+  Widget _buildTextField(String label, TextEditingController controller, IconData icon, {List<TextInputFormatter>? formatters, int? maxLength, String? hintText}) => _PremiumTextField(
     label: label,
     controller: controller,
     icon: icon,
     formatters: formatters,
     maxLength: maxLength,
+    hintText: hintText,
     primaryColor: _primaryColor,
     secondaryColor: _secondaryColor,
     surfaceColor: _surfaceColor,
@@ -1996,6 +1921,7 @@ class _PremiumTextField extends StatefulWidget {
   final IconData icon;
   final List<TextInputFormatter>? formatters;
   final int? maxLength;
+  final String? hintText;
   final Color primaryColor;
   final Color secondaryColor;
   final Color surfaceColor;
@@ -2009,6 +1935,7 @@ class _PremiumTextField extends StatefulWidget {
     required this.icon,
     this.formatters,
     this.maxLength,
+    this.hintText,
     required this.primaryColor,
     required this.secondaryColor,
     required this.surfaceColor,
@@ -2116,11 +2043,17 @@ class _PremiumTextFieldState extends State<_PremiumTextField> {
                     fontWeight: FontWeight.w800,
                     fontSize: 16.0,
                   ),
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     border: InputBorder.none,
                     isDense: true,
                     contentPadding: EdgeInsets.zero,
                     counterText: '',
+                    hintText: widget.hintText,
+                    hintStyle: GoogleFonts.inter(
+                      color: widget.subtxtColor.withValues(alpha: 0.4),
+                      fontWeight: FontWeight.w500,
+                      fontSize: 16.0,
+                    ),
                   ),
                 ),
               ],

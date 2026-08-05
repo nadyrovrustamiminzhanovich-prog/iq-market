@@ -25,8 +25,7 @@ import 'package:iqmarket/services/ad_service.dart';
 import 'package:iqmarket/services/notification_service.dart';
 import 'package:iqmarket/services/storage_service.dart';
 import 'package:iqmarket/screens/seller_profile_screen.dart';
-import 'package:iqmarket/screens/profile_settings_screen.dart';
-
+import 'package:iqmarket/widgets/phone_required_bottom_sheet.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:iqmarket/services/analytics_service.dart';
@@ -364,7 +363,21 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (Provider.of<AppConfigProvider>(context, listen: false).isUserBlocked(_otherUserId)) return;
     final text = _msgController.text.trim();
     if (text.isEmpty) return;
-    
+
+    final currentUserUid = UserService.currentUid;
+    final currentUserModel = currentUserUid != null ? await UserService.getUserById(currentUserUid) : null;
+    final userPhone = (currentUserModel?.phone.isNotEmpty == true)
+        ? currentUserModel!.phone
+        : (StorageService.getString('user_phone') ?? '');
+
+    if (userPhone.trim().isEmpty) {
+      final saved = await PhoneRequiredBottomSheet.showInput(
+        context,
+        subtitle: 'Укажите ваш номер телефона, чтобы собеседник и администраторы могли связаться с вами при необходимости.',
+      );
+      if (!saved) return;
+    }
+
     final backupText = _msgController.text;
     _typingTimer?.cancel();
     _msgController.clear();
@@ -1186,12 +1199,20 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   onProfileTap: _navigateToSellerProfile,
                   firestore: widget.firestore,
                   onCall: () async {
-                    final phoneNum = _otherUserPhone ?? widget.ad.userPhone ?? '';
-                    if (phoneNum.isNotEmpty) {
+                    final phoneNum = (_otherUserPhone != null && _otherUserPhone!.isNotEmpty)
+                        ? _otherUserPhone!
+                        : (widget.ad.userPhone ?? '');
+                    if (phoneNum.trim().isNotEmpty) {
                       final url = Uri.parse('tel:$phoneNum');
                       if (await canLaunchUrl(url)) await launchUrl(url);
                     } else {
-                      NotificationService.notify(context, TranslationService.t('error_title', lang), TranslationService.t('no_phone_error', lang), isSuccess: false);
+                      PhoneRequiredBottomSheet.showMissingNotice(
+                        context,
+                        targetUserName: widget.ad.userName,
+                        onChatTap: () {
+                          _msgFocusNode.requestFocus();
+                        },
+                      );
                     }
                   },
                 ),
@@ -1301,8 +1322,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             NotificationService.notify(context, TranslationService.t('voice_reply_title', lang), TranslationService.t('voice_reply_desc', lang), isSuccess: true);
           },
           onCallOffer: () async {
-            final phoneNum = _otherUserPhone ?? widget.ad.userPhone ?? '';
-            if (phoneNum.isNotEmpty) {
+            final phoneNum = (_otherUserPhone != null && _otherUserPhone!.isNotEmpty)
+                ? _otherUserPhone!
+                : (widget.ad.userPhone ?? '');
+            if (phoneNum.trim().isNotEmpty) {
               final url = Uri.parse('tel:$phoneNum');
               try {
                 if (await canLaunchUrl(url)) {
@@ -1322,7 +1345,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 }
               }
             } else {
-              NotificationService.notify(context, TranslationService.t('error_title', lang), TranslationService.t('no_phone_error', lang), isSuccess: false);
+              PhoneRequiredBottomSheet.showMissingNotice(
+                context,
+                targetUserName: widget.ad.userName,
+                onChatTap: () {
+                  _msgFocusNode.requestFocus();
+                },
+              );
             }
           },
         );

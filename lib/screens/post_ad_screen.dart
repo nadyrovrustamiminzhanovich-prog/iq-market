@@ -25,6 +25,7 @@ import 'package:iqmarket/services/translation_service.dart';
 import 'package:iqmarket/services/category_auto_detector.dart';
 import 'package:iqmarket/screens/help_center_screen.dart';
 
+import 'package:iqmarket/widgets/phone_required_bottom_sheet.dart';
 import '../widgets/post_ad/post_ad_components.dart';
 import '../widgets/post_ad/category_specs_widgets.dart';
 
@@ -714,13 +715,22 @@ class _PostAdScreenState extends State<PostAdScreen> {
           _isLoading = false;
           _isSubmitting = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(TranslationService.t('err_fill_phone', widget.lang)),
-            backgroundColor: Colors.redAccent,
-            behavior: SnackBarBehavior.floating,
-          )
+        final saved = await PhoneRequiredBottomSheet.showInput(
+          context,
+          subtitle: 'Для публикации объявления необходимо указать контактный номер телефона.',
         );
+        if (saved) {
+          final updatedPhone = UserService.currentUid != null ? (await UserService.getUserById(UserService.currentUid!))?.phone : null;
+          final phoneToUse = (updatedPhone?.isNotEmpty == true) ? updatedPhone! : (StorageService.getString('user_phone') ?? '');
+          if (phoneToUse.isNotEmpty) {
+            final digits = phoneToUse.replaceAll(RegExp(r'\D'), '');
+            String localDigits = digits;
+            if (digits.length == 11 && (digits.startsWith('7') || digits.startsWith('8'))) {
+              localDigits = digits.substring(1);
+            }
+            _phoneController.text = _phoneMask.maskText(localDigits);
+          }
+        }
       } else {
         _isSubmitting = false;
       }

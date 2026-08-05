@@ -15,6 +15,7 @@ import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:iqmarket/widgets/report_user_sheet.dart';
 import 'package:iqmarket/widgets/secure_image_viewer.dart';
+import 'package:iqmarket/widgets/phone_required_bottom_sheet.dart';
 
 class SellerProfileScreen extends StatefulWidget {
   final AdModel seller;
@@ -754,7 +755,18 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
           const SizedBox(width: 12),
           InkWell(
             onTap: () async {
-              final uri = Uri.parse('tel:${widget.seller.userPhone ?? '+77000000000'}');
+              final phoneNum = widget.seller.userPhone ?? '';
+              if (phoneNum.trim().isEmpty || phoneNum == '+77000000000') {
+                PhoneRequiredBottomSheet.showMissingNotice(
+                  context,
+                  targetUserName: widget.seller.userName,
+                  onChatTap: () {
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => ChatScreen(ad: widget.seller)));
+                  },
+                );
+                return;
+              }
+              final uri = Uri.parse('tel:$phoneNum');
               try {
                 if (await canLaunchUrl(uri)) {
                   await launchUrl(uri);

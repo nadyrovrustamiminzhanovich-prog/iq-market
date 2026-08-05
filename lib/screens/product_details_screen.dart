@@ -30,7 +30,8 @@ import 'package:iqmarket/screens/post_ad_screen.dart';
 import 'package:iqmarket/services/chat_service.dart';
 import 'package:iqmarket/widgets/auth_gate_bottom_sheet.dart';
 import 'package:iqmarket/services/translation_service.dart';
-import 'package:iqmarket/widgets/product_details/report_ad_sheet.dart';
+import 'package:iqmarket/widgets/phone_required_bottom_sheet.dart';
+import 'package:iqmarket/services/storage_service.dart';
 import 'package:iqmarket/widgets/product_details/fullscreen_video_player.dart';
 
 
@@ -1120,7 +1121,25 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                 return;
               }
               _incrementCallCount();
-              final uri = Uri.parse('tel:${widget.ad.userPhone}');
+              final targetPhone = widget.ad.userPhone ?? '';
+              if (targetPhone.trim().isEmpty) {
+                PhoneRequiredBottomSheet.showMissingNotice(
+                  context,
+                  targetUserName: widget.ad.userName,
+                  onChatTap: () async {
+                    if (FirebaseAuth.instance.currentUser == null) {
+                      await AuthGateBottomSheet.show(
+                        context,
+                        message: TranslationService.t('auth_chat_prompt', widget.lang),
+                      );
+                      return;
+                    }
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => ChatScreen(ad: widget.ad)));
+                  },
+                );
+                return;
+              }
+              final uri = Uri.parse('tel:$targetPhone');
               try {
                 if (await canLaunchUrl(uri)) {
                   await launchUrl(uri);
@@ -1183,6 +1202,21 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
         message: TranslationService.t('auth_bargain_prompt', widget.lang),
       );
       return;
+    }
+
+    // Проверяем наличие номера телефона у покупателя перед предлогом цены
+    final currentUid = FirebaseAuth.instance.currentUser!.uid;
+    final currentUserModel = await UserService.getUserById(currentUid);
+    final userPhone = (currentUserModel?.phone.isNotEmpty == true)
+        ? currentUserModel!.phone
+        : (StorageService.getString('user_phone') ?? '');
+
+    if (userPhone.trim().isEmpty) {
+      final saved = await PhoneRequiredBottomSheet.showInput(
+        context,
+        subtitle: 'Чтобы продавец мог связаться с вами по поводу вашего предложения, пожалуйста, укажите ваш номер телефона.',
+      );
+      if (!saved) return;
     }
     final currentPrice = widget.ad.price;
     final initialPrice = currentPrice > 0 ? (currentPrice * 0.9).toInt() : 0;

@@ -183,9 +183,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _isGuest = false; // Auto-recover from Guest if a user document is loaded
           }
 
+          final String currentUid = user?.uid ?? UserService.currentUid ?? '';
           final String displayName = _isGuest ? _t('guest') : (user?.name ?? _localName);
           final String photoUrl = user?.photoUrl ?? '';
-
 
           return CustomScrollView(
             physics: const BouncingScrollPhysics(),
@@ -276,7 +276,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w800, color: _txtColor, letterSpacing: -0.3),
                       ),
                     ),
-                    if (!_isGuest && user != null) ...[
+                    if (!_isGuest && currentUid.isNotEmpty) ...[
                       const SizedBox(height: 10),
                       Column(
                         mainAxisSize: MainAxisSize.min,
@@ -284,10 +284,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         children: [
                           GestureDetector(
                             onTap: () {
-                              Clipboard.setData(ClipboardData(text: user.uid));
+                              Clipboard.setData(ClipboardData(text: currentUid));
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: Text(_t('idCopiedMsg').replaceAll('{uid}', user.uid)),
+                                  content: Text(_t('idCopiedMsg').replaceAll('{uid}', currentUid)),
                                   behavior: SnackBarBehavior.floating,
                                   duration: const Duration(seconds: 2),
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -305,7 +305,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Text(
-                                    'ID: ${user.uid.length > 8 ? user.uid.substring(0, 8) : user.uid}',
+                                    'ID: ${currentUid.length > 8 ? currentUid.substring(0, 8) : currentUid}',
                                     style: GoogleFonts.firaCode(
                                       fontSize: 12,
                                       fontWeight: FontWeight.bold,
@@ -690,98 +690,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildVerificationSection() {
-    if (_isGuest || _isVerified) return const SizedBox.shrink();
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Container(
-        width: double.infinity,
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF0088CC), Color(0xFF229ED9)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF0088CC).withValues(alpha: 0.2), 
-              blurRadius: 10, 
-              offset: const Offset(0, 4),
-            )
-          ],
-        ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(16),
-            onTap: () => _showVerificationBottomSheet(),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.telegram, 
-                      color: Colors.white, 
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Верификация через Telegram',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 13, 
-                            fontWeight: FontWeight.w800, 
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(height: 1),
-                        Text(
-                          'Подтвердите ваш номер телефона',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 11, 
-                            fontWeight: FontWeight.w600, 
-                            color: Colors.white.withValues(alpha: 0.9),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      'Пройти',
-                      style: GoogleFonts.inter(
-                        color: const Color(0xFF0088CC),
-                        fontWeight: FontWeight.w800,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
+    return const SizedBox.shrink();
   }
 
+  // ignore: unused_element
   void _showVerificationBottomSheet() {
     _tgCode = '';
     _sheetError = null;
