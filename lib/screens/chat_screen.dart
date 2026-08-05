@@ -18,6 +18,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:iqmarket/services/translation_service.dart';
 
 import 'package:iqmarket/constants/voice_limits_config.dart';
+import 'package:iqmarket/constants/chat_limits_config.dart';
 import 'package:iqmarket/services/chat_service.dart';
 import 'package:iqmarket/services/user_service.dart';
 import 'package:iqmarket/services/file_service.dart';
@@ -1043,15 +1044,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
   }
 
-  void _pickMedia(ImageSource source) async {
+  void _pickMedia() async {
     final lang = Provider.of<AppConfigProvider>(context, listen: false).language;
     if (Provider.of<AppConfigProvider>(context, listen: false).isUserBlocked(_otherUserId)) return;
     final picker = ImagePicker();
-    XFile? file;
+    List<XFile> files;
     try {
-      file = await picker.pickImage(source: source, imageQuality: 70);
+      // До ChatLimitsConfig.maxPhotosPerBatch фото за один выбор — раньше
+      // можно было выбрать только одно фото за тап (pickImage), теперь
+      // мультивыбор (pickMultiImage), каждое фото уходит своим сообщением.
+      files = await picker.pickMultiImage(imageQuality: 70, limit: ChatLimitsConfig.maxPhotosPerBatch);
     } catch (e) {
-      debugPrint("Error picking chat image: $e");
+      debugPrint("Error picking chat images: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(TranslationService.t('errOpenGalleryCamera', lang).replaceAll('{error}', e.toString())), backgroundColor: Colors.redAccent, behavior: SnackBarBehavior.floating),
@@ -1059,60 +1063,75 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       }
       return;
     }
-    
-    if (file != null) {
-      try {
-        final chatId = ChatService.getChatId(_otherUserId);
-        await ChatService.createChatIfNeeded(widget.ad, recipientId: _otherUserId);
 
-        // Раньше фото в чат грузились почти в оригинальном разрешении (только
-        // imageQuality:70 при пикинге — это просто пережатие JPEG, без ресайза).
-        // Сжимаем так же, как остальные фото в приложении (отзывы, аватар,
-        // документы водителя) — быстрее отправка, меньше трафика.
-        File uploadFile = File(file.path);
-        final compressed = await FileService.compressImage(File(file.path));
-        if (compressed != null) uploadFile = compressed;
+    if (files.isEmpty) return;
 
-        _updateMyTyping(false);
-        final msgId = await ChatService.sendMessage(
-          ad: widget.ad,
-          text: 'Фото',
-          type: 'image',
-          mediaUrl: '', // empty means uploading!
-          senderName: _currentUserName,
-          recipientId: _otherUserId,
+    // Некоторые платформы игнорируют `limit` (см. докстринг pickMultiImage) —
+    // подрезаем на клиенте на всякий случай.
+    if (files.length > ChatLimitsConfig.maxPhotosPerBatch) {
+      files = files.sublist(0, ChatLimitsConfig.maxPhotosPerBatch);
+    }
+
+    try {
+      final chatId = ChatService.getChatId(_otherUserId);
+      await ChatService.createChatIfNeeded(widget.ad, recipientId: _otherUserId);
+
+      // Отправляем по очереди (не все параллельно) — чтобы сообщения легли
+      // в чат в предсказуемом порядке и не устраивать залповую нагрузку на
+      // канал при отправке 3 фото сразу на слабой сети.
+      for (final file in files) {
+        await _sendOnePickedImage(file, chatId, lang);
+      }
+    } catch (e, stack) {
+      final String cid = ChatService.getChatId(_otherUserId);
+      AnalyticsService.logStoragePermissionError(e, stack, 'chat_media/$cid');
+      FirebaseCrashlytics.instance.recordError(
+        e,
+        stack,
+        reason: 'Error sending photo in chat',
+        information: ['chatId: $cid'],
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(TranslationService.t('errPrefix', lang).replaceAll('{error}', e.toString())), backgroundColor: Colors.redAccent, behavior: SnackBarBehavior.floating),
         );
+      }
+    }
+  }
 
-        if (msgId != null) {
-          if (mounted) {
-            setState(() {
-              _localImagePaths[msgId] = uploadFile.path;
-            });
-          }
-          _playSentSound();
-          _scrollToBottom();
-          _uploadImageWithRetry(msgId, uploadFile.path, chatId);
-        } else {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(TranslationService.t('errSendPhoto', lang)), backgroundColor: Colors.redAccent, behavior: SnackBarBehavior.floating),
-            );
-          }
-        }
-      } catch (e, stack) {
-        final String cid = ChatService.getChatId(_otherUserId);
-        AnalyticsService.logStoragePermissionError(e, stack, 'chat_media/$cid');
-        FirebaseCrashlytics.instance.recordError(
-          e,
-          stack,
-          reason: 'Error sending photo in chat',
-          information: ['chatId: $cid'],
+  Future<void> _sendOnePickedImage(XFile file, String chatId, String lang) async {
+    // Раньше фото в чат грузились почти в оригинальном разрешении (только
+    // imageQuality:70 при пикинге — это просто пережатие JPEG, без ресайза).
+    // Сжимаем так же, как остальные фото в приложении (отзывы, аватар,
+    // документы водителя) — быстрее отправка, меньше трафика.
+    File uploadFile = File(file.path);
+    final compressed = await FileService.compressImage(File(file.path));
+    if (compressed != null) uploadFile = compressed;
+
+    _updateMyTyping(false);
+    final msgId = await ChatService.sendMessage(
+      ad: widget.ad,
+      text: 'Фото',
+      type: 'image',
+      mediaUrl: '', // empty means uploading!
+      senderName: _currentUserName,
+      recipientId: _otherUserId,
+    );
+
+    if (msgId != null) {
+      if (mounted) {
+        setState(() {
+          _localImagePaths[msgId] = uploadFile.path;
+        });
+      }
+      _playSentSound();
+      _scrollToBottom();
+      _uploadImageWithRetry(msgId, uploadFile.path, chatId);
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(TranslationService.t('errSendPhoto', lang)), backgroundColor: Colors.redAccent, behavior: SnackBarBehavior.floating),
         );
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(TranslationService.t('errPrefix', lang).replaceAll('{error}', e.toString())), backgroundColor: Colors.redAccent, behavior: SnackBarBehavior.floating),
-          );
-        }
       }
     }
   }
@@ -1292,7 +1311,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 recordCancelText: cancelText,
                 onToggleEmoji: () => setState(() => _showEmoji = !_showEmoji),
                 onTextChanged: (v) => _updateMyTyping(v.isNotEmpty),
-                onAttach: () => _pickMedia(ImageSource.gallery),
+                onAttach: () => _pickMedia(),
                 onSend: _sendMessage,
                 onLongPressStart: _startRecording,
                 onLongPressEnd: _stopRecording,
