@@ -487,6 +487,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   Future<void> _handleRecordingCancelled() async {
     if (!_isRecording) return;
+    // Синхронно "забираем" право на остановку ДО первого await — если
+    // _stopRecording() будет вызван почти одновременно (свайп-отмена и
+    // отпускание пальца практически в один момент), его собственная проверка
+    // `if (!_isRecording) return;` увидит уже false и ничего не сделает.
+    // Без этого оба метода могли параллельно вызвать _recorder.stop().
+    _isRecording = false;
+    if (mounted) setState(() {});
     _isCancelled = true;
     _recordTimer?.cancel();
     final path = await _recorder.stop();
@@ -518,7 +525,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _recordTimer?.cancel();
     final lang = Provider.of<AppConfigProvider>(context, listen: false).language;
     if (!_isRecording) return;
-    
+    // Та же синхронная блокировка, что и в _handleRecordingCancelled — см.
+    // комментарий там. Закрывает гонку в обе стороны.
+    _isRecording = false;
+    if (mounted) setState(() {});
+
     String? path;
     try {
       await Future.delayed(const Duration(milliseconds: 200));
@@ -526,8 +537,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     } catch (e) {
       debugPrint('Error stopping voice recorder: $e');
     }
-    if (mounted) setState(() => _isRecording = false);
-    
+
     if (_isCancelled) {
       await _cancelRecording(path);
       return;
