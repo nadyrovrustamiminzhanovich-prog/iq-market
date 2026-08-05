@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -509,11 +510,54 @@ class NotificationService {
   }
 }
 
+// Обязательная аннотация для FCM background handler на Android — без неё
+// AOT-компилятор в релизной сборке может не найти точку входа для колбэка,
+// вызываемого из нативного кода при закрытом/свёрнутом приложении.
+@pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   debugPrint('Handling background message: ${message.messageId}');
-  AnalyticsService.logPushNavigation('push_received', extra: {
-    'message_id': message.messageId ?? '',
-    'type': message.data['type'] ?? '',
-    'state': 'background'
-  });
+
+  // Фоновый handler выполняется в ОТДЕЛЬНОМ isolate без уже инициализированного
+  // Firebase основного приложения — нужна собственная инициализация, иначе
+  // любой вызов Firebase* (включая AnalyticsService ниже) кидает исключение.
+  // Раньше именно так и было: логирование аналитики здесь стояло ДО какой-либо
+  // инициализации Firebase — в реальном background/killed сценарии оно скорее
+  // всего просто падало молча (RemoteMessage handler глотает необработанные
+  // ошибки на нативной стороне), то есть push_received с state:background
+  // мог никогда не долетать до аналитики.
+  try {
+    await Firebase.initializeApp();
+  } catch (e) {
+    debugPrint('[BG_HANDLER] Firebase.initializeApp error (possibly already initialized): $e');
+  }
+
+  try {
+    AnalyticsService.logPushNavigation('push_received', extra: {
+      'message_id': message.messageId ?? '',
+      'type': message.data['type'] ?? '',
+      'state': 'background'
+    });
+  } catch (e) {
+    debugPrint('[BG_HANDLER] Analytics error: $e');
+  }
+
+  // ✅ WhatsApp-style "доставлено" (2 серые галочки) должно ставиться, как
+  // только сообщение реально дошло до устройства получателя — вне зависимости
+  // от того, открыто приложение или нет. Раньше markAsDelivered вызывался
+  // ТОЛЬКО из foreground-обработчика (_onForegroundMessage/_handleDataMessage):
+  // если у получателя приложение было свёрнуто или закрыто в момент прихода
+  // сообщения, статус молча оставался на "1 серая" вплоть до момента, когда
+  // получатель сам открывал чат — и тогда сразу перескакивал на "2 синие",
+  // пропуская промежуточное "доставлено" целиком.
+  try {
+    final chatId = message.data['chatId'];
+    final senderId = message.data['senderId'];
+    if (message.data['type'] == 'chat' &&
+        chatId != null && chatId.isNotEmpty &&
+        senderId != null && senderId.isNotEmpty) {
+      await ChatService.markAsDelivered(senderId, chatId);
+    }
+  } catch (e) {
+    debugPrint('[BG_HANDLER] markAsDelivered error: $e');
+  }
 }
