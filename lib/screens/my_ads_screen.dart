@@ -89,7 +89,11 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
             final allAds = snapshot.data!;
             final activeAds = allAds.where((ad) => ad.active && ad.status == 'active').toList();
             final pendingAds = allAds.where((ad) => ad.status == 'pending').toList();
-            final archivedAds = allAds.where((ad) => !ad.active || ad.status == 'archived' || ad.status == 'archive').toList();
+            // FIX: объявления на модерации (status == 'pending') хранятся с active == false,
+            // поэтому без явного исключения они попадали ещё и сюда — дублировались во
+            // вкладке "Архив" и получали там кнопку "Активировать (+30д)", которая
+            // публикует объявление напрямую, в обход ИИ-модерации.
+            final archivedAds = allAds.where((ad) => ad.status != 'pending' && (!ad.active || ad.status == 'archived' || ad.status == 'archive')).toList();
 
             return TabBarView(
               children: [
@@ -163,7 +167,10 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
 
   Widget _buildAdCard(AdModel ad) {
     final bool isPending = ad.status == 'pending';
-    final bool isArchived = !ad.active || ad.status == 'archived' || ad.status == 'archive';
+    // FIX: pending-объявления тоже хранятся с active == false — без исключения
+    // isPending они ошибочно считались "архивными" (двойной бейдж + кнопка
+    // "Активировать", публикующая объявление в обход модерации).
+    final bool isArchived = !isPending && (!ad.active || ad.status == 'archived' || ad.status == 'archive');
     final DateTime now = DateTime.now();
     final bool isNearExpiry = ad.expiresAt != null && ad.expiresAt!.difference(now).inDays <= 3;
 
@@ -264,6 +271,19 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
                               ],
                             ],
                           ),
+                          if (!isPending && !isArchived && ad.expiresAt != null) ...[
+                            const SizedBox(height: 6),
+                            Row(
+                              children: [
+                                Icon(Icons.schedule_rounded, size: 12, color: isNearExpiry ? const Color(0xFFF97316) : Colors.grey[500]),
+                                const SizedBox(width: 4),
+                                Text(
+                                  _daysLeftText(ad.expiresAt!.difference(DateTime.now()).inDays),
+                                  style: GoogleFonts.inter(fontSize: 11.5, fontWeight: FontWeight.w600, color: isNearExpiry ? const Color(0xFFF97316) : Colors.grey[500]),
+                                ),
+                              ],
+                            ),
+                          ],
                           const SizedBox(height: 8),
                           Row(
                             children: [
@@ -470,6 +490,20 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
         );
       }
     }
+  }
+
+  /// Счётчик оставшихся дней до истечения объявления (30-дневный цикл), с
+  /// корректным склонением для русского ("1 день" / "3 дня" / "5 дней").
+  String _daysLeftText(int daysLeft) {
+    final int days = daysLeft < 0 ? 0 : daysLeft;
+    if (widget.lang == 'Қазақша') return '$days күн қалды';
+    if (widget.lang == 'Уйғурчә') return '$days күн қалди';
+    final int n = days % 100;
+    final int n1 = n % 10;
+    final String word = (n > 10 && n < 20)
+        ? 'дней'
+        : (n1 == 1 ? 'день' : (n1 >= 2 && n1 <= 4 ? 'дня' : 'дней'));
+    return days == 0 ? 'Истекает сегодня' : 'Осталось $days $word';
   }
 
   Widget _miniTag(String label, Color color) => Container(
