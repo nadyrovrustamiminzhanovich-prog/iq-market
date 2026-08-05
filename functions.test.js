@@ -133,6 +133,17 @@ class HttpsError extends Error {
 
 const mockLoggerError = jest.fn();
 
+// Builder mock matching the real v1 ScheduleBuilder: .onRun() is available
+// directly off schedule(), AND after an optional chained .timeZone() call —
+// functions/index.js uses both forms (with and without .timeZone()).
+const mockScheduleBuilder = (handler) => handler;
+const mockSchedule = (cron) => ({
+  onRun: mockScheduleBuilder,
+  timeZone: (tz) => ({
+    onRun: mockScheduleBuilder
+  })
+});
+
 jest.mock('firebase-functions/v1', () => ({
   logger: {
     error: mockLoggerError
@@ -145,11 +156,7 @@ jest.mock('firebase-functions/v1', () => ({
     })
   },
   pubsub: {
-    schedule: (cron) => ({
-      timeZone: (tz) => ({
-        onRun: (handler) => handler
-      })
-    })
+    schedule: mockSchedule
   },
   https: {
     onCall: (handler) => handler,
@@ -160,7 +167,12 @@ jest.mock('firebase-functions/v1', () => ({
     object: () => ({
       onFinalize: (handler) => handler
     })
-  }
+  },
+  region: (regionName) => ({
+    pubsub: {
+      schedule: mockSchedule
+    }
+  })
 }), { virtual: true });
 
 // Now require telegram_bot.js to spy on exports
