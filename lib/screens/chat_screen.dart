@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart' show setEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -94,6 +95,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   final Map<String, String> _localImagePaths = {};
   bool _showEmoji = false;
   DateTime? _lastTypingSentTime;
+  // Раньше markAsRead вызывался на КАЖДОЙ перерисовке StreamBuilder, пока
+  // оставалось хоть одно непрочитанное сообщение — лишний запрос+запись в
+  // Firestore на каждый ре-снапшот (в т.ч. двойной fire локальный кэш+сервер).
+  // Теперь вызываем повторно только если набор непрочитанных id реально
+  // изменился с прошлого раза.
+  Set<String> _lastMarkAsReadUnreadIds = {};
   // 🔒 AudioPlayer stream subscriptions — хранятся явно для отмены в dispose()
   StreamSubscription? _audioPositionSub;
   StreamSubscription? _audioDurationSub;
@@ -660,9 +667,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
 
     if (mounted) {
+      final lang = Provider.of<AppConfigProvider>(context, listen: false).language;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Файл больше недоступен на устройстве. Удалите сообщение (долгий тап) и отправьте заново.'),
+        SnackBar(
+          content: Text(TranslationService.t('errFileGoneRetry', lang)),
           backgroundColor: Colors.redAccent,
           behavior: SnackBarBehavior.floating,
         ),
@@ -734,16 +742,17 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           _activeUploads.remove(msgId);
         });
         if (!attached) {
+          final lang = Provider.of<AppConfigProvider>(context, listen: false).language;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: const Row(
+              content: Row(
                 children: [
-                  Icon(Icons.warning_amber_rounded, color: Colors.white, size: 18),
-                  SizedBox(width: 10),
+                  const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 18),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Файл загружен, но не удалось прикрепить сообщение. Нажмите на сообщение, чтобы повторить.',
-                      style: TextStyle(fontWeight: FontWeight.w600),
+                      TranslationService.t('errVoiceAttachFailed', lang),
+                      style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
                   ),
                 ],
@@ -776,16 +785,17 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           setState(() {
             _activeUploads.remove(msgId);
           });
+          final lang = Provider.of<AppConfigProvider>(context, listen: false).language;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: const Row(
+              content: Row(
                 children: [
-                  Icon(Icons.cloud_off_rounded, color: Colors.white, size: 18),
-                  SizedBox(width: 10),
+                  const Icon(Icons.cloud_off_rounded, color: Colors.white, size: 18),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Не удалось загрузить голосовое. Нажмите на сообщение, чтобы повторить.',
-                      style: TextStyle(fontWeight: FontWeight.w600),
+                      TranslationService.t('errVoiceUploadFailedRetry', lang),
+                      style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
                   ),
                 ],
@@ -827,9 +837,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           _activeUploads.remove(msgId);
         });
         if (!attached) {
+          final lang = Provider.of<AppConfigProvider>(context, listen: false).language;
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Файл загружен, но не удалось обновить ссылку на фото. Нажмите на фото, чтобы повторить.'),
+            SnackBar(
+              content: Text(TranslationService.t('errPhotoAttachFailed', lang)),
               backgroundColor: Colors.orangeAccent,
             ),
           );
@@ -855,9 +866,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           setState(() {
             _activeUploads.remove(msgId);
           });
+          final lang = Provider.of<AppConfigProvider>(context, listen: false).language;
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Не удалось отправить фото. Нажмите на фото, чтобы повторить.'),
+            SnackBar(
+              content: Text(TranslationService.t('errPhotoUploadFailedRetry', lang)),
               backgroundColor: Colors.redAccent,
             ),
           );
@@ -1275,8 +1287,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   final messages = snapshot.data ?? [];
                   if (messages.isEmpty) return _buildEmptyState();
                   
-                  // ✅ Real-time WhatsApp read receipt trigger: mark unread incoming messages as read
-                  if (messages.any((m) => m.senderId == _otherUserId && !m.isRead)) {
+                  // ✅ Real-time WhatsApp read receipt trigger: mark unread incoming messages as read.
+                  // Вызываем только если набор непрочитанных id изменился с прошлого
+                  // раза — иначе один и тот же ещё-не-подтверждённый набор дёргал бы
+                  // markAsRead на каждый ре-снапшот (локальный кэш + серверное ack).
+                  final unreadIds = messages
+                      .where((m) => m.senderId == _otherUserId && !m.isRead)
+                      .map((m) => m.id)
+                      .toSet();
+                  if (unreadIds.isNotEmpty && !setEquals(unreadIds, _lastMarkAsReadUnreadIds)) {
+                    _lastMarkAsReadUnreadIds = unreadIds;
                     WidgetsBinding.instance.addPostFrameCallback((_) {
                       ChatService.markAsRead(_otherUserId, targetChatId: ChatService.activeChatId);
                     });
@@ -1405,9 +1425,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       itemCount: groupedItems.length,
       itemBuilder: (context, index) {
         final item = groupedItems[index];
-        if (item is DateTime) return ChatDateHeader(date: item);
+        if (item is DateTime) return ChatDateHeader(key: ValueKey('date_${item.millisecondsSinceEpoch}'), date: item);
         final msg = item as MessageModel;
         return ChatBubble(
+          // Раньше без key Flutter сопоставлял виджеты списка по индексу, а не
+          // по личности сообщения. При reverse:true новые сообщения вставляются
+          // в начало и сдвигают индексы всех остальных — без key это вызывало
+          // (а) лишний ре-рендер всего видимого списка при каждом тике позиции
+          // аудиоплеера (setState на _currentPos), и (б) утечку state виджета
+          // (например _isOfferLoading) на ЧУЖОЕ сообщение после сдвига.
+          key: ValueKey(msg.id),
           msg: msg,
           lang: lang,
           sellerAvatarUrl: _sellerAvatarUrl,

@@ -20,6 +20,31 @@ class ChatsListScreen extends StatefulWidget {
 class _ChatsListScreenState extends State<ChatsListScreen> {
   int _retryCounter = 0;
 
+  /// Превью последнего сообщения на языке ЧИТАЮЩЕГО, а не на языке, на
+  /// котором его отправили. Раньше 'Фото'/'Голосовое сообщение' писались в
+  /// lastMessage как есть на русском и показывались так же всем — теперь
+  /// переводим по lastMessageType, а сырой текст оставляем только для
+  /// реальных текстовых сообщений (их переводить нельзя, это чужие слова).
+  /// Старые чаты без lastMessageType (созданные до этого фикса) просто
+  /// показывают сырой текст как раньше — обратная совместимость.
+  String _formatLastMessagePreview(Map<String, dynamic> chat, String rawLastMsg, String lang) {
+    final String? type = chat['lastMessageType'];
+    switch (type) {
+      case 'image':
+        return TranslationService.t('chatPreviewPhoto', lang);
+      case 'audio':
+        return TranslationService.t('chatPreviewVoice', lang);
+      case 'offer':
+        final price = (chat['lastOfferPrice'] as num?)?.toInt();
+        final label = TranslationService.t('chatPreviewOffer', lang);
+        return price != null ? '$label: $price ₸' : label;
+      case 'cleared':
+        return TranslationService.t('chatPreviewCleared', lang);
+      default:
+        return rawLastMsg;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -212,7 +237,8 @@ class _ChatsListScreenState extends State<ChatsListScreen> {
             itemCount: chats.length,
             itemBuilder: (context, index) {
               final chat = chats[index];
-              final String lastMsg = chat['lastMessage'] ?? '';
+              final String rawLastMsg = chat['lastMessage'] ?? '';
+              final String lastMsg = _formatLastMessagePreview(chat, rawLastMsg, lang);
               final Timestamp? ts = chat['lastTimestamp'] as Timestamp?;
               final String time = ts != null ? _formatTimestamp(ts) : '';
               final int unreadCount = chat['unreadCount_$uid'] ?? 0;

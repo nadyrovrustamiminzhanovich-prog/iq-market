@@ -243,7 +243,7 @@ class ChatAdInfoBar extends StatelessWidget {
                       const Icon(Icons.check_circle_rounded, color: Color(0xFF4D7C0F), size: 14),
                       const SizedBox(width: 4),
                       Text(
-                        'Договорились ✓',
+                        TranslationService.t('chatTaxiAgreed', lang),
                         style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w800, color: const Color(0xFF4D7C0F)),
                       ),
                     ],
@@ -267,7 +267,7 @@ class ChatAdInfoBar extends StatelessWidget {
                   );
                 },
                 icon: const Icon(Icons.handshake_rounded, size: 16),
-                label: const Text('Договорились', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                label: Text(TranslationService.t('chatTaxiAgreeBtn', lang), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF84CC16),
                   foregroundColor: Colors.white,
@@ -332,11 +332,11 @@ class ChatAdInfoBar extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 24),
-            _infoRow(Icons.person_rounded, 'Собеседник', ad.userName),
+            _infoRow(Icons.person_rounded, TranslationService.t('chatTaxiCounterpart', lang), ad.userName),
             const SizedBox(height: 16),
-            _infoRow(Icons.payments_rounded, 'Стоимость', '${ad.price.toInt()} ₸'),
+            _infoRow(Icons.payments_rounded, TranslationService.t('chatTaxiCost', lang), '${ad.price.toInt()} ₸'),
             const SizedBox(height: 16),
-            _infoRow(Icons.info_outline_rounded, 'Тип чата', 'Чат по поездке (IQ-Taxi)'),
+            _infoRow(Icons.info_outline_rounded, TranslationService.t('chatTaxiChatType', lang), TranslationService.t('chatTaxiRideChatDesc', lang)),
             const SizedBox(height: 32),
             SizedBox(
               width: double.infinity,

@@ -117,6 +117,12 @@ class ChatService {
       // Update last message in chat summary (creates chat doc first to satisfy rules)
       final summaryData = {
         'lastMessage': text,
+        // Раньше превью в списке чатов хранило и показывало сырой русский
+        // текст ('Фото'/'Голосовое сообщение') независимо от языка читающего.
+        // lastMessageType позволяет chats_list_screen.dart отрендерить
+        // переведённую подпись, оставив lastMessage как fallback для типа
+        // 'text' (реальный текст пользователя переводить не нужно и нельзя).
+        'lastMessageType': type,
         'lastTimestamp': Timestamp.now(),
         'lastSenderId': uid,
         'isRead': false,
@@ -209,6 +215,10 @@ class ChatService {
       // get(.../chats/chatId).data.users — без документа → permission-denied.
       final summaryData = {
         'lastMessage': text,
+        'lastMessageType': 'offer',
+        // Цена хранится отдельно (число), чтобы превью в списке чатов могло
+        // показать переведённую подпись + цену, не парся строку lastMessage.
+        'lastOfferPrice': price,
         'lastTimestamp': Timestamp.now(),
         'lastSenderId': uid,
         'isRead': false,
@@ -688,6 +698,7 @@ class ChatService {
     
     batch.update(_db.collection('chats').doc(chatId), {
       'lastMessage': 'Чат очищен',
+      'lastMessageType': 'cleared',
       'unreadCount_${UserService.currentUid}': 0,
       'lastTimestamp': Timestamp.now(),
     });

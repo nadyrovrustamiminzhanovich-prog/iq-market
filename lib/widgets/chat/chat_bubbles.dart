@@ -245,8 +245,14 @@ class _ChatBubbleState extends State<ChatBubble> {
           Builder(
             builder: (context) {
               final double priceVal = double.tryParse(widget.msg.offerPrice ?? '0') ?? 0.0;
-              final formattedPrice = priceVal > 0 
-                  ? '${NumberFormat.decimalPattern('ru').format(priceVal.toInt())} ₸' 
+              // 'kk' поддержан пакетом intl — используем честную локаль для
+              // казахского. 'ug' не поддержан (NumberFormat бросил бы
+              // ArgumentError на неизвестной локали) — для уйгурского и
+              // русского безопасно остаёмся на 'ru' (формат разделителей тот
+              // же, разницы для пользователя нет, а падения не будет).
+              final numLocale = widget.lang == 'Қазақша' ? 'kk' : 'ru';
+              final formattedPrice = priceVal > 0
+                  ? '${NumberFormat.decimalPattern(numLocale).format(priceVal.toInt())} ₸'
                   : '0 ₸';
               return Text(formattedPrice, style: const TextStyle(color: Color(0xFF0F172A), fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: -0.5));
             },
