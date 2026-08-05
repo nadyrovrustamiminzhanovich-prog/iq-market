@@ -371,19 +371,6 @@ class _IqSupportScreenState extends State<IqSupportScreen>
                         child: const Icon(Icons.smart_toy_rounded,
                             color: Colors.white, size: 26),
                       ),
-                      Positioned(
-                        right: 0,
-                        bottom: 0,
-                        child: Container(
-                          width: 12,
-                          height: 12,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF10B981),
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 2),
-                          ),
-                        ),
-                      ),
                     ],
                   ),
                   const SizedBox(width: 12),
@@ -400,26 +387,13 @@ class _IqSupportScreenState extends State<IqSupportScreen>
                             letterSpacing: 0.3,
                           ),
                         ),
-                        Row(
-                          children: [
-                            Container(
-                              width: 6,
-                              height: 6,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFF10B981),
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 5),
-                            Text(
-                              'IQ GPT • Online',
-                              style: GoogleFonts.inter(
-                                color: Colors.white.withValues(alpha: 0.85),
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
+                        Text(
+                          'IQ GPT',
+                          style: GoogleFonts.inter(
+                            color: Colors.white.withValues(alpha: 0.85),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ],
                     ),

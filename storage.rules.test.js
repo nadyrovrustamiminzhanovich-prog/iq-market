@@ -360,33 +360,39 @@ describe("storage: voice_messages/{chatId}/", () => {
 });
 
 // ──────────────────────────────────────────
-// ТЕСТЫ: /ads/ (медиафайлы объявлений)
-// По правилам: read — публично, write — любой авторизованный (медиа < 50MB)
+// ТЕСТЫ: /ads/{uid}/ (медиафайлы объявлений)
+// По правилам: read — публично, write — только владелец папки (или admin), медиа < 50MB
 // ──────────────────────────────────────────
-describe("storage: ads/ (public read, auth write)", () => {
+describe("storage: ads/{uid}/ (public read, owner-only write)", () => {
   const userId = "user_ads_001";
+  const otherUserId = "user_ads_002";
 
   beforeEach(async () => {
-    await adminUpload("ads/images/photo.jpg");
+    await adminUpload(`ads/${userId}/images/photo.jpg`);
   });
 
   test("анонимный может читать медиа объявления (публично)", async () => {
-    const storageRef = ref(anonStorage(), "ads/images/photo.jpg");
+    const storageRef = ref(anonStorage(), `ads/${userId}/images/photo.jpg`);
     await assertSucceeds(getDownloadURL(storageRef));
   });
 
-  test("авторизованный пользователь может загрузить изображение объявления", async () => {
-    const storageRef = ref(userStorage(userId), "ads/images/new_photo.jpg");
+  test("владелец может загрузить изображение в свою папку объявлений", async () => {
+    const storageRef = ref(userStorage(userId), `ads/${userId}/images/new_photo.jpg`);
     await assertSucceeds(uploadBytes(storageRef, SMALL_IMAGE, IMAGE_META));
   });
 
-  test("анонимный НЕ может загрузить медиа объявления", async () => {
-    const storageRef = ref(anonStorage(), "ads/images/anon.jpg");
+  test("другой авторизованный пользователь НЕ может загрузить файл в чужую папку объявлений", async () => {
+    const storageRef = ref(userStorage(otherUserId), `ads/${userId}/images/hacked.jpg`);
     await assertFails(uploadBytes(storageRef, SMALL_IMAGE, IMAGE_META));
   });
 
-  test("авторизованный НЕ может загрузить не-медиафайл в ads (только image/* или video/*)", async () => {
-    const storageRef = ref(userStorage(userId), "ads/docs/report.pdf");
+  test("анонимный НЕ может загрузить медиа объявления", async () => {
+    const storageRef = ref(anonStorage(), `ads/${userId}/images/anon.jpg`);
+    await assertFails(uploadBytes(storageRef, SMALL_IMAGE, IMAGE_META));
+  });
+
+  test("владелец НЕ может загрузить не-медиафайл в ads (только image/* или video/*)", async () => {
+    const storageRef = ref(userStorage(userId), `ads/${userId}/docs/report.pdf`);
     await assertFails(uploadBytes(storageRef, SMALL_IMAGE, { contentType: "application/pdf" }));
   });
 });

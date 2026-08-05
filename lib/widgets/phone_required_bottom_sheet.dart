@@ -138,7 +138,7 @@ class _PhoneRequiredBottomSheetState extends State<PhoneRequiredBottomSheet> wit
 
     try {
       // Сохраняем номер локально и в Firestore
-      await StorageService.saveString('user_phone', fullPhone);
+      await StorageService.setString('user_phone', fullPhone);
       await UserService.updateUserProfile({'phone': fullPhone});
 
       if (mounted) {

@@ -208,7 +208,7 @@ class AdService {
       for (int i = 0; i < compressedImages.length; i++) {
         if (onStatusUpdate != null) onStatusUpdate('Загрузка фото ${i + 1}/${compressedImages.length}...');
         final file = compressedImages[i];
-        final url = await FileService.uploadFile(file, 'ads/images');
+        final url = await FileService.uploadFile(file, 'ads/$_userId/images');
         if (url != null) {
           imageUrls.add(url);
           newlyUploadedUrls.add(url);
@@ -220,7 +220,7 @@ class AdService {
       // 3. Загрузка оптимизированного видео
       if (video != null) {
         if (onStatusUpdate != null) onStatusUpdate('Загрузка видео...');
-        videoUrl = await FileService.uploadFile(video, 'ads/videos');
+        videoUrl = await FileService.uploadFile(video, 'ads/$_userId/videos');
         if (videoUrl != null) {
           newlyUploadedUrls.add(videoUrl);
         }
@@ -234,7 +234,7 @@ class AdService {
               quality: 75,
               position: 100, // 100ms is safer than -1 which often fails
             );
-            final thumbnailUrl = await FileService.uploadFile(thumbnailFile, 'ads/images');
+            final thumbnailUrl = await FileService.uploadFile(thumbnailFile, 'ads/$_userId/images');
             if (thumbnailUrl != null) {
               imageUrls.add(thumbnailUrl);
               newlyUploadedUrls.add(thumbnailUrl);

@@ -394,6 +394,7 @@ class ChatService {
 
     // ── Уведомление покупателю (принято / отклонено) ─────────────────────────
     if (offerBuyerId != null) {
+      final sellerName = StorageService.getString('user_name') ?? 'Продавец';
       NotificationService.saveNotificationToFirestore(
         uid: offerBuyerId,
         title: status == 'accepted' ? 'Предложение принято! ✅' : 'Предложение отклонено ❌',
@@ -402,6 +403,11 @@ class ChatService {
         data: {
           'chatId': chatId,
           'adId': offerAdId,
+          'adTitle': offerAdTitle,
+          // 🔒 FIX: senderId обязателен для навигации из списка уведомлений
+          // (notifications_screen.dart молча ничего не делает без него).
+          'senderId': uid,
+          'senderName': sellerName,
         },
       ).catchError((e) {
         debugPrint('[CHAT_SERVICE] Notification sending failed (non-blocking): $e');

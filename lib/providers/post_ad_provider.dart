@@ -83,7 +83,7 @@ class PostAdProvider extends ChangeNotifier {
           autoCorrectionAngle: true,
         );
 
-        final uploadFuture = FileService.uploadFile(File(compressedFile?.path ?? file.path), 'ads/images');
+        final uploadFuture = FileService.uploadFile(File(compressedFile?.path ?? file.path), 'ads/${user.uid}/images');
         final url = await uploadFuture.timeout(const Duration(seconds: 15), onTimeout: () => throw TimeoutException('Слишком медленный интернет для фото'));
         if (url != null) imageUrls.add(url);
       }
@@ -101,7 +101,7 @@ class PostAdProvider extends ChangeNotifier {
         );
         
         final fileToUpload = (mediaInfo != null && mediaInfo.path != null) ? File(mediaInfo.path!) : videoFile;
-        final uploadVideoFuture = FileService.uploadFile(fileToUpload, 'ads/videos');
+        final uploadVideoFuture = FileService.uploadFile(fileToUpload, 'ads/${user.uid}/videos');
         videoUrl = await uploadVideoFuture.timeout(const Duration(seconds: 60), onTimeout: () => throw TimeoutException('Слишком медленный интернет для видео'));
       }
 

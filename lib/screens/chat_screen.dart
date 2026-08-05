@@ -25,6 +25,7 @@ import 'package:iqmarket/services/ad_service.dart';
 import 'package:iqmarket/services/notification_service.dart';
 import 'package:iqmarket/services/storage_service.dart';
 import 'package:iqmarket/screens/seller_profile_screen.dart';
+import 'package:iqmarket/screens/profile_settings_screen.dart';
 import 'package:iqmarket/widgets/phone_required_bottom_sheet.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';

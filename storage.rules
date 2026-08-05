@@ -24,18 +24,11 @@ service firebase.storage {
       );
     }
 
-    // Медиафайлы объявлений (ads/images, ads/videos)
+    // Медиафайлы объявлений (ads/{uid}/images, ads/{uid}/videos)
     match /ads/{userId}/{allPaths=**} {
       allow read: if true;
       allow write: if isSignedIn() && (request.auth.uid == userId || isAdmin())
                    && (request.resource == null || (request.resource.size < 50 * 1024 * 1024 && request.resource.contentType.matches('image/.*|video/.*')));
-    }
-    match /ads/{allPaths=**} {
-      allow read: if true; // Читать могут все
-      allow create: if isSignedIn() 
-                    && request.resource.size < 50 * 1024 * 1024
-                    && request.resource.contentType.matches('image/.*|video/.*');
-      allow update, delete: if isSignedIn() && isAdmin();
     }
 
 
@@ -83,18 +76,11 @@ service firebase.storage {
                     && (request.resource == null || request.resource.size < 20 * 1024 * 1024);
     }
 
-    // Фото к отзывам
+    // Фото к отзывам (reviews/{uid}/...)
     match /reviews/{userId}/{allPaths=**} {
       allow read: if true;
       allow write: if isSignedIn() && (request.auth.uid == userId || isAdmin())
                    && (request.resource == null || (request.resource.size < 10 * 1024 * 1024 && request.resource.contentType.matches('image/.*')));
-    }
-    match /reviews/{allPaths=**} {
-      allow read: if true;
-      allow create: if isSignedIn()
-                    && request.resource.size < 10 * 1024 * 1024
-                    && request.resource.contentType.matches('image/.*');
-      allow update, delete: if isSignedIn() && isAdmin();
     }
 
     // Резервное правило для остальных загрузок

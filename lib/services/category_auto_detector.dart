@@ -116,7 +116,7 @@ class CategoryAutoDetector {
   };
 
   static CategoryAutoResult? detect(String title, [String description = '']) {
-    final fullText = ' '.toLowerCase();
+    final fullText = '$title $description'.toLowerCase();
     if (fullText.trim().length < 3) return null;
 
     String? bestCategory;

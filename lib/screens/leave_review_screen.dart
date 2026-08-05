@@ -129,7 +129,7 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
       // Загрузка фото с прогрессом и сжатием
       List<String> imageUrls = [];
       if (_images.isNotEmpty) {
-        imageUrls = await _uploadImagesWithProgress(_images);
+        imageUrls = await _uploadImagesWithProgress(_images, user.uid);
       }
 
       if (!mounted) return;
@@ -216,7 +216,7 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
   }
 
   /// Загружает фото последовательно, обновляя прогресс
-  Future<List<String>> _uploadImagesWithProgress(List<File> images) async {
+  Future<List<String>> _uploadImagesWithProgress(List<File> images, String uid) async {
     final List<String> urls = [];
 
     for (int i = 0; i < images.length; i++) {
@@ -227,7 +227,7 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
 
       final url = await FileService.uploadFile(
         fileToUpload,
-        'reviews',
+        'reviews/$uid',
         onProgress: (progress, attempt) {
           if (mounted) {
             setState(() {
