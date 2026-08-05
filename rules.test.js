@@ -258,6 +258,22 @@ describe("users", () => {
     );
   });
 
+  test("пользователь НЕ может сам снять себе postingRestricted", async () => {
+    await assertFails(
+      updateDoc(doc(userDb(userId), "users", userId), {
+        postingRestricted: false,
+      })
+    );
+  });
+
+  test("пользователь НЕ может изменить свой duplicateStrikeCount", async () => {
+    await assertFails(
+      updateDoc(doc(userDb(userId), "users", userId), {
+        duplicateStrikeCount: 0,
+      })
+    );
+  });
+
   test("пользователь НЕ может изменить свой isVerified на true", async () => {
     await assertFails(
       updateDoc(doc(userDb(userId), "users", userId), {
@@ -542,6 +558,33 @@ describe("fingerprints (text and image)", () => {
         createdAt: new Date(),
       })
     );
+  });
+});
+
+// ──────────────────────────────────────────
+// ТЕСТЫ: userInstallLinks (мульти-аккаунт эвристика)
+// ──────────────────────────────────────────
+describe("userInstallLinks", () => {
+  const userId = "user_test";
+  const linkId = "user_test_install-abc-123";
+
+  test("обычный пользователь НЕ может прочитать userInstallLinks", async () => {
+    await assertFails(getDoc(doc(userDb(userId), "userInstallLinks", linkId)));
+  });
+
+  test("обычный пользователь НЕ может записать в userInstallLinks", async () => {
+    await assertFails(
+      setDoc(doc(userDb(userId), "userInstallLinks", linkId), {
+        userId: userId,
+        installId: "install-abc-123",
+        lastSeenAt: new Date(),
+        adCount: 1,
+      })
+    );
+  });
+
+  test("анонимный пользователь НЕ может прочитать userInstallLinks", async () => {
+    await assertFails(getDoc(doc(anonDb(), "userInstallLinks", linkId)));
   });
 });
 

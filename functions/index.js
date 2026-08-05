@@ -6,9 +6,43 @@ const functions = require('firebase-functions/v1');
 const { onDocumentCreated, onDocumentDeleted, onDocumentUpdated } = require('firebase-functions/v2/firestore');
 const admin     = require('firebase-admin');
 const crypto    = require('crypto');
+const Jimp      = require('jimp');
 
 admin.initializeApp();
 const db = admin.firestore();
+
+// ─── Ad anti-abuse configuration ─────────────────────────────────────────────
+const MAX_ACTIVE_ADS_PER_USER = 30;         // одновременно активных объявлений на обычный аккаунт
+const MAX_NEW_ADS_PER_DAY_PER_USER = 15;    // новых публикаций (не редактирований) в сутки на аккаунт
+const ALMATY_UTC_OFFSET_HOURS = 5;          // Asia/Almaty, круглый год без перехода на летнее время
+const DUPLICATE_STRIKE_THRESHOLD = 3;       // после стольки пойманных дублей — все новые объявления аккаунта уходят на ручную проверку
+
+function getAlmatyDayStartUtc() {
+  const now = new Date();
+  const almatyNow = new Date(now.getTime() + ALMATY_UTC_OFFSET_HOURS * 60 * 60 * 1000);
+  const almatyMidnightAsUtc = Date.UTC(almatyNow.getUTCFullYear(), almatyNow.getUTCMonth(), almatyNow.getUTCDate(), 0, 0, 0);
+  return new Date(almatyMidnightAsUtc - ALMATY_UTC_OFFSET_HOURS * 60 * 60 * 1000);
+}
+
+// ─── HELPER: perceptual image hash (average hash, 8x8 → 64 bit) ─────────────
+// В отличие от точного MD5 файла, устойчив к пересжатию/ресайзу того же фото
+// (проверено вручную: distance=0 для того же фото после JPEG q60 и ресайза).
+async function computePerceptualHash(buffer) {
+  const image = await Jimp.read(buffer);
+  image.resize(8, 8).greyscale();
+  const values = [];
+  image.scan(0, 0, 8, 8, function (x, y, idx) {
+    values.push(this.bitmap.data[idx]);
+  });
+  const avg = values.reduce((a, b) => a + b, 0) / values.length;
+  let bits = '';
+  for (const v of values) bits += (v >= avg ? '1' : '0');
+  let hex = '';
+  for (let i = 0; i < 64; i += 4) {
+    hex += parseInt(bits.substr(i, 4), 2).toString(16);
+  }
+  return hex;
+}
 
 // Import Telegram functions from telegram_bot.js
 const telegramBot = require('./telegram_bot');
@@ -441,6 +475,42 @@ function getStoragePathFromUrl(urlOrPath) {
   return null;
 }
 
+// ─── HTTPS CALLABLE: checkAdRateLimit ────────────────────────────────────────
+// Защита от спам-заливки объявлений. Вызывается клиентом ДО сжатия/загрузки фото
+// (при создании НОВОГО объявления, не при редактировании), чтобы не тратить
+// впустую сжатие/аплоад, если лимит уже исчерпан.
+exports.checkAdRateLimit = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Пользователь должен быть авторизован');
+  }
+  const userId = context.auth.uid;
+
+  const userSnap = await db.collection('users').doc(userId).get();
+  const userData = userSnap.exists ? userSnap.data() : {};
+  if (userData.accountType === 'admin') {
+    return { allowed: true };
+  }
+
+  const dayStart = getAlmatyDayStartUtc();
+
+  const [activeCountSnap, dailyCountSnap] = await Promise.all([
+    db.collection('ads').where('userId', '==', userId).where('status', '==', 'active').count().get(),
+    db.collection('ads').where('userId', '==', userId).where('timestamp', '>=', admin.firestore.Timestamp.fromDate(dayStart)).count().get(),
+  ]);
+
+  const activeCount = activeCountSnap.data().count;
+  const dailyCount = dailyCountSnap.data().count;
+
+  if (activeCount >= MAX_ACTIVE_ADS_PER_USER) {
+    throw new functions.https.HttpsError('resource-exhausted', `Достигнут лимит активных объявлений (${MAX_ACTIVE_ADS_PER_USER}). Заархивируйте старые, чтобы опубликовать новое.`);
+  }
+  if (dailyCount >= MAX_NEW_ADS_PER_DAY_PER_USER) {
+    throw new functions.https.HttpsError('resource-exhausted', `Достигнут лимит новых объявлений в сутки (${MAX_NEW_ADS_PER_DAY_PER_USER}). Попробуйте завтра.`);
+  }
+
+  return { allowed: true, activeCount, dailyCount };
+});
+
 // ─── HTTPS CALLABLE: checkAdFingerprint ──────────────────────────────────────
 exports.checkAdFingerprint = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
@@ -453,6 +523,12 @@ exports.checkAdFingerprint = functions.https.onCall(async (data, context) => {
   }
 
   const userId = context.auth.uid;
+  // installId — анонимный ID установки приложения с клиента (UUID v4), используется
+  // только для эвристики "объявления с одного устройства под разными аккаунтами".
+  // Строгий формат, иначе игнорируем (fail-open, не блокируем публикацию из-за этого).
+  const installId = (typeof data.installId === 'string' && /^[a-zA-Z0-9-]{8,64}$/.test(data.installId))
+    ? data.installId
+    : null;
 
   // 1. Нормализация текста и генерация SHA-256 (Unicode-безопасно)
   const normalized = (title + ' ' + description)
@@ -461,7 +537,8 @@ exports.checkAdFingerprint = functions.https.onCall(async (data, context) => {
     .replace(/[^\p{L}\p{N}]/gu, '');
   const textHash = crypto.createHash('sha256').update(normalized).digest('hex');
 
-  // 2. Скачивание изображений и генерация MD5 на сервере
+  // 2. Скачивание изображений и генерация perceptual hash (aHash) на сервере.
+  //    В отличие от точного MD5 файла, устойчив к пересжатию/ресайзу того же фото.
   const imageHashes = [];
   const bucket = admin.storage().bucket();
   const paths = imagePaths || [];
@@ -473,7 +550,7 @@ exports.checkAdFingerprint = functions.https.onCall(async (data, context) => {
     try {
       const file = bucket.file(storagePath);
       const [contents] = await file.download();
-      const hash = crypto.createHash('md5').update(contents).digest('hex');
+      const hash = await computePerceptualHash(contents);
       imageHashes.push(hash);
     } catch (err) {
       console.warn(`[checkAdFingerprint] Skipping image ${storagePath} due to error:`, err.message);
@@ -486,7 +563,13 @@ exports.checkAdFingerprint = functions.https.onCall(async (data, context) => {
   try {
     const result = await db.runTransaction(async (transaction) => {
       // ─── A) READ PHASE ───
-      
+
+      // Читаем users/{userId} — историю дублей и флаг ограничения аккаунта
+      const userRef = db.collection('users').doc(userId);
+      const userSnap = await transaction.get(userRef);
+      const userData = userSnap.exists ? userSnap.data() : {};
+      const alreadyRestricted = userData.postingRestricted === true;
+
       // Читаем textFingerprints/{textHash}
       const textFingerprintRef = db.collection('textFingerprints').doc(textHash);
       const textFingerprintSnap = await transaction.get(textFingerprintRef);
@@ -544,26 +627,50 @@ exports.checkAdFingerprint = functions.https.onCall(async (data, context) => {
       // ─── B) VERDICT CALCULATION ───
       let localVerdict = 'CLEAN';
       let localReason = '';
+      let isGenuineDuplicateHit = false;
 
       if (existingTextAd) {
         if (textDuplicateUserId === userId) {
-          // Возвращаем специальный вердикт без throw, чтобы избежать повторных попыток транзакции
+          // Тоже считается как страйк за дубли, только потом возвращаем спец-вердикт без throw
+          transaction.set(userRef, {
+            duplicateStrikeCount: admin.firestore.FieldValue.increment(1),
+          }, { merge: true });
           return { verdict: 'DUPLICATE_SELF', reason: 'Вы уже опубликовали объявление с таким текстом' };
         } else {
           localVerdict = 'MANUAL_REVIEW';
           localReason = 'Найден дубликат текста у другого пользователя';
+          isGenuineDuplicateHit = true;
         }
       }
 
       if (activeImageDuplicates.length > 0) {
         localVerdict = 'MANUAL_REVIEW';
         localReason = `Найдено ${activeImageDuplicates.length} дубликатов изображений`;
+        isGenuineDuplicateHit = true;
+      }
+
+      // ─── B2) STRIKES & AUTO-RESTRICTION ───
+      // После N пойманных дублей — все новые объявления аккаунта уходят на ручную
+      // проверку, пока админ вручную не снимет флаг postingRestricted.
+      if (isGenuineDuplicateHit) {
+        const newStrikeCount = (userData.duplicateStrikeCount || 0) + 1;
+        const userUpdates = { duplicateStrikeCount: admin.firestore.FieldValue.increment(1) };
+        if (newStrikeCount >= DUPLICATE_STRIKE_THRESHOLD && !alreadyRestricted) {
+          userUpdates.postingRestricted = true;
+          userUpdates.postingRestrictedAt = admin.firestore.FieldValue.serverTimestamp();
+        }
+        transaction.set(userRef, userUpdates, { merge: true });
+      }
+
+      if (alreadyRestricted && localVerdict === 'CLEAN') {
+        localVerdict = 'MANUAL_REVIEW';
+        localReason = 'Аккаунт ограничен из-за повторных дублей — объявления проверяются вручную';
       }
 
       // ─── C) WRITE PHASE ───
       if (localVerdict !== 'DUPLICATE_SELF') {
         const serverTimestamp = admin.firestore.FieldValue.serverTimestamp();
-        
+
         // Записываем текстовый отпечаток, если его еще нет
         if (!textFingerprintSnap.exists) {
           transaction.set(textFingerprintRef, {
@@ -603,7 +710,31 @@ exports.checkAdFingerprint = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError('already-exists', 'Вы уже опубликовали точно такое же объявление');
   }
 
-  return { verdict, reason };
+  // 3. Мульти-аккаунт эвристика: то же installId (устройство) уже публиковало объявления
+  //    с ДРУГИХ аккаунтов. Не блокирует — только флаг для админки (fail-open при ошибке).
+  let multiAccountSuspected = false;
+  let linkedAccountsCount = 0;
+  if (installId) {
+    try {
+      const linkRef = db.collection('userInstallLinks').doc(`${userId}_${installId}`);
+      await linkRef.set({
+        userId,
+        installId,
+        lastSeenAt: admin.firestore.FieldValue.serverTimestamp(),
+        adCount: admin.firestore.FieldValue.increment(1),
+      }, { merge: true });
+
+      const sameDeviceSnap = await db.collection('userInstallLinks').where('installId', '==', installId).get();
+      const distinctUserIds = new Set(sameDeviceSnap.docs.map((d) => d.data().userId));
+      distinctUserIds.delete(userId);
+      linkedAccountsCount = distinctUserIds.size;
+      multiAccountSuspected = linkedAccountsCount > 0;
+    } catch (err) {
+      console.warn('[checkAdFingerprint] Multi-account check failed (fail-open):', err.message);
+    }
+  }
+
+  return { verdict, reason, multiAccountSuspected, linkedAccountsCount };
 });
 
 

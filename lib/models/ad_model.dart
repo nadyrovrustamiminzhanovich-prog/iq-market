@@ -26,6 +26,7 @@ class AdModel {
   final DateTime? expiresAt;
   final bool notifiedExpiry;
   final String? oldPrice;
+  final bool multiAccountSuspected;
 
 
   AdModel({
@@ -54,6 +55,7 @@ class AdModel {
     this.expiresAt,
     this.notifiedExpiry = false,
     this.oldPrice,
+    this.multiAccountSuspected = false,
   });
 
 
@@ -85,6 +87,7 @@ class AdModel {
       expiresAt: (map['expiresAt'] as Timestamp?)?.toDate(),
       notifiedExpiry: map['notifiedExpiry'] ?? false,
       oldPrice: map['oldPrice'],
+      multiAccountSuspected: map['multiAccountSuspected'] ?? false,
     );
 
   }
@@ -116,6 +119,7 @@ class AdModel {
       'expiresAt': expiresAt != null ? Timestamp.fromDate(expiresAt!) : Timestamp.fromDate(DateTime.now().add(const Duration(days: 30))),
       'notifiedExpiry': notifiedExpiry,
       'oldPrice': oldPrice,
+      'multiAccountSuspected': multiAccountSuspected,
     };
 
   }

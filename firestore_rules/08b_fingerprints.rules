@@ -7,3 +7,9 @@
     match /imageFingerprints/{docId} {
       allow read, write: if false;
     }
+
+    // Связка userId <-> installId (устройство) для эвристики мульти-аккаунтинга.
+    // Пишется и читается только из Cloud Functions через Admin SDK.
+    match /userInstallLinks/{docId} {
+      allow read, write: if false;
+    }

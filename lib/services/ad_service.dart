@@ -17,6 +17,7 @@ import 'package:iqmarket/services/user_service.dart';
 import 'package:iqmarket/services/network_service.dart';
 import 'package:iqmarket/services/telegram_bot_service.dart';
 import 'package:iqmarket/services/fallback_moderation_keywords.dart';
+import 'package:iqmarket/services/device_identity_service.dart';
 import 'package:iqmarket/utils/fuzzy_matcher.dart';
 class AdService {
   static final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -46,6 +47,22 @@ class AdService {
   }) async {
     final user = _auth.currentUser;
     if (user == null) throw Exception('Пользователь не авторизован');
+
+    // 0. Rate-limit: только для НОВЫХ объявлений (не редактирования), до сжатия
+    // фото и загрузки — чтобы не тратить впустую ресурсы, если лимит исчерпан.
+    if (initialAdId == null) {
+      try {
+        final rateLimitCallable = FirebaseFunctions.instance.httpsCallable('checkAdRateLimit');
+        await rateLimitCallable.call();
+      } on FirebaseFunctionsException catch (e) {
+        if (e.code == 'resource-exhausted') {
+          throw Exception(e.message ?? 'Достигнут лимит на публикацию объявлений');
+        }
+        debugPrint('[AdService] checkAdRateLimit error (fail-open): ${e.message}');
+      } catch (e) {
+        debugPrint('[AdService] checkAdRateLimit general error (fail-open): $e');
+      }
+    }
 
     // 1. Сжатие фото перед проверкой ИИ и загрузкой! (Сеньор-оптимизация 10x)
     List<File> compressedImages = [];
@@ -254,6 +271,7 @@ class AdService {
       // Исходная активность и статус на основе ИИ-модерации
       bool finalActive = moderationVerdict == 'APPROVED' || isAdmin;
       String finalStatus = finalActive ? 'active' : 'pending';
+      bool multiAccountSuspected = false;
 
       // Если ИИ одобрил объявление (и пользователь не админ), проверяем на дубликаты
       if (finalActive && !isAdmin) {
@@ -261,15 +279,18 @@ class AdService {
         try {
           final callable = FirebaseFunctions.instance.httpsCallable('checkAdFingerprint');
           final allImages = [...(existingImages ?? []), ...imageUrls];
+          final installId = await DeviceIdentityService.getInstallId();
 
           final response = await callable.call({
             'title': title,
             'description': description,
             'imagePaths': allImages,
             'adId': savedAdId,
+            'installId': installId,
           });
 
           final String serverVerdict = response.data['verdict'] ?? 'CLEAN';
+          multiAccountSuspected = response.data['multiAccountSuspected'] == true;
           if (serverVerdict == 'MANUAL_REVIEW') {
             // Если найден дубль у другого пользователя — отправляем на ручную проверку
             finalActive = false;
@@ -369,6 +390,7 @@ class AdService {
         status: finalStatus,
         extraFields: extraFields,
         expiresAt: DateTime.now().add(const Duration(days: 30)),
+        multiAccountSuspected: multiAccountSuspected,
       );
 
       // 5. Сохранение

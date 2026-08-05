@@ -262,6 +262,22 @@ class _AdminAdsScreenState extends State<AdminAdsScreen> with SingleTickerProvid
                     ),
                     if (isSelected) Container(color: const Color(0xFF6366F1).withValues(alpha: 0.2)),
                     if (isSelected) Positioned(top: 12, right: 12, child: Container(padding: const EdgeInsets.all(4), decoration: const BoxDecoration(color: Color(0xFF6366F1), shape: BoxShape.circle), child: const Icon(Icons.check, color: Colors.white, size: 14))),
+                    if (ad.multiAccountSuspected && !isSelected)
+                      Positioned(
+                        top: 12, right: 12,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(color: Colors.orange.withValues(alpha: 0.9), borderRadius: BorderRadius.circular(8)),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 12),
+                              const SizedBox(width: 3),
+                              Text('МУЛЬТИ-АККАУНТ', style: GoogleFonts.inter(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 0.3)),
+                            ],
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),

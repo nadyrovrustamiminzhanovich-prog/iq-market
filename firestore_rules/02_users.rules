@@ -10,7 +10,7 @@
       allow update: if isAdmin() || (isOwner(userId) 
         && !request.resource.data.keys().hasAny(['phone', 'email', 'telegram_chat_id', 'telegramChatId'])
         && (!request.resource.data.keys().hasAny(['driverOnboardingStep']) || (request.resource.data.driverOnboardingStep is int && request.resource.data.driverOnboardingStep >= 0 && request.resource.data.driverOnboardingStep <= 3))
-        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['accountType', 'rating', 'reviewsCount', 'status', 'isVerified'])));
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['accountType', 'rating', 'reviewsCount', 'status', 'isVerified', 'duplicateStrikeCount', 'postingRestricted', 'postingRestrictedAt'])));
 
       match /private/contact {
         allow read, write: if isOwner(userId) || isAdmin();
