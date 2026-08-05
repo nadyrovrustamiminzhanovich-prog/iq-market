@@ -12,6 +12,10 @@ class MessageModel {
   final int? duration;
   final String? offerPrice;
   final String? offerStatus; // pending, accepted, rejected
+  // true, если аплоад медиа (фото/голосовое) окончательно не удался после всех
+  // повторов — персистентный (переживает перезапуск приложения) флаг, чтобы
+  // UI мог показать "нажмите, чтобы повторить" вместо вечного спиннера.
+  final bool uploadFailed;
 
   MessageModel({
     required this.id,
@@ -25,6 +29,7 @@ class MessageModel {
     this.duration,
     this.offerPrice,
     this.offerStatus,
+    this.uploadFailed = false,
   });
 
   Map<String, dynamic> toMap() {
@@ -39,6 +44,7 @@ class MessageModel {
       'duration': duration,
       'offerPrice': offerPrice,
       'offerStatus': offerStatus,
+      'uploadFailed': uploadFailed,
     };
   }
 
@@ -55,6 +61,7 @@ class MessageModel {
       duration: map['duration'],
       offerPrice: map['offerPrice']?.toString(),
       offerStatus: map['offerStatus'],
+      uploadFailed: map['uploadFailed'] ?? false,
     );
   }
 }

@@ -22,6 +22,7 @@ class ChatBubble extends StatefulWidget {
   final Function(String) onImageTap;
   final String lang;
   final String? localImagePath;
+  final void Function(MessageModel)? onRetryUpload;
 
   const ChatBubble({
     super.key,
@@ -38,6 +39,7 @@ class ChatBubble extends StatefulWidget {
     required this.onLongPress,
     required this.onImageTap,
     this.localImagePath,
+    this.onRetryUpload,
     this.onAcceptOffer,
     this.onDeclineOffer,
     this.onWriteOffer,
@@ -118,62 +120,76 @@ class _ChatBubbleState extends State<ChatBubble> {
                 ),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
                   if (widget.msg.type == 'image')
-                    GestureDetector(
-                      onTap: (widget.msg.mediaUrl != null && widget.msg.mediaUrl!.isNotEmpty)
-                          ? () => widget.onImageTap(widget.msg.mediaUrl!)
-                          : null,
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(12), 
-                        child: Container(
-                          width: 200,
-                          height: 200,
-                          color: isMe ? Colors.black26 : Colors.grey[200],
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              // 1. Show the Image (Local or Network)
-                              Positioned.fill(
-                                child: (widget.msg.mediaUrl != null && widget.msg.mediaUrl!.startsWith('http'))
-                                    ? CachedNetworkImage(
-                                        imageUrl: widget.msg.mediaUrl!,
-                                        fit: BoxFit.cover,
-                                        errorWidget: (context, url, error) => const Icon(Icons.broken_image_rounded, color: Colors.grey),
-                                      )
-                                    : (widget.localImagePath != null && widget.localImagePath!.isNotEmpty)
-                                        ? Image.file(
-                                            File(widget.localImagePath!),
-                                            fit: BoxFit.cover,
-                                            errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image_rounded, color: Colors.grey),
-                                          )
-                                        : const Center(child: Icon(Icons.image_rounded, color: Colors.grey, size: 40)),
-                              ),
-                              // 2. Show the Upload/Loading Overlay
-                              if (widget.msg.mediaUrl == null || widget.msg.mediaUrl!.isEmpty)
+                    Builder(builder: (context) {
+                      final bool hasUrl = widget.msg.mediaUrl != null && widget.msg.mediaUrl!.isNotEmpty;
+                      final bool isFailed = !hasUrl && widget.msg.uploadFailed;
+                      return GestureDetector(
+                        onTap: hasUrl
+                            ? () => widget.onImageTap(widget.msg.mediaUrl!)
+                            : (isFailed ? () => widget.onRetryUpload?.call(widget.msg) : null),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            width: 200,
+                            height: 200,
+                            color: isMe ? Colors.black26 : Colors.grey[200],
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                // 1. Show the Image (Local or Network)
                                 Positioned.fill(
-                                  child: Container(
-                                    color: Colors.black.withValues(alpha: 0.4),
-                                    child: const Center(
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 3,
-                                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                  child: hasUrl && widget.msg.mediaUrl!.startsWith('http')
+                                      ? CachedNetworkImage(
+                                          imageUrl: widget.msg.mediaUrl!,
+                                          fit: BoxFit.cover,
+                                          errorWidget: (context, url, error) => const Icon(Icons.broken_image_rounded, color: Colors.grey),
+                                        )
+                                      : (widget.localImagePath != null && widget.localImagePath!.isNotEmpty)
+                                          ? Image.file(
+                                              File(widget.localImagePath!),
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image_rounded, color: Colors.grey),
+                                            )
+                                          : const Center(child: Icon(Icons.image_rounded, color: Colors.grey, size: 40)),
+                                ),
+                                // 2. Show the Upload/Failed/Loading Overlay
+                                if (!hasUrl)
+                                  Positioned.fill(
+                                    child: Container(
+                                      color: Colors.black.withValues(alpha: isFailed ? 0.55 : 0.4),
+                                      child: Center(
+                                        child: isFailed
+                                            ? Column(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: const [
+                                                  Icon(Icons.refresh_rounded, color: Colors.white, size: 28),
+                                                  SizedBox(height: 4),
+                                                  Text('Повторить', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
+                                                ],
+                                              )
+                                            : const CircularProgressIndicator(
+                                                strokeWidth: 3,
+                                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                              ),
                                       ),
                                     ),
                                   ),
-                                ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                    ),
+                      );
+                    }),
                   if (widget.msg.type == 'audio') _AudioPlayerWidget(
-                    msg: widget.msg, 
-                    isMe: isMe, 
-                    color: isMe ? Colors.white : const Color(0xFF3B82F6), 
-                    onPlay: widget.onPlayVoice, 
+                    msg: widget.msg,
+                    isMe: isMe,
+                    color: isMe ? Colors.white : const Color(0xFF3B82F6),
+                    onPlay: widget.onPlayVoice,
                     isPlaying: widget.isPlaying,
                     currentPos: widget.currentPos,
                     currentDur: widget.currentDur,
                     lang: widget.lang,
+                    onRetryUpload: widget.onRetryUpload,
                   ),
                   if (widget.msg.text.isNotEmpty && widget.msg.type == 'text')
                     Text(widget.msg.text, softWrap: true, style: TextStyle(color: isMe ? Colors.white : const Color(0xFF0F172A), fontSize: 15, fontWeight: FontWeight.w500)),
@@ -435,6 +451,7 @@ class _AudioPlayerWidget extends StatelessWidget {
   final Duration currentDur;
   // P5 FIX: accept lang from parent instead of hardcoding 'Русский'
   final String lang;
+  final void Function(MessageModel)? onRetryUpload;
 
   const _AudioPlayerWidget({
     required this.msg,
@@ -445,14 +462,19 @@ class _AudioPlayerWidget extends StatelessWidget {
     required this.currentPos,
     required this.currentDur,
     this.lang = 'Русский',
+    this.onRetryUpload,
   });
 
   @override
   Widget build(BuildContext context) {
-    final bool isUploading = msg.mediaUrl == null || msg.mediaUrl!.isEmpty;
+    final bool hasUrl = msg.mediaUrl != null && msg.mediaUrl!.isNotEmpty;
+    final bool isFailed = !hasUrl && msg.uploadFailed;
+    final bool isUploading = !hasUrl && !isFailed;
     return Row(mainAxisSize: MainAxisSize.min, children: [
       GestureDetector(
-        onTap: isUploading ? null : () => onPlay(msg.id, msg.mediaUrl!),
+        onTap: hasUrl
+            ? () => onPlay(msg.id, msg.mediaUrl!)
+            : (isFailed ? () => onRetryUpload?.call(msg) : null),
         child: Container(
           width: 36,
           height: 36,
@@ -470,11 +492,13 @@ class _AudioPlayerWidget extends StatelessWidget {
                       valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF3B82F6)),
                     ),
                   )
-                : Icon(
-                    isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                    color: const Color(0xFF3B82F6),
-                    size: 22,
-                  ),
+                : isFailed
+                    ? const Icon(Icons.refresh_rounded, color: Colors.redAccent, size: 20)
+                    : Icon(
+                        isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                        color: const Color(0xFF3B82F6),
+                        size: 22,
+                      ),
           ),
         ),
       ),

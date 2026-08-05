@@ -16,6 +16,7 @@ import 'package:iqmarket/models/ad_model.dart';
 import 'package:iqmarket/screens/chat_screen.dart';
 import 'package:iqmarket/screens/taxi/taxi_service_screen.dart';
 import 'package:iqmarket/screens/product_details_screen.dart';
+import 'package:iqmarket/screens/notifications_screen.dart';
 
 class NotificationService {
   static final FirebaseMessaging _messaging = FirebaseMessaging.instance;
@@ -209,7 +210,21 @@ class NotificationService {
     debugPrint('Navigating to chat with senderId: $senderId, adId: $adId, chatId: $chatId');
 
     if (senderId.isEmpty) {
-      debugPrint('Warning: senderId is empty, cannot navigate to chat');
+      // Раньше здесь был молчаливый return — тап по уведомлению не открывал
+      // НИЧЕГО (ни тип 'chat' без senderId, ни любой нераспознанный тип
+      // вроде ad_archived/ad_expiring/taxi_bid_rejected, у которых нет полей
+      // для чата). Пользователю казалось, что уведомление "не туда кидает".
+      // Фолбэк: открываем список уведомлений — там тап по конкретной
+      // карточке уже умеет вести куда нужно (notifications_screen.dart).
+      debugPrint('Warning: senderId is empty, falling back to NotificationsScreen (type: $type)');
+      if (navigatorKey.currentState == null) {
+        debugPrint('Error: NavigatorKey state is null, cannot show fallback either');
+        return;
+      }
+      final fallbackLang = StorageService.getString('app_lang') ?? 'Русский';
+      navigatorKey.currentState?.push(
+        MaterialPageRoute(builder: (_) => NotificationsScreen(lang: fallbackLang)),
+      );
       return;
     }
 

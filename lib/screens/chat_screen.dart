@@ -581,6 +581,84 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
   }
 
+  /// Получает downloadURL и записывает mediaUrl в сообщение, с повторами.
+  /// Раньше сбой ИМЕННО этого шага (файл уже загружен, но getDownloadURL()
+  /// или updateMessage() упали) показывал один снэкбар и оставлял сообщение
+  /// с пустым mediaUrl навсегда — бесконечный спиннер, без повтора, даже
+  /// после перезапуска приложения. Теперь: сначала несколько повторов, а при
+  /// окончательном провале — best-effort персистентная отметка
+  /// `uploadFailed: true`, чтобы UI мог показать "нажмите, чтобы повторить"
+  /// вместо вечного спиннера (см. _retryFailedUpload).
+  Future<bool> _attachUploadedMediaWithRetry({
+    required String msgId,
+    required Reference storageRef,
+    required String storagePathForLogging,
+  }) async {
+    const attachDelaysMs = [1000, 3000, 6000];
+    for (int i = 0; i <= attachDelaysMs.length; i++) {
+      try {
+        final url = await storageRef.getDownloadURL();
+        await ChatService.updateMessage(_otherUserId, msgId, {
+          'mediaUrl': url,
+          'uploadFailed': false,
+        });
+        return true;
+      } catch (e, stack) {
+        final isLastAttempt = i == attachDelaysMs.length;
+        debugPrint('[CHAT_SCREEN] Attach attempt ${i + 1} failed for $msgId: $e');
+        if (isLastAttempt) {
+          AnalyticsService.logStoragePermissionError(e, stack, storagePathForLogging);
+          await _markUploadFailed(msgId);
+          return false;
+        }
+        await Future.delayed(Duration(milliseconds: attachDelaysMs[i]));
+      }
+    }
+    return false;
+  }
+
+  /// Best-effort персистентная отметка о провале аплоада — если и эта запись
+  /// не пройдёт (тоже нет сети), сообщение просто останется со спиннером до
+  /// следующей ручной попытки, но хуже не станет.
+  Future<void> _markUploadFailed(String msgId) async {
+    try {
+      await ChatService.updateMessage(_otherUserId, msgId, {'uploadFailed': true});
+    } catch (e) {
+      debugPrint('[CHAT_SCREEN] Could not persist uploadFailed for $msgId: $e');
+    }
+  }
+
+  /// Повторная отправка фото/голосового после провала — вызывается тапом по
+  /// сообщению с флагом uploadFailed (см. ChatBubble.onRetryUpload).
+  void _retryFailedUpload(MessageModel msg) {
+    final chatId = ChatService.getChatId(_otherUserId);
+    final path = msg.type == 'audio' ? _localAudioPaths[msg.id] : _localImagePaths[msg.id];
+
+    if (path != null && File(path).existsSync()) {
+      // Оптимистично снимаем флаг, чтобы UI сразу показал спиннер, а не
+      // "нажмите, чтобы повторить" во время самой попытки.
+      ChatService.updateMessage(_otherUserId, msg.id, {'uploadFailed': false}).catchError((e) {
+        debugPrint('[CHAT_SCREEN] Could not clear uploadFailed before retry: $e');
+      });
+      if (msg.type == 'audio') {
+        _uploadVoiceMessageWithRetry(msg.id, path, chatId);
+      } else {
+        _uploadImageWithRetry(msg.id, path, chatId);
+      }
+      return;
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Файл больше недоступен на устройстве. Удалите сообщение (долгий тап) и отправьте заново.'),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
   void _uploadVoiceMessageWithRetry(String msgId, String path, String chatId, {int attempt = 1}) {
     final task = FileService.uploadFileWithTask(
       File(path),
@@ -594,21 +672,26 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
 
     task.then((snapshot) async {
-      try {
-        final url = await snapshot.ref.getDownloadURL();
-        await ChatService.updateMessage(_otherUserId, msgId, {'mediaUrl': url});
-        if (mounted) {
-          setState(() {
-            _activeUploads.remove(msgId);
-          });
+      final attached = await _attachUploadedMediaWithRetry(
+        msgId: msgId,
+        storageRef: snapshot.ref,
+        storagePathForLogging: 'voice_messages/$chatId',
+      );
+      if (attached) {
+        // Успех целиком — временный файл записи больше не нужен, чистим
+        // (раньше он оставался в temp-директории навсегда после каждой
+        // отправки — накопительная утечка на диске).
+        try {
+          await File(path).delete();
+        } catch (e) {
+          debugPrint('[CHAT_SCREEN] Could not delete temp voice file $path: $e');
         }
-      } catch (e, stack) {
-        debugPrint('[CHAT_SCREEN] Error updating message reference after successful upload: $e');
-        AnalyticsService.logStoragePermissionError(e, stack, 'voice_messages/$chatId');
-        if (mounted) {
-          setState(() {
-            _activeUploads.remove(msgId);
-          });
+      }
+      if (mounted) {
+        setState(() {
+          _activeUploads.remove(msgId);
+        });
+        if (!attached) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: const Row(
@@ -617,7 +700,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Файл загружен, но не удалось прикрепить сообщение.',
+                      'Файл загружен, но не удалось прикрепить сообщение. Нажмите на сообщение, чтобы повторить.',
                       style: TextStyle(fontWeight: FontWeight.w600),
                     ),
                   ),
@@ -634,9 +717,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }).catchError((e, stack) async {
       final code = e is FirebaseException ? e.code : '';
       final isPermissionError = code == 'permission-denied' || code == 'unauthorized';
-      
+
       const delays = [500, 1500, 3000];
-      
+
       if (isPermissionError && attempt <= delays.length) {
         final delayMs = delays[attempt - 1];
         debugPrint('[CHAT_SCREEN] Upload permission denied (replication lag). Retrying attempt $attempt in ${delayMs}ms. Error: $e');
@@ -647,6 +730,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       } else {
         final String cid = ChatService.getChatId(_otherUserId);
         AnalyticsService.logStoragePermissionError(e, stack, 'voice_messages/$cid');
+        await _markUploadFailed(msgId);
         if (mounted) {
           setState(() {
             _activeUploads.remove(msgId);
@@ -659,7 +743,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Не удалось загрузить голосовое. Попробуйте ещё раз.',
+                      'Не удалось загрузить голосовое. Нажмите на сообщение, чтобы повторить.',
                       style: TextStyle(fontWeight: FontWeight.w600),
                     ),
                   ),
@@ -689,24 +773,19 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
 
     task.then((snapshot) async {
-      try {
-        final url = await snapshot.ref.getDownloadURL();
-        await ChatService.updateMessage(_otherUserId, msgId, {'mediaUrl': url});
-        if (mounted) {
-          setState(() {
-            _activeUploads.remove(msgId);
-          });
-        }
-      } catch (e, stack) {
-        debugPrint('[CHAT_SCREEN] Error updating message reference after successful photo upload: $e');
-        AnalyticsService.logStoragePermissionError(e, stack, 'chat_media/$chatId');
-        if (mounted) {
-          setState(() {
-            _activeUploads.remove(msgId);
-          });
+      final attached = await _attachUploadedMediaWithRetry(
+        msgId: msgId,
+        storageRef: snapshot.ref,
+        storagePathForLogging: 'chat_media/$chatId',
+      );
+      if (mounted) {
+        setState(() {
+          _activeUploads.remove(msgId);
+        });
+        if (!attached) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Файл загружен, но не удалось обновить ссылку на фото.'),
+              content: Text('Файл загружен, но не удалось обновить ссылку на фото. Нажмите на фото, чтобы повторить.'),
               backgroundColor: Colors.orangeAccent,
             ),
           );
@@ -715,9 +794,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }).catchError((e, stack) async {
       final code = e is FirebaseException ? e.code : '';
       final isPermissionError = code == 'permission-denied' || code == 'unauthorized';
-      
+
       const delays = [500, 1500, 3000];
-      
+
       if (isPermissionError && attempt <= delays.length) {
         final delayMs = delays[attempt - 1];
         debugPrint('[CHAT_SCREEN] Photo upload permission denied. Retrying attempt $attempt in ${delayMs}ms. Error: $e');
@@ -728,13 +807,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       } else {
         final String cid = ChatService.getChatId(_otherUserId);
         AnalyticsService.logStoragePermissionError(e, stack, 'chat_media/$cid');
+        await _markUploadFailed(msgId);
         if (mounted) {
           setState(() {
             _activeUploads.remove(msgId);
           });
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Не удалось отправить фото. Попробуйте еще раз.'),
+              content: Text('Не удалось отправить фото. Нажмите на фото, чтобы повторить.'),
               backgroundColor: Colors.redAccent,
             ),
           );
@@ -1272,6 +1352,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           currentDur: _currentDur,
           onLongPress: _showContextMenu,
           onImageTap: _showFullScreenImage,
+          localImagePath: _localImagePaths[msg.id],
+          onRetryUpload: _retryFailedUpload,
           onAcceptOffer: () async {
             try {
               await ChatService.updateOfferStatus(msg.senderId, msg.id, 'accepted');

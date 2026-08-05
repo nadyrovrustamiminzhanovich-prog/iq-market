@@ -113,10 +113,20 @@ class _IQMarketHomeState extends State<IQMarketHome> with WidgetsBindingObserver
             await Future.delayed(const Duration(milliseconds: 800));
 
             if (mounted) {
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => LoginScreen(lang: config.language)),
-                (route) => false,
-              );
+              // Не стираем весь стек навигации, если пользователь именно сейчас
+              // находится в чате (например, попал туда по пуш-уведомлению из
+              // холодного старта — NotificationService.handlePendingNavigation()
+              // и этот редирект гоняются асинхронно с разными задержками, и без
+              // этой проверки был реальный шанс выбросить с только что открытого
+              // чата прямо на экран логина).
+              if (ChatService.activeChatId != null) {
+                debugPrint('[HomeScreen] Пропускаем принудительный редирект на логин — активен чат ${ChatService.activeChatId}');
+              } else {
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (_) => LoginScreen(lang: config.language)),
+                  (route) => false,
+                );
+              }
             }
           }
         });
