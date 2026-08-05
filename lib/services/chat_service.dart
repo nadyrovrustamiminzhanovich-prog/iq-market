@@ -308,6 +308,10 @@ class ChatService {
   ///
   /// FIX (Другие покупатели): при Accept автоматически reject-им все остальные
   /// pending-предложения от других покупателей на тот же adId.
+  ///
+  /// NOTE: принятие оффера — это просто договорённость в чате (как на OLX/Avito),
+  /// само объявление не блокируется и не меняет статус — продавец сам решает,
+  /// когда убрать объявление (архивировать) после реальной сделки.
   static Future<void> updateOfferStatus(String sellerId, String messageId, String status) async {
     final uid = UserService.currentUid;
     if (uid == null) return;
@@ -325,32 +329,11 @@ class ChatService {
 
         final data = snap.data()!;
         final currentStatus = data['offerStatus'] as String? ?? '';
-        final offerAdId = data['adId'] as String? ?? '';
 
         if (currentStatus != 'pending') {
           // Уже обработано — тихо выходим (защита от race condition)
           debugPrint('[CHAT_SERVICE] updateOfferStatus SKIPPED: already $currentStatus');
           throw Exception('ALREADY_RESOLVED');
-        }
-
-        // Parent resource lock (P.1): read and lock the ad document to serialize
-        // concurrent accepts on different offers for the same ad.
-        if (offerAdId.isNotEmpty && status == 'accepted') {
-          final adRef = _db.collection('ads').doc(offerAdId);
-          final adSnap = await transaction.get(adRef);
-          if (adSnap.exists) {
-            final adData = adSnap.data()!;
-            final adStatus = adData['status'] as String? ?? 'active';
-            if (adStatus == 'reserved' || adStatus == 'sold') {
-              debugPrint('[CHAT_SERVICE] updateOfferStatus SKIPPED: ad already reserved/sold');
-              throw Exception('ALREADY_RESOLVED');
-            }
-            // Mark ad as reserved in the same transaction
-            transaction.update(adRef, {
-              'status': 'reserved',
-              'acceptedOfferId': messageId,
-            });
-          }
         }
 
         // Атомарно меняем статус офера
@@ -472,7 +455,7 @@ class ChatService {
               tx.update(offerDoc.reference, {'offerStatus': 'rejected'});
             });
 
-            debugPrint('[CHAT_SERVICE] Auto-rejected offer ${offerDoc.id} in chat ${chatDoc.id}');
+          debugPrint('[CHAT_SERVICE] Auto-rejected offer ${offerDoc.id} in chat ${chatDoc.id}');
 
             // Уведомляем покупателя об автоотклонении
             if (buyerId != null) {
@@ -488,6 +471,7 @@ class ChatService {
                     'isRead': false,
                   });
 
+              final sellerName = StorageService.getString('user_name') ?? 'Продавец';
               NotificationService.saveNotificationToFirestore(
                 uid: buyerId,
                 title: 'Предложение отклонено ❌',
@@ -496,6 +480,11 @@ class ChatService {
                 data: {
                   'chatId': chatDoc.id,
                   'adId': adId,
+                  'adTitle': adTitle,
+                  // 🔒 FIX: senderId обязателен для навигации из списка уведомлений
+                  // (notifications_screen.dart молча ничего не делает без него).
+                  'senderId': sellerId,
+                  'senderName': sellerName,
                 },
               ).catchError((e) {
                 debugPrint('[CHAT_SERVICE] Notification sending failed (non-blocking): $e');

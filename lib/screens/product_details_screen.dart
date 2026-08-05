@@ -1298,10 +1298,12 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
 
                         setModalState(() => isSending = true);
                         try {
-                          // FIX: Re-fetch the current ad price from Firestore to
-                          // prevent the stale-price bypass (price may change after dialog open).
-                          // Firestore rule also enforces this server-side.
+                          // FIX: Re-fetch the current ad price/status from Firestore to
+                          // prevent the stale-price bypass (price may change after dialog open)
+                          // and to catch ads that got reserved/sold while the dialog was open.
+                          // Firestore rule also enforces both checks server-side.
                           double livePrice = currentPrice;
+                          String liveStatus = 'active';
                           try {
                             final adDoc = await FirebaseFirestore.instance
                                 .collection('ads')
@@ -1309,9 +1311,20 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                                 .get();
                             if (adDoc.exists) {
                               livePrice = (adDoc.data()?['price'] as num?)?.toDouble() ?? currentPrice;
+                              liveStatus = (adDoc.data()?['status'] as String?) ?? 'active';
                             }
                           } catch (_) {
-                            // Fallback to local price — Firestore rule will catch bypass
+                            // Fallback to local price/status — Firestore rule will catch bypass
+                          }
+
+                          if (liveStatus != 'active') {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(TranslationService.t('ad_reserved_no_offer', widget.lang))));
+                            }
+                            if (modalContext.mounted) {
+                              Navigator.pop(modalContext);
+                            }
+                            return;
                           }
 
                           if (offeredPrice < livePrice * 0.7) {

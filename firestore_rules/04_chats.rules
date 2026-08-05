@@ -25,6 +25,7 @@
               && request.resource.data.adId.size() > 0
               && request.auth.uid != get(/databases/$(database)/documents/ads/$(request.resource.data.adId)).data.userId
               && request.resource.data.offerPrice >= get(/databases/$(database)/documents/ads/$(request.resource.data.adId)).data.price * 0.7
+              && get(/databases/$(database)/documents/ads/$(request.resource.data.adId)).data.status == 'active'
             )
           );
 
