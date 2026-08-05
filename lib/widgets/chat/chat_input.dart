@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:iqmarket/constants/voice_limits_config.dart';
+import 'package:iqmarket/constants/chat_limits_config.dart';
 
 class ChatInput extends StatefulWidget {
   final TextEditingController controller;
@@ -107,6 +108,11 @@ class _ChatInputState extends State<ChatInput> {
                                 focusNode: widget.focusNode,
                                 maxLines: 5,
                                 minLines: 1,
+                                maxLength: ChatLimitsConfig.maxTextLength,
+                                // Скрываем стандартный счётчик символов — компактный
+                                // пилл-дизайн поля ввода не резервирует под него место,
+                                // ограничение при этом продолжает действовать.
+                                buildCounter: (context, {required currentLength, required isFocused, maxLength}) => null,
                                 onChanged: widget.onTextChanged,
                                 style: const TextStyle(color: Color(0xFF0F172A), fontSize: 16),
                                 decoration: InputDecoration(

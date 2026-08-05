@@ -356,6 +356,28 @@ describe("chats/messages", () => {
     );
   });
 
+  test("нельзя отправить сообщение длиннее 2000 символов", async () => {
+    await assertFails(
+      setDoc(doc(userDb(user1), `chats/${chatId}/messages`, "msg_too_long"), {
+        senderId: user1,
+        text: "a".repeat(2001),
+        isRead: false,
+        type: "text",
+      })
+    );
+  });
+
+  test("сообщение ровно 2000 символов проходит", async () => {
+    await assertSucceeds(
+      setDoc(doc(userDb(user1), `chats/${chatId}/messages`, "msg_exactly_2000"), {
+        senderId: user1,
+        text: "a".repeat(2000),
+        isRead: false,
+        type: "text",
+      })
+    );
+  });
+
   test("получатель может пометить сообщение как прочитанное", async () => {
     await assertSucceeds(
       updateDoc(

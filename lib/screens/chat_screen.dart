@@ -659,6 +659,34 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
   }
 
+  // Раньше сам аплоад (FileService.uploadFileWithTask) не имел таймаута
+  // вообще — при зависшем соединении задача могла висеть бесконечно без
+  // единой попытки повтора. 90с — то же значение, что уже используется в
+  // FileService.uploadFile() для остальных загрузок в приложении.
+  static const Duration _kChatUploadTimeout = Duration(seconds: 90);
+
+  /// Раньше повтор срабатывал ТОЛЬКО на permission-denied (репликация правил
+  /// сразу после создания чата) — любой обрыв сети/таймаут уходил в финальный
+  /// провал без единой попытки. Теперь повторяем и на таймаут, и на типичные
+  /// сетевые/временные коды Storage.
+  bool _isRetryableUploadError(Object e) {
+    if (e is TimeoutException) return true;
+    if (e is FirebaseException) {
+      const retryableCodes = {
+        'permission-denied', // репликация правил сразу после создания чата
+        'unauthorized',
+        'retry-limit-exceeded',
+        'canceled',
+        'unknown',
+      };
+      return retryableCodes.contains(e.code);
+    }
+    // Прочие ошибки (SocketException и т.п. без кода FirebaseException) —
+    // тоже разумно повторить: постоянные ошибки (файл пропал) отвалятся
+    // после исчерпания лимита попыток так же, как раньше отваливались сразу.
+    return true;
+  }
+
   void _uploadVoiceMessageWithRetry(String msgId, String path, String chatId, {int attempt = 1}) {
     final task = FileService.uploadFileWithTask(
       File(path),
@@ -671,7 +699,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       });
     }
 
-    task.then((snapshot) async {
+    task.timeout(
+      _kChatUploadTimeout,
+      onTimeout: () => throw TimeoutException('Voice upload timed out after ${_kChatUploadTimeout.inSeconds}s'),
+    ).then((snapshot) async {
       final attached = await _attachUploadedMediaWithRetry(
         msgId: msgId,
         storageRef: snapshot.ref,
@@ -715,14 +746,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         }
       }
     }).catchError((e, stack) async {
-      final code = e is FirebaseException ? e.code : '';
-      final isPermissionError = code == 'permission-denied' || code == 'unauthorized';
+      final isRetryable = _isRetryableUploadError(e);
 
       const delays = [500, 1500, 3000];
 
-      if (isPermissionError && attempt <= delays.length) {
+      if (isRetryable && attempt <= delays.length) {
         final delayMs = delays[attempt - 1];
-        debugPrint('[CHAT_SCREEN] Upload permission denied (replication lag). Retrying attempt $attempt in ${delayMs}ms. Error: $e');
+        debugPrint('[CHAT_SCREEN] Voice upload failed (retryable). Retrying attempt $attempt in ${delayMs}ms. Error: $e');
         await Future.delayed(Duration(milliseconds: delayMs));
         if (mounted) {
           _uploadVoiceMessageWithRetry(msgId, path, chatId, attempt: attempt + 1);
@@ -772,7 +802,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       });
     }
 
-    task.then((snapshot) async {
+    task.timeout(
+      _kChatUploadTimeout,
+      onTimeout: () => throw TimeoutException('Photo upload timed out after ${_kChatUploadTimeout.inSeconds}s'),
+    ).then((snapshot) async {
       final attached = await _attachUploadedMediaWithRetry(
         msgId: msgId,
         storageRef: snapshot.ref,
@@ -792,14 +825,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         }
       }
     }).catchError((e, stack) async {
-      final code = e is FirebaseException ? e.code : '';
-      final isPermissionError = code == 'permission-denied' || code == 'unauthorized';
+      final isRetryable = _isRetryableUploadError(e);
 
       const delays = [500, 1500, 3000];
 
-      if (isPermissionError && attempt <= delays.length) {
+      if (isRetryable && attempt <= delays.length) {
         final delayMs = delays[attempt - 1];
-        debugPrint('[CHAT_SCREEN] Photo upload permission denied. Retrying attempt $attempt in ${delayMs}ms. Error: $e');
+        debugPrint('[CHAT_SCREEN] Photo upload failed (retryable). Retrying attempt $attempt in ${delayMs}ms. Error: $e');
         await Future.delayed(Duration(milliseconds: delayMs));
         if (mounted) {
           _uploadImageWithRetry(msgId, path, chatId, attempt: attempt + 1);
@@ -1032,7 +1064,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       try {
         final chatId = ChatService.getChatId(_otherUserId);
         await ChatService.createChatIfNeeded(widget.ad, recipientId: _otherUserId);
-        
+
+        // Раньше фото в чат грузились почти в оригинальном разрешении (только
+        // imageQuality:70 при пикинге — это просто пережатие JPEG, без ресайза).
+        // Сжимаем так же, как остальные фото в приложении (отзывы, аватар,
+        // документы водителя) — быстрее отправка, меньше трафика.
+        File uploadFile = File(file.path);
+        final compressed = await FileService.compressImage(File(file.path));
+        if (compressed != null) uploadFile = compressed;
+
         _updateMyTyping(false);
         final msgId = await ChatService.sendMessage(
           ad: widget.ad,
@@ -1046,12 +1086,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         if (msgId != null) {
           if (mounted) {
             setState(() {
-              _localImagePaths[msgId] = file!.path;
+              _localImagePaths[msgId] = uploadFile.path;
             });
           }
           _playSentSound();
           _scrollToBottom();
-          _uploadImageWithRetry(msgId, file.path, chatId);
+          _uploadImageWithRetry(msgId, uploadFile.path, chatId);
         } else {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
