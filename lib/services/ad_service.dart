@@ -633,7 +633,10 @@ class AdService {
         .map((snapshot) {
           final list = snapshot.docs
               .map((doc) => AdModel.fromMap(doc.data() as Map<String, dynamic>, doc.id))
-              .where((ad) => !ad.active || ad.status == 'archived' || ad.status == 'rejected')
+              // FIX: pending-объявления тоже хранятся с active == false — без
+              // исключения status == 'pending' они протекали и сюда, дублируя
+              // вкладку "На проверке" во вкладке "Архив/Отклонённые".
+              .where((ad) => ad.status != 'pending' && (!ad.active || ad.status == 'archived' || ad.status == 'rejected'))
               .toList();
           list.sort((a, b) => b.timestamp.compareTo(a.timestamp));
           return list;
@@ -833,12 +836,22 @@ class AdService {
     }
   }
 
-  /// Reject and delete an ad (for admin)
+  /// Reject an ad (for admin) — MYAGKIY (soft) reject: помечаем статусом, ничего
+  /// не удаляем. Пользователь может исправить и опубликовать заново через
+  /// "Редактировать" (снова идёт полная ИИ-модерация) — на случай, если
+  /// модератор ошибся. Симметрично отклонению через Telegram-бота.
+  /// my_ads_screen.dart уже корректно обрабатывает status == 'rejected':
+  /// отдельный бейдж, без кнопки мгновенной реактивации.
   static Future<void> rejectAd(String adId, {String reason = 'Нарушение правил размещения'}) async {
     try {
       final doc = await _adsCollection.doc(adId).get();
       if (!doc.exists) return;
       final ad = AdModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
+
+      await _adsCollection.doc(adId).update({
+        'status': 'rejected',
+        'active': false,
+      });
 
       // Отправляем уведомление об отклонении
       NotificationService.saveNotificationToFirestore(
@@ -850,9 +863,6 @@ class AdService {
       ).catchError((e) {
         debugPrint('[AD_SERVICE] rejectAd notification failed: $e');
       });
-
-      // Удаляем само объявление
-      await deleteAd(adId);
     } catch (e) {
       debugPrint('Error rejecting ad: $e');
       rethrow;
