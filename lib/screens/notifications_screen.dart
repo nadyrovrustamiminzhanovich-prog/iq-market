@@ -616,6 +616,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
       case 'driver_verified': return Icons.verified_user_rounded;
       case 'system': return Icons.info_rounded;
       case 'order': return Icons.shopping_bag_rounded;
+      case 'ad_expiring': return Icons.hourglass_bottom_rounded;
       default: return Icons.notifications_rounded;
     }
   }
@@ -626,6 +627,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
       case 'driver_verified': return const Color(0xFF10B981);
       case 'system': return Colors.grey;
       case 'order': return Colors.orange;
+      case 'ad_expiring': return Colors.orange;
       default: return const Color(0xFF4A80F0);
     }
   }

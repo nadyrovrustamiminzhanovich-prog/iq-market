@@ -929,7 +929,7 @@ class AdService {
           uid: uid,
           title: 'Срок объявления истекает! ⏳',
           body: 'Ваше объявление "${ad.title}" скоро будет перенесено в архив. Продлите его, чтобы не потерять просмотры.',
-          type: 'price_drop',
+          type: 'ad_expiring',
           data: {'adId': ad.id},
         ).catchError((e) {
           debugPrint('[AD_SERVICE] Expiry notification failed: $e');

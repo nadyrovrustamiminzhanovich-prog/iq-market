@@ -69,6 +69,8 @@ class _PostAdScreenState extends State<PostAdScreen> {
   bool _isLoading = false;
   bool _isSubmitting = false;
   String _uploadStatus = '';
+  static const int _maxPhotos = 8;
+  Timer? _draftDebounce;
 
   void _onTitleOrDescriptionInput() {
     _saveDraft();
@@ -106,6 +108,7 @@ class _PostAdScreenState extends State<PostAdScreen> {
 
   @override
   void dispose() {
+    _draftDebounce?.cancel();
     _phoneController.dispose();
     _titleController.dispose();
     _descriptionController.dispose();
@@ -620,10 +623,23 @@ class _PostAdScreenState extends State<PostAdScreen> {
           maxHeight: 1280,
         );
         if (picked.isNotEmpty && mounted) {
-          setState(() {
-            _imageFiles.addAll(picked.map((f) => File(f.path)));
-            _saveDraft();
-          });
+          final int remainingSlots = _maxPhotos - (_existingImageUrls.length + _imageFiles.length);
+          if (remainingSlots <= 0) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(TranslationService.t('err_max_photos', widget.lang).replaceAll('{max}', '$_maxPhotos'))),
+            );
+          } else {
+            final toAdd = picked.take(remainingSlots).toList();
+            setState(() {
+              _imageFiles.addAll(toAdd.map((f) => File(f.path)));
+              _saveDraft();
+            });
+            if (toAdd.length < picked.length) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(TranslationService.t('err_max_photos', widget.lang).replaceAll('{max}', '$_maxPhotos'))),
+              );
+            }
+          }
         }
       }
     } catch (e) {
@@ -853,8 +869,17 @@ class _PostAdScreenState extends State<PostAdScreen> {
   }
 
   // --- Draft Logic ---
-  void _saveDraft() async {
+  void _saveDraft() {
     if (widget.initialAd != null) return;
+    // Debounce — эта функция дёргается на КАЖДОЕ нажатие клавиши в заголовке/
+    // описании/цене/телефоне; без debounce это диск-запись SharedPreferences
+    // на каждый символ.
+    _draftDebounce?.cancel();
+    _draftDebounce = Timer(const Duration(milliseconds: 500), _writeDraft);
+  }
+
+  Future<void> _writeDraft() async {
+    if (!mounted) return;
     final prefs = await SharedPreferences.getInstance();
     final draft = {
       'title': _titleController.text,
@@ -906,6 +931,7 @@ class _PostAdScreenState extends State<PostAdScreen> {
   }
 
   void _clearDraft() async {
+    _draftDebounce?.cancel();
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('ad_draft');
   }

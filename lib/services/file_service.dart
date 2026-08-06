@@ -55,10 +55,14 @@ class FileService {
     int maxRetries = 3,
     void Function(double progress, int attempt)? onProgress,
   }) async {
-    // 🔒 X10: If file is oversized, try aggressive recompression before upload
+    // 🔒 X10: If file is oversized, try aggressive recompression before upload.
+    // Only for images — FlutterImageCompress can't process video files, so
+    // running it on an oversized video just fails silently and wastes time.
     File fileToUpload = file;
     final fileSize = await file.length();
-    if (fileSize > _maxFileSizeBytes) {
+    const imageExtensions = {'.jpg', '.jpeg', '.png', '.gif', '.webp'};
+    final isImage = imageExtensions.contains(p.extension(file.path).toLowerCase());
+    if (fileSize > _maxFileSizeBytes && isImage) {
       debugPrint('FileService: File too large (${fileSize ~/ 1024}KB), applying emergency compression...');
       final emergency = await compressImageAggressive(file);
       if (emergency != null) fileToUpload = emergency;

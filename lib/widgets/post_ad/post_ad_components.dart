@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/services.dart';
@@ -163,90 +162,6 @@ class PostAdOptionSwitch extends StatelessWidget {
             inactiveThumbColor: Colors.white,
             inactiveTrackColor: const Color(0xFFE2E8F0),
             trackOutlineColor: WidgetStateProperty.all(Colors.transparent),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class PostAdMediaTile extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  final Color? color;
-
-  const PostAdMediaTile({
-    super.key,
-    required this.icon,
-    required this.label,
-    required this.onTap,
-    this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 20),
-        decoration: BoxDecoration(
-          color: (color ?? const Color(0xFFF8FAFC)).withValues(alpha: color != null ? 0.1 : 1.0),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: color ?? Colors.grey[200]!, width: 1.5),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, size: 32, color: color ?? const Color(0xFF64748B)),
-            const SizedBox(height: 8),
-            Text(label, style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: color ?? const Color(0xFF64748B))),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class PostAdPreviewItem extends StatelessWidget {
-  final File? file;
-  final bool isVideo;
-  final VoidCallback onRemove;
-
-  const PostAdPreviewItem({
-    super.key,
-    this.file,
-    this.isVideo = false,
-    required this.onRemove,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 100,
-      margin: const EdgeInsets.only(right: 12),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey[200]!),
-      ),
-      child: Stack(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: isVideo 
-              ? Container(color: Colors.black87, child: const Center(child: Icon(Icons.play_circle_fill, color: Colors.white, size: 40)))
-              : Image.file(file!, fit: BoxFit.cover, width: 100, height: 100),
-          ),
-          Positioned(
-            top: 4, right: 4,
-            child: GestureDetector(
-              onTap: onRemove,
-              child: CircleAvatar(
-                radius: 14,
-                backgroundColor: Colors.red,
-                child: const Icon(Icons.close_rounded, size: 16, color: Colors.white),
-              ),
-            ),
           ),
         ],
       ),
