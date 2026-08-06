@@ -73,11 +73,17 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   void initState() {
     super.initState();
     _pageController = PageController();
-    if (widget.ad.videoUrl != null && widget.ad.videoUrl!.startsWith('http')) {
+    if (widget.ad.videoUrl != null && widget.ad.videoUrl!.isNotEmpty) {
       Future.delayed(const Duration(milliseconds: 300), () {
         if (!mounted) return;
         try {
-          _videoController = VideoPlayerController.networkUrl(Uri.parse(widget.ad.videoUrl!))
+          // Опубликованные объявления хранят videoUrl как http-ссылку на Storage;
+          // локальный путь встречается только в режиме предпросмотра (ещё не залито).
+          final String videoPath = widget.ad.videoUrl!;
+          _videoController = videoPath.startsWith('http')
+              ? VideoPlayerController.networkUrl(Uri.parse(videoPath))
+              : VideoPlayerController.file(File(videoPath));
+          _videoController!
             ..initialize().then((_) {
               if (!mounted) return;
               setState(() { _isVideoInitialized = true; });
@@ -354,7 +360,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   Widget build(BuildContext context) {
     final ad = _updatedAd ?? widget.ad;
     final images = ad.images;
-    final hasVideo = ad.videoUrl != null && ad.videoUrl!.startsWith('http');
+    final hasVideo = ad.videoUrl != null && ad.videoUrl!.isNotEmpty;
 
     final int itemCount = images.length + (hasVideo ? 1 : 0);
     final isFree = ad.price == 0.0 || ad.category == 'Отдам даром';

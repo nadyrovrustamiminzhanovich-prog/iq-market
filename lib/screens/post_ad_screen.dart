@@ -944,6 +944,7 @@ class _PostAdScreenState extends State<PostAdScreen> {
       price: double.tryParse(priceClean) ?? 0.0, 
       category: _selectedCategory, 
       images: _imageFiles.map((f)=>f.path).toList(),
+      videoUrl: _videoFile?.path,
       userId: '__preview_user__', userName: 'Вы', userEmail: '', timestamp: DateTime.now(), location: _selectedLocation,
       userPhone: _phoneController.text,
     );
