@@ -228,7 +228,8 @@ class _PhoneRequiredBottomSheetState extends State<PhoneRequiredBottomSheet> wit
           ),
         ],
       ),
-      child: Column(
+      child: SingleChildScrollView(
+        child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -461,6 +462,7 @@ class _PhoneRequiredBottomSheetState extends State<PhoneRequiredBottomSheet> wit
             ),
           ),
         ],
+        ),
       ),
     );
   }
