@@ -18,6 +18,7 @@ import 'package:iqmarket/screens/chat_screen.dart';
 import 'package:iqmarket/screens/taxi/taxi_service_screen.dart';
 import 'package:iqmarket/screens/product_details_screen.dart';
 import 'package:iqmarket/screens/notifications_screen.dart';
+import 'package:iqmarket/widgets/taxi/taxi_coming_soon_dialog.dart';
 
 class NotificationService {
   static final FirebaseMessaging _messaging = FirebaseMessaging.instance;
@@ -178,6 +179,20 @@ class NotificationService {
   static void _navigateToChat(Map<String, dynamic> data) {
     final String type = data['type'] ?? '';
     if (type == 'taxi_bid' || type == 'taxi_bid_accepted') {
+      // 🔒 Такси-модуль временно закрыт для обычных пользователей (см. home_screen.dart
+      // _navToTaxi — вход туда только у админа, у остальных TaxiComingSoonDialog).
+      // Без этой проверки старое/админское уведомление могло провести обычного
+      // пользователя мимо этого гейта прямо в живой такси-модуль.
+      final isAdmin = StorageService.getString('account_type') == 'admin';
+      final context = navigatorKey.currentContext;
+      if (!isAdmin) {
+        debugPrint('Ignoring taxi notification navigation for non-admin user (type: $type)');
+        if (context != null) {
+          final lang = StorageService.getString('app_lang') ?? 'Русский';
+          TaxiComingSoonDialog.show(context, lang: lang);
+        }
+        return;
+      }
       debugPrint('Navigating to TaxiServiceScreen from notification type: $type');
       navigatorKey.currentState?.push(
         MaterialPageRoute(builder: (_) => const TaxiServiceScreen(lang: 'ru')),

@@ -8,7 +8,9 @@ import 'package:iqmarket/features/taxi/data/taxi_repository.dart';
 import 'package:iqmarket/features/taxi/data/taxi_sync_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:intl/intl.dart';
+import 'package:iqmarket/services/storage_service.dart';
 
 class TaxiProvider extends ChangeNotifier {
   late final TaxiPrefsService _prefs;
@@ -17,14 +19,26 @@ class TaxiProvider extends ChangeNotifier {
   void Function(String)? onLanguageChanged;
   StreamSubscription<User?>? _authSub;
 
+  // 🔒 Такси-модуль сейчас закрыт от обычных пользователей (TaxiComingSoonDialog),
+  // но TaxiProvider всё равно создаётся при каждом запуске приложения в
+  // AppBootstrap._initApp() — в том же try/catch, что и базовая инициализация
+  // Firebase/AppConfigProvider. Любое необработанное исключение здесь раньше
+  // могло помешать загрузиться ВСЕМУ приложению, включая маркетплейс, а не
+  // только такси. Конструктор и loadPreferences() теперь сами ловят свои
+  // ошибки — сбой в такси-коде остаётся сбоем только такси-модуля.
   TaxiProvider() {
     _prefs = TaxiPrefsService();
     _repo = TaxiRepository();
     _sync = TaxiSyncService(notifyListeners);
-    loadPreferences();
-    _authSub = FirebaseAuth.instance.authStateChanges().listen((_) {
+    try {
       loadPreferences();
-    });
+      _authSub = FirebaseAuth.instance.authStateChanges().listen((_) {
+        loadPreferences();
+      });
+    } catch (e, stack) {
+      debugPrint('[TaxiProvider] init error (non-fatal, taxi module stays inert): $e');
+      FirebaseCrashlytics.instance.recordError(e, stack, reason: 'TaxiProvider init failed', fatal: false);
+    }
   }
 
   // ─── UI & Filter State ───
@@ -164,22 +178,27 @@ class TaxiProvider extends ChangeNotifier {
 
   // ─── Setters & Preferences ───
   Future<void> loadPreferences() async {
-    final data = await _prefs.loadPreferences();
-    _curLang = data['curLang'];
-    _isDarkGlobal = data['isDarkGlobal'];
-    _isLoggedIn = data['isLoggedIn'];
-    _firstName = data['firstName'];
-    _lastName = data['lastName'];
-    _profileImage = data['profileImage'];
-    _phone = data['phone'];
-    _driverCar = data['driverCar'];
-    _driverPlate = data['driverPlate'];
-    _isVehicleVerified = data['isVehicleVerified'];
-    _notifEnabled = data['notifEnabled'];
-    _telegramChatId = data['telegramChatId'];
-    _isTelegramVerified = data['isTelegramVerified'];
-    _verificationStatus = data['verificationStatus'];
-    notifyListeners();
+    try {
+      final data = await _prefs.loadPreferences();
+      _curLang = data['curLang'];
+      _isDarkGlobal = data['isDarkGlobal'];
+      _isLoggedIn = data['isLoggedIn'];
+      _firstName = data['firstName'];
+      _lastName = data['lastName'];
+      _profileImage = data['profileImage'];
+      _phone = data['phone'];
+      _driverCar = data['driverCar'];
+      _driverPlate = data['driverPlate'];
+      _isVehicleVerified = data['isVehicleVerified'];
+      _notifEnabled = data['notifEnabled'];
+      _telegramChatId = data['telegramChatId'];
+      _isTelegramVerified = data['isTelegramVerified'];
+      _verificationStatus = data['verificationStatus'];
+      notifyListeners();
+    } catch (e, stack) {
+      debugPrint('[TaxiProvider] loadPreferences error (non-fatal): $e');
+      FirebaseCrashlytics.instance.recordError(e, stack, reason: 'TaxiProvider.loadPreferences failed', fatal: false);
+    }
   }
 
   void setTab(int index) { _tab = index; notifyListeners(); }
@@ -228,7 +247,13 @@ class TaxiProvider extends ChangeNotifier {
       _prefs.save('taxi_tg_chat_id', null);
     }
     _prefs.save('taxi_logged_in', _isLoggedIn);
-    if (_isLoggedIn) _sync.startSync();
+    // 🔒 Такси-модуль закрыт от обычных пользователей (см. home_screen.dart _navToTaxi),
+    // но setLoginStatus(true) вызывается при КАЖДОМ обычном входе в маркетплейс
+    // (login_screen.dart), не только при заходе в такси. Без этой проверки
+    // TaxiSyncService открывал бы 8 постоянных Firestore-стримов (taxi_rides,
+    // taxi_orders, taxi_bids...) для всех пользователей маркетплейса впустую.
+    final isAdmin = StorageService.getString('account_type') == 'admin';
+    if (_isLoggedIn && isAdmin) _sync.startSync();
     notifyListeners();
   }
 
