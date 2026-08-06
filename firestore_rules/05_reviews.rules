@@ -1,7 +1,8 @@
     match /reviews/{reviewId} {
       allow read: if true;
-      allow create: if isSignedIn() 
-        && request.resource.data.fromUserId == request.auth.uid 
+      allow create: if isSignedIn()
+        && !isBanned()
+        && request.resource.data.fromUserId == request.auth.uid
         && request.resource.data.fromUserId != request.resource.data.toUserId
         && request.resource.data.keys().hasAll(['fromUserId', 'toUserId', 'rating'])
         && request.resource.data.rating is number

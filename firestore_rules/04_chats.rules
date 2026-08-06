@@ -4,7 +4,11 @@
         !request.resource.data.diff(resource.data).affectedKeys().hasAny(['users']) ||
         request.resource.data.users.toSet() == resource.data.users.toSet()
       );
-      allow create: if isSignedIn() && request.resource.data.users is list && request.auth.uid in request.resource.data.users;
+      allow create: if isSignedIn() && !isBanned()
+        && request.resource.data.users is list
+        && request.resource.data.users.size() == 2
+        && request.auth.uid in request.resource.data.users
+        && !isBlockedByUsersList(request.resource.data.users);
       allow delete: if false; 
       
       match /messages/{messageId} {
@@ -12,8 +16,10 @@
 
         // ─── CREATE ────────────────────────────────────────────────────────────
         allow create: if isSignedIn()
+          && !isBanned()
           && request.resource.data.senderId == request.auth.uid
           && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.users
+          && !isBlockedInChat(chatId)
           && (!('text' in request.resource.data) || request.resource.data.text.size() <= 2000)
           && (
             request.resource.data.type != 'offer'

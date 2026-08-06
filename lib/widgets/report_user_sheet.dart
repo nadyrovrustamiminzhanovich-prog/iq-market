@@ -12,12 +12,35 @@ class ReportUserSheet {
     required String reportedUserName,
     required String lang,
   }) async {
-    if (FirebaseAuth.instance.currentUser == null) {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) {
       await AuthGateBottomSheet.show(
         context,
         message: TranslationService.t('auth_report_user_prompt', lang),
       );
       return;
+    }
+
+    // Проверяем, отправлял ли пользователь уже жалобу на этот профиль
+    // (тот же паттерн дедупа, что и у жалобы на объявление в product_details_screen.dart).
+    try {
+      final docId = '${currentUser.uid}_$reportedUserId';
+      final existingDoc = await FirebaseFirestore.instance.collection('reports').doc(docId).get();
+      if (existingDoc.exists) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(TranslationService.t('report_user_already_sent', lang)),
+              backgroundColor: Colors.orangeAccent,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+          );
+        }
+        return;
+      }
+    } catch (e) {
+      debugPrint('[ReportUserSheet] Error checking existing report: $e');
     }
 
     final result = await showModalBottomSheet<bool>(
@@ -186,7 +209,8 @@ class _ReportUserSheetContentState extends State<_ReportUserSheetContent> {
                         setState(() => _isLoading = true);
                         try {
                           final reporterId = FirebaseAuth.instance.currentUser?.uid;
-                          await FirebaseFirestore.instance.collection('reports').add({
+                          final docId = '${reporterId ?? 'anonymous'}_${widget.reportedUserId}';
+                          await FirebaseFirestore.instance.collection('reports').doc(docId).set({
                             'reportedUserId': widget.reportedUserId,
                             'reportedUserName': widget.reportedUserName,
                             'reporterUserId': reporterId ?? 'anonymous',

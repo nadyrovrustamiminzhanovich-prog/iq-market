@@ -14,3 +14,26 @@
          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.accountType == 'admin')
       );
     }
+
+    // Забанен ли текущий авторизованный пользователь (users/{uid}.status == 'banned',
+    // ставится админом из admin_reports_screen.dart через UserService.toggleUserBan)
+    function isBanned() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('status', 'active') == 'banned';
+    }
+
+    // Заблокировал ли "другой" участник usersList (ровно 2 uid, как chats.users)
+    // текущего пользователя через users/{otherUid}.blockedUserIds (личная блокировка,
+    // AppConfigProvider.blockUser)
+    function isBlockedByUsersList(usersList) {
+      let otherUid = usersList[0] == request.auth.uid ? usersList[1] : usersList[0];
+      return exists(/databases/$(database)/documents/users/$(otherUid))
+        && get(/databases/$(database)/documents/users/$(otherUid)).data.get('blockedUserIds', []).hasAny([request.auth.uid]);
+    }
+
+    // То же самое, но по уже существующему чату chats/{chatId}
+    function isBlockedInChat(chatId) {
+      let chatUsers = get(/databases/$(database)/documents/chats/$(chatId)).data.users;
+      return isBlockedByUsersList(chatUsers);
+    }

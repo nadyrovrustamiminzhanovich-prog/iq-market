@@ -827,5 +827,175 @@ describe("ads stats and viewLogs", () => {
   });
 });
 
+// ──────────────────────────────────────────
+// ТЕСТЫ: забаненный пользователь (users/{uid}.status == 'banned')
+// не может создавать новый контент — объявления/чаты/сообщения/отзывы
+// ──────────────────────────────────────────
+describe("banned users are blocked from creating new content", () => {
+  const bannedUid = "user_banned";
+  const activeUid = "user_active";
+  const otherUid = "user_other";
+  const sellerUid = "user_seller_for_review";
+  const adId = "ad_for_banned_test";
+  const chatId = [bannedUid, otherUid].sort().join("_");
+  const activeChatId = [activeUid, otherUid].sort().join("_");
+
+  beforeEach(async () => {
+    await adminSet(`users/${bannedUid}`, { status: "banned" });
+    await adminSet(`users/${activeUid}`, { status: "active" });
+    await adminSet(`users/${otherUid}`, { status: "active" });
+    await adminSet(`ads/${adId}`, {
+      title: "Test Ad",
+      price: 1000,
+      userId: sellerUid,
+      status: "active",
+      timestamp: new Date(),
+    });
+    await adminSet(`chats/${chatId}`, { users: [bannedUid, otherUid].sort() });
+    await adminSet(`chats/${activeChatId}`, { users: [activeUid, otherUid].sort() });
+  });
+
+  test("забаненный пользователь НЕ может создать объявление", async () => {
+    await assertFails(
+      setDoc(doc(userDb(bannedUid), "ads", "ad_new_by_banned"), {
+        title: "Spam",
+        userId: bannedUid,
+        price: 100,
+        timestamp: new Date(),
+      })
+    );
+  });
+
+  test("обычный пользователь МОЖЕТ создать объявление (не сломали основной путь)", async () => {
+    await assertSucceeds(
+      setDoc(doc(userDb(activeUid), "ads", "ad_new_by_active"), {
+        title: "Normal ad",
+        userId: activeUid,
+        price: 100,
+        timestamp: new Date(),
+      })
+    );
+  });
+
+  test("забаненный пользователь НЕ может оставить отзыв", async () => {
+    await assertFails(
+      setDoc(doc(userDb(bannedUid), "reviews", "review_by_banned"), {
+        fromUserId: bannedUid,
+        toUserId: sellerUid,
+        rating: 5,
+      })
+    );
+  });
+
+  test("обычный пользователь МОЖЕТ оставить отзыв (не сломали основной путь)", async () => {
+    await assertSucceeds(
+      setDoc(doc(userDb(activeUid), "reviews", "review_by_active"), {
+        fromUserId: activeUid,
+        toUserId: sellerUid,
+        rating: 5,
+      })
+    );
+  });
+
+  test("забаненный пользователь НЕ может создать новый чат", async () => {
+    await assertFails(
+      setDoc(doc(userDb(bannedUid), "chats", [bannedUid, "user_fresh"].sort().join("_")), {
+        users: [bannedUid, "user_fresh"].sort(),
+      })
+    );
+  });
+
+  test("обычный пользователь МОЖЕТ создать новый чат (не сломали основной путь)", async () => {
+    await assertSucceeds(
+      setDoc(doc(userDb(activeUid), "chats", [activeUid, "user_fresh2"].sort().join("_")), {
+        users: [activeUid, "user_fresh2"].sort(),
+      })
+    );
+  });
+
+  test("забаненный пользователь НЕ может отправить сообщение в уже существующий чат", async () => {
+    await assertFails(
+      setDoc(doc(userDb(bannedUid), `chats/${chatId}/messages`, "msg_by_banned"), {
+        senderId: bannedUid,
+        text: "Привет",
+        type: "text",
+        isRead: false,
+      })
+    );
+  });
+
+  test("обычный пользователь МОЖЕТ отправить сообщение (не сломали основной путь offer/chat)", async () => {
+    await assertSucceeds(
+      setDoc(doc(userDb(activeUid), `chats/${activeChatId}/messages`, "msg_by_active"), {
+        senderId: activeUid,
+        text: "Привет",
+        type: "text",
+        isRead: false,
+      })
+    );
+  });
+});
+
+// ──────────────────────────────────────────
+// ТЕСТЫ: личная блокировка (users/{uid}.blockedUserIds) —
+// заблокированный не может писать тому, кто его заблокировал
+// ──────────────────────────────────────────
+describe("personal block (blockedUserIds) prevents contact from the blocked side", () => {
+  const blockerUid = "user_blocker";
+  const blockedUid = "user_blocked_by_other";
+  const strangerUid = "user_stranger";
+  const existingChatId = [blockerUid, blockedUid].sort().join("_");
+
+  beforeEach(async () => {
+    // blockerUid заблокировал blockedUid
+    await adminSet(`users/${blockerUid}`, { status: "active", blockedUserIds: [blockedUid] });
+    await adminSet(`users/${blockedUid}`, { status: "active" });
+    await adminSet(`users/${strangerUid}`, { status: "active" });
+    await adminSet(`chats/${existingChatId}`, { users: [blockerUid, blockedUid].sort() });
+  });
+
+  test("заблокированный НЕ может начать новый чат с тем, кто его заблокировал", async () => {
+    await assertFails(
+      setDoc(doc(userDb(blockedUid), "chats", existingChatId + "_new_attempt"), {
+        users: [blockerUid, blockedUid].sort(),
+      })
+    );
+  });
+
+  test("заблокированный НЕ может отправить сообщение в уже существующий чат с блокировщиком", async () => {
+    await assertFails(
+      setDoc(doc(userDb(blockedUid), `chats/${existingChatId}/messages`, "msg_from_blocked"), {
+        senderId: blockedUid,
+        text: "Разблокируй меня",
+        type: "text",
+        isRead: false,
+      })
+    );
+  });
+
+  test("блокировщик по-прежнему МОЖЕТ писать в чат (блок не бьёт по нему самому)", async () => {
+    await assertSucceeds(
+      setDoc(doc(userDb(blockerUid), `chats/${existingChatId}/messages`, "msg_from_blocker"), {
+        senderId: blockerUid,
+        text: "Сообщение от блокировщика",
+        type: "text",
+        isRead: false,
+      })
+    );
+  });
+
+  test("посторонний (никого не блокировавший) может нормально писать в свой чат", async () => {
+    const strangerChatId = [strangerUid, blockerUid].sort().join("_");
+    await adminSet(`chats/${strangerChatId}`, { users: [strangerUid, blockerUid].sort() });
+    await assertSucceeds(
+      setDoc(doc(userDb(strangerUid), `chats/${strangerChatId}/messages`, "msg_from_stranger"), {
+        senderId: strangerUid,
+        text: "Привет",
+        type: "text",
+        isRead: false,
+      })
+    );
+  });
+});
 
 
