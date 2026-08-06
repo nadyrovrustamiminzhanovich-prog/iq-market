@@ -378,27 +378,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildStatsBar(UserModel? user) {
     final int reviewsCount = user?.reviewsCount ?? 0;
-    final double rawRating = user?.rating ?? 0.0;
+    final double rawRating = user?.rating ?? 5.0;
     final String rating = rawRating.toStringAsFixed(1);
     final String reviews = reviewsCount.toString();
-    final bool isNewcomer = reviewsCount < 5;
+    // Стартовый рейтинг 5.0 у всех аккаунтов без отзывов — само число всегда видно,
+    // подпись лишь поясняет, что это ещё не подтверждено реальными отзывами.
+    final bool isNewcomer = reviewsCount == 0;
 
-    String newcomerText = 'Новичок';
     String ratingDesc = _t('rating_stat').toUpperCase();
-    
     if (isNewcomer) {
       if (_localLang == 'Қазақша') {
-        newcomerText = 'Жаңадан бастаушы';
-        ratingDesc = '5 бағалаудан кейін қалыптасады';
+        ratingDesc = 'Бастапқы рейтинг';
       } else if (_localLang == 'Уйғурчә') {
-        newcomerText = 'Йеңи әза';
-        ratingDesc = '5 баһалаштин кейин шәкиллиниду';
+        ratingDesc = 'Дәсләпки рейтинг';
       } else {
-        newcomerText = 'Новичок';
-        ratingDesc = 'Сформируется после 5 оценок';
+        ratingDesc = 'Стартовый рейтинг';
       }
     }
-    
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: GestureDetector(
@@ -429,10 +426,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         const SizedBox(width: 8),
                         Flexible(
                           child: Text(
-                            isNewcomer ? newcomerText : rating, 
+                            rating,
                             style: GoogleFonts.inter(
-                              fontSize: isNewcomer ? 16 : 24, 
-                              fontWeight: FontWeight.w900, 
+                              fontSize: 24,
+                              fontWeight: FontWeight.w900,
                               color: _txtColor
                             ),
                             textAlign: TextAlign.center,
@@ -443,13 +440,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      ratingDesc, 
+                      ratingDesc,
                       textAlign: TextAlign.center,
                       style: GoogleFonts.inter(
-                        fontSize: isNewcomer ? 8.5 : 10, 
-                        fontWeight: FontWeight.w700, 
-                        color: _subtxtColor, 
-                        letterSpacing: isNewcomer ? 0.0 : 1.0
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: _subtxtColor,
+                        letterSpacing: 1.0
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,

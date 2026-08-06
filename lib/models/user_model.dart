@@ -26,7 +26,7 @@ class UserModel {
     required this.registrationDate,
     required this.lastActive,
     this.reviewsCount = 0,
-    this.rating = 0.0,
+    this.rating = 5.0,
     this.location = 'Чунджа',
     this.status = 'active',
   });
@@ -46,7 +46,7 @@ class UserModel {
       registrationDate: (map['registrationDate'] as Timestamp?)?.toDate() ?? (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       lastActive: (map['lastActive'] as Timestamp?)?.toDate() ?? DateTime.now(),
       reviewsCount: map['reviewsCount'] ?? 0,
-      rating: (map['rating'] as num?)?.toDouble() ?? 0.0,
+      rating: (map['rating'] as num?)?.toDouble() ?? 5.0,
       location: map['location'] ?? 'Чунджа',
       status: map['status'] ?? 'active',
     );

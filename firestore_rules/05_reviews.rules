@@ -8,5 +8,5 @@
         && request.resource.data.rating >= 1
         && request.resource.data.rating <= 5;
       allow update: if isSignedIn() && isOwner(resource.data.fromUserId) && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['fromUserId', 'toUserId']));
-      allow delete: if isSignedIn() && isOwner(resource.data.fromUserId);
+      allow delete: if isSignedIn() && (isOwner(resource.data.fromUserId) || isAdmin());
     }

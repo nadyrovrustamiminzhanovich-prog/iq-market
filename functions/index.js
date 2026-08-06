@@ -1008,16 +1008,10 @@ exports.getFullUserInfo = functions.https.onCall(async (data, context) => {
       };
     });
 
-    // Расчет рейтинга с оптимизацией
-    let avgRating = profile ? (profile.rating || 0.0) : 0.0;
+    // updateUserRatingTransaction уже держит profile.rating в актуальном состоянии
+    // (5.0 по умолчанию без отзывов, иначе реальное среднее) — пересчёт на лету не нужен.
+    const avgRating = profile ? (profile.rating ?? 5.0) : 5.0;
     const reviewsCount = profile ? (profile.reviewsCount || 0) : 0;
-
-    // Вычисляем рейтинг на лету, если отзывов < 5, но они есть
-    if (reviewsCount > 0 && reviewsCount < 5 && reviewsToSnap.size > 0) {
-      let sum = 0;
-      reviewsToSnap.docs.forEach(doc => { sum += doc.data().rating || 0; });
-      avgRating = sum / reviewsToSnap.size;
-    }
 
     const reviewsTo = reviewsToSnap.docs.map(doc => {
       const revData = doc.data();
@@ -1407,7 +1401,10 @@ async function updateUserRatingTransaction(userId, ratingChange, countChange) {
     
     const newSum = Math.max(0, currentSum + ratingChange);
     const newCount = Math.max(0, currentCount + countChange);
-    const avgRating = newCount >= 5 ? (newSum / newCount) : 0.0;
+    // Стартовый рейтинг 5.0 у всех новых аккаунтов (см. user_service.dart) — как только
+    // появляется хотя бы один реальный отзыв, рейтинг сразу отражает фактическое среднее
+    // (держится или снижается), без ожидания минимального числа отзывов.
+    const avgRating = newCount > 0 ? (newSum / newCount) : 5.0;
     
     transaction.set(userRef, {
       ratingSum: newSum,

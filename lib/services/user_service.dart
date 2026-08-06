@@ -47,7 +47,7 @@ class UserService {
           'status': 'active',
           'registrationDate': FieldValue.serverTimestamp(),
           'reviewsCount': 0,
-          'rating': 0.0,
+          'rating': 5.0, // Стартовый рейтинг — держится/снижается по факту реальных отзывов
           'language': language ?? 'Русский',
         });
 
