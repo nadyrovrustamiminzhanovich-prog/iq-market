@@ -1452,7 +1452,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           onRetryUpload: _retryFailedUpload,
           onAcceptOffer: () async {
             try {
-              await ChatService.updateOfferStatus(msg.senderId, msg.id, 'accepted');
+              await ChatService.updateOfferStatus(msg.senderId, msg.id, 'accepted', offerId: msg.offerId);
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
@@ -1476,7 +1476,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           },
           onDeclineOffer: () async {
             try {
-              await ChatService.updateOfferStatus(msg.senderId, msg.id, 'rejected');
+              await ChatService.updateOfferStatus(msg.senderId, msg.id, 'rejected', offerId: msg.offerId);
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(

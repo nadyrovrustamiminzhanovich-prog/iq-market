@@ -40,6 +40,13 @@ class _ChatsListScreenState extends State<ChatsListScreen> {
         return price != null ? '$label: $price ₸' : label;
       case 'cleared':
         return TranslationService.t('chatPreviewCleared', lang);
+      case 'system':
+        // Исход оффера. Без этой ветки превью показывало бы русский текст
+        // сообщения всем читателям независимо от их языка.
+        final key = chat['lastSystemKey'] as String?;
+        if (key == null || key.isEmpty) return rawLastMsg;
+        final translated = TranslationService.t('${key}_msg', lang);
+        return translated == '${key}_msg' ? rawLastMsg : translated;
       default:
         return rawLastMsg;
     }

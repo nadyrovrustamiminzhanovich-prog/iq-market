@@ -1,0 +1,58 @@
+    // ─── OFFERS (предложения цены) ─────────────────────────────────────────
+    // Источник истины по офферу. Статус меняет ТОЛЬКО сервер (respondToOffer):
+    // клиентский accept/reject подделывается с рутованного устройства, а гонку
+    // двух одновременных accept корректно решает лишь серверная транзакция.
+    match /offers/{offerId} {
+      function offerData() {
+        return request.resource.data;
+      }
+
+      allow read: if isSignedIn() && (
+        request.auth.uid == resource.data.buyerId ||
+        request.auth.uid == resource.data.sellerId ||
+        isAdmin()
+      );
+
+      // Создать предложение может только покупатель и только за себя.
+      // offerId жёстко детерминирован (adId_buyerId) — это и есть защита от
+      // двух параллельных активных офферов на один товар.
+      allow create: if isSignedIn() && !isBanned()
+        && offerData().buyerId == request.auth.uid
+        && offerId == offerData().adId + '_' + request.auth.uid
+        && offerData().status == 'pending'
+        && offerData().price is number
+        && offerData().price > 0
+        && offerData().adId is string
+        && offerData().adId.size() > 0
+        && offerData().sellerId is string
+        && offerData().sellerId != request.auth.uid
+        && exists(/databases/$(database)/documents/ads/$(offerData().adId))
+        && offerData().sellerId == get(/databases/$(database)/documents/ads/$(offerData().adId)).data.userId
+        && get(/databases/$(database)/documents/ads/$(offerData().adId)).data.status == 'active'
+        && offerData().price >= get(/databases/$(database)/documents/ads/$(offerData().adId)).data.price * 0.7;
+
+      // Покупатель может только перебить собственное предложение новой ценой
+      // (pending → pending) либо отозвать его (pending → cancelled).
+      // Переходы в accepted/rejected клиенту недоступны в принципе.
+      allow update: if isSignedIn() && !isBanned()
+        && request.auth.uid == resource.data.buyerId
+        && offerData().buyerId == resource.data.buyerId
+        && offerData().sellerId == resource.data.sellerId
+        && offerData().adId == resource.data.adId
+        && (
+          (
+            resource.data.status == 'pending'
+            && offerData().status == 'cancelled'
+            && offerData().diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt'])
+          ) ||
+          (
+            offerData().status == 'pending'
+            && offerData().price is number
+            && offerData().price > 0
+            && offerData().price >= get(/databases/$(database)/documents/ads/$(resource.data.adId)).data.price * 0.7
+            && get(/databases/$(database)/documents/ads/$(resource.data.adId)).data.status == 'active'
+          )
+        );
+
+      allow delete: if false;
+    }

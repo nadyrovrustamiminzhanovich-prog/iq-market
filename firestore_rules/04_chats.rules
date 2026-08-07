@@ -20,6 +20,9 @@
           && request.resource.data.senderId == request.auth.uid
           && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.users
           && !isBlockedInChat(chatId)
+          // Системные сообщения ("Предложение принято/отклонено") пишет только
+          // сервер — иначе покупателю можно подсунуть фальшивое подтверждение.
+          && request.resource.data.type != 'system'
           && (!('text' in request.resource.data) || request.resource.data.text.size() <= 2000)
           && (
             request.resource.data.type != 'offer'
@@ -56,15 +59,13 @@
           (
             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead', 'isDelivered', 'readAt'])
             && request.auth.uid != resource.data.senderId
-          ) ||
-          // 4. Only the RECEIVER of an offer can change its status (accept/reject) while pending
-          (
-            resource.data.type == 'offer'
-            && request.auth.uid != resource.data.senderId
-            && resource.data.offerStatus == 'pending'
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['offerStatus'])
-            && request.resource.data.offerStatus in ['accepted', 'rejected']
           )
+          // 4. Accept/reject оффера клиенту БОЛЬШЕ НЕДОСТУПЕН.
+          //    Статус меняет только Cloud Function respondToOffer, которая
+          //    пишет и в offers/{offerId}, и зеркало в это сообщение.
+          //    Раньше правило разрешало получателю выставить offerStatus
+          //    напрямую — это позволяло подделать статус в обход сервера и
+          //    оставляло гонку двух параллельных accept без арбитра.
         );
 
         allow delete: if isSignedIn() && request.auth.uid == resource.data.senderId;

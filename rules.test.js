@@ -693,7 +693,7 @@ describe("chats users order comparison", () => {
     );
   });
 
-  test("продавец может принять/отклонить предложение цены покупателя, даже если порядок участников users в чате изменился", async () => {
+  test("продавец НЕ может выставить offerStatus напрямую — accept/reject только через Cloud Function respondToOffer", async () => {
     // 1. Покупатель создает чат с users: [buyer, seller]
     await assertSucceeds(
       setDoc(doc(userDb(buyerId), "chats", chatId), {
@@ -722,8 +722,11 @@ describe("chats users order comparison", () => {
       }, { merge: true })
     );
 
-    // 4. Продавец (получатель оффера) принимает предложение — должно пройти успешно
-    await assertSucceeds(
+    // 4. Продавец пытается принять предложение записью с клиента.
+    //    Раньше это разрешалось правилом — статус можно было подделать в обход
+    //    сервера, а гонка двух одновременных accept оставалась без арбитра.
+    //    Теперь единственный легальный путь — callable respondToOffer.
+    await assertFails(
       updateDoc(doc(userDb(sellerId), `chats/${chatId}/messages`, "offer_001"), {
         offerStatus: "accepted",
       })
@@ -763,6 +766,134 @@ describe("chats users order comparison", () => {
     await assertSucceeds(
       updateDoc(doc(userDb(buyerId), `chats/${chatId}/messages`, "offer_002"), {
         offerStatus: "cancelled",
+      })
+    );
+  });
+});
+
+// ──────────────────────────────────────────
+// ТЕСТЫ: offers (предложения цены)
+// Статус оффера меняет ТОЛЬКО Cloud Function respondToOffer — правила
+// обязаны запрещать клиенту любые переходы в accepted/rejected.
+// ──────────────────────────────────────────
+describe("offers", () => {
+  const buyerId = "offer_buyer_1";
+  const sellerId = "offer_seller_1";
+  const strangerId = "offer_stranger_1";
+  const adId = "ad_offer_1";
+  const chatId = "offer_buyer_1_offer_seller_1";
+  const offerId = `${adId}_${buyerId}`;
+
+  const validOffer = {
+    adId,
+    adTitle: "Диван",
+    price: 80000,
+    sellerId,
+    buyerId,
+    chatId,
+    messageId: "msg_1",
+    status: "pending",
+  };
+
+  beforeEach(async () => {
+    await adminSet(`ads/${adId}`, {
+      userId: sellerId,
+      title: "Диван",
+      price: 100000,
+      status: "active",
+      active: true,
+    });
+  });
+
+  test("покупатель создаёт предложение с детерминированным id", async () => {
+    await assertSucceeds(
+      setDoc(doc(userDb(buyerId), "offers", offerId), validOffer)
+    );
+  });
+
+  test("id обязан быть adId_buyerId — произвольный id отклоняется", async () => {
+    await assertFails(
+      setDoc(doc(userDb(buyerId), "offers", "random_id"), validOffer)
+    );
+  });
+
+  test("нельзя создать предложение от чужого имени", async () => {
+    await assertFails(
+      setDoc(doc(userDb(strangerId), "offers", `${adId}_${strangerId}`), validOffer)
+    );
+  });
+
+  test("цена ниже 70% от цены объявления отклоняется", async () => {
+    await assertFails(
+      setDoc(doc(userDb(buyerId), "offers", offerId), { ...validOffer, price: 50000 })
+    );
+  });
+
+  test("продавец не может торговаться сам с собой", async () => {
+    await assertFails(
+      setDoc(doc(userDb(sellerId), "offers", `${adId}_${sellerId}`), {
+        ...validOffer,
+        buyerId: sellerId,
+      })
+    );
+  });
+
+  test("ПРОДАВЕЦ НЕ МОЖЕТ выставить status accepted — только respondToOffer", async () => {
+    await adminSet(`offers/${offerId}`, validOffer);
+    await assertFails(
+      updateDoc(doc(userDb(sellerId), "offers", offerId), { status: "accepted" })
+    );
+  });
+
+  test("ПОКУПАТЕЛЬ НЕ МОЖЕТ принять предложение сам себе", async () => {
+    await adminSet(`offers/${offerId}`, validOffer);
+    await assertFails(
+      updateDoc(doc(userDb(buyerId), "offers", offerId), { status: "accepted" })
+    );
+  });
+
+  test("покупатель может отозвать своё активное предложение", async () => {
+    await adminSet(`offers/${offerId}`, validOffer);
+    await assertSucceeds(
+      updateDoc(doc(userDb(buyerId), "offers", offerId), { status: "cancelled" })
+    );
+  });
+
+  test("покупатель может перебить свою цену новым предложением", async () => {
+    await adminSet(`offers/${offerId}`, validOffer);
+    await assertSucceeds(
+      setDoc(doc(userDb(buyerId), "offers", offerId), { ...validOffer, price: 95000 })
+    );
+  });
+
+  test("после отказа покупатель может предложить снова", async () => {
+    await adminSet(`offers/${offerId}`, { ...validOffer, status: "rejected" });
+    await assertSucceeds(
+      setDoc(doc(userDb(buyerId), "offers", offerId), { ...validOffer, price: 90000 })
+    );
+  });
+
+  test("посторонний не видит чужое предложение", async () => {
+    await adminSet(`offers/${offerId}`, validOffer);
+    await assertFails(getDoc(doc(userDb(strangerId), "offers", offerId)));
+  });
+
+  test("участники сделки видят предложение", async () => {
+    await adminSet(`offers/${offerId}`, validOffer);
+    await assertSucceeds(getDoc(doc(userDb(buyerId), "offers", offerId)));
+    await assertSucceeds(getDoc(doc(userDb(sellerId), "offers", offerId)));
+  });
+
+  test("клиент не может подделать системное сообщение об исходе оффера", async () => {
+    await adminSet(`chats/${chatId}`, { users: [buyerId, sellerId] });
+    await assertFails(
+      setDoc(doc(userDb(buyerId), `chats/${chatId}/messages`, "fake_system"), {
+        senderId: buyerId,
+        text: "Предложение принято! ✅",
+        type: "system",
+        systemKey: "offer_accepted",
+        timestamp: new Date(),
+        isRead: false,
       })
     );
   });

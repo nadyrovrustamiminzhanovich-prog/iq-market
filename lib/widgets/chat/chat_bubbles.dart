@@ -64,6 +64,14 @@ class _ChatBubbleState extends State<ChatBubble> {
   @override
   Widget build(BuildContext context) {
     final bool isMe = widget.msg.senderId == UserService.currentUid;
+
+    // Системное сообщение об исходе оффера — не пузырь участника, а
+    // центрированная плашка. Текст берём по systemKey, чтобы читающий видел
+    // его на своём языке: поле text хранит русский фолбэк для пуша.
+    if (widget.msg.type == 'system') {
+      return _buildSystemMessage();
+    }
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
         child: Row(
@@ -217,6 +225,52 @@ class _ChatBubbleState extends State<ChatBubble> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSystemMessage() {
+    final key = widget.msg.systemKey;
+    final bool accepted = key == 'offer_accepted';
+    final Color color = accepted ? const Color(0xFF10B981) : const Color(0xFFEF4444);
+
+    // Неизвестный ключ (сообщение от более новой версии сервера) — показываем
+    // text как есть, а не сырой ключ, который вернул бы t() при промахе.
+    String label = widget.msg.text;
+    if (key != null && key.isNotEmpty) {
+      final translated = TranslationService.t('${key}_msg', widget.lang);
+      if (translated != '${key}_msg') label = translated;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: color.withValues(alpha: 0.25), width: 1),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                accepted ? Icons.check_circle_rounded : Icons.cancel_rounded,
+                size: 16,
+                color: color,
+              ),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w800),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

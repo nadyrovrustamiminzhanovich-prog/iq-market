@@ -54,6 +54,11 @@ exports.secureSendTelegramMessage = telegramBot.secureSendTelegramMessage;
 exports.onVerificationUpdate = telegramBot.onVerificationUpdate;
 exports.verifyTelegramOtp = telegramBot.verifyTelegramOtp;
 
+// Предложения цены: все переходы статуса только через сервер (см. offers.js)
+const offersModule = require('./offers');
+
+exports.respondToOffer = offersModule.respondToOffer;
+
 
 // ─── FIRESTORE TRIGGER: new chat message → FCM push ──────────────────────────
 exports.onNewMessage = onDocumentCreated('chats/{chatId}/messages/{msgId}', async (event) => {

@@ -4,14 +4,22 @@ class MessageModel {
   final String id;
   final String senderId;
   final String text;
-  final String type; // text, voice, image, offer
+  final String type; // text, voice, image, offer, system
   final DateTime timestamp;
   final bool isRead;
   final bool isDelivered; // ✅ WhatsApp-style: доставлено получателю
   final String? mediaUrl;
   final int? duration;
   final String? offerPrice;
-  final String? offerStatus; // pending, accepted, rejected
+  final String? offerStatus; // pending, accepted, rejected, cancelled
+  // id документа offers/{offerId} — источника истины по предложению.
+  // null у офферов, созданных до перехода на серверную обработку: для них
+  // сервер поднимает документ из самого сообщения (chatId + messageId).
+  final String? offerId;
+  // Ключ системного сообщения (offer_accepted / offer_rejected). Текст в поле
+  // text — русский фолбэк для пуша; в ленте рендерится перевод по ключу, иначе
+  // сообщение навсегда останется на языке отправителя.
+  final String? systemKey;
   // true, если аплоад медиа (фото/голосовое) окончательно не удался после всех
   // повторов — персистентный (переживает перезапуск приложения) флаг, чтобы
   // UI мог показать "нажмите, чтобы повторить" вместо вечного спиннера.
@@ -29,6 +37,8 @@ class MessageModel {
     this.duration,
     this.offerPrice,
     this.offerStatus,
+    this.offerId,
+    this.systemKey,
     this.uploadFailed = false,
   });
 
@@ -44,6 +54,8 @@ class MessageModel {
       'duration': duration,
       'offerPrice': offerPrice,
       'offerStatus': offerStatus,
+      'offerId': offerId,
+      'systemKey': systemKey,
       'uploadFailed': uploadFailed,
     };
   }
@@ -61,6 +73,8 @@ class MessageModel {
       duration: map['duration'],
       offerPrice: map['offerPrice']?.toString(),
       offerStatus: map['offerStatus'],
+      offerId: map['offerId'],
+      systemKey: map['systemKey'],
       uploadFailed: map['uploadFailed'] ?? false,
     );
   }
