@@ -693,7 +693,7 @@ describe("chats users order comparison", () => {
     );
   });
 
-  test("продавец НЕ может выставить offerStatus напрямую — accept/reject только через Cloud Function respondToOffer", async () => {
+  test("[ВРЕМЕННО] продавец может выставить offerStatus напрямую — пока respondToOffer не задеплоена", async () => {
     // 1. Покупатель создает чат с users: [buyer, seller]
     await assertSucceeds(
       setDoc(doc(userDb(buyerId), "chats", chatId), {
@@ -722,11 +722,13 @@ describe("chats users order comparison", () => {
       }, { merge: true })
     );
 
-    // 4. Продавец пытается принять предложение записью с клиента.
-    //    Раньше это разрешалось правилом — статус можно было подделать в обход
-    //    сервера, а гонка двух одновременных accept оставалась без арбитра.
-    //    Теперь единственный легальный путь — callable respondToOffer.
-    await assertFails(
+    // 4. Продавец принимает предложение записью с клиента.
+    //    ЭТО ВРЕМЕННОЕ СОСТОЯНИЕ: правило оставлено только потому, что
+    //    Cloud Function respondToOffer не развёрнута (403 по биллингу),
+    //    а без правила ни один клиент не может ответить на предложение.
+    //    Как только функция задеплоится — правило удаляется, а здесь
+    //    возвращается assertFails.
+    await assertSucceeds(
       updateDoc(doc(userDb(sellerId), `chats/${chatId}/messages`, "offer_001"), {
         offerStatus: "accepted",
       })
