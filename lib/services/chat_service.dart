@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:iqmarket/models/message_model.dart';
 import 'package:iqmarket/models/ad_model.dart';
 import 'package:iqmarket/services/user_service.dart';
@@ -318,53 +317,120 @@ class ChatService {
   /// и защита от двух активных предложений одного покупателя на один товар.
   static String offerIdFor(String adId, String buyerId) => '${adId}_$buyerId';
 
-  /// Принять или отклонить предложение покупателя.
+  /// Отклонить предложение покупателя.
   ///
-  /// Решение принимает сервер (Cloud Function respondToOffer): он атомарно
-  /// меняет статус в offers/{offerId}, зеркалит его в карточку сообщения,
-  /// пишет системное сообщение и отклоняет конкурирующие предложения на тот
-  /// же товар. Клиент намеренно ничего из этого не делает сам: статус,
-  /// выставленный с устройства, подделывается и не переживает гонку двух
-  /// одновременных Accept, а запрос сразу после локальной транзакции отдаёт
-  /// устаревшие данные из кэша.
+  /// ВРЕМЕННАЯ (промежуточная) реализация. Полноценный сценарий — сервер
+  /// (Cloud Function respondToOffer, functions/offers.js) атомарно решает
+  /// accept/reject, отклоняет конкурентов на тот же товар и шлёт системное
+  /// сообщение. Функция готова и лежит в репозитории, но не задеплоена:
+  /// деплой блокирован на стороне Google (403 по биллинг-аккаунту проекта).
   ///
-  /// NOTE: принятие оффера — это договорённость в чате (как на OLX/Avito),
-  /// объявление не блокируется и не меняет статус.
+  /// Пока это не решится, Accept вообще недоступен клиенту — ни в этом
+  /// методе, ни в Firestore rules (см. 04_chats.rules и 10b_offers.rules):
+  /// продавец либо отклоняет предложение, либо договаривается с покупателем
+  /// напрямую в чате/по звонку — кнопки под предложением уже ведут туда.
+  /// Это не костыль "на глазок": именно Accept был источником прод-бага
+  /// (гонка + не по адресу отправленное "отклонено"), и, убрав его из
+  /// клиента полностью, этот класс багов физически не может повториться.
+  ///
+  /// status принимает только 'rejected' — параметр сохранён ради минимальной
+  /// правки на вызывающей стороне, когда Accept вернётся через respondToOffer.
   static Future<void> updateOfferStatus(
     String buyerId,
     String messageId,
     String status, {
     String? offerId,
   }) async {
+    if (status != 'rejected') {
+      throw Exception(
+        'Принять предложение сейчас можно только через чат или звонок покупателю',
+      );
+    }
+
     final uid = UserService.currentUid;
     if (uid == null) return;
 
     final chatId = activeChatId ?? getChatId(buyerId);
+    final docRef = _db.collection('chats').doc(chatId).collection('messages').doc(messageId);
 
-    try {
-      final callable = FirebaseFunctions.instance.httpsCallable('respondToOffer');
-      final result = await callable.call<Map<String, dynamic>>({
-        'action': status == 'accepted' ? 'accept' : 'reject',
-        if (offerId != null && offerId.isNotEmpty) 'offerId': offerId,
-        // Фолбэк для предложений, созданных до перехода на коллекцию offers:
-        // сервер поднимет документ оффера из самого сообщения.
-        'chatId': chatId,
-        'messageId': messageId,
+    late Map<String, dynamic> offerData;
+
+    // Транзакция возвращает bool: её внутренний return прерывает только саму
+    // транзакцию, поэтому внешний код не должен ничего писать, если статус
+    // фактически не поменялся (второй тап, ответ уже пришёл с другого места).
+    final didReject = await _db.runTransaction<bool>((tx) async {
+      final snap = await tx.get(docRef);
+      if (!snap.exists) return false;
+
+      final data = snap.data()!;
+      if ((data['offerStatus'] as String? ?? '') != 'pending') return false;
+
+      tx.update(docRef, {'offerStatus': 'rejected'});
+      offerData = data;
+      return true;
+    });
+
+    if (!didReject) {
+      debugPrint('[CHAT_SERVICE] updateOfferStatus SKIPPED: $messageId already resolved');
+      return;
+    }
+
+    debugPrint('[CHAT_SERVICE] updateOfferStatus: $messageId -> rejected');
+
+    const responseText = 'Предложение отклонено ❌';
+    final offerBuyerId = offerData['senderId'] as String?;
+    final offerAdTitle = offerData['adTitle'] as String? ?? 'объявлению';
+    final resolvedOfferId = offerId ?? offerData['offerId'] as String?;
+
+    await _db.collection('chats').doc(chatId).collection('messages').add({
+      'senderId': uid,
+      'text': responseText,
+      'type': 'text',
+      'timestamp': Timestamp.now(),
+      'isRead': false,
+    });
+
+    final Map<String, dynamic> chatUpdate = {
+      'lastMessage': responseText,
+      'lastTimestamp': Timestamp.now(),
+    };
+    if (offerBuyerId != null) {
+      chatUpdate['unreadCount_$offerBuyerId'] = FieldValue.increment(1);
+    }
+    await _db.collection('chats').doc(chatId).update(chatUpdate);
+
+    if (offerBuyerId != null) {
+      NotificationService.saveNotificationToFirestore(
+        uid: offerBuyerId,
+        title: responseText,
+        body: 'Продавец ответил на ваше предложение по товару "$offerAdTitle"',
+        type: 'chat',
+        data: {
+          'chatId': chatId,
+          'adId': offerData['adId'] ?? '',
+          'adTitle': offerAdTitle,
+          'senderId': uid,
+          'senderName': StorageService.getString('user_name') ?? 'Продавец',
+        },
+      ).catchError((e) {
+        debugPrint('[CHAT_SERVICE] Notification sending failed (non-blocking): $e');
       });
-      debugPrint('[CHAT_SERVICE] respondToOffer $messageId -> ${result.data}');
-    } on FirebaseFunctionsException catch (e) {
-      // Предложение успели обработать раньше (второй тап, параллельный ответ
-      // с другого устройства) — для пользователя это не ошибка.
-      if (e.code == 'failed-precondition') {
-        debugPrint('[CHAT_SERVICE] respondToOffer skipped: ${e.message}');
-        return;
+    }
+
+    // Зеркалим статус в offers/{offerId}, если оффер создавался уже новым
+    // клиентом. Best-effort: если документа нет (старый оффер) или запись
+    // не удалась — на видимый пользователю результат это не влияет.
+    if (resolvedOfferId != null && resolvedOfferId.isNotEmpty) {
+      try {
+        await _db.collection('offers').doc(resolvedOfferId).update({
+          'status': 'rejected',
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      } catch (e) {
+        debugPrint('[CHAT_SERVICE] offers/$resolvedOfferId mirror skipped: $e');
       }
-      debugPrint('[CHAT_SERVICE] respondToOffer failed ${e.code}: ${e.message}');
-      rethrow;
     }
   }
-
-
   /// Update message (e.g., set media URL after upload)
   static Future<void> updateMessage(String sellerId, String messageId, Map<String, dynamic> data) async {
     final chatId = getChatId(sellerId);

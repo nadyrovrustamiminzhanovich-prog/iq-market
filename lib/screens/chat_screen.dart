@@ -1450,30 +1450,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           onImageTap: _showFullScreenImage,
           localImagePath: _localImagePaths[msg.id],
           onRetryUpload: _retryFailedUpload,
-          onAcceptOffer: () async {
-            try {
-              await ChatService.updateOfferStatus(msg.senderId, msg.id, 'accepted', offerId: msg.offerId);
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('🎉 Предложение принято! Вы можете связаться с покупателем.'),
-                    backgroundColor: Color(0xFF10B981),
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
-              }
-            } catch (e) {
-              debugPrint('Error accepting offer: $e');
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Ошибка при принятии: $e'),
-                    backgroundColor: Colors.redAccent,
-                  ),
-                );
-              }
-            }
-          },
           onDeclineOffer: () async {
             try {
               await ChatService.updateOfferStatus(msg.senderId, msg.id, 'rejected', offerId: msg.offerId);

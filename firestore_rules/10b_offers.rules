@@ -1,7 +1,12 @@
     // ─── OFFERS (предложения цены) ─────────────────────────────────────────
-    // Источник истины по офферу. Статус меняет ТОЛЬКО сервер (respondToOffer):
-    // клиентский accept/reject подделывается с рутованного устройства, а гонку
-    // двух одновременных accept корректно решает лишь серверная транзакция.
+    // Источник истины по офферу. Статус решает сервер (respondToOffer,
+    // functions/offers.js) — но функция сейчас не развёрнута (403 по
+    // биллингу проекта), поэтому до её деплоя продавцу оставлена только
+    // возможность зеркалить сюда отказ (см. правило update ниже), синхронно
+    // с тем, что он делает в chats/{chatId}/messages/{messageId}
+    // (04_chats.rules, правило #4). Переход в 'accepted' закрыт клиенту
+    // ПОЛНОСТЬЮ и здесь, и там — именно Accept был источником прод-бага
+    // (гонка + ложное "отклонено" по факту принятого предложения).
     match /offers/{offerId} {
       function offerData() {
         return request.resource.data;
@@ -33,7 +38,6 @@
 
       // Покупатель может только перебить собственное предложение новой ценой
       // (pending → pending) либо отозвать его (pending → cancelled).
-      // Переходы в accepted/rejected клиенту недоступны в принципе.
       allow update: if isSignedIn() && !isBanned()
         && request.auth.uid == resource.data.buyerId
         && offerData().buyerId == resource.data.buyerId
@@ -53,6 +57,15 @@
             && get(/databases/$(database)/documents/ads/$(resource.data.adId)).data.status == 'active'
           )
         );
+
+      // Продавец — временно, до деплоя respondToOffer — может ТОЛЬКО
+      // зеркалить сюда отказ, который он уже сделал в сообщении чата.
+      // 'accepted' сюда попасть с клиента не может ни при каких условиях.
+      allow update: if isSignedIn() && !isBanned()
+        && request.auth.uid == resource.data.sellerId
+        && resource.data.status == 'pending'
+        && offerData().status == 'rejected'
+        && offerData().diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt']);
 
       allow delete: if false;
     }

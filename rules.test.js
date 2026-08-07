@@ -693,7 +693,7 @@ describe("chats users order comparison", () => {
     );
   });
 
-  test("[ВРЕМЕННО] продавец может выставить offerStatus напрямую — пока respondToOffer не задеплоена", async () => {
+  test("продавец может отклонить предложение напрямую, но НЕ может принять — Accept закрыт клиенту до деплоя respondToOffer", async () => {
     // 1. Покупатель создает чат с users: [buyer, seller]
     await assertSucceeds(
       setDoc(doc(userDb(buyerId), "chats", chatId), {
@@ -722,15 +722,21 @@ describe("chats users order comparison", () => {
       }, { merge: true })
     );
 
-    // 4. Продавец принимает предложение записью с клиента.
-    //    ЭТО ВРЕМЕННОЕ СОСТОЯНИЕ: правило оставлено только потому, что
-    //    Cloud Function respondToOffer не развёрнута (403 по биллингу),
-    //    а без правила ни один клиент не может ответить на предложение.
-    //    Как только функция задеплоится — правило удаляется, а здесь
-    //    возвращается assertFails.
-    await assertSucceeds(
+    // 4. Продавец пытается принять предложение записью с клиента — запрещено.
+    //    Accept недоступен клиенту нигде, пока не задеплоена respondToOffer:
+    //    именно этот переход был источником прод-бага (гонка + ложное
+    //    "отклонено" по факту принятого предложения).
+    await assertFails(
       updateDoc(doc(userDb(sellerId), `chats/${chatId}/messages`, "offer_001"), {
         offerStatus: "accepted",
+      })
+    );
+
+    // 5. Продавец отклоняет предложение — это единственный клиентский путь
+    //    ответа в текущем релизе, должно проходить.
+    await assertSucceeds(
+      updateDoc(doc(userDb(sellerId), `chats/${chatId}/messages`, "offer_001"), {
+        offerStatus: "rejected",
       })
     );
   });
@@ -872,6 +878,27 @@ describe("offers", () => {
     await adminSet(`offers/${offerId}`, { ...validOffer, status: "rejected" });
     await assertSucceeds(
       setDoc(doc(userDb(buyerId), "offers", offerId), { ...validOffer, price: 90000 })
+    );
+  });
+
+  test("продавец может зеркалить отказ (интерим-путь, пока respondToOffer не задеплоена)", async () => {
+    await adminSet(`offers/${offerId}`, validOffer);
+    await assertSucceeds(
+      updateDoc(doc(userDb(sellerId), "offers", offerId), { status: "rejected" })
+    );
+  });
+
+  test("продавец НЕ может зеркалить accepted", async () => {
+    await adminSet(`offers/${offerId}`, validOffer);
+    await assertFails(
+      updateDoc(doc(userDb(sellerId), "offers", offerId), { status: "accepted" })
+    );
+  });
+
+  test("продавец не может отклонить чужое предложение (не sellerId)", async () => {
+    await adminSet(`offers/${offerId}`, { ...validOffer, sellerId: strangerId });
+    await assertFails(
+      updateDoc(doc(userDb(sellerId), "offers", offerId), { status: "rejected" })
     );
   });
 

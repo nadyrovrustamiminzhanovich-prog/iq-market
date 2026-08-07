@@ -40,7 +40,6 @@ class ChatBubble extends StatefulWidget {
     required this.onImageTap,
     this.localImagePath,
     this.onRetryUpload,
-    this.onAcceptOffer,
     this.onDeclineOffer,
     this.onWriteOffer,
     this.onVoiceOffer,
@@ -48,7 +47,6 @@ class ChatBubble extends StatefulWidget {
     this.lang = 'Русский',
   });
 
-  final Future<void> Function()? onAcceptOffer;
   final Future<void> Function()? onDeclineOffer;
   final VoidCallback? onWriteOffer;
   final VoidCallback? onVoiceOffer;
@@ -358,18 +356,17 @@ class _ChatBubbleState extends State<ChatBubble> {
                   ),
                 ),
                 const SizedBox(width: 8),
+                // "Принять" здесь намеренно нет: формальный accept сейчас
+                // недоступен нигде — ни в этом виджете, ни в ChatService,
+                // ни в Firestore rules (см. комментарий у ChatService.
+                // updateOfferStatus). Продавец либо отклоняет, либо
+                // договаривается с покупателем в чате/по звонку — обе кнопки
+                // ведут туда напрямую.
                 Expanded(
                   child: SizedBox(
                     height: 48,
                     child: ElevatedButton(
-                      onPressed: _isOfferLoading ? null : () async {
-                        setState(() => _isOfferLoading = true);
-                        try {
-                          await widget.onAcceptOffer?.call();
-                        } finally {
-                          if (mounted) setState(() => _isOfferLoading = false);
-                        }
-                      },
+                      onPressed: widget.onWriteOffer,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF10B981),
                         foregroundColor: Colors.white,
@@ -377,26 +374,24 @@ class _ChatBubbleState extends State<ChatBubble> {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                         padding: EdgeInsets.zero,
                       ),
-                      child: _isOfferLoading 
-                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                          : Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 4),
-                              child: FittedBox(
-                                fit: BoxFit.scaleDown,
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(3),
-                                      decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                                      child: const Icon(Icons.check_rounded, size: 12, color: Color(0xFF10B981)),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Text(TranslationService.t('accept_btn', widget.lang), style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: Colors.white)),
-                                  ],
-                                ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(3),
+                                decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                                child: const Icon(Icons.chat_bubble_rounded, size: 12, color: Color(0xFF10B981)),
                               ),
-                            ),
+                              const SizedBox(width: 6),
+                              Text(TranslationService.t('write_btn_short', widget.lang), style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: Colors.white)),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
