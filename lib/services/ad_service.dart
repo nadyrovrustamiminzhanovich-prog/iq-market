@@ -840,6 +840,9 @@ class AdService {
       await _adsCollection.doc(adId).update({
         'status': 'active',
         'active': true,
+        // Чистим причину прошлого отклонения — иначе после повторной
+        // модерации на карточке объявления всплывал бы устаревший текст.
+        'rejectionReason': FieldValue.delete(),
       });
 
       // Отправляем уведомление владельцу
@@ -873,6 +876,10 @@ class AdService {
       await _adsCollection.doc(adId).update({
         'status': 'rejected',
         'active': false,
+        // Сохраняем на самом объявлении, а не только в уведомлении — иначе
+        // владелец мог узнать причину, только вернувшись в колокольчик,
+        // вместо того чтобы увидеть её прямо на странице объявления.
+        'rejectionReason': reason,
       });
 
       // Отправляем уведомление об отклонении

@@ -367,6 +367,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
 
     // Объявление считается архивным, если status != 'active' или active == false
     final bool isArchived = ad.status != 'active' || !ad.active;
+    final bool isMyAd = _currentUser?.uid == ad.userId;
 
     return PopScope(
       canPop: true,
@@ -550,7 +551,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
               child: Column(
                 children: [
                   // ── Архивный баннер (показывается сверху, если объявление в архиве) ──
-                  if (isArchived) _buildArchivedBanner(),
+                  if (isArchived) _buildArchivedBanner(ad: ad, isMyAd: isMyAd),
                   _buildMainInfo(isFree),
                   if (_currentUser?.uid != ad.userId && !isArchived) _buildBargainSection(),
                   _buildTags(),
@@ -912,13 +913,35 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
 
   Widget _buildLeaveReviewButton() => SizedBox(width: double.infinity, height: 54, child: OutlinedButton.icon(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => LeaveReviewScreen(ad: widget.ad))), icon: const Icon(Icons.rate_review_rounded), label: Text(TranslationService.t('leave_review', widget.lang)), style: OutlinedButton.styleFrom(foregroundColor: const Color(0xFF4A80F0), side: const BorderSide(color: Color(0xFF4A80F0)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)))));
 
-  /// Баннер «Объявление в архиве» — показывается вместо кнопок действий
-  Widget _buildArchivedBanner() {
-    final text = widget.lang == 'Қазақша'
-        ? 'Хабарландыру мұрағатта. Байланысу мүмкін емес.'
-        : widget.lang == 'Уйғурчә'
-            ? 'Елан архивта. Мурасиет қилиш мүмкин әмәс.'
-            : 'Объявление в архиве. Связаться с продавцом нельзя.';
+  /// Баннер над объявлением, если оно недоступно (архив/продано/отклонено).
+  ///
+  /// Раньше текст был один на всех: «Объявление в архиве. Связаться с
+  /// продавцом нельзя.» — владелец видел эту фразу на СОБСТВЕННОМ объявлении,
+  /// хотя он не пытается связаться сам с собой, а формулировка ничего не
+  /// говорила о том, что именно случилось. Теперь три разных случая:
+  /// 1) моё отклонённое — причина отклонения прямо здесь, без похода в
+  ///    уведомления; 2) моё архивное/проданное — без упоминания «продавца»;
+  /// 3) чужое архивное — прежнее поведение для покупателя.
+  Widget _buildArchivedBanner({required AdModel ad, required bool isMyAd}) {
+    if (isMyAd && ad.status == 'rejected') {
+      return _buildRejectedBanner(ad);
+    }
+
+    final String text = isMyAd
+        ? (widget.lang == 'Қазақша'
+            ? 'Хабарландыру мұрағатта және басқа пайдаланушыларға көрінбейді.'
+            : widget.lang == 'Уйғурчә'
+                ? 'Елан архивта вә башқа ишлەткүчиләргә көрүнмәйду.'
+                : 'Объявление в архиве и не видно другим пользователям.')
+        : (widget.lang == 'Қазақша'
+            ? 'Хабарландыру мұрағатта. Байланысу мүмкін емес.'
+            : widget.lang == 'Уйғурчә'
+                ? 'Елан архивта. Мурасиет қилиш мүмкин әмәс.'
+                : 'Объявление в архиве. Связаться с продавцом нельзя.');
+    return _archivedInfoContainer(icon: Icons.archive_rounded, text: text);
+  }
+
+  Widget _archivedInfoContainer({required IconData icon, required String text}) {
     return Container(
       width: double.infinity,
       margin: EdgeInsets.zero,
@@ -939,7 +962,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
               color: const Color(0xFFFB923C).withValues(alpha: 0.15),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.archive_rounded, color: Color(0xFFF97316), size: 20),
+            child: Icon(icon, color: const Color(0xFFF97316), size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -951,6 +974,78 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                 color: const Color(0xFF9A3412),
                 height: 1.4,
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Причина отклонения — тот же текст, что уходит в уведомление
+  /// (`AdService.rejectAd`), только видна сразу на странице объявления.
+  Widget _buildRejectedBanner(AdModel ad) {
+    final String title = widget.lang == 'Қазақша'
+        ? 'Хабарландыру қабылданбады'
+        : widget.lang == 'Уйғурчә'
+            ? 'Елан рәт қилинди'
+            : 'Объявление отклонено';
+    final String noReason = widget.lang == 'Қазақша'
+        ? 'Себебі көрсетілмеген'
+        : widget.lang == 'Уйғурчә'
+            ? 'Сәвәви көрситилмиди'
+            : 'Причина не указана';
+    final String reason = (ad.rejectionReason?.trim().isNotEmpty ?? false)
+        ? ad.rejectionReason!.trim()
+        : noReason;
+    final String hint = widget.lang == 'Қазақша'
+        ? 'Түзетіп, қайта жариялауға болады'
+        : widget.lang == 'Уйғурчә'
+            ? 'Түзитип, қайта елан қилишқа болиду'
+            : 'Исправьте и опубликуйте заново через «Редактировать»';
+
+    return Container(
+      width: double.infinity,
+      margin: EdgeInsets.zero,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      decoration: const BoxDecoration(
+        color: Color(0xFFFEF2F2),
+        border: Border(
+          bottom: BorderSide(color: Color(0xFFFCA5A5), width: 1),
+          top: BorderSide(color: Color(0xFFFCA5A5), width: 1),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: Colors.redAccent.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.block_rounded, color: Colors.redAccent, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w800, color: const Color(0xFF991B1B)),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  reason,
+                  style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: const Color(0xFF7F1D1D), height: 1.4),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  hint,
+                  style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500, color: const Color(0xFF9A3412)),
+                ),
+              ],
             ),
           ),
         ],

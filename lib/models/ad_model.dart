@@ -27,6 +27,7 @@ class AdModel {
   final bool notifiedExpiry;
   final String? oldPrice;
   final bool multiAccountSuspected;
+  final String? rejectionReason;
 
 
   AdModel({
@@ -56,6 +57,7 @@ class AdModel {
     this.notifiedExpiry = false,
     this.oldPrice,
     this.multiAccountSuspected = false,
+    this.rejectionReason,
   });
 
 
@@ -88,6 +90,7 @@ class AdModel {
       notifiedExpiry: map['notifiedExpiry'] ?? false,
       oldPrice: map['oldPrice'],
       multiAccountSuspected: map['multiAccountSuspected'] ?? false,
+      rejectionReason: map['rejectionReason'],
     );
 
   }
