@@ -19,6 +19,7 @@ import 'package:iqmarket/services/file_service.dart';
 import 'package:iqmarket/services/gemini_service.dart';
 import 'package:iqmarket/services/storage_service.dart';
 import 'package:iqmarket/services/telegram_bot_service.dart';
+import 'package:iqmarket/services/user_service.dart';
 import 'package:iqmarket/services/translation_service.dart';
 import 'package:iqmarket/theme/taxi_theme.dart';
 
@@ -393,16 +394,23 @@ class _DriverOnboardingWizardState extends State<DriverOnboardingWizard>
         final String? returnedTgFirst = tgData is Map ? tgData['telegramFirstName']?.toString() : null;
         final String? returnedTgLast = tgData is Map ? tgData['telegramLastName']?.toString() : null;
 
+        // В основной документ — только разрешённые правилами ключи.
+        // 'phone' и 'telegramChatId' там запрещены (02_users.rules), и прежняя
+        // запись всех полей разом отклонялась ЦЕЛИКОМ: вместе с ними не
+        // сохранялся и driverOnboardingStep, то есть водитель не мог пройти
+        // дальше второго шага. telegramChatId и private-контакт уже проставил
+        // сервер (verifyTelegramOtp) через Admin SDK.
         await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
           'verified_phone': cleanPhone,
-          'phone': _phoneCtrl.text,
           'isTelegramVerified': true,
           'driverOnboardingStep': 2,
-          if (returnedChatId != null) 'telegramChatId': returnedChatId,
           if (returnedTgUser != null && returnedTgUser.isNotEmpty) 'telegram_username': returnedTgUser,
           if (returnedTgFirst != null && returnedTgFirst.isNotEmpty) 'telegram_first_name': returnedTgFirst,
           if (returnedTgLast != null && returnedTgLast.isNotEmpty) 'telegram_last_name': returnedTgLast,
         }, SetOptions(merge: true));
+
+        // Телефон — в приватный поддокумент, канонический формат +7XXXXXXXXXX.
+        await UserService.updateUserProfile({'phone': '+$cleanPhone'});
 
         StorageService.saveProfile(
           '${provider.firstName} ${provider.lastName}',
@@ -411,7 +419,7 @@ class _DriverOnboardingWizardState extends State<DriverOnboardingWizard>
           provider.verificationStatus,
           isVerified: provider.isVehicleVerified,
         );
-        await StorageService.setString('user_phone', _phoneCtrl.text);
+        await StorageService.setString('user_phone', '+$cleanPhone');
 
         final finalChatId = returnedChatId ?? _chatId;
         if (finalChatId != null) {
