@@ -1450,20 +1450,57 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           onImageTap: _showFullScreenImage,
           localImagePath: _localImagePaths[msg.id],
           onRetryUpload: _retryFailedUpload,
+          onAcceptOffer: () async {
+            // Системное сообщение, статус в карточке, уведомление покупателю и
+            // отклонение конкурентов делает сервер. Здесь только результат для
+            // того, кто нажал.
+            try {
+              await ChatService.updateOfferStatus(msg.senderId, msg.id, 'accepted', offerId: msg.offerId);
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(TranslationService.t('offer_accepted_msg', lang)),
+                    backgroundColor: const Color(0xFF10B981),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              }
+            } catch (e) {
+              debugPrint('Error accepting offer: $e');
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(TranslationService.t('errOfferRespond', lang)),
+                    backgroundColor: Colors.redAccent,
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              }
+            }
+          },
           onDeclineOffer: () async {
             try {
               await ChatService.updateOfferStatus(msg.senderId, msg.id, 'rejected', offerId: msg.offerId);
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Предложение отклонено'),
-                    backgroundColor: Color(0xFFEF4444),
+                  SnackBar(
+                    content: Text(TranslationService.t('offer_rejected_msg', lang)),
+                    backgroundColor: const Color(0xFFEF4444),
                     behavior: SnackBarBehavior.floating,
                   ),
                 );
               }
             } catch (e) {
               debugPrint('Error declining offer: $e');
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(TranslationService.t('errOfferRespond', lang)),
+                    backgroundColor: Colors.redAccent,
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              }
             }
           },
           onWriteOffer: () {

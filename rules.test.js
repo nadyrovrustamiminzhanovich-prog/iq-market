@@ -970,19 +970,17 @@ describe("chats users order comparison", () => {
       }, { merge: true })
     );
 
-    // 4. Продавец пытается принять предложение записью с клиента — запрещено.
-    //    Accept недоступен клиенту нигде, пока не задеплоена respondToOffer:
-    //    именно этот переход был источником прод-бага (гонка + ложное
-    //    "отклонено" по факту принятого предложения).
+    // 4. Продавец не может выставить статус оффера с клиента НИ В КАКУЮ
+    //    сторону. Ответ на предложение целиком исполняет respondToOffer через
+    //    Admin SDK. Именно клиентский переход статуса был источником прод-бага
+    //    (гонка двух Accept + ложное "отклонено" по факту принятого).
     await assertFails(
       updateDoc(doc(userDb(sellerId), `chats/${chatId}/messages`, "offer_001"), {
         offerStatus: "accepted",
       })
     );
 
-    // 5. Продавец отклоняет предложение — это единственный клиентский путь
-    //    ответа в текущем релизе, должно проходить.
-    await assertSucceeds(
+    await assertFails(
       updateDoc(doc(userDb(sellerId), `chats/${chatId}/messages`, "offer_001"), {
         offerStatus: "rejected",
       })
@@ -1129,21 +1127,25 @@ describe("offers", () => {
     );
   });
 
-  test("продавец может зеркалить отказ (интерим-путь, пока respondToOffer не задеплоена)", async () => {
+  // Ответ на оффер — исключительно серверный путь (respondToOffer через Admin
+  // SDK). У продавца нет права записи в offers ни в какую сторону: только
+  // сервер умеет атомарно разрешить гонку двух Accept и отклонить конкурентов
+  // на тот же товар.
+  test("продавец НЕ может выставить rejected с клиента", async () => {
     await adminSet(`offers/${offerId}`, validOffer);
-    await assertSucceeds(
+    await assertFails(
       updateDoc(doc(userDb(sellerId), "offers", offerId), { status: "rejected" })
     );
   });
 
-  test("продавец НЕ может зеркалить accepted", async () => {
+  test("продавец НЕ может выставить accepted с клиента", async () => {
     await adminSet(`offers/${offerId}`, validOffer);
     await assertFails(
       updateDoc(doc(userDb(sellerId), "offers", offerId), { status: "accepted" })
     );
   });
 
-  test("продавец не может отклонить чужое предложение (не sellerId)", async () => {
+  test("продавец не может тронуть чужое предложение (не sellerId)", async () => {
     await adminSet(`offers/${offerId}`, { ...validOffer, sellerId: strangerId });
     await assertFails(
       updateDoc(doc(userDb(sellerId), "offers", offerId), { status: "rejected" })
