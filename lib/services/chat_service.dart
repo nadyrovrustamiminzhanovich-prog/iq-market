@@ -445,6 +445,26 @@ class ChatService {
         }
         await batch.commit();
       }
+
+      // Гасим уведомление этого чата в колокольчике: чат-уведомления живут в
+      // одном документе `chat_<chatId>`, и пока он непрочитан, красный счётчик
+      // на главном экране показывает событие, которое пользователь уже прочёл
+      // прямо здесь. Экран уведомлений больше не помечает всё прочитанным при
+      // открытии, поэтому такой счётчик висел бы вечно.
+      //
+      // Best-effort и отдельным try/catch: это уборка, а не часть прочтения
+      // сообщений. `update`, а не `set(merge)` — если уведомление уже удалили,
+      // воскрешать его незачем, not-found здесь ожидаем и безвреден.
+      try {
+        await _db
+            .collection('users')
+            .doc(uid)
+            .collection('notifications')
+            .doc('chat_$chatId')
+            .update({'isRead': true});
+      } catch (e) {
+        debugPrint('[ChatService.markAsRead] chat notification not cleared: $e');
+      }
     } catch (e, stack) {
       debugPrint('[ChatService.markAsRead] Error: $e');
       AnalyticsService.logFirestorePermissionError(e, stack, chatId, 'write', 'mark_as_read');

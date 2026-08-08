@@ -952,6 +952,89 @@ describe("notifications schema", () => {
       })
     );
   });
+
+  // Пометка «прочитано» — операция владельца. Раньше в правиле стояла ветка
+  // «любой авторизованный может менять только isRead», и посторонний мог
+  // гасить чужой счётчик уведомлений, зная uid и id документа.
+  describe("пометка прочитанным", () => {
+    beforeEach(async () => {
+      await adminSet(`users/${sellerId}/notifications/${notifId}`, {
+        title: "Новое сообщение",
+        body: "Привет",
+        type: "chat",
+        timestamp: new Date(),
+        senderId: buyerId,
+        isRead: false,
+      });
+    });
+
+    test("владелец помечает своё уведомление прочитанным", async () => {
+      await assertSucceeds(
+        updateDoc(doc(userDb(sellerId), `users/${sellerId}/notifications`, notifId), {
+          isRead: true,
+        })
+      );
+    });
+
+    test("посторонний НЕ может пометить чужое уведомление прочитанным", async () => {
+      await assertFails(
+        updateDoc(doc(userDb("stranger_999"), `users/${sellerId}/notifications`, notifId), {
+          isRead: true,
+        })
+      );
+    });
+
+    test("отправитель сообщения тоже НЕ гасит уведомление получателя", async () => {
+      await assertFails(
+        updateDoc(doc(userDb(buyerId), `users/${sellerId}/notifications`, notifId), {
+          isRead: true,
+        })
+      );
+    });
+
+    // Обратная сторона того же запрета: новое сообщение обязано поднимать
+    // уведомление обратно в непрочитанные, иначе прочитанный однажды чат
+    // больше никогда не зажжёт колокольчик.
+    test("новое сообщение возвращает уведомление в непрочитанные", async () => {
+      await adminSet(`users/${sellerId}/notifications/${notifId}`, {
+        title: "Новое сообщение",
+        body: "Привет",
+        type: "chat",
+        timestamp: new Date(),
+        senderId: buyerId,
+        isRead: true,
+      });
+      await assertSucceeds(
+        setDoc(
+          doc(userDb(buyerId), `users/${sellerId}/notifications`, notifId),
+          {
+            title: "Новое сообщение",
+            body: "Ещё сообщение",
+            type: "chat",
+            timestamp: new Date(),
+            senderId: buyerId,
+            isRead: false,
+          },
+          { merge: true }
+        )
+      );
+    });
+
+    test("отправитель по-прежнему может обновить сам текст chat-уведомления", async () => {
+      await assertSucceeds(
+        setDoc(
+          doc(userDb(buyerId), `users/${sellerId}/notifications`, notifId),
+          {
+            title: "Новое сообщение",
+            body: "Сообщение удалено",
+            type: "chat",
+            senderId: buyerId,
+          },
+          { merge: true }
+        )
+      );
+    });
+  });
 });
 
 describe("chats users order comparison", () => {

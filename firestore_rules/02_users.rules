@@ -30,8 +30,13 @@
         );
         allow read, delete: if isOwner(userId);
         allow update: if isSignedIn() && (
-          isOwner(userId) || 
-          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead'])) ||
+          isOwner(userId) ||
+          // Ветка «любой авторизованный может менять isRead в ЧУЖОМ уведомлении»
+          // убрана намеренно: она разрешала посторонним гасить (и возвращать)
+          // счётчик уведомлений другого пользователя, зная только его uid и id
+          // документа. Владельцу это и так разрешено первой веткой —
+          // NotificationService.markAsRead/markAllAsRead и ChatService.markAsRead
+          // ходят только в свою коллекцию.
           (
             // Разрешаем отправителю обновлять chat-notification (upsert паттерн)
             // Те же проверки что и в create — senderId, формат notifId, участие в чате
@@ -39,7 +44,19 @@
             request.resource.data.senderId == request.auth.uid &&
             notifId.size() > 5 &&
             notifId[0:5] == 'chat_' &&
-            get(/databases/$(database)/documents/chats/$(notifId[5:])).data.users.hasAll([request.auth.uid, userId])
+            get(/databases/$(database)/documents/chats/$(notifId[5:])).data.users.hasAll([request.auth.uid, userId]) &&
+            // Отправитель НЕ имеет права пометить уведомление прочитанным:
+            // иначе он гасит колокольчик получателю, и тот не узнает о
+            // сообщении. Ставить isRead: false ему можно — именно это делает
+            // upsert нового сообщения, поднимая уведомление обратно в
+            // непрочитанные. Проверка через diff, а не «isRead == false»:
+            // обезличивание удалённого сообщения (_neutralizeChatNotification)
+            // приходит merge'ем без этого ключа и обязано проходить даже по
+            // уже прочитанному уведомлению.
+            (
+              !request.resource.data.diff(resource.data).affectedKeys().hasAny(['isRead']) ||
+              request.resource.data.isRead == false
+            )
           )
         );
       }

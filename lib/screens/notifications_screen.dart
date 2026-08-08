@@ -29,17 +29,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    // Автоматически помечаем уведомления прочитанными при открытии экрана
-    // чтобы счётчик (badge) сразу обнулился
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      NotificationService.markAllAsRead();
-    });
-    // Помечаем прочитанными при переключении на вкладку уведомлений
-    _tabController.addListener(() {
-      if (_tabController.index == 1) {
-        NotificationService.markAllAsRead();
-      }
-    });
+    // Уведомления НЕ помечаются прочитанными от одного факта открытия экрана.
+    // Раньше здесь стоял markAllAsRead() на старте и на переключении вкладки:
+    // красный счётчик обнулялся до того, как пользователь успевал прочитать
+    // список, и понять, какое уведомление новое, было невозможно — все они
+    // мгновенно теряли подсветку и синюю точку.
+    //
+    // Прочитанным становится КОНКРЕТНОЕ уведомление, которое открыли
+    // (_handleNotificationTap → NotificationService.markAsRead), чат — когда
+    // его открыли (ChatService.markAsRead гасит и своё уведомление в
+    // колокольчике). Массово — только по явной кнопке «Прочитать всё».
   }
 
   @override
