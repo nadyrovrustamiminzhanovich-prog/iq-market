@@ -332,6 +332,7 @@ class AdService {
       String finalUserEmail = user.email ?? '';
       int existingViews = 0;
       int existingFavorites = 0;
+      bool wasAdminRejected = false;
 
       if (initialAdId != null) {
         try {
@@ -344,11 +345,28 @@ class AdService {
               if (existingData.containsKey('userEmail')) finalUserEmail = existingData['userEmail'] ?? finalUserEmail;
               existingViews = existingData['views'] ?? 0;
               existingFavorites = existingData['favorites'] ?? 0;
+              wasAdminRejected = existingData['status'] == 'rejected';
             }
           }
         } catch (e) {
           debugPrint('[AdService] Error fetching original ad owner: $e');
         }
+      }
+
+      // Объявление, которое вручную отклонил админ (rejectAd, статус 'rejected'
+      // на существующем документе — этот статус ИИ никогда сам не проставляет,
+      // при отклонении ИИ на этапе публикации документ вообще не создаётся, см.
+      // выше), обязано пройти повторную РУЧНУЮ проверку — даже если владелец
+      // переоткрыл «Редактировать» и нажал «Опубликовать», не изменив ни
+      // символа. Админ отклоняет по причинам, которые ИИ в принципе не ловит
+      // (мошенничество, дубликат, разбирательство по жалобе) — тот же текст
+      // снова пройдёт ИИ-модерацию и без этой проверки мгновенно возвращался
+      // бы в активные, полностью в обход решения администратора. Не применяем
+      // к самому админу — если объявление редактирует и публикует он сам,
+      // его решение и есть ручная проверка.
+      if (wasAdminRejected && !isAdmin) {
+        finalActive = false;
+        finalStatus = 'pending';
       }
 
       // 🔒 Auto-sync phone number to user profile in Firestore (only if creator is editing)
@@ -424,7 +442,9 @@ class AdService {
               price: price,
               category: category,
               userName: adModel.userName,
-              reason: '🤖 ИИ или правила запросили ручную проверку (MANUAL_REVIEW).',
+              reason: wasAdminRejected
+                  ? '🔁 Повторная публикация РАНЕЕ ОТКЛОНЁННОГО вручную объявления — ИИ пропускает автоматически, требуется решение админа.'
+                  : '🤖 ИИ или правила запросили ручную проверку (MANUAL_REVIEW).',
               description: description,
               imageUrls: adModel.images,
             );

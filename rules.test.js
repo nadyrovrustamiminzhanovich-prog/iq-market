@@ -1485,6 +1485,91 @@ describe("sendOffer — полная цепочка как в приложени
 });
 
 // ──────────────────────────────────────────
+// ТЕСТЫ: ads — переходы статуса при update()
+//
+// Прод-баг (2026-08-09): владелец переоткрывал отклонённое админом
+// объявление в «Редактировать», ничего не менял, нажимал «Опубликовать» —
+// оно мгновенно возвращалось в активные в обход решения администратора,
+// потому что ad_service.dart решал статус только по вердикту ИИ, а ИИ его
+// изначально и не отклонял (это сделал человек). Фикс в двух местах:
+// AdService.uploadAndPublishAd теперь переводит такое объявление в
+// 'pending', а не 'active' — но правило update() для владельца разрешало
+// только ['active', 'reserved', 'sold', 'archived'], 'pending' там не было
+// (create() эту проверку не делает — им пишутся только НОВЫЕ объявления,
+// редактирование существующего всегда идёт через update()). Без этого теста
+// повторная публикация ловила бы permission-denied вместо ухода на
+// повторную ручную проверку.
+// ──────────────────────────────────────────
+describe("ads — переходы статуса владельцем", () => {
+  const adId = "ad_status_001";
+  const ownerId = "ad_owner_001";
+  const adminId = "ad_admin_001";
+  const strangerId = "ad_stranger_001";
+
+  beforeEach(async () => {
+    await adminSet(`users/${adminId}`, { accountType: "admin" });
+  });
+
+  async function setAd(status) {
+    await adminSet(`ads/${adId}`, {
+      title: "Тестовый товар",
+      price: 10000,
+      userId: ownerId,
+      timestamp: new Date(),
+      status,
+      active: status === "active",
+    });
+  }
+
+  test("владелец может перевести своё объявление в pending (повторная модерация после ручного отклонения)", async () => {
+    await setAd("rejected");
+    await assertSucceeds(
+      updateDoc(doc(userDb(ownerId), "ads", adId), {
+        status: "pending",
+        active: false,
+      })
+    );
+  });
+
+  test("владелец по-прежнему может архивировать/продать/восстановить своё объявление", async () => {
+    await setAd("active");
+    await assertSucceeds(updateDoc(doc(userDb(ownerId), "ads", adId), { status: "archived", active: false }));
+    await assertSucceeds(updateDoc(doc(userDb(ownerId), "ads", adId), { status: "sold", active: false }));
+    await assertSucceeds(updateDoc(doc(userDb(ownerId), "ads", adId), { status: "reserved" }));
+    await assertSucceeds(updateDoc(doc(userDb(ownerId), "ads", adId), { status: "active", active: true }));
+  });
+
+  test("владелец НЕ может сам себя отклонить (status: rejected остаётся только за админом)", async () => {
+    await setAd("active");
+    await assertFails(
+      updateDoc(doc(userDb(ownerId), "ads", adId), {
+        status: "rejected",
+      })
+    );
+  });
+
+  test("посторонний НЕ может менять статус чужого объявления", async () => {
+    await setAd("active");
+    await assertFails(
+      updateDoc(doc(userDb(strangerId), "ads", adId), {
+        status: "pending",
+      })
+    );
+  });
+
+  test("админ по-прежнему может поставить любой статус, включая rejected", async () => {
+    await setAd("pending");
+    await assertSucceeds(
+      updateDoc(doc(userDb(adminId), "ads", adId), {
+        status: "rejected",
+        active: false,
+        rejectionReason: "Тестовая причина",
+      })
+    );
+  });
+});
+
+// ──────────────────────────────────────────
 // ТЕСТЫ: ads stats and viewLogs
 // ──────────────────────────────────────────
 describe("ads stats and viewLogs", () => {
