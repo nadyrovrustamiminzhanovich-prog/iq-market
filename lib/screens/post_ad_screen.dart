@@ -600,6 +600,22 @@ class _PostAdScreenState extends State<PostAdScreen> {
 
   Future<void> _pickMedia(bool isVideo) async {
     if (_isLoading || _isSubmitting) return;
+
+    // Проверяем лимит фото ДО открытия галереи: если слотов уже нет, даже не
+    // открываем пикер — раньше здесь пускали в галерею без ограничения, юзер
+    // мог натыкать там хоть 20 штук, и только после возврата в приложение
+    // лишние молча обрезались. Выглядело как "лимит не работает".
+    int remainingSlots = 0;
+    if (!isVideo) {
+      remainingSlots = _maxPhotos - (_existingImageUrls.length + _imageFiles.length);
+      if (remainingSlots <= 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(TranslationService.t('err_max_photos', widget.lang).replaceAll('{max}', '$_maxPhotos'))),
+        );
+        return;
+      }
+    }
+
     setState(() => _isLoading = true);
     try {
       if (isVideo) {
@@ -607,7 +623,7 @@ class _PostAdScreenState extends State<PostAdScreen> {
         if (file != null) {
           if (mounted) {
             Navigator.push(context, MaterialPageRoute(builder: (context) => VideoTrimmerScreen(
-              videoFile: File(file.path), 
+              videoFile: File(file.path),
               onSave: (path) {
                 if (mounted) {
                   setState(() { _videoFile = File(path); _saveDraft(); });
@@ -617,28 +633,26 @@ class _PostAdScreenState extends State<PostAdScreen> {
           }
         }
       } else {
+        // limit: сама галерея (Android Photo Picker / iOS PHPicker) не даёт
+        // отметить больше remainingSlots штук — раньше лимита не было и
+        // ограничение применялось только постфактум, после возврата в приложение.
         final List<XFile> picked = await _picker.pickMultiImage(
           imageQuality: 75,
           maxWidth: 1280,
           maxHeight: 1280,
+          limit: remainingSlots,
         );
         if (picked.isNotEmpty && mounted) {
-          final int remainingSlots = _maxPhotos - (_existingImageUrls.length + _imageFiles.length);
-          if (remainingSlots <= 0) {
+          // Доп. страховка на случай платформы, которая limit не поддержала.
+          final toAdd = picked.take(remainingSlots).toList();
+          setState(() {
+            _imageFiles.addAll(toAdd.map((f) => File(f.path)));
+            _saveDraft();
+          });
+          if (toAdd.length < picked.length) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text(TranslationService.t('err_max_photos', widget.lang).replaceAll('{max}', '$_maxPhotos'))),
             );
-          } else {
-            final toAdd = picked.take(remainingSlots).toList();
-            setState(() {
-              _imageFiles.addAll(toAdd.map((f) => File(f.path)));
-              _saveDraft();
-            });
-            if (toAdd.length < picked.length) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(TranslationService.t('err_max_photos', widget.lang).replaceAll('{max}', '$_maxPhotos'))),
-              );
-            }
           }
         }
       }

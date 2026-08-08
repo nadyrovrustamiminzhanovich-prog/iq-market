@@ -147,14 +147,23 @@ class _VideoTrimmerScreenState extends State<VideoTrimmerScreen> {
     await _controller?.pause();
     
     try {
-      final bool isStartAtZero = _startTime.inSeconds == 0;
-      final bool isFullDuration = _selectedDuration.inSeconds >= _totalDuration.inSeconds - 1;
+      // Раньше здесь было "isFullDuration = selectedSec >= totalSec - 1" —
+      // сравнение ВЫБРАННОГО отрезка с ОБЩЕЙ длиной видео в округлённых
+      // секундах. Для роликов длиной ровно 20-22 сек эта эвристика ошибочно
+      // считала выбор "почти всем видео" и передавала duration: null —
+      // VideoCompress тогда сжимал ролик ЦЕЛИКОМ, без обрезки до 20 сек,
+      // то есть лимит по факту не соблюдался. Теперь сравниваем ИСХОДНУЮ
+      // длину видео (в миллисекундах, без округления) с лимитом напрямую и
+      // всегда явно ограничиваем duration, если исходник длиннее лимита.
+      final bool needsTrim = _startTime.inMilliseconds > 0 ||
+          _totalDuration.inMilliseconds > _maxDurationSec * 1000;
+      final int cappedDurationSec = _selectedDuration.inSeconds.clamp(1, _maxDurationSec);
 
       final info = await VideoCompress.compressVideo(
         widget.videoFile.path,
         quality: VideoQuality.Res640x480Quality,
-        startTime: isStartAtZero ? null : _startTime.inSeconds,
-        duration: isFullDuration ? null : _selectedDuration.inSeconds,
+        startTime: needsTrim ? _startTime.inSeconds : null,
+        duration: needsTrim ? cappedDurationSec : null,
         deleteOrigin: false,
       );
 
