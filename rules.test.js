@@ -3,7 +3,7 @@ const {
   assertSucceeds,
   assertFails,
 } = require("@firebase/rules-unit-testing");
-const { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, arrayUnion } = require("firebase/firestore");
+const { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, arrayUnion, increment } = require("firebase/firestore");
 const fs = require("fs");
 
 jest.setTimeout(30000);
@@ -1249,6 +1249,155 @@ describe("offers", () => {
         isRead: false,
       })
     );
+  });
+});
+
+// ──────────────────────────────────────────
+// ТЕСТЫ: sendOffer целиком, как её выполняет приложение
+//
+// Остальные тесты офферов проверяют операции ПООТДЕЛЬНОСТИ, и прод-баг с
+// permission-denied на каждом первом предложении проскочил мимо них именно
+// поэтому: падал не сам оффер, а чтение пустого слота ПЕРЕД ним. Здесь
+// воспроизводится вся цепочка ChatService.sendOffer в том же порядке и с теми
+// же полями: сводка чата → чтение своего слота → документ оффера → карточка в
+// ленте сообщений. Менять поля здесь только вместе с chat_service.dart.
+// ──────────────────────────────────────────
+describe("sendOffer — полная цепочка как в приложении", () => {
+  const buyerId = "flow_buyer";
+  const sellerId = "flow_seller";
+  const adId = "flow_ad_001";
+  const adPrice = 100000;
+  const offerPrice = 90000;
+  const offerId = `${adId}_${buyerId}`;
+  const chatId = [buyerId, sellerId].sort().join("_");
+  const msgId = "flow_msg_new";
+
+  beforeEach(async () => {
+    await adminSet(`ads/${adId}`, {
+      userId: sellerId,
+      price: adPrice,
+      status: "active",
+      title: "Тестовый товар",
+      timestamp: new Date(),
+    });
+  });
+
+  // Шаг 1 — сводка чата. В приложении идёт ПЕРВОЙ: документ чата обязан
+  // существовать до любых запросов к messages, правила читают его users.
+  function writeChatSummary(db) {
+    return setDoc(
+      doc(db, "chats", chatId),
+      {
+        lastMessage: `Предложение цены: ${offerPrice} ₸`,
+        lastMessageType: "offer",
+        lastOfferPrice: offerPrice,
+        lastTimestamp: new Date(),
+        lastSenderId: buyerId,
+        isRead: false,
+        users: [buyerId, sellerId].sort(),
+        [`unreadCount_${sellerId}`]: increment(1),
+        [`name_${buyerId}`]: "Покупатель",
+        [`name_${sellerId}`]: "Продавец",
+        adId,
+        adTitle: "Тестовый товар",
+        adImage: "",
+      },
+      { merge: true }
+    );
+  }
+
+  // Шаг 3 — документ оффера, источник истины по предложению
+  function writeOffer(db, messageId) {
+    return setDoc(doc(db, "offers", offerId), {
+      adId,
+      adTitle: "Тестовый товар",
+      price: offerPrice,
+      sellerId,
+      buyerId,
+      chatId,
+      messageId,
+      status: "pending",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+  }
+
+  // Шаг 4 — карточка предложения в ленте сообщений
+  function writeOfferMessage(db, messageId) {
+    return setDoc(doc(db, "chats", chatId, "messages", messageId), {
+      senderId: buyerId,
+      text: `Предложение цены: ${offerPrice} ₸`,
+      type: "offer",
+      offerPrice,
+      offerStatus: "pending",
+      offerId,
+      timestamp: new Date(),
+      isRead: false,
+      adId,
+      adTitle: "Тестовый товар",
+    });
+  }
+
+  // Тот самый прод-баг: чата нет, слота оффера нет — падало здесь.
+  test("ПЕРВОЕ предложение по товару: ни чата, ни слота оффера ещё нет", async () => {
+    const db = userDb(buyerId);
+    await assertSucceeds(writeChatSummary(db));
+    await assertSucceeds(getDoc(doc(db, "offers", offerId)));
+    await assertSucceeds(writeOffer(db, msgId));
+    await assertSucceeds(writeOfferMessage(db, msgId));
+  });
+
+  test("ПОВТОРНОЕ предложение: гасим прошлую карточку и перебиваем цену", async () => {
+    const db = userDb(buyerId);
+    await assertSucceeds(writeChatSummary(db));
+    await assertSucceeds(writeOffer(db, "flow_msg_old"));
+    await assertSucceeds(writeOfferMessage(db, "flow_msg_old"));
+
+    await assertSucceeds(getDoc(doc(db, "offers", offerId)));
+    await assertSucceeds(
+      updateDoc(doc(db, "chats", chatId, "messages", "flow_msg_old"), {
+        offerStatus: "cancelled",
+      })
+    );
+    await assertSucceeds(writeOffer(db, msgId));
+    await assertSucceeds(writeOfferMessage(db, msgId));
+  });
+
+  test("предложение в УЖЕ СУЩЕСТВУЮЩИЙ чат (переписка была раньше)", async () => {
+    await adminSet(`chats/${chatId}`, {
+      users: [buyerId, sellerId].sort(),
+      lastMessage: "Здравствуйте",
+      lastSenderId: sellerId,
+      adId: "flow_ad_other",
+    });
+    const db = userDb(buyerId);
+    await assertSucceeds(writeChatSummary(db));
+    await assertSucceeds(getDoc(doc(db, "offers", offerId)));
+    await assertSucceeds(writeOffer(db, msgId));
+    await assertSucceeds(writeOfferMessage(db, msgId));
+  });
+
+  test("продавец видит и оффер, и карточку в чате", async () => {
+    const buyer = userDb(buyerId);
+    await assertSucceeds(writeChatSummary(buyer));
+    await assertSucceeds(writeOffer(buyer, msgId));
+    await assertSucceeds(writeOfferMessage(buyer, msgId));
+
+    const seller = userDb(sellerId);
+    await assertSucceeds(getDoc(doc(seller, "offers", offerId)));
+    await assertSucceeds(getDoc(doc(seller, "chats", chatId, "messages", msgId)));
+  });
+
+  // Профили обоих участников заведены: isBanned/isBlockedByUsersList начинают
+  // реально читать users/{uid}, а не выходить по exists() == false.
+  test("оба участника с заведёнными профилями — цепочка не ломается", async () => {
+    await adminSet(`users/${sellerId}`, { name: "Продавец", status: "active" });
+    await adminSet(`users/${buyerId}`, { name: "Покупатель", status: "active" });
+    const db = userDb(buyerId);
+    await assertSucceeds(writeChatSummary(db));
+    await assertSucceeds(getDoc(doc(db, "offers", offerId)));
+    await assertSucceeds(writeOffer(db, msgId));
+    await assertSucceeds(writeOfferMessage(db, msgId));
   });
 });
 
