@@ -420,11 +420,42 @@ exports.onNewNotification = onDocumentCreated('users/{userId}/notifications/{not
 );
 
 // ─── HTTPS CALLABLE: sendSystemNotification ──────────────────────────────────
+// Раньше единственной проверкой было "пользователь авторизован" — любой
+// залогиненный мог отправить уведомление ЛЮБОМУ targetUid с произвольными
+// title/body/type (например поддельное "Объявление одобрено ✅" от чужого
+// имени). Теперь каждый тип либо admin-only, либо проверяется по реальным
+// данным в Firestore: caller обязан быть тем, за кого себя выдаёт.
+//
+// Себе — можно всегда, без проверок (ad_expiring шлётся самому себе из
+// AdService.checkMyAdsLifecycle): испортить можно только собственную ленту
+// уведомлений, это не дыра.
+const ADMIN_ONLY_NOTIFICATION_TYPES = new Set([
+  'ad_approved',
+  'ad_rejected',
+  'driver_verified',
+  'review_deleted',
+  // Такси сейчас открыто только админу — home_screen.dart._navToTaxi блокирует
+  // экран всем остальным через TaxiComingSoonDialog. Когда такси откроют для
+  // обычных пользователей, эту проверку тоже придётся ослабить и добавить
+  // контекстную валидацию по taxi_bids/taxi_orders/taxi_rides (по образцу
+  // review/price_drop ниже), а не просто убрать из списка.
+  'taxi_bid',
+  'taxi_bid_accepted',
+  'taxi_bid_rejected',
+  'taxi_trip_confirmed',
+]);
+
+async function isAdminUid(uid) {
+  const snap = await db.collection('users').doc(uid).get();
+  return snap.exists && snap.data().accountType === 'admin';
+}
+
 exports.sendSystemNotification = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Пользователь должен быть авторизован');
   }
 
+  const callerUid = context.auth.uid;
   const targetUid = data.targetUid;
   const title = data.title;
   const body = data.body;
@@ -435,6 +466,52 @@ exports.sendSystemNotification = functions.https.onCall(async (data, context) =>
     throw new functions.https.HttpsError('invalid-argument', 'Неполные параметры уведомления');
   }
 
+  if (targetUid !== callerUid) {
+    if (ADMIN_ONLY_NOTIFICATION_TYPES.has(type)) {
+      if (!(await isAdminUid(callerUid))) {
+        throw new functions.https.HttpsError('permission-denied', 'Этот тип уведомления доступен только администратору');
+      }
+    } else if (type === 'review') {
+      // ReviewService.addReview: уведомление продавцу о новом отзыве.
+      // Легитимно, только если такой отзыв правда существует — иначе можно
+      // было бы подделать "у вас новый отзыв" кому угодно.
+      const adId = payload && payload.adId;
+      if (!adId) {
+        throw new functions.https.HttpsError('invalid-argument', 'Не хватает adId для типа review');
+      }
+      // Одно равенство (fromUserId) — уже есть автоматический индекс,
+      // остальное фильтруем в памяти: у одного автора отзывов немного,
+      // отдельный composite-индекс под это разворачивать не нужно.
+      const reviewsSnap = await db.collection('reviews').where('fromUserId', '==', callerUid).get();
+      const matches = reviewsSnap.docs.some((d) => d.data().adId === adId && d.data().toUserId === targetUid);
+      if (!matches) {
+        throw new functions.https.HttpsError('permission-denied', 'Отзыв не найден — уведомление отклонено');
+      }
+    } else if (type === 'price_drop') {
+      // AdService._notifyPriceDrop: рассылка тем, у кого объявление в
+      // избранном. Легитимно, только если caller реально владелец этого
+      // объявления, а targetUid реально добавил его в избранное.
+      const adId = payload && payload.adId;
+      if (!adId) {
+        throw new functions.https.HttpsError('invalid-argument', 'Не хватает adId для типа price_drop');
+      }
+      const adSnap = await db.collection('ads').doc(adId).get();
+      if (!adSnap.exists || adSnap.data().userId !== callerUid) {
+        throw new functions.https.HttpsError('permission-denied', 'Вы не владелец этого объявления');
+      }
+      const targetSnap = await db.collection('users').doc(targetUid).get();
+      const favoriteIds = (targetSnap.exists && targetSnap.data().favoriteIds) || [];
+      if (!favoriteIds.includes(adId)) {
+        throw new functions.https.HttpsError('permission-denied', 'Получатель не добавлял это объявление в избранное');
+      }
+    } else {
+      // Неизвестный/непредусмотренный тип для чужого targetUid — запрещаем
+      // по умолчанию, чтобы новый тип, добавленный без этой проверки, не
+      // превращался в готовую дыру для спуфинга.
+      throw new functions.https.HttpsError('permission-denied', 'Недопустимый тип уведомления для этого получателя');
+    }
+  }
+
   await db.collection('users')
     .doc(targetUid)
     .collection('notifications')
@@ -443,7 +520,7 @@ exports.sendSystemNotification = functions.https.onCall(async (data, context) =>
       body: body,
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
       type: type,
-      senderId: context.auth.uid,
+      senderId: callerUid,
       isRead: false,
       data: payload
     });
