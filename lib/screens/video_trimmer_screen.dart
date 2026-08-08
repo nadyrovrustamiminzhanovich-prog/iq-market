@@ -32,7 +32,26 @@ class _VideoTrimmerScreenState extends State<VideoTrimmerScreen> {
   double _endFraction = 1.0;    // 0.0 - 1.0
   
   static const int _maxDurationSec = 20;
-  
+  // Минимальная длина фрагмента задана в абсолютном времени, а не долей от
+  // ролика. Раньше нижняя граница была «_endFraction - 0.05», т.е. 5% длины:
+  // для 10-минутного видео это 30 сек — больше самого лимита в 20 сек, из-за
+  // чего левый маркер у длинных роликов не двигался вообще.
+  static const int _minDurationMs = 1000;
+
+  // Ширина рамки выделения в долях от всей длины ролика.
+  double get _maxFraction => _totalDuration.inMilliseconds > 0
+      ? (_maxDurationSec * 1000 / _totalDuration.inMilliseconds).clamp(0.0, 1.0)
+      : 1.0;
+  double get _minFraction => _totalDuration.inMilliseconds > 0
+      ? (_minDurationMs / _totalDuration.inMilliseconds).clamp(0.0, 1.0)
+      : 0.0;
+
+  // Длина выбранного фрагмента в секундах, ОКРУГЛЁННАЯ, а не усечённая.
+  // Duration.inSeconds отбрасывает дробную часть, и из-за погрешности
+  // умножения долей на миллисекунды выбор ровно 20 сек почти всегда даёт
+  // 19999 мс — то есть «19 сек» и в подписи, и в самой обрезке.
+  int get _selectedSeconds => (_selectedDuration.inMilliseconds / 1000).round();
+
   // Thumbnail frames
   List<Uint8List?> _thumbnails = [];
   static const int _thumbnailCount = 10;
@@ -56,10 +75,11 @@ class _VideoTrimmerScreenState extends State<VideoTrimmerScreen> {
       setState(() {
         _isLoaded = true;
         _totalDuration = _controller!.value.duration;
-        // Set end to max 20 sec
-        if (_totalDuration.inSeconds > _maxDurationSec) {
-          _endFraction = _maxDurationSec / _totalDuration.inSeconds;
-        }
+        // Стартовое окно — ровно лимит (или весь ролик, если он короче).
+        // Раньше делили на _totalDuration.inSeconds — округлённое ВНИЗ число:
+        // для ролика 60.8 сек рамка получалась 20/60 от длины, то есть 20.27
+        // сек вместо 20, и подпись расходилась с тем, что реально сохранится.
+        _endFraction = _maxFraction;
       });
       
       _controller!.addListener(_playbackListener);
@@ -157,13 +177,29 @@ class _VideoTrimmerScreenState extends State<VideoTrimmerScreen> {
       // всегда явно ограничиваем duration, если исходник длиннее лимита.
       final bool needsTrim = _startTime.inMilliseconds > 0 ||
           _totalDuration.inMilliseconds > _maxDurationSec * 1000;
-      final int cappedDurationSec = _selectedDuration.inSeconds.clamp(1, _maxDurationSec);
+
+      // VideoCompress принимает startTime/duration только ЦЕЛЫМИ секундами
+      // (int?, video_compress 3.1.4), поэтому доли секунды здесь теряются в
+      // любом случае — важно округлять, а не усекать. Duration.inSeconds
+      // усекает вниз: выбранные 19999 мс (это ровно то, что даёт рамка,
+      // растянутая на все 20 сек) превращались в duration: 19, и пользователь
+      // получал на секунду меньше, чем выделил. То же самое теряло секунду и
+      // на startTime, сдвигая фрагмент назад.
+      final int totalSec = _totalDuration.inMilliseconds ~/ 1000;
+      int durationSec = _selectedSeconds.clamp(1, _maxDurationSec);
+      if (totalSec > 0 && durationSec > totalSec) durationSec = totalSec;
+      // После округления start + duration может выехать за конец исходника —
+      // тогда кодек отдал бы фрагмент короче запрошенного. Сдвигаем начало
+      // назад, сохраняя полную длину выбранного отрезка.
+      final int maxStartSec = (totalSec - durationSec).clamp(0, totalSec);
+      final int startSec =
+          (_startTime.inMilliseconds / 1000).round().clamp(0, maxStartSec);
 
       final info = await VideoCompress.compressVideo(
         widget.videoFile.path,
         quality: VideoQuality.Res640x480Quality,
-        startTime: needsTrim ? _startTime.inSeconds : null,
-        duration: needsTrim ? cappedDurationSec : null,
+        startTime: needsTrim ? startSec : null,
+        duration: needsTrim ? durationSec : null,
         deleteOrigin: false,
       );
 
@@ -269,13 +305,13 @@ class _VideoTrimmerScreenState extends State<VideoTrimmerScreen> {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                               decoration: BoxDecoration(
-                                color: _selectedDuration.inSeconds <= _maxDurationSec 
-                                    ? const Color(0xFF4A80F0).withValues(alpha: 0.2) 
+                                color: _selectedSeconds <= _maxDurationSec
+                                    ? const Color(0xFF4A80F0).withValues(alpha: 0.2)
                                     : Colors.red.withValues(alpha: 0.2),
                                 borderRadius: BorderRadius.circular(20),
                               ),
                               child: Text(
-                                '${_selectedDuration.inSeconds} сек',
+                                '$_selectedSeconds сек',
                                 style: GoogleFonts.inter(
                                   color: Colors.white,
                                   fontWeight: FontWeight.w800,
@@ -439,14 +475,18 @@ class _VideoTrimmerScreenState extends State<VideoTrimmerScreen> {
                 top: 0, bottom: 0,
                 child: GestureDetector(
                   onHorizontalDragUpdate: (details) {
+                    // Рамку УПИРАЕМ в границу лимита, а не отбрасываем жест.
+                    // Раньше любое движение, которое вышло бы за 20 сек,
+                    // игнорировалось целиком — палец за один event проходит
+                    // несколько пикселей (на 60-секундном ролике это ~0.5 сек),
+                    // поэтому выделение застревало заметно НЕ ДОТЯНУВ до 20 сек
+                    // и дотянуть до ровных 20 было физически невозможно.
                     final newFraction = (leftPos + details.delta.dx) / totalWidth;
-                    final clampedFraction = newFraction.clamp(0.0, _endFraction - 0.05);
-                    // Check max duration
-                    final newDurationMs = (_endFraction - clampedFraction) * _totalDuration.inMilliseconds;
-                    if (newDurationMs <= _maxDurationSec * 1000) {
-                      setState(() => _startFraction = clampedFraction);
-                      _controller?.seekTo(_startTime);
-                    }
+                    final upperBound = _endFraction - _minFraction;
+                    final lowerBound = (_endFraction - _maxFraction).clamp(0.0, 1.0);
+                    if (upperBound <= lowerBound) return;
+                    setState(() => _startFraction = newFraction.clamp(lowerBound, upperBound));
+                    _controller?.seekTo(_startTime);
                   },
                   child: Container(
                     width: 24,
@@ -472,12 +512,13 @@ class _VideoTrimmerScreenState extends State<VideoTrimmerScreen> {
                 top: 0, bottom: 0,
                 child: GestureDetector(
                   onHorizontalDragUpdate: (details) {
+                    // Симметрично левому маркеру: упираем в лимит, а не
+                    // игнорируем жест (см. комментарий выше).
                     final newFraction = (rightPos + details.delta.dx) / totalWidth;
-                    final clampedFraction = newFraction.clamp(_startFraction + 0.05, 1.0);
-                    final newDurationMs = (clampedFraction - _startFraction) * _totalDuration.inMilliseconds;
-                    if (newDurationMs <= _maxDurationSec * 1000) {
-                      setState(() => _endFraction = clampedFraction);
-                    }
+                    final lowerBound = _startFraction + _minFraction;
+                    final upperBound = (_startFraction + _maxFraction).clamp(0.0, 1.0);
+                    if (upperBound <= lowerBound) return;
+                    setState(() => _endFraction = newFraction.clamp(lowerBound, upperBound));
                   },
                   child: Container(
                     width: 24,
