@@ -90,30 +90,26 @@ class UserService {
     }
   }
 
-  /// Get user data stream for real-time updates in UI
+  /// Get user data stream for real-time updates in UI (профиль, рейтинг,
+  /// отзывы, аватар и т.д.).
+  ///
+  /// НЕ содержит phone/email — эти поля лежат в приватном поддокументе,
+  /// читать их нужно отдельно через [getPrivateContact]. Раньше здесь на
+  /// КАЖДОЕ обновление стрима шёл ещё один Get() приватного контакта, и UI
+  /// ждал оба ответа прежде чем показать данные, которые целиком уже были в
+  /// основном документе (rating/reviewsCount) — это давало заметную вспышку
+  /// дефолтных значений (рейтинг 5.0, 0 отзывов) на экране профиля перед
+  /// настоящими цифрами. Единственный потребитель этого стрима (ProfileScreen)
+  /// телефон/email из него не читает вообще.
   static Stream<UserModel?> getUserStream() {
     final uid = currentUid;
     if (uid == null) {
       return Stream.value(null);
     }
-    
-    // Combine main document stream with private contact document stream
-    return users.doc(uid).snapshots().asyncMap((mainSnap) async {
-      if (!mainSnap.exists) return null;
-      final mainData = Map<String, dynamic>.from(mainSnap.data() as Map);
 
-      try {
-        final contactSnap = await users.doc(uid).collection('private').doc('contact').get();
-        if (contactSnap.exists) {
-          final contactData = contactSnap.data() as Map<String, dynamic>;
-          mainData['phone'] = contactData['phone'] ?? '';
-          mainData['email'] = contactData['email'] ?? '';
-        }
-      } catch (e) {
-        debugPrint('[UserService] getUserStream: Accessing contact info failed: $e');
-      }
-
-      return UserModel.fromMap(mainData, mainSnap.id);
+    return users.doc(uid).snapshots().map((snap) {
+      if (!snap.exists) return null;
+      return UserModel.fromMap(snap.data() as Map<String, dynamic>, snap.id);
     });
   }
 

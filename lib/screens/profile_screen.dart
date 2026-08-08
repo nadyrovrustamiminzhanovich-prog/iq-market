@@ -397,6 +397,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
 
   Widget _buildStatsBar(UserModel? user) {
+    // user == null значит первый кадр стрима ещё не дошёл (или сеть
+    // медленная) — до этого момента честно показываем скелетон вместо
+    // рейтинга 5.0/0 отзывов: иначе на секунду мелькают чужие цифры,
+    // которые тут же меняются на настоящие.
+    final bool isLoadingStats = user == null;
     final int reviewsCount = user?.reviewsCount ?? 0;
     final double rawRating = user?.rating ?? 5.0;
     final String rating = rawRating.toStringAsFixed(1);
@@ -445,16 +450,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         const Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 24),
                         const SizedBox(width: 8),
                         Flexible(
-                          child: Text(
-                            rating,
-                            style: GoogleFonts.inter(
-                              fontSize: 24,
-                              fontWeight: FontWeight.w900,
-                              color: _txtColor
-                            ),
-                            textAlign: TextAlign.center,
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                          child: isLoadingStats
+                              ? _ShimmerBox(width: 30, height: 22, color: _subtxtColor.withValues(alpha: 0.15))
+                              : Text(
+                                  rating,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.w900,
+                                    color: _txtColor
+                                  ),
+                                  textAlign: TextAlign.center,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                         ),
                       ],
                     ),
@@ -484,11 +491,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      reviews, 
-                      style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w900, color: _txtColor),
-                      textAlign: TextAlign.center,
-                    ),
+                    isLoadingStats
+                        ? _ShimmerBox(width: 20, height: 22, color: _subtxtColor.withValues(alpha: 0.15))
+                        : Text(
+                            reviews,
+                            style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w900, color: _txtColor),
+                            textAlign: TextAlign.center,
+                          ),
                     const SizedBox(height: 4),
                     Text(
                       _t('reviews_stat').toUpperCase(), 
@@ -1792,6 +1801,47 @@ class _ProfileScreenState extends State<ProfileScreen> {
             const SizedBox(height: 12),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Лёгкая пульсирующая заглушка для чисел (рейтинг/отзывы), пока не пришёл
+/// первый ответ стрима — вместо того чтобы на миг показать чужие значения.
+class _ShimmerBox extends StatefulWidget {
+  final double width;
+  final double height;
+  final Color color;
+
+  const _ShimmerBox({required this.width, required this.height, required this.color});
+
+  @override
+  State<_ShimmerBox> createState() => _ShimmerBoxState();
+}
+
+class _ShimmerBoxState extends State<_ShimmerBox> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 800))..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: Tween<double>(begin: 0.35, end: 0.9).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut)),
+      child: Container(
+        width: widget.width,
+        height: widget.height,
+        decoration: BoxDecoration(color: widget.color, borderRadius: BorderRadius.circular(6)),
       ),
     );
   }
