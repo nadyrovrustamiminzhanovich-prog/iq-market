@@ -1110,39 +1110,6 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
 
                         const SizedBox(height: 20),
 
-                        // ── Loading status text ────────────────────────────────
-                        AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 200),
-                          child: isDialogLoading
-                              ? Padding(
-                                  key: const ValueKey('loading_status'),
-                                  padding: const EdgeInsets.only(bottom: 14),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      const SizedBox(
-                                        width: 14,
-                                        height: 14,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: Color(0xFF0088CC),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Text(
-                                        _t('logging_in'),
-                                        style: GoogleFonts.inter(
-                                          color: const Color(0xFF0088CC),
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                )
-                              : const SizedBox(key: ValueKey('idle_status')),
-                        ),
-
                         // ── Buttons ────────────────────────────────────────────
                         Row(
                           children: [
@@ -1214,22 +1181,11 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                       ],
                     ),
                   ),
-
-                  // ── Top linear progress indicator during loading ──────────
-                  if (isDialogLoading)
-                    Positioned(
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      child: ClipRRect(
-                        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-                        child: const LinearProgressIndicator(
-                          minHeight: 4,
-                          backgroundColor: Color(0xFFE5F5FF),
-                          color: Color(0xFF0088CC),
-                        ),
-                      ),
-                    ),
+                  // Единственный индикатор загрузки — в кнопке «Подтвердить»
+                  // ниже. Раньше здесь дублировались ещё верхняя полоска на
+                  // весь диалог и отдельная строка «Выполняется вход...» со
+                  // своим спиннером — при проверке кода одновременно крутились
+                  // три индикатора вместо одного.
                 ],
               ),
             ),
