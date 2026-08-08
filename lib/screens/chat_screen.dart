@@ -398,7 +398,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _scrollToBottom();
     
     try {
-      final msgId = await ChatService.sendMessage(ad: widget.ad, text: text, senderName: _currentUserName, recipientId: _otherUserId);
+      final msgId = await ChatService.sendMessage(
+        ad: widget.ad,
+        text: text,
+        senderName: _currentUserName,
+        recipientId: _otherUserId,
+        rethrowOnError: true,
+      );
       if (msgId == null) {
         throw Exception('Сообщение не сохранено в БД');
       }
@@ -406,9 +412,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     } catch (e) {
       if (mounted) {
         _msgController.text = backupText;
+        // Firestore отклонил запись правилами (permission-denied) — например,
+        // получатель заблокировал отправителя, или отправителя забанили.
+        // Интернет тут ни при чём: старый текст «проверьте интернет» на
+        // рабочей сети выглядел как баг приложения. Настоящий обрыв связи
+        // (таймаут/нет сети) по-прежнему получает исходную формулировку.
+        final bool isPermissionIssue = e is FirebaseException && e.code == 'permission-denied';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(TranslationService.t('errSendMsgInternet', lang)),
+            content: Text(TranslationService.t(
+              isPermissionIssue ? 'errSendMsgFailed' : 'errSendMsgInternet',
+              lang,
+            )),
             backgroundColor: Colors.redAccent,
             behavior: SnackBarBehavior.floating,
           ),

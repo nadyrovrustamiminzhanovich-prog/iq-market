@@ -103,6 +103,13 @@ class ChatService {
     int? duration,
     String? senderName,
     String? recipientId,
+    // По умолчанию поведение прежнее (проглотить и вернуть null) — голосовые
+    // и фото-сообщения (chat_screen.dart) на этом построены и не оборачивают
+    // вызов в try/catch, им нельзя начать падать необработанным исключением.
+    // Текстовые сообщения передают true, чтобы отличить в UI «нет прав
+    // писать» (заблокировали) от настоящего обрыва сети — раньше оба случая
+    // тонули в одном null и показывали пользователю «проверьте интернет».
+    bool rethrowOnError = false,
   }) async {
     final sellerId = recipientId ?? ad.userId;
     final uid = UserService.currentUid;
@@ -189,6 +196,7 @@ class ChatService {
         reason: 'Error sending message',
         information: ['chatId: $chatId'],
       );
+      if (rethrowOnError) rethrow;
       return null;
     }
   }
