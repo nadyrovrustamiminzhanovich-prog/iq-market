@@ -258,6 +258,79 @@ describe("users", () => {
     );
   });
 
+  // ── Где физически живёт телефон ──────────────────────────────────────────
+  // Контактные поля закрыты для основного документа и лежат в
+  // users/{uid}/private/contact. Пока этого теста не было, экран «Личные
+  // данные» писал телефон в private/contact, а читал из основного документа —
+  // и номер после перезахода всегда оказывался пустым.
+  describe("контактные поля (phone/email)", () => {
+    test("владелец НЕ может записать phone в основной документ", async () => {
+      await assertFails(
+        updateDoc(doc(userDb(userId), "users", userId), {
+          phone: "+77001234567",
+        })
+      );
+    });
+
+    test("владелец НЕ может записать email в основной документ", async () => {
+      await assertFails(
+        updateDoc(doc(userDb(userId), "users", userId), {
+          email: "a@b.c",
+        })
+      );
+    });
+
+    test("документ с уже существующим phone нельзя обновить даже не трогая phone", async () => {
+      // request.resource.data для update — это ВЕСЬ итоговый документ, поэтому
+      // hasAny(['phone']) срабатывает на unchanged-поле. Если phone когда-то
+      // просочился в основной документ, профиль становится нередактируемым.
+      await adminSet(`users/${userId}`, {
+        displayName: "Test User",
+        accountType: "user",
+        rating: 4.5,
+        reviewsCount: 10,
+        status: "active",
+        phone: "+77001234567",
+      });
+      await assertFails(
+        updateDoc(doc(userDb(userId), "users", userId), {
+          displayName: "New Name",
+        })
+      );
+    });
+
+    test("владелец МОЖЕТ писать телефон в private/contact", async () => {
+      await assertSucceeds(
+        setDoc(doc(userDb(userId), `users/${userId}/private`, "contact"), {
+          phone: "+77001234567",
+          email: "a@b.c",
+        })
+      );
+    });
+
+    test("владелец может читать свой private/contact", async () => {
+      await adminSet(`users/${userId}/private/contact`, { phone: "+77001234567" });
+      await assertSucceeds(
+        getDoc(doc(userDb(userId), `users/${userId}/private`, "contact"))
+      );
+    });
+
+    test("посторонний НЕ может читать чужой private/contact", async () => {
+      await adminSet(`users/${userId}/private/contact`, { phone: "+77001234567" });
+      await assertFails(
+        getDoc(doc(userDb(otherId), `users/${userId}/private`, "contact"))
+      );
+    });
+
+    test("verified_phone в основном документе разрешён (телеграм-верификация)", async () => {
+      await assertSucceeds(
+        updateDoc(doc(userDb(userId), "users", userId), {
+          verified_phone: "77001234567",
+        })
+      );
+    });
+  });
+
   test("пользователь НЕ может сам снять себе postingRestricted", async () => {
     await assertFails(
       updateDoc(doc(userDb(userId), "users", userId), {

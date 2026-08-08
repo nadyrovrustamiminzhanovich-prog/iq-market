@@ -117,6 +117,30 @@ class UserService {
     });
   }
 
+  /// Контактные поля пользователя (phone/email/telegram) из приватного
+  /// документа `users/{uid}/private/contact`.
+  ///
+  /// Отдельный геттер существует потому, что в основном документе этих полей
+  /// НЕТ и быть не может: Firestore rules запрещают владельцу писать
+  /// 'phone'/'email' в `users/{uid}` (02_users.rules), поэтому
+  /// [updateUserProfile] раскладывает их сюда. Любой экран, читающий телефон
+  /// напрямую из основного документа, всегда получит пусто — так и потерялся
+  /// номер в «Личных данных». Читать контакты только отсюда.
+  ///
+  /// Возвращает пустую карту, если документа нет или доступ закрыт (чужой uid).
+  static Future<Map<String, dynamic>> getPrivateContact({String? uid}) async {
+    final targetUid = uid ?? currentUid;
+    if (targetUid == null) return {};
+    try {
+      final snap =
+          await users.doc(targetUid).collection('private').doc('contact').get();
+      return snap.data() ?? {};
+    } catch (e) {
+      debugPrint('[UserService] getPrivateContact failed for $targetUid: $e');
+      return {};
+    }
+  }
+
   /// Update specific fields in user profile
   static Future<void> updateUserProfile(Map<String, dynamic> data) async {
     final uid = currentUid;

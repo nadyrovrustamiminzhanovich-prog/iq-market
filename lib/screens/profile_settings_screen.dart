@@ -19,7 +19,6 @@ import 'package:iqmarket/services/user_service.dart';
 import 'package:iqmarket/services/file_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:iqmarket/widgets/secure_image_viewer.dart';
-import 'package:iqmarket/widgets/auth/telegram_verification_dialog.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class ProfileSettingsScreen extends StatefulWidget {
@@ -113,11 +112,20 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     if (user != null) {
       try {
         final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+        // Телефон и email лежат в users/{uid}/private/contact, а НЕ в основном
+        // документе: Firestore rules запрещают владельцу писать 'phone'/'email'
+        // в users/{uid}, поэтому UserService.updateUserProfile складывает их в
+        // приватный поддокумент. Раньше этот экран читал data['phone'] из
+        // основного документа — там этого поля не бывает никогда, и введённый
+        // номер после перезахода всегда оказывался пустым.
+        final contact = await UserService.getPrivateContact(uid: user.uid);
         if (doc.exists && mounted) {
           final data = doc.data();
           if (data != null) {
             setState(() {
-              final phoneToUse = data['verified_phone'] ?? data['phone'];
+              // verified_phone (основной документ) — подтверждённый через
+              // Телеграм номер, он приоритетнее введённого вручную.
+              final phoneToUse = data['verified_phone'] ?? contact['phone'];
               final String rawPhoneStr = (phoneToUse != null) ? phoneToUse.toString().trim() : '';
 
               _isPhoneVerified = rawPhoneStr.isNotEmpty &&
@@ -138,9 +146,12 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
               if (data['location'] != null && data['location'].toString().isNotEmpty) {
                 _cityController.text = data['location'].toString();
               }
-              if (data['email'] != null && data['email'].toString().isNotEmpty) {
-                _emailController.text = data['email'].toString();
-                _userEmail = data['email'].toString();
+              // email — по той же причине из приватного поддокумента; в
+              // основном документе он тоже запрещён правилами.
+              final emailFromContact = contact['email']?.toString() ?? '';
+              if (emailFromContact.isNotEmpty) {
+                _emailController.text = emailFromContact;
+                _userEmail = emailFromContact;
               }
               if (data['registrationDate'] != null) {
                 final timestamp = data['registrationDate'];
@@ -188,8 +199,42 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     super.dispose();
   }
 
+  /// Номер к каноническому виду `+7XXXXXXXXXX` — в нём его пишут
+  /// PhoneRequiredBottomSheet и таксишный онбординг, и в нём же он уходит в
+  /// tel:-ссылки и в senderPhone чата. Хранить маску («+7 (700) 000-00-00»)
+  /// нельзя: она расползается по всем этим местам.
+  ///
+  /// Возвращает null, если поле пустое (номер не меняем), и '' — если введён
+  /// неполный номер (вызывающий обязан показать ошибку и не сохранять).
+  String? _normalizePhoneInput() {
+    var digits = _phoneController.text.replaceAll(RegExp(r'\D'), '');
+    // Маска '+7 (###) …' держит в поле литеральный префикс, и после того как
+    // пользователь всё стёр, там может остаться '+7 ('. Одна цифра кода страны
+    // — это пустое поле, а не неполный номер: иначе человек без телефона не
+    // смог бы сохранить даже имя, получая «введите полный номер».
+    if (digits == '7' || digits == '8') digits = '';
+    if (digits.isEmpty) return null;
+    final local = digits.length > 10 ? digits.substring(digits.length - 10) : digits;
+    if (local.length != 10) return '';
+    return '+7$local';
+  }
+
   Future<void> _saveProfile() async {
     if (_isSaving) return;
+
+    // Валидация до любых записей, иначе профиль сохранится наполовину.
+    final String? normalizedPhone = _normalizePhoneInput();
+    if (normalizedPhone == '') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_t('enter_full_phone')),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isSaving = true);
     try {
       String? finalPhotoUrl = widget.profileImagePath?.startsWith('http') == true ? widget.profileImagePath : null;
@@ -229,14 +274,26 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
 
         final Map<String, dynamic> updateData = {
           'name': _nameController.text,
-          'phone': _phoneController.text,
           'location': _cityController.text,
           'accountType': _accountType,
         };
         if (finalPhotoUrl != null) {
           updateData['photoUrl'] = finalPhotoUrl;
         }
+        // Пустое поле НЕ затирает сохранённый номер. Пока экран читал телефон
+        // не оттуда, куда писал, поле всегда выглядело пустым — и любое
+        // сохранение профиля (имя, город) молча стирало номер в Firestore.
+        if (normalizedPhone != null) {
+          updateData['phone'] = normalizedPhone;
+        }
         await UserService.updateUserProfile(updateData);
+
+        // Локальный кэш: chat_service и product_details берут senderPhone
+        // именно из StorageService('user_phone'). Без этой строки номер
+        // сохранялся в Firestore, но звонки и чат продолжали видеть старый.
+        if (normalizedPhone != null) {
+          await StorageService.setString('user_phone', normalizedPhone);
+        }
       }
 
       // 🔒 Notify TaxiProvider to reload preferences and update its state immediately
