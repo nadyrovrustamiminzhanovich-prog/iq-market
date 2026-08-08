@@ -329,6 +329,57 @@ describe("users", () => {
         })
       );
     });
+
+    test("владелец НЕ может сам выставить себе isVerified", async () => {
+      await assertFails(
+        updateDoc(doc(userDb(userId), "users", userId), {
+          isVerified: true,
+        })
+      );
+    });
+
+    // Ровно та полезная нагрузка, которую пишет telegram_verification_dialog
+    // после успешной серверной проверки контакта. Правила её отклоняют целиком
+    // (из-за 'phone' и 'isVerified'), поэтому verified_phone и
+    // isTelegramVerified в прод никогда не попадают.
+    test("полная нагрузка телеграм-верификации с клиента отклоняется", async () => {
+      await assertFails(
+        setDoc(
+          doc(userDb(userId), "users", userId),
+          {
+            verified_phone: "77001234567",
+            phone: "+7 (700) 123-45-67",
+            isVerified: true,
+            isTelegramVerified: true,
+            telegramChatId: "12345",
+          },
+          { merge: true }
+        )
+      );
+    });
+
+    test("telegramChatId в основном документе тоже запрещён", async () => {
+      // Его пишет только сервер через Admin SDK (verifyTelegramOtp), правила
+      // Admin SDK не проверяют. С клиента — отказ.
+      await assertFails(
+        updateDoc(doc(userDb(userId), "users", userId), {
+          telegramChatId: "12345",
+        })
+      );
+    });
+
+    test("нагрузка без запрещённых ключей проходит", async () => {
+      await assertSucceeds(
+        setDoc(
+          doc(userDb(userId), "users", userId),
+          {
+            verified_phone: "77001234567",
+            isTelegramVerified: true,
+          },
+          { merge: true }
+        )
+      );
+    });
   });
 
   test("пользователь НЕ может сам снять себе postingRestricted", async () => {

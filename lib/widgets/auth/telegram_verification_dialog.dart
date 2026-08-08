@@ -12,6 +12,7 @@ import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:iqmarket/providers/taxi_provider.dart';
 import 'package:iqmarket/services/auth_service.dart';
+import 'package:iqmarket/services/user_service.dart';
 import 'package:iqmarket/services/telegram_bot_service.dart';
 import 'package:iqmarket/services/storage_service.dart';
 import 'package:iqmarket/theme/taxi_theme.dart';
@@ -211,17 +212,28 @@ class _TelegramVerificationDialogState extends State<TelegramVerificationDialog>
           final String? returnedTgFirst = tgData is Map ? tgData['telegramFirstName']?.toString() : null;
           final String? returnedTgLast = tgData is Map ? tgData['telegramLastName']?.toString() : null;
 
-          // Save verified_phone & Telegram metadata to Firestore
+          // В основной документ пишем ТОЛЬКО разрешённые правилами ключи.
+          // 'phone', 'isVerified' и 'telegramChatId' там запрещены
+          // (02_users.rules), поэтому прежняя запись всех полей разом
+          // отклонялась ЦЕЛИКОМ — исключение улетало в общий catch ниже, и
+          // пользователь получал «Неверный код», хотя верификация на сервере
+          // прошла успешно и OTP был уже потрачен. Повторная попытка тоже
+          // падала, и весь путь выглядел неработающим.
+          //
+          // isVerified / isTelegramVerified / telegramChatId и телефон в
+          // private/contact сервер (verifyTelegramOtp) уже проставил сам через
+          // Admin SDK — дублировать их с клиента и не нужно, и нельзя.
           await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
             'verified_phone': cleanPhone,
-            'phone': _phoneCtrl.text,
-            'isVerified': true,
             'isTelegramVerified': true,
-            if (returnedChatId != null) 'telegramChatId': returnedChatId,
             if (returnedTgUser != null && returnedTgUser.isNotEmpty) 'telegram_username': returnedTgUser,
             if (returnedTgFirst != null && returnedTgFirst.isNotEmpty) 'telegram_first_name': returnedTgFirst,
             if (returnedTgLast != null && returnedTgLast.isNotEmpty) 'telegram_last_name': returnedTgLast,
           }, SetOptions(merge: true));
+
+          // Телефон — в приватный поддокумент и в каноническом формате
+          // +7XXXXXXXXXX, как во всех остальных точках записи номера.
+          await UserService.updateUserProfile({'phone': '+$cleanPhone'});
 
           // Sync to local storage
           StorageService.saveProfile(
@@ -231,7 +243,7 @@ class _TelegramVerificationDialogState extends State<TelegramVerificationDialog>
             widget.provider.verificationStatus,
             isVerified: true,
           );
-          await StorageService.setString('user_phone', _phoneCtrl.text);
+          await StorageService.setString('user_phone', '+$cleanPhone');
 
           // Update Provider state with full Telegram metadata
           final finalChatId = returnedChatId ?? _chatId;
@@ -253,10 +265,24 @@ class _TelegramVerificationDialogState extends State<TelegramVerificationDialog>
         }
       }
     } catch (e) {
+      // Не всякая ошибка здесь — неверный код. Раньше сюда же попадал отказ
+      // Firestore по правилам, и человек, сделавший всё правильно, читал
+      // «Неверный код», повторял ввод, а OTP уже был потрачен на сервере.
+      // Код неверен только когда так сказала сама функция verifyTelegramOtp.
+      final String raw = e.toString();
+      final bool isWrongCode = e is FirebaseFunctionsException
+          ? (e.code == 'permission-denied' || e.code == 'invalid-argument')
+          : raw.contains('Неверный код');
       setState(() {
-        _codeCtrl.clear();
-        _errorText = 'Неверный код! Проверьте и попробуйте еще раз. ❌';
+        if (isWrongCode) {
+          _codeCtrl.clear();
+          _errorText = 'Неверный код! Проверьте и попробуйте еще раз. ❌';
+        } else {
+          // Код не сбрасываем: проблема не в нём.
+          _errorText = 'Не удалось завершить верификацию. Попробуйте позже.';
+        }
       });
+      debugPrint('[TG_VERIFY] _verifyOtp error: $raw');
     }
   }
 

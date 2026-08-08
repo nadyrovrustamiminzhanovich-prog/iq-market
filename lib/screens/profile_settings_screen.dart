@@ -128,10 +128,21 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
               final phoneToUse = data['verified_phone'] ?? contact['phone'];
               final String rawPhoneStr = (phoneToUse != null) ? phoneToUse.toString().trim() : '';
 
+              // Верифицированным номер считается ТОЛЬКО при реальном
+              // доказательстве: verified_phone (номер, которым поделились
+              // контактом в боте и который сервер сверил с введённым) либо
+              // isTelegramVerified, который ставит verifyTelegramOtp.
+              //
+              // Условия uid.startsWith('telegram_') здесь быть не должно: вход
+              // через Телеграм НЕ вытягивает номер (бот в этом сценарии не
+              // просит поделиться контактом), поэтому такой пользователь вводит
+              // номер руками. С прежним условием любой введённый вручную номер
+              // объявлялся «верифицированным через Telegram», поле становилось
+              // read-only, и опечатку можно было исправить только через
+              // модератора в WhatsApp.
               _isPhoneVerified = rawPhoneStr.isNotEmpty &&
                   (data['isTelegramVerified'] == true ||
-                   data['verified_phone'] != null ||
-                   user.uid.startsWith('telegram_'));
+                   data['verified_phone'] != null);
 
               if (rawPhoneStr.isNotEmpty) {
                 final digits = rawPhoneStr.replaceAll(RegExp(r'\D'), '');
