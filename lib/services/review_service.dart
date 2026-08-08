@@ -79,19 +79,34 @@ class ReviewService {
     return snapshot.docs.isNotEmpty;
   }
 
-  /// Delete a review
-  static Future<void> deleteReview(String reviewId, String toUserId, {String? reason}) async {
-    await _db.collection('reviews').doc(reviewId).delete();
-    
-    if (reason != null) {
-      NotificationService.saveNotificationToFirestore(
-        uid: toUserId,
-        title: 'Отзыв удален 🗑️',
-        body: 'Один из ваших отзывов был удален модератором. Причина: $reason',
-        type: 'ad_rejected',
-      ).catchError((e) {
-        debugPrint('[REVIEW_SERVICE] deleteReview notification failed: $e');
-      });
-    }
+  /// Delete a review (админ, с обязательной причиной).
+  ///
+  /// Уведомляем ОБЕ стороны — раньше уходило только получателю (toUserId),
+  /// автор отзыва (fromUserId) вообще не узнавал, что его отзыв удалили.
+  /// type: 'review_deleted', а не 'ad_rejected' (как было раньше) — тот тип
+  /// открывает диалог с текстом про отклонённое ОБЪЯВЛЕНИЕ, для отзыва это
+  /// вводило бы в заблуждение.
+  static Future<void> deleteReview(ReviewModel review, {required String reason}) async {
+    await _db.collection('reviews').doc(review.id).delete();
+
+    NotificationService.saveNotificationToFirestore(
+      uid: review.toUserId,
+      title: 'Отзыв о вас удалён 🗑️',
+      body: 'Администратор удалил отзыв на ваше объявление «${review.adTitle}». Причина: $reason',
+      type: 'review_deleted',
+      data: {'adId': review.adId, 'reason': reason},
+    ).catchError((e) {
+      debugPrint('[REVIEW_SERVICE] deleteReview notification (toUser) failed: $e');
+    });
+
+    NotificationService.saveNotificationToFirestore(
+      uid: review.fromUserId,
+      title: 'Ваш отзыв удалён 🗑️',
+      body: 'Администратор удалил ваш отзыв на объявление «${review.adTitle}». Причина: $reason',
+      type: 'review_deleted',
+      data: {'adId': review.adId, 'reason': reason},
+    ).catchError((e) {
+      debugPrint('[REVIEW_SERVICE] deleteReview notification (fromUser) failed: $e');
+    });
   }
 }

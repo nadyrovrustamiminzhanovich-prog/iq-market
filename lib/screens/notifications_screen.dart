@@ -616,6 +616,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
       case 'system': return Icons.info_rounded;
       case 'order': return Icons.shopping_bag_rounded;
       case 'ad_expiring': return Icons.hourglass_bottom_rounded;
+      case 'review_deleted': return Icons.delete_outline_rounded;
       default: return Icons.notifications_rounded;
     }
   }
@@ -627,6 +628,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
       case 'system': return Colors.grey;
       case 'order': return Colors.orange;
       case 'ad_expiring': return Colors.orange;
+      case 'review_deleted': return Colors.redAccent;
       default: return const Color(0xFF4A80F0);
     }
   }

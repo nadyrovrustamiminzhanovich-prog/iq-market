@@ -1515,20 +1515,136 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     return '${dt.day} ${monthList[dt.month]}';
   }
 
+  // Готовые причины удаления отзыва — тап по чипу подставляет текст в поле
+  // описания, admin может отредактировать перед отправкой. Та же схема, что
+  // и у отклонения объявления (admin_ads_screen.dart _rejectReasonTemplates).
+  static const List<Map<String, String>> _reviewDeleteReasonTemplates = [
+    {
+      'labelKey': 'report_reason_spam',
+      'text': 'Отзыв удалён: содержит спам или рекламу, не относящуюся к сделке.',
+    },
+    {
+      'labelKey': 'report_reason_insult',
+      'text': 'Отзыв удалён: содержит оскорбления или недопустимые высказывания.',
+    },
+    {
+      'labelKey': 'review_reason_fake',
+      'text': 'Отзыв удалён: содержит недостоверную информацию, не подтверждённую фактами сделки.',
+    },
+    {
+      'labelKey': 'review_reason_offtopic',
+      'text': 'Отзыв удалён: не относится к данному товару или сделке.',
+    },
+    {
+      'labelKey': 'report_reason_other',
+      'text': '',
+    },
+  ];
+
   void _confirmDeleteReview(ReviewModel review) {
-    showDialog(
+    final controller = TextEditingController();
+    String? selectedLabelKey;
+
+    showModalBottomSheet(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(TranslationService.t('delete_review_title', widget.lang)),
-        content: Text(TranslationService.t('delete_review_desc', widget.lang)),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: Text(TranslationService.t('cancel', widget.lang).toUpperCase())),
-          TextButton(onPressed: () async {
-            await ReviewService.deleteReview(review.id, widget.ad.userId);
-            if (mounted) Navigator.pop(context);
-          }, child: Text(TranslationService.t('delete_btn', widget.lang).toUpperCase(), style: const TextStyle(color: Colors.red))),
-        ],
-      ),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        bool isSending = false;
+        return StatefulBuilder(
+          builder: (modalContext, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(bottom: MediaQuery.of(modalContext).viewInsets.bottom),
+              // ConstrainedBox + SingleChildScrollView: клавиатура + чипы,
+              // развёрнутые в несколько строк, легко не влезают в оставшуюся
+              // высоту экрана без прокрутки (RenderFlex overflow) — тот же
+              // класс бага, что уже правился в _showRejectSheet.
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxHeight: MediaQuery.of(modalContext).size.height * 0.9),
+                child: SingleChildScrollView(
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+                    decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(TranslationService.t('delete_review_sheet_title', widget.lang), style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w900)),
+                        const SizedBox(height: 4),
+                        Text('«${review.fromUserName}», ${review.rating.toInt()}★', style: GoogleFonts.inter(fontSize: 13, color: Colors.grey[600])),
+                        const SizedBox(height: 16),
+                        Text(TranslationService.t('delete_review_select_reason', widget.lang), style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.grey[700])),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: _reviewDeleteReasonTemplates.map((tpl) {
+                            final bool isSelected = selectedLabelKey == tpl['labelKey'];
+                            return ChoiceChip(
+                              label: Text(TranslationService.t(tpl['labelKey']!, widget.lang), style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700)),
+                              selected: isSelected,
+                              selectedColor: const Color(0xFF4A80F0).withValues(alpha: 0.15),
+                              onSelected: (_) {
+                                setModalState(() {
+                                  selectedLabelKey = tpl['labelKey'];
+                                  controller.text = tpl['text']!;
+                                });
+                              },
+                            );
+                          }).toList(),
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: controller,
+                          maxLines: 4,
+                          maxLength: 300,
+                          style: GoogleFonts.inter(fontSize: 14),
+                          onChanged: (_) => setModalState(() {}),
+                          decoration: InputDecoration(
+                            hintText: TranslationService.t('delete_review_hint', widget.lang),
+                            filled: true,
+                            fillColor: const Color(0xFFF1F5F9),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                            contentPadding: const EdgeInsets.all(14),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 50,
+                          child: ElevatedButton(
+                            onPressed: (isSending || controller.text.trim().isEmpty) ? null : () async {
+                              setModalState(() => isSending = true);
+                              try {
+                                await ReviewService.deleteReview(review, reason: controller.text.trim());
+                                if (modalContext.mounted) Navigator.pop(modalContext);
+                              } catch (e) {
+                                if (modalContext.mounted) {
+                                  ScaffoldMessenger.of(modalContext).showSnackBar(SnackBar(content: Text(TranslationService.t('errPrefix', widget.lang).replaceAll('{error}', e.toString())), backgroundColor: Colors.redAccent));
+                                }
+                              } finally {
+                                if (modalContext.mounted) setModalState(() => isSending = false);
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.redAccent,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            ),
+                            child: isSending
+                                ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                : Text(TranslationService.t('delete_review_submit_btn', widget.lang), style: GoogleFonts.inter(fontWeight: FontWeight.w800)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
