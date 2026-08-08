@@ -40,6 +40,11 @@ class _ChatsListScreenState extends State<ChatsListScreen> {
         return price != null ? '$label: $price ₸' : label;
       case 'cleared':
         return TranslationService.t('chatPreviewCleared', lang);
+      case 'empty':
+        // Все сообщения переписки удалены «у всех» — превью обязано опустеть
+        // вместе с ними, иначе в списке чатов остаётся висеть текст, который
+        // пользователь только что удалил.
+        return TranslationService.t('chatPreviewEmpty', lang);
       case 'system':
         // Исход оффера. Без этой ветки превью показывало бы русский текст
         // сообщения всем читателям независимо от их языка.

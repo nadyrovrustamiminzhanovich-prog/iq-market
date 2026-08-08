@@ -39,8 +39,15 @@ class ChatService {
         .orderBy('timestamp', descending: true)
         .snapshots()
         .map((snapshot) {
+          // uid читаем на каждом снапшоте, а не при создании стрима: после
+          // перелогина под другим аккаунтом фильтр обязан работать по новому
+          // пользователю, иначе ему покажутся сообщения, скрытые предыдущим.
+          final uid = UserService.currentUid;
           final messages = snapshot.docs
             .map((doc) => MessageModel.fromMap(doc.data(), doc.id))
+            // «Удалить у меня»: документ общий на двоих, поэтому персональное
+            // удаление — пометка deletedFor, а скрытие происходит на чтении.
+            .where((m) => !m.isHiddenFor(uid))
             .toList();
           // 🔒 X10 Fix: Sort explicitly in Dart to keep local pending writes (which initially have a null/mock timestamp)
           // properly sorted as the newest messages at index 0, preventing chat jumps.
@@ -545,40 +552,77 @@ class ChatService {
     }
   }
 
-  /// Delete specific messages (including media files from Storage).
-  /// Firestore rules позволяют удалять только СВОИ сообщения (senderId == uid).
-  /// Возвращает количество успешно удалённых сообщений.
+  /// «Удалить у всех» — hard delete: документ сообщения физически исчезает,
+  /// у собеседника пропадает по стриму, восстановить нельзя.
+  ///
+  /// Firestore rules позволяют удалять только СВОИ сообщения (senderId == uid),
+  /// поэтому чужие id молча пропускаются. Возвращает количество удалённых.
+  ///
+  /// Порядок операций обратен наивному и важен: сначала коммитим удаление
+  /// документов, и только ПОТОМ чистим Storage. Если сначала убить файл, а
+  /// затем не суметь удалить документ (сеть, права, оффлайн), в переписке
+  /// навсегда остаётся сообщение с битой картинкой — и это уже необратимо.
+  /// Осиротевший файл в Storage — несравнимо меньшее зло.
+  ///
+  /// После самого удаления обязательна уборка следов, иначе «удалил у всех»
+  /// остаётся ложью: превью в списке чатов, счётчик непрочитанных и in-app
+  /// уведомление живут отдельными полями и сами не обновляются.
   static Future<int> deleteMessages(String sellerId, List<String> messageIds) async {
     final uid = UserService.currentUid;
     if (uid == null) return 0;
-    
-    final chatId = getChatId(sellerId);
+
+    final chatId = activeChatId ?? getChatId(sellerId);
+    final chatRef = _db.collection('chats').doc(chatId);
+    final messagesRef = chatRef.collection('messages');
     final batch = _db.batch();
+
+    final List<String> mediaUrls = [];
+    final List<String> pendingOfferIds = [];
+    // Сколько единиц освободить в счётчике непрочитанных у собеседника.
+    int unreadFreed = 0;
     int deletedCount = 0;
-    
-    for (var id in messageIds) {
-      final docRef = _db.collection('chats').doc(chatId).collection('messages').doc(id);
-      
+
+    // Было ли среди удаляемых самое свежее сообщение чата. Определяем ДО
+    // удаления: только в этом случае превью и уведомление указывают на
+    // удаляемое сообщение и их нужно (и можно безопасно) перезаписать.
+    // Удаление сообщения из середины переписки превью не затрагивает.
+    bool wasLatest = false;
+    try {
+      final tailBefore =
+          await messagesRef.orderBy('timestamp', descending: true).limit(1).get();
+      wasLatest = tailBefore.docs.isNotEmpty &&
+          messageIds.contains(tailBefore.docs.first.id);
+    } catch (e) {
+      debugPrint('[CHAT_SERVICE] deleteMessages: tail lookup failed: $e');
+    }
+
+    for (final id in messageIds) {
+      final docRef = messagesRef.doc(id);
       try {
         final doc = await docRef.get();
         if (!doc.exists) continue;
         final data = doc.data();
-        
+
         // 🔒 Firestore rules: можно удалить только если senderId == uid
         if (data?['senderId'] != uid) {
           debugPrint('[CHAT_SERVICE] Skip delete: message $id not owned by current user');
           continue;
         }
-        
-        // Удаляем медиа из Storage если есть
+
         final String? mediaUrl = data?['mediaUrl'];
-        if (mediaUrl != null && mediaUrl.isNotEmpty) {
-          try {
-            await FirebaseStorage.instance.refFromURL(mediaUrl).delete();
-            debugPrint('[CHAT_SERVICE] Media file deleted from storage: $mediaUrl');
-          } catch (e) {
-            debugPrint('[CHAT_SERVICE] Error deleting media from storage: $e');
-          }
+        if (mediaUrl != null && mediaUrl.isNotEmpty) mediaUrls.add(mediaUrl);
+
+        // Непрочитанное сообщение забирает с собой единицу из счётчика
+        // собеседника — иначе в списке чатов навсегда виснет бейдж «1» без
+        // сообщения, которое его вызвало.
+        if (data?['isRead'] != true) unreadFreed++;
+
+        // Оффер без карточки в ленте продавец не сможет ни принять, ни
+        // отклонить — предложение обязано умереть вместе со сообщением,
+        // иначе в offers/ остаётся вечный pending-призрак.
+        if (data?['type'] == 'offer' && data?['offerStatus'] == 'pending') {
+          final String? offerId = data?['offerId'];
+          if (offerId != null && offerId.isNotEmpty) pendingOfferIds.add(offerId);
         }
 
         batch.delete(docRef);
@@ -587,42 +631,249 @@ class ChatService {
         debugPrint('[CHAT_SERVICE] Error processing message $id for deletion: $e');
       }
     }
-    
-    if (deletedCount > 0) {
+
+    if (deletedCount == 0) return 0;
+
+    try {
       await batch.commit();
+    } catch (e, stack) {
+      // Ничего не удалено и медиа не тронуто — пользователь увидит ошибку и
+      // сможет повторить, сообщения останутся целыми, а не битыми.
+      debugPrint('[CHAT_SERVICE] deleteMessages commit ERROR: $e');
+      AnalyticsService.logFirestorePermissionError(e, stack, chatId, 'delete', 'messages');
+      return 0;
     }
+
+    // ── Уборка следов ────────────────────────────────────────────────────────
+    // Сообщения уже удалены, поэтому ни одна ошибка ниже не должна выглядеть
+    // для пользователя как неудачное удаление — только логи.
+    await _cancelOffersForDeletedMessages(pendingOfferIds);
+
+    // Собеседника берём из документа чата, а НЕ из sellerId. У uid с
+    // подчёркиванием (`telegram_…`) ChatScreen не может вытащить участника из
+    // chatId и подставляет ad.userId, который при переходе из пуша бывает
+    // заглушкой. Промах здесь означал бы правку счётчика и уведомления
+    // постороннего человека, поэтому источник истины — поле users.
+    final String? counterpartId = await _resolveCounterpart(chatRef, uid);
+
+    if (counterpartId != null) {
+      await _syncChatAfterDelete(
+        chatRef: chatRef,
+        otherUserId: counterpartId,
+        unreadFreed: unreadFreed,
+        rewritePreview: wasLatest,
+      );
+      if (wasLatest) {
+        await _neutralizeChatNotification(chatId: chatId, recipientId: counterpartId);
+      }
+    } else {
+      debugPrint('[CHAT_SERVICE] deleteMessages: counterpart not resolved for $chatId');
+    }
+
+    for (final url in mediaUrls) {
+      try {
+        await FirebaseStorage.instance.refFromURL(url).delete();
+        debugPrint('[CHAT_SERVICE] Media file deleted from storage: $url');
+      } catch (e) {
+        debugPrint('[CHAT_SERVICE] Error deleting media from storage: $e');
+      }
+    }
+
     return deletedCount;
   }
 
-  /// Clear entire chat (including all media files from Storage)
-  static Future<void> clearChat(String sellerId) async {
-    final chatId = getChatId(sellerId);
-    final messages = await _db.collection('chats').doc(chatId).collection('messages').get();
+  /// «Удалить у меня» — персональное скрытие сообщения (в т.ч. чужого).
+  ///
+  /// Документ сообщения один на двоих, и удалить его физически может только
+  /// автор (Firestore rules). Поэтому для получателя единственный корректный
+  /// вариант — пометка `deletedFor`, которая фильтруется на чтении в
+  /// [getMessagesStreamWithChatId]. Медиа из Storage при этом НЕ удаляется:
+  /// файл всё ещё нужен второй стороне.
+  ///
+  /// Возвращает количество скрытых сообщений (0 — ошибка, UI покажет её).
+  static Future<int> hideMessagesForMe(String otherUserId, List<String> messageIds) async {
+    final uid = UserService.currentUid;
+    if (uid == null || messageIds.isEmpty) return 0;
+
+    final chatId = activeChatId ?? getChatId(otherUserId);
+    final messagesRef = _db.collection('chats').doc(chatId).collection('messages');
     final batch = _db.batch();
-    
-    for (var doc in messages.docs) {
-      final data = doc.data();
-      final String? mediaUrl = data['mediaUrl'];
-      
-      if (mediaUrl != null && mediaUrl.isNotEmpty) {
-        try {
-          await FirebaseStorage.instance.refFromURL(mediaUrl).delete();
-        } catch (e) {
-          debugPrint('[CHAT_SERVICE] Error deleting media during clearChat: $e');
-        }
-      }
-      
-      batch.delete(doc.reference);
+
+    for (final id in messageIds) {
+      // arrayUnion, а не перезапись массива: оба участника могут скрывать
+      // сообщения одновременно, и ни один не должен затирать чужую пометку.
+      // Firestore rules проверяют именно результат — deletedFor может только
+      // прирасти собственным uid (см. 04_chats.rules, правило #5).
+      batch.update(messagesRef.doc(id), {
+        'deletedFor': FieldValue.arrayUnion([uid]),
+      });
     }
-    
-    batch.update(_db.collection('chats').doc(chatId), {
-      'lastMessage': 'Чат очищен',
-      'lastMessageType': 'cleared',
-      'unreadCount_${UserService.currentUid}': 0,
-      'lastTimestamp': Timestamp.now(),
-    });
-    
-    await batch.commit();
+
+    try {
+      await batch.commit();
+      // Превью в списке чатов остаётся общим на двоих и намеренно НЕ меняется:
+      // сообщение никуда не делось, оно скрыто только у одной стороны.
+      return messageIds.length;
+    } catch (e, stack) {
+      debugPrint('[CHAT_SERVICE] hideMessagesForMe ERROR: $e');
+      AnalyticsService.logFirestorePermissionError(e, stack, chatId, 'write', 'messages');
+      return 0;
+    }
+  }
+
+  /// Второй участник чата по документу чата — единственный надёжный источник.
+  /// Возвращает null, если чат недоступен или в нём не двое: лучше пропустить
+  /// уборку, чем записать что-то в чужой профиль.
+  static Future<String?> _resolveCounterpart(
+    DocumentReference<Map<String, dynamic>> chatRef,
+    String uid,
+  ) async {
+    try {
+      final snap = await chatRef.get();
+      final raw = snap.data()?['users'];
+      if (raw is! List) return null;
+      final others = raw
+          .map((e) => e.toString())
+          .where((u) => u != uid)
+          .toList(growable: false);
+      return others.length == 1 ? others.first : null;
+    } catch (e) {
+      debugPrint('[CHAT_SERVICE] _resolveCounterpart ERROR: $e');
+      return null;
+    }
+  }
+
+  /// Погасить офферы, чьи карточки в чате были удалены.
+  /// Покупателю rules разрешают только pending → cancelled — ровно это и надо.
+  static Future<void> _cancelOffersForDeletedMessages(List<String> offerIds) async {
+    for (final offerId in offerIds) {
+      try {
+        await _db.collection('offers').doc(offerId).update({
+          'status': 'cancelled',
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      } catch (e) {
+        debugPrint('[CHAT_SERVICE] Offer $offerId not cancelled after message delete: $e');
+      }
+    }
+  }
+
+  /// Привести документ чата в соответствие с реальностью после hard delete:
+  /// пересобрать превью и вернуть собеседнику незаслуженные непрочитанные.
+  ///
+  /// `lastMessage` живёт отдельным полем на документе чата, поэтому раньше
+  /// удалённое сообщение продолжало висеть превью в списке чатов у ОБОИХ —
+  /// пользователь своими глазами видел текст, который «удалил у всех».
+  static Future<void> _syncChatAfterDelete({
+    required DocumentReference<Map<String, dynamic>> chatRef,
+    required String otherUserId,
+    required int unreadFreed,
+    required bool rewritePreview,
+  }) async {
+    if (!rewritePreview && unreadFreed == 0) return;
+
+    try {
+      // Запрос по коллекции внутри runTransaction невозможен, поэтому хвост
+      // читаем заранее. Гонка (собеседник пишет ровно в этот момент) закрыта
+      // тем, что запрос идёт ПОСЛЕ коммита удаления: более свежее сообщение,
+      // если оно есть, вернётся этим же запросом и станет превью.
+      Map<String, dynamic>? tail;
+      if (rewritePreview) {
+        final snap = await chatRef
+            .collection('messages')
+            .orderBy('timestamp', descending: true)
+            .limit(1)
+            .get();
+        tail = snap.docs.isEmpty ? null : snap.docs.first.data();
+      }
+
+      await _db.runTransaction((tx) async {
+        final chatSnap = await tx.get(chatRef);
+        if (!chatSnap.exists) return;
+        final chatData = chatSnap.data() ?? {};
+
+        final Map<String, dynamic> update = {};
+
+        if (rewritePreview) {
+          if (tail == null) {
+            // Переписка опустела. `lastTimestamp` намеренно не трогаем: он
+            // задаёт позицию чата в списке, а обнулив его, мы бы утопили
+            // только что активный диалог в конец ленты.
+            update['lastMessage'] = '';
+            update['lastMessageType'] = 'empty';
+            update['lastOfferPrice'] = FieldValue.delete();
+            update['lastSystemKey'] = FieldValue.delete();
+          } else {
+            final String type = (tail['type'] as String?) ?? 'text';
+            update['lastMessage'] = tail['text'] ?? '';
+            update['lastMessageType'] = type;
+            update['lastSenderId'] = tail['senderId'] ?? '';
+            update['lastTimestamp'] = tail['timestamp'] ?? Timestamp.now();
+            update['lastOfferPrice'] =
+                type == 'offer' && tail['offerPrice'] != null
+                    ? tail['offerPrice']
+                    : FieldValue.delete();
+            update['lastSystemKey'] =
+                type == 'system' && tail['systemKey'] != null
+                    ? tail['systemKey']
+                    : FieldValue.delete();
+          }
+        }
+
+        if (unreadFreed > 0) {
+          // Явное значение вместо increment(-1): счётчик обязан остаться
+          // неотрицательным, иначе в списке чатов отрисуется бейдж «-1».
+          final int current =
+              (chatData['unreadCount_$otherUserId'] as num?)?.toInt() ?? 0;
+          update['unreadCount_$otherUserId'] =
+              current > unreadFreed ? current - unreadFreed : 0;
+        }
+
+        if (update.isNotEmpty) {
+          tx.set(chatRef, update, SetOptions(merge: true));
+        }
+      });
+    } catch (e) {
+      debugPrint('[CHAT_SERVICE] _syncChatAfterDelete ERROR: $e');
+    }
+  }
+
+  /// Обезличить in-app уведомление получателя после «удалить у всех».
+  ///
+  /// Чат-уведомления апсертятся в один документ `chat_<chatId>`, и его `body`
+  /// хранит текст сообщения. Без этой уборки собеседник спокойно читал
+  /// «удалённое» в колокольчике. Вызывается только когда удалили последнее
+  /// сообщение чата — иначе мы бы затёрли уведомление о более свежем.
+  ///
+  /// Документ читать нельзя (rules: read только владельцу), поэтому пишем
+  /// слепо через merge. Если получатель уже удалил уведомление, merge
+  /// превратится в create без обязательного `timestamp` и правила его
+  /// отклонят — это желаемый исход, воскрешать уведомление незачем.
+  static Future<void> _neutralizeChatNotification({
+    required String chatId,
+    required String recipientId,
+  }) async {
+    final uid = UserService.currentUid;
+    if (uid == null) return;
+    final senderName = StorageService.getString('user_name') ?? 'Пользователь';
+    try {
+      await _db
+          .collection('users')
+          .doc(recipientId)
+          .collection('notifications')
+          .doc('chat_$chatId')
+          .set({
+        'title': 'Новое сообщение: $senderName',
+        'body': 'Сообщение удалено',
+        'type': 'chat',
+        'senderId': uid,
+        // `timestamp` намеренно не обновляем: событие то же самое, всплывать
+        // в начало списка ему незачем. merge сохраняет существующее поле, а
+        // правила проверяют лишь его наличие в итоговом документе.
+      }, SetOptions(merge: true));
+    } catch (e) {
+      debugPrint('[CHAT_SERVICE] Notification not neutralized after delete: $e');
+    }
   }
 
   /// Typing status

@@ -41,12 +41,16 @@
 
         // ─── UPDATE ────────────────────────────────────────────────────────────
         allow update: if isSignedIn() && (request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.users) && (
-          // 1. Sender editing own NON-OFFER messages
+          // 1. Sender editing own NON-OFFER messages.
+          //    'deletedFor' исключён намеренно: единственный путь к нему —
+          //    правило #5, где проверяется, что участник добавляет ровно свой
+          //    uid. Иначе автор мог бы прописать туда чужой uid и решать за
+          //    собеседника, что тому видно.
           (
-            request.auth.uid == resource.data.senderId 
-            && resource.data.type != 'offer' 
-            && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['senderId', 'timestamp', 'type'])
-          ) || 
+            request.auth.uid == resource.data.senderId
+            && resource.data.type != 'offer'
+            && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['senderId', 'timestamp', 'type', 'deletedFor'])
+          ) ||
           // 2. Sender cancelling own PENDING OFFER message (deduplication)
           (
             request.auth.uid == resource.data.senderId
@@ -73,6 +77,22 @@
             && resource.data.offerStatus == 'pending'
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['offerStatus'])
             && request.resource.data.offerStatus == 'rejected'
+          ) ||
+          // 5. «Удалить у меня» — персональное скрытие сообщения.
+          //    Документ сообщения один на двоих, физически удалить его может
+          //    только автор (см. allow delete ниже). Поэтому для получателя
+          //    единственный корректный вариант — пометка deletedFor, которую
+          //    клиент фильтрует на чтении.
+          //
+          //    Инвариант жёсткий: итоговый deletedFor обязан быть точно
+          //    "старый ∪ {мой uid}". Это разом запрещает и добавить чужой uid
+          //    (скрыть сообщение у собеседника), и убрать чужую пометку
+          //    (вернуть ему то, что он у себя удалил). Повторное скрытие
+          //    уже скрытого проходит — множество не меняется.
+          (
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['deletedFor'])
+            && request.resource.data.deletedFor is list
+            && request.resource.data.deletedFor.toSet() == resource.data.get('deletedFor', []).toSet().union([request.auth.uid].toSet())
           )
         );
 

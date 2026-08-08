@@ -24,6 +24,11 @@ class MessageModel {
   // повторов — персистентный (переживает перезапуск приложения) флаг, чтобы
   // UI мог показать "нажмите, чтобы повторить" вместо вечного спиннера.
   final bool uploadFailed;
+  // uid'ы, у которых сообщение скрыто («Удалить у меня»). Документ сообщения
+  // один на двоих, физически удалить его может только автор (Firestore rules),
+  // поэтому персональное удаление — это пометка, а не удаление. Фильтруется
+  // на чтении в ChatService.getMessagesStreamWithChatId.
+  final List<String> deletedFor;
 
   MessageModel({
     required this.id,
@@ -40,7 +45,11 @@ class MessageModel {
     this.offerId,
     this.systemKey,
     this.uploadFailed = false,
+    this.deletedFor = const [],
   });
+
+  /// Скрыто ли сообщение персонально у указанного пользователя.
+  bool isHiddenFor(String? uid) => uid != null && deletedFor.contains(uid);
 
   Map<String, dynamic> toMap() {
     return {
@@ -57,6 +66,7 @@ class MessageModel {
       'offerId': offerId,
       'systemKey': systemKey,
       'uploadFailed': uploadFailed,
+      'deletedFor': deletedFor,
     };
   }
 
@@ -76,6 +86,13 @@ class MessageModel {
       offerId: map['offerId'],
       systemKey: map['systemKey'],
       uploadFailed: map['uploadFailed'] ?? false,
+      // Проверка типа, а не `as List?`: на битом поле каст бросает исключение
+      // внутри .map() стрима и валит ленту чата ЦЕЛИКОМ, а не одно сообщение.
+      deletedFor: map['deletedFor'] is List
+          ? (map['deletedFor'] as List)
+              .map((e) => e.toString())
+              .toList(growable: false)
+          : const [],
     );
   }
 }

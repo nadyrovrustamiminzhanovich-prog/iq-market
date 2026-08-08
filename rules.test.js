@@ -3,7 +3,7 @@ const {
   assertSucceeds,
   assertFails,
 } = require("@firebase/rules-unit-testing");
-const { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs } = require("firebase/firestore");
+const { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, arrayUnion } = require("firebase/firestore");
 const fs = require("fs");
 
 jest.setTimeout(30000);
@@ -402,10 +402,134 @@ describe("chats/messages", () => {
     );
   });
 
+  test("получатель НЕ может удалить сообщение отправителя", async () => {
+    await assertFails(
+      deleteDoc(doc(userDb(user2), `chats/${chatId}/messages`, "msg_001"))
+    );
+  });
+
   test("посторонний НЕ может удалить сообщение", async () => {
     await assertFails(
       deleteDoc(doc(userDb(outsider), `chats/${chatId}/messages`, "msg_001"))
     );
+  });
+
+  // ── «Удалить у меня» (deletedFor) ────────────────────────────────────────
+  // Инвариант: итоговый deletedFor == старый ∪ {свой uid}. Ни добавить чужой
+  // uid, ни убрать чужую пометку нельзя — иначе одна сторона решала бы, что
+  // видит другая.
+  describe("deletedFor (удалить у меня)", () => {
+    test("получатель может скрыть у себя чужое сообщение", async () => {
+      await assertSucceeds(
+        updateDoc(doc(userDb(user2), `chats/${chatId}/messages`, "msg_001"), {
+          deletedFor: arrayUnion(user2),
+        })
+      );
+    });
+
+    test("отправитель может скрыть у себя своё сообщение", async () => {
+      await assertSucceeds(
+        updateDoc(doc(userDb(user1), `chats/${chatId}/messages`, "msg_001"), {
+          deletedFor: arrayUnion(user1),
+        })
+      );
+    });
+
+    test("повторное скрытие уже скрытого проходит (идемпотентность)", async () => {
+      await adminSet(`chats/${chatId}/messages/msg_hidden`, {
+        senderId: user1,
+        text: "Скрыто",
+        isRead: false,
+        type: "text",
+        deletedFor: [user2],
+      });
+      await assertSucceeds(
+        updateDoc(doc(userDb(user2), `chats/${chatId}/messages`, "msg_hidden"), {
+          deletedFor: arrayUnion(user2),
+        })
+      );
+    });
+
+    test("НЕЛЬЗЯ скрыть сообщение у собеседника (чужой uid в deletedFor)", async () => {
+      await assertFails(
+        updateDoc(doc(userDb(user1), `chats/${chatId}/messages`, "msg_001"), {
+          deletedFor: arrayUnion(user2),
+        })
+      );
+    });
+
+    test("НЕЛЬЗЯ добавить себя и собеседника разом", async () => {
+      await assertFails(
+        updateDoc(doc(userDb(user1), `chats/${chatId}/messages`, "msg_001"), {
+          deletedFor: [user1, user2],
+        })
+      );
+    });
+
+    test("НЕЛЬЗЯ убрать чужую пометку из deletedFor", async () => {
+      await adminSet(`chats/${chatId}/messages/msg_hidden`, {
+        senderId: user1,
+        text: "Скрыто у user2",
+        isRead: false,
+        type: "text",
+        deletedFor: [user2],
+      });
+      await assertFails(
+        updateDoc(doc(userDb(user1), `chats/${chatId}/messages`, "msg_hidden"), {
+          deletedFor: [user1],
+        })
+      );
+    });
+
+    test("НЕЛЬЗЯ протащить правку текста вместе с deletedFor", async () => {
+      await assertFails(
+        updateDoc(doc(userDb(user1), `chats/${chatId}/messages`, "msg_001"), {
+          deletedFor: arrayUnion(user1),
+          text: "Подменено",
+        })
+      );
+    });
+
+    test("посторонний НЕ может скрыть сообщение", async () => {
+      await assertFails(
+        updateDoc(doc(userDb(outsider), `chats/${chatId}/messages`, "msg_001"), {
+          deletedFor: arrayUnion(outsider),
+        })
+      );
+    });
+
+    test("НЕЛЬЗЯ скрыть у себя оффер чужой правкой статуса под видом deletedFor", async () => {
+      await adminSet(`chats/${chatId}/messages/msg_offer`, {
+        senderId: user2,
+        text: "Предложение цены: 1000 ₸",
+        isRead: false,
+        type: "offer",
+        offerStatus: "pending",
+        offerPrice: 1000,
+      });
+      await assertFails(
+        updateDoc(doc(userDb(user1), `chats/${chatId}/messages`, "msg_offer"), {
+          deletedFor: arrayUnion(user1),
+          offerStatus: "accepted",
+        })
+      );
+    });
+
+    test("оффер можно скрыть у себя, не меняя статус", async () => {
+      await adminSet(`chats/${chatId}/messages/msg_offer`, {
+        senderId: user2,
+        text: "Предложение цены: 1000 ₸",
+        isRead: false,
+        type: "offer",
+        offerStatus: "pending",
+        offerPrice: 1000,
+      });
+      await assertSucceeds(
+        updateDoc(doc(userDb(user1), `chats/${chatId}/messages`, "msg_offer"), {
+          deletedFor: arrayUnion(user1),
+        })
+      );
+    });
   });
 
   test("Сценарий А: посторонний НЕ может прочитать сам документ чата", async () => {
