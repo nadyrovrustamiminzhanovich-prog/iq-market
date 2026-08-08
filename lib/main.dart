@@ -4,6 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:image_picker_android/image_picker_android.dart';
+import 'package:image_picker_platform_interface/image_picker_platform_interface.dart';
 import 'dart:ui';
 
 import 'screens/home/home_screen.dart';
@@ -15,9 +17,29 @@ import 'widgets/common/offline_wrapper.dart';
 import 'screens/splash_screen.dart';
 
 
+/// Включает системный Android Photo Picker.
+///
+/// Без него image_picker открывает старый ACTION_GET_CONTENT, который параметр
+/// `limit` просто ВЫБРАСЫВАЕТ (см. ImagePickerDelegate.launchMultiPickImage-
+/// FromGalleryIntent — ветка else вообще его не использует). Из-за этого в
+/// галерее можно было отметить сколько угодно фото, а ограничение срабатывало
+/// только после «Готово»: лишние молча отрезались уже в приложении. Photo
+/// Picker гасит выбор прямо в галерее, когда набран максимум.
+///
+/// Флаг есть только у Android-реализации, поэтому проверяем тип: на остальных
+/// платформах вызов ничего не делает (на iOS PHPicker соблюдает limit сам).
+void _enableAndroidPhotoPicker() {
+  final ImagePickerPlatform picker = ImagePickerPlatform.instance;
+  if (picker is ImagePickerAndroid) {
+    picker.useAndroidPhotoPicker = true;
+  }
+}
+
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
+  _enableAndroidPhotoPicker();
+
   // Pass all uncaught "fatal" errors from the framework to Crashlytics
   FlutterError.onError = (FlutterErrorDetails details) {
     FirebaseCrashlytics.instance.recordFlutterFatalError(details);

@@ -643,13 +643,25 @@ class _PostAdScreenState extends State<PostAdScreen> {
         // (7 фото из 8) галерея вообще не открывалась: срабатывал catch ниже и
         // пользователь получал красный тост с текстом ошибки вместо выбора
         // фото — последнее фото добавить было невозможно. На последнем слоте
-        // передаём null и полагаемся на take(remainingSlots) ниже.
-        final List<XFile> picked = await _picker.pickMultiImage(
-          imageQuality: 75,
-          maxWidth: 1280,
-          maxHeight: 1280,
-          limit: remainingSlots >= 2 ? remainingSlots : null,
-        );
+        // берём одиночный pickImage: он открывает галерею в режиме выбора
+        // ровно одного фото, то есть лимит соблюдён и в этом случае тоже.
+        final List<XFile> picked;
+        if (remainingSlots == 1) {
+          final XFile? single = await _picker.pickImage(
+            source: ImageSource.gallery,
+            imageQuality: 75,
+            maxWidth: 1280,
+            maxHeight: 1280,
+          );
+          picked = single == null ? <XFile>[] : <XFile>[single];
+        } else {
+          picked = await _picker.pickMultiImage(
+            imageQuality: 75,
+            maxWidth: 1280,
+            maxHeight: 1280,
+            limit: remainingSlots,
+          );
+        }
         if (picked.isNotEmpty && mounted) {
           // Доп. страховка на случай платформы, которая limit не поддержала.
           final toAdd = picked.take(remainingSlots).toList();

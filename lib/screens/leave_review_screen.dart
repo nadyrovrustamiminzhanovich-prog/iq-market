@@ -54,12 +54,21 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
       // выбрать хоть 20 фото, а лишние молча отрезались уже после возврата.
       //
       // limit допустим только >= 2: pickMultiImage валидирует его и на значении
-      // 1 бросает ArgumentError. Поэтому на последнем свободном слоте передаём
-      // null и полагаемся на take(remaining) ниже.
-      final picked = await ImagePicker().pickMultiImage(
-        imageQuality: 85,
-        limit: remaining >= 2 ? remaining : null,
-      );
+      // 1 бросает ArgumentError. Поэтому на последнем свободном слоте берём
+      // одиночный pickImage — галерея откроется в режиме выбора одного фото.
+      final List<XFile> picked;
+      if (remaining == 1) {
+        final XFile? single = await ImagePicker().pickImage(
+          source: ImageSource.gallery,
+          imageQuality: 85,
+        );
+        picked = single == null ? <XFile>[] : <XFile>[single];
+      } else {
+        picked = await ImagePicker().pickMultiImage(
+          imageQuality: 85,
+          limit: remaining,
+        );
+      }
       if (picked.isEmpty || !mounted) return;
 
       final limited = picked.take(remaining).toList();
