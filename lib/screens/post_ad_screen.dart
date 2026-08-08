@@ -636,11 +636,19 @@ class _PostAdScreenState extends State<PostAdScreen> {
         // limit: сама галерея (Android Photo Picker / iOS PHPicker) не даёт
         // отметить больше remainingSlots штук — раньше лимита не было и
         // ограничение применялось только постфактум, после возврата в приложение.
+        //
+        // ВАЖНО: limit допустим только >= 2. pickMultiImage прогоняет его через
+        // MultiImagePickerOptions.createAndValidate, который на значении 1
+        // бросает ArgumentError. Из-за этого при ровно одном свободном слоте
+        // (7 фото из 8) галерея вообще не открывалась: срабатывал catch ниже и
+        // пользователь получал красный тост с текстом ошибки вместо выбора
+        // фото — последнее фото добавить было невозможно. На последнем слоте
+        // передаём null и полагаемся на take(remainingSlots) ниже.
         final List<XFile> picked = await _picker.pickMultiImage(
           imageQuality: 75,
           maxWidth: 1280,
           maxHeight: 1280,
-          limit: remainingSlots,
+          limit: remainingSlots >= 2 ? remainingSlots : null,
         );
         if (picked.isNotEmpty && mounted) {
           // Доп. страховка на случай платформы, которая limit не поддержала.

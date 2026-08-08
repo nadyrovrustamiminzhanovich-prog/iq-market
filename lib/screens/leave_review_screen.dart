@@ -40,7 +40,8 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
     if (remaining <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Максимум $_maxImages фото'),
+          content: Text(TranslationService.t('err_max_photos', lang)
+              .replaceAll('{max}', '$_maxImages')),
           backgroundColor: Colors.orange,
         ),
       );
@@ -48,7 +49,17 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
     }
 
     try {
-      final picked = await ImagePicker().pickMultiImage(imageQuality: 85);
+      // limit не даёт отметить в галерее больше, чем осталось свободных слотов —
+      // как в размещении объявления. Раньше лимита здесь не было вовсе: юзер мог
+      // выбрать хоть 20 фото, а лишние молча отрезались уже после возврата.
+      //
+      // limit допустим только >= 2: pickMultiImage валидирует его и на значении
+      // 1 бросает ArgumentError. Поэтому на последнем свободном слоте передаём
+      // null и полагаемся на take(remaining) ниже.
+      final picked = await ImagePicker().pickMultiImage(
+        imageQuality: 85,
+        limit: remaining >= 2 ? remaining : null,
+      );
       if (picked.isEmpty || !mounted) return;
 
       final limited = picked.take(remaining).toList();
@@ -62,7 +73,8 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Добавлено $remaining из ${picked.length} фото (лимит $_maxImages)'),
+              content: Text(TranslationService.t('err_max_photos', lang)
+                  .replaceAll('{max}', '$_maxImages')),
               backgroundColor: Colors.orange,
             ),
           );
@@ -220,9 +232,17 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
     final List<String> urls = [];
 
     for (int i = 0; i < images.length; i++) {
-      // Сжатие перед отправкой
+      // Сжатие перед отправкой. Фото отзыва пользователь разглядывает так же,
+      // как фото объявления, поэтому и качество то же (galleryPhotoQuality).
+      // По умолчанию compressImage жмёт заметно сильнее — 45/1024, это нормально
+      // для чата и аватарки, но на фото отзыва давало видимые JPEG-артефакты.
       File fileToUpload = images[i];
-      final compressed = await FileService.compressImage(images[i]);
+      final compressed = await FileService.compressImage(
+        images[i],
+        quality: FileService.galleryPhotoQuality,
+        minWidth: FileService.galleryPhotoMinSize,
+        minHeight: FileService.galleryPhotoMinSize,
+      );
       if (compressed != null) fileToUpload = compressed;
 
       final url = await FileService.uploadFile(

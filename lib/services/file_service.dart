@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:iqmarket/services/analytics_service.dart';
 
 class FileService {
@@ -15,6 +14,13 @@ class FileService {
 
   // 🔒 X10: Max file size before aggressive recompression (5 MB)
   static const int _maxFileSizeBytes = 5 * 1024 * 1024;
+
+  /// Пресет сжатия для «витринных» фото — тех, которые пользователь потом
+  /// разглядывает в полный экран (объявления, отзывы). Значения намеренно
+  /// совпадают с параметрами сжатия фото объявлений в AdService, чтобы фото
+  /// в отзывах не выглядели заметно хуже фото в объявлениях.
+  static const int galleryPhotoQuality = 80;
+  static const int galleryPhotoMinSize = 1080;
 
   /// Upload a file to Firebase Storage and return the Task for cancellation support
   static UploadTask uploadFileWithTask(File file, String folder, {String? customFileName}) {
@@ -109,7 +115,17 @@ class FileService {
   }
 
   /// Image compression — standard quality (~100-200 KB)
-  static Future<File?> compressImage(File file) async {
+  ///
+  /// Значения по умолчанию (45 / 1024) намеренно оставлены прежними: метод
+  /// общий для чата, аватарки и документов водителя, и поднимать качество им
+  /// всем разом нельзя — вырастет трафик и время загрузки. Вызывающий, которому
+  /// нужно другое качество, передаёт параметры явно (см. galleryPhotoQuality).
+  static Future<File?> compressImage(
+    File file, {
+    int quality = 45,
+    int minWidth = 1024,
+    int minHeight = 1024,
+  }) async {
     try {
       final tempDir = await getTemporaryDirectory();
       final String targetPath = p.join(tempDir.path, '${DateTime.now().millisecondsSinceEpoch}_compressed.jpg');
@@ -117,9 +133,9 @@ class FileService {
       final result = await FlutterImageCompress.compressAndGetFile(
         file.absolute.path,
         targetPath,
-        minWidth: 1024,
-        minHeight: 1024,
-        quality: 45,
+        minWidth: minWidth,
+        minHeight: minHeight,
+        quality: quality,
         format: CompressFormat.jpeg,
       );
 
