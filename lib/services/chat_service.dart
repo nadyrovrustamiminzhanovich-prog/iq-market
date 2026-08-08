@@ -248,22 +248,28 @@ class ChatService {
 
       // Перебиваем собственное прошлое предложение: гасим старую карточку в
       // ленте, чтобы у продавца не висели две активные кнопки Принять.
-      final existingOffer = await offerRef.get();
-      final prevData = existingOffer.data();
-      if (prevData != null && prevData['status'] == 'pending') {
-        final prevMessageId = prevData['messageId'] as String?;
-        if (prevMessageId != null && prevMessageId.isNotEmpty) {
-          try {
+      //
+      // Весь блок — best-effort и обязан оставаться таким. Это уборка прошлой
+      // карточки, а не часть отправки: если чтение или гашение не прошло,
+      // предложение всё равно должно уйти. Раньше исключение отсюда улетало
+      // наверх и убивало отправку целиком — пользователь получал голое
+      // «permission-denied» вместо отправленного предложения.
+      try {
+        final existingOffer = await offerRef.get();
+        final prevData = existingOffer.data();
+        if (prevData != null && prevData['status'] == 'pending') {
+          final prevMessageId = prevData['messageId'] as String?;
+          if (prevMessageId != null && prevMessageId.isNotEmpty) {
             await _db
                 .collection('chats')
                 .doc(chatId)
                 .collection('messages')
                 .doc(prevMessageId)
                 .update({'offerStatus': 'cancelled'});
-          } catch (e) {
-            debugPrint('[CHAT_SERVICE] previous offer card not cancelled: $e');
           }
         }
+      } catch (e) {
+        debugPrint('[CHAT_SERVICE] previous offer card not cancelled: $e');
       }
 
       // id сообщения генерируем заранее: оффер обязан ссылаться на карточку,
@@ -315,8 +321,12 @@ class ChatService {
       ).catchError((e) {
         debugPrint('[CHAT_SERVICE] Notification sending failed (non-blocking): $e');
       });
-    } catch (e) {
+    } catch (e, stack) {
       debugPrint('[CHAT_SERVICE] sendOffer ERROR: $e');
+      // Раньше отказ правил здесь нигде не фиксировался: пользователь видел
+      // сырой текст ошибки, а в аналитике не оставалось следа — понять, на
+      // каком шаге отвалилось предложение, было нечем.
+      AnalyticsService.logFirestorePermissionError(e, stack, chatId, 'write', 'send_offer');
       rethrow;
     }
   }

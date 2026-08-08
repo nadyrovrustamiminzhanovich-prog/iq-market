@@ -1115,6 +1115,30 @@ describe("offers", () => {
     );
   });
 
+  // Прод-баг: КАЖДОЕ первое предложение цены по товару падало с
+  // permission-denied. ChatService.sendOffer сначала читает свой слот оффера
+  // (чтобы погасить прошлую карточку), а у несуществующего документа
+  // resource == null — обращение к resource.data.buyerId в правиле даёт не
+  // false, а ошибку вычисления, то есть отказ.
+  test("покупатель может прочитать свой ЕЩЁ НЕ созданный слот оффера", async () => {
+    await assertSucceeds(
+      getDoc(doc(userDb(buyerId), "offers", offerId))
+    );
+  });
+
+  test("посторонний НЕ может прощупывать чужой пустой слот оффера", async () => {
+    await assertFails(
+      getDoc(doc(userDb(strangerId), "offers", offerId))
+    );
+  });
+
+  test("участники читают существующее предложение, посторонний — нет", async () => {
+    await adminSet(`offers/${offerId}`, validOffer);
+    await assertSucceeds(getDoc(doc(userDb(buyerId), "offers", offerId)));
+    await assertSucceeds(getDoc(doc(userDb(sellerId), "offers", offerId)));
+    await assertFails(getDoc(doc(userDb(strangerId), "offers", offerId)));
+  });
+
   test("id обязан быть adId_buyerId — произвольный id отклоняется", async () => {
     await assertFails(
       setDoc(doc(userDb(buyerId), "offers", "random_id"), validOffer)

@@ -12,10 +12,29 @@
         return request.resource.data;
       }
 
+      // Свой слот оффера — тот, чей id заканчивается на uid читающего
+      // (offerId детерминирован: adId + '_' + buyerId). Суффикс, а не split
+      // по '_': uid телеграм-аккаунтов сам содержит подчёркивание.
+      function isOwnOfferSlot(oid) {
+        return oid.size() > request.auth.uid.size()
+          && oid[oid.size() - request.auth.uid.size() : oid.size()] == request.auth.uid;
+      }
+
+      // `resource == null` (документа нет) обязателен ПЕРВЫМ условием: при
+      // чтении несуществующего документа resource равен null, и обращение к
+      // resource.data.buyerId — не false, а ошибка вычисления, то есть
+      // permission-denied. На это падало КАЖДОЕ первое предложение цены по
+      // товару: ChatService.sendOffer читает свой слот оффера, чтобы погасить
+      // прошлую карточку, и получал отказ ещё до записи.
+      // Пустой слот виден только его владельцу — чужие offerId остаются
+      // неразличимы (deny и на существующем, и на отсутствующем).
       allow read: if isSignedIn() && (
-        request.auth.uid == resource.data.buyerId ||
-        request.auth.uid == resource.data.sellerId ||
-        isAdmin()
+        isAdmin() ||
+        (resource == null && isOwnOfferSlot(offerId)) ||
+        (resource != null && (
+          request.auth.uid == resource.data.buyerId ||
+          request.auth.uid == resource.data.sellerId
+        ))
       );
 
       // Создать предложение может только покупатель и только за себя.

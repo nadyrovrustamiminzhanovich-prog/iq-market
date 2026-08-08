@@ -1349,8 +1349,18 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                             Navigator.push(context, MaterialPageRoute(builder: (context) => ChatScreen(ad: widget.ad)));
                           }
                         } catch (e) {
+                          // Пользователю показываем человеческий текст на его
+                          // языке, а не сырое «[cloud_firestore/permission-denied]
+                          // The caller does not have permission…» — из такого
+                          // сообщения нельзя понять ни что случилось, ни что
+                          // делать. Техническая причина уходит в лог и
+                          // Crashlytics через AnalyticsService в ChatService.
+                          debugPrint('[PRODUCT_DETAILS] sendOffer failed: $e');
                           if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ошибка: $e'), backgroundColor: Colors.redAccent));
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                              content: Text(TranslationService.t('offer_send_failed', widget.lang)),
+                              backgroundColor: Colors.redAccent,
+                            ));
                           }
                         } finally {
                           if (modalContext.mounted) {
