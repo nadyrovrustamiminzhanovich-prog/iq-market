@@ -394,6 +394,18 @@ class ChatService {
   static Future<void> markAsRead(String sellerId, {String? targetChatId}) async {
     final uid = UserService.currentUid;
     if (uid == null) return;
+    // 🔒 Прочитать можно только ЧУЖИЕ сообщения. Если sellerId — это я сам,
+    // выборка ниже (senderId == sellerId) попадёт на мои собственные сообщения
+    // и поставит им isRead: true — отправитель увидит 2 синие галочки сразу
+    // после отправки, хотя получатель ничего не открывал. Реальный источник
+    // такого вызова: чужой FCM-пуш, прилетевший на это устройство (токен
+    // остался у аккаунта, который раньше логинился здесь) — тогда
+    // _handleDataMessage звал markAsRead(senderId), где senderId == я.
+    // Здесь это обрывается независимо от того, кто и откуда позвал.
+    if (sellerId == uid) {
+      debugPrint('[ChatService.markAsRead] BLOCKED: попытка пометить прочитанными свои же сообщения');
+      return;
+    }
     final chatId = targetChatId ?? ChatService.activeChatId ?? getChatId(sellerId);
 
     try {
@@ -432,6 +444,22 @@ class ChatService {
   /// ✅ WhatsApp-style: помечает сообщения как ДОСТАВЛЕННЫЕ (две серые галочки) без пометки прочитано.
   /// Вызывается когда получатель онлайн (открыл приложение), но не открыл чат.
   static Future<void> markAsDelivered(String senderId, String chatId) async {
+    // 🔒 Симметрично markAsRead: «доставлено» ставит получатель на сообщения
+    // собеседника. senderId == я означает, что обработчик пуша сработал не на
+    // том устройстве (чужой пуш) — иначе свои же сообщения получали бы
+    // 2 серые галочки в момент отправки.
+    //
+    // Проверка намеренно НЕ требует uid != null: этот метод вызывается в том
+    // числе из фонового FCM-изолята, где firebase_auth не всегда успевает
+    // отдать currentUser. Жёсткий выход по null убил бы «доставлено» при
+    // закрытом приложении — ровно то, что чинилось в прошлый заход. Когда uid
+    // неизвестен, арбитром остаются Firestore rules: правку isDelivered у
+    // автора сообщения сервер отклоняет сам.
+    final uid = UserService.currentUid;
+    if (uid != null && senderId == uid) {
+      debugPrint('[ChatService.markAsDelivered] BLOCKED: попытка пометить доставленными свои же сообщения');
+      return;
+    }
     try {
       final undelivered = await _db
           .collection('chats')

@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:iqmarket/services/telegram_bot_service.dart';
+import 'package:iqmarket/services/notification_service.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 
 class AuthService {
@@ -140,6 +141,13 @@ class AuthService {
   // ===================== UTILS =====================
 
   static Future<void> signOut() async {
+    // Отвязываем устройство от аккаунта ДО выхода: после signOut() записи в
+    // users/{uid} уже не пройдут по правилам, и fcmToken остался бы навсегда
+    // указывать на этот телефон — сервер продолжал бы слать сюда пуши чужого
+    // (вышедшего) аккаунта, а обработчики пушей проставляли бы по ним статусы
+    // доставки/прочтения от имени того, кто вошёл после.
+    await NotificationService.clearTokenOnSignOut();
+
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
 

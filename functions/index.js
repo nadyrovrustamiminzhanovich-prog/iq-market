@@ -100,6 +100,12 @@ exports.onNewMessage = onDocumentCreated('chats/{chatId}/messages/{msgId}', asyn
         type      : 'chat',
         chatId    : chatId,
         senderId  : senderId,
+        // Кому предназначен пуш. Клиент сверяет с текущим uid и молча
+        // выбрасывает чужие уведомления: FCM-токен мог остаться привязан к
+        // аккаунту, который раньше логинился на этом устройстве, и тогда
+        // обработчик пуша проставлял статусы «доставлено»/«прочитано» на
+        // сообщения того, кто вошёл позже (2 синие галочки самому себе).
+        receiverId: receiverId,
         adId      : chatData.adId    || '',
         adTitle   : chatData.adTitle || '',
         adImage   : chatData.adImage || '',
@@ -387,6 +393,9 @@ exports.onNewNotification = onDocumentCreated('users/{userId}/notifications/{not
       data: {
         type        : notification.type || 'system',
         ...(notification.data || {}),
+        // Адресат пуша — см. комментарий в onNewMessage. Ставится после
+        // спреда data, чтобы содержимое уведомления не могло его переопределить.
+        receiverId  : userId,
         click_action: 'FLUTTER_NOTIFICATION_CLICK',
       },
       android: {

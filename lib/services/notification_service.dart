@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -124,6 +125,63 @@ class NotificationService {
     if (token != null) _saveTokenToFirestore(token);
 
     _messaging.onTokenRefresh.listen((newToken) => _saveTokenToFirestore(newToken));
+
+    // init() отрабатывает один раз на старте приложения (splash_screen), когда
+    // пользователь может быть ещё не залогинен: тогда _saveTokenToFirestore
+    // выходил по uid == null, и вошедший позже аккаунт оставался вообще без
+    // fcmToken до следующего запуска приложения — пуши ему не приходили.
+    // Слушаем вход/выход и синхронизируем токен под актуальный uid.
+    FirebaseAuth.instance.authStateChanges().listen((user) {
+      if (user == null) return;
+      syncTokenForCurrentUser();
+    });
+  }
+
+  /// Привязать текущий FCM-токен устройства к вошедшему пользователю.
+  /// Вызывается при старте, при обновлении токена и на каждый вход.
+  static Future<void> syncTokenForCurrentUser() async {
+    try {
+      final token = await _messaging.getToken();
+      if (token != null) await _saveTokenToFirestore(token);
+    } catch (e) {
+      debugPrint('[NotificationService] syncTokenForCurrentUser error: $e');
+    }
+  }
+
+  /// Отвязать устройство от аккаунта при выходе.
+  ///
+  /// Без этого `users/{uid}.fcmToken` навсегда оставался равен токену этого
+  /// устройства: сервер продолжал слать сюда пуши вышедшего аккаунта (включая
+  /// тексты его чужих переписок), а обработчики пушей писали в Firestore
+  /// статусы доставки/прочтения от имени того, кто вошёл позже. Именно так
+  /// отправитель получал «2 синие галочки» на свои же сообщения.
+  ///
+  /// Вызывать ДО FirebaseAuth.signOut() — после выхода прав на запись в
+  /// users/{uid} уже не будет.
+  static Future<void> clearTokenOnSignOut() async {
+    // Таймауты обязательны: обе операции сетевые, а стоят они на пути выхода
+    // из аккаунта. Без ограничения по времени офлайн-пользователь не смог бы
+    // выйти вообще — Firestore `update()` резолвится только после ответа
+    // сервера. Не удалить токен неприятно, заблокировать выход — хуже.
+    const timeout = Duration(seconds: 5);
+    final uid = UserService.currentUid;
+    try {
+      if (uid != null) {
+        await _db.collection('users').doc(uid).update({
+          'fcmToken': FieldValue.delete(),
+        }).timeout(timeout);
+      }
+    } catch (e) {
+      debugPrint('[NotificationService] clearTokenOnSignOut Firestore error: $e');
+    }
+    try {
+      // Токен устройства тоже сбрасываем: старый мог остаться закешированным
+      // на сервере FCM у прежнего аккаунта. Новый выдастся при следующем
+      // getToken() (вход → authStateChanges → syncTokenForCurrentUser).
+      await _messaging.deleteToken().timeout(timeout);
+    } catch (e) {
+      debugPrint('[NotificationService] deleteToken error: $e');
+    }
   }
 
   static Future<void> _saveTokenToFirestore(String token) async {
@@ -136,6 +194,20 @@ class NotificationService {
     debugPrint('FCM Token synced to Firestore ✅');
   }
 
+  /// Адресован ли пуш тому, кто сейчас вошёл на этом устройстве.
+  ///
+  /// `receiverId` кладёт сервер (functions/index.js: onNewMessage /
+  /// onNewNotification). Старые пуши без этого поля считаем своими — иначе
+  /// после деплоя клиента до деплоя функций пропали бы все уведомления.
+  static bool _isPushForCurrentUser(RemoteMessage message) {
+    final receiverId = message.data['receiverId'];
+    if (receiverId == null || receiverId.toString().isEmpty) return true;
+    final uid = UserService.currentUid;
+    // Сессии нет — судить не о чем, обработка всё равно упрётся в правила.
+    if (uid == null) return true;
+    return receiverId == uid;
+  }
+
   static Future<void> _handleDataMessage(RemoteMessage message) async {
     if (message.messageId != null) {
       if (_processedMessageIds.contains(message.messageId)) return;
@@ -146,15 +218,19 @@ class NotificationService {
     // Don't show local notification if user is already in this chat
     final incomingChatId = message.data['chatId'];
     final senderId = message.data['senderId'];
+    // Свой же пуш (senderId == я) означает, что уведомление адресовано не мне,
+    // а просто прилетело на это устройство. Обрабатывать его как «получатель
+    // онлайн» нельзя: статусы уйдут на мои собственные сообщения.
+    final isOwnEcho = senderId != null && senderId == UserService.currentUid;
     if (incomingChatId != null && incomingChatId == ChatService.activeChatId) {
       // ✅ Пользователь в чате → прочитано (2 синие галочки)
-      if (senderId != null) ChatService.markAsRead(senderId);
+      if (senderId != null && !isOwnEcho) ChatService.markAsRead(senderId);
       return;
     }
 
     // ✅ WhatsApp-style: пользователь онлайн, получил уведомление, но не в чате
     // → ставим "доставлено" (2 серые галочки)
-    if (incomingChatId != null && senderId != null) {
+    if (incomingChatId != null && senderId != null && !isOwnEcho) {
       ChatService.markAsDelivered(senderId, incomingChatId);
     }
 
@@ -177,6 +253,19 @@ class NotificationService {
   }
 
   static void _navigateToChat(Map<String, dynamic> data) {
+    // Тап по пушу чужого аккаунта (устройство, где он раньше логинился) не
+    // должен никуда вести: чат по чужому chatId всё равно закрыт правилами,
+    // пользователь получил бы экран «не тот аккаунт».
+    final receiverId = data['receiverId'];
+    final currentUid = UserService.currentUid;
+    if (receiverId != null &&
+        receiverId.toString().isNotEmpty &&
+        currentUid != null &&
+        receiverId != currentUid) {
+      debugPrint('[FCM] Навигация отменена: пуш адресован другому аккаунту');
+      return;
+    }
+
     final String type = data['type'] ?? '';
     if (type == 'taxi_bid' || type == 'taxi_bid_accepted') {
       // 🔒 Такси-модуль временно закрыт для обычных пользователей (см. home_screen.dart
@@ -431,6 +520,13 @@ class NotificationService {
       'state': 'foreground'
     });
 
+    // Пуш чужого аккаунта на этом устройстве не должен ни показываться (в
+    // баннере лежит текст чужой переписки), ни менять статусы сообщений.
+    if (!_isPushForCurrentUser(message)) {
+      debugPrint('[FCM] Пуш адресован другому аккаунту (receiverId != текущий uid) — игнорируем');
+      return;
+    }
+
     await _handleDataMessage(message);
 
     final RemoteNotification? notification = message.notification;
@@ -570,7 +666,17 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     if (message.data['type'] == 'chat' &&
         chatId != null && chatId.isNotEmpty &&
         senderId != null && senderId.isNotEmpty) {
-      await ChatService.markAsDelivered(senderId, chatId);
+      // Те же две проверки, что и в foreground: пуш, адресованный другому
+      // аккаунту (устройство, где он раньше логинился), и «эхо» собственного
+      // сообщения не должны проставлять статусы — иначе отправитель получает
+      // галочки доставки/прочтения сам себе.
+      if (!NotificationService._isPushForCurrentUser(message)) {
+        debugPrint('[BG_HANDLER] Пуш адресован другому аккаунту — пропускаем markAsDelivered');
+      } else if (senderId == UserService.currentUid) {
+        debugPrint('[BG_HANDLER] Эхо собственного сообщения — пропускаем markAsDelivered');
+      } else {
+        await ChatService.markAsDelivered(senderId, chatId);
+      }
     }
   } catch (e) {
     debugPrint('[BG_HANDLER] markAsDelivered error: $e');

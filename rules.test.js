@@ -520,6 +520,56 @@ describe("chats/messages", () => {
     );
   });
 
+  // ── Галочки доставки/прочтения ставит ТОЛЬКО получатель ──────────────────
+  // Прод-баг: отправитель видел 2 синие галочки сразу после отправки, хотя
+  // собеседник не открывал приложение. Клиент помечал сообщение прочитанным
+  // сам себе (обработчик чужого FCM-пуша, прилетевшего на это устройство),
+  // а правила это разрешали через ветку «автор правит своё сообщение».
+  test("отправитель НЕ может пометить своё сообщение прочитанным", async () => {
+    await assertFails(
+      updateDoc(
+        doc(userDb(user1), `chats/${chatId}/messages`, "msg_001"),
+        { isRead: true }
+      )
+    );
+  });
+
+  test("отправитель НЕ может пометить своё сообщение доставленным", async () => {
+    await assertFails(
+      updateDoc(
+        doc(userDb(user1), `chats/${chatId}/messages`, "msg_001"),
+        { isDelivered: true }
+      )
+    );
+  });
+
+  test("отправитель НЕ может протащить isRead вместе с легальной правкой mediaUrl", async () => {
+    await assertFails(
+      updateDoc(
+        doc(userDb(user1), `chats/${chatId}/messages`, "msg_001"),
+        { mediaUrl: "https://example.com/photo.jpg", isRead: true }
+      )
+    );
+  });
+
+  test("отправитель по-прежнему МОЖЕТ дописать mediaUrl после загрузки", async () => {
+    await assertSucceeds(
+      updateDoc(
+        doc(userDb(user1), `chats/${chatId}/messages`, "msg_001"),
+        { mediaUrl: "https://example.com/photo.jpg", uploadFailed: false }
+      )
+    );
+  });
+
+  test("получатель МОЖЕТ пометить сообщение доставленным и прочитанным разом", async () => {
+    await assertSucceeds(
+      updateDoc(
+        doc(userDb(user2), `chats/${chatId}/messages`, "msg_001"),
+        { isRead: true, isDelivered: true, readAt: new Date() }
+      )
+    );
+  });
+
   test("отправитель может удалить своё сообщение", async () => {
     await assertSucceeds(
       deleteDoc(doc(userDb(user1), `chats/${chatId}/messages`, "msg_001"))
