@@ -212,19 +212,14 @@ class _VideoTrimmerScreenState extends State<VideoTrimmerScreen> {
               TextButton(
                 onPressed: _saveVideo,
                 child: Text(TranslationService.t('doneBtnCap', Provider.of<AppConfigProvider>(context, listen: false).language), style: GoogleFonts.inter(color: const Color(0xFF4A80F0), fontWeight: FontWeight.w900)),
-              )
-            else if (_isSaving)
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.only(right: 16),
-                  child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
-                ),
               ),
           ],
         ),
-        body: !_isLoaded 
+        body: !_isLoaded
           ? const Center(child: CircularProgressIndicator(color: Color(0xFF4A80F0)))
-          : SafeArea(
+          : Stack(
+              children: [
+              SafeArea(
               child: Column(
                 children: [
                   // Video preview
@@ -309,9 +304,39 @@ class _VideoTrimmerScreenState extends State<VideoTrimmerScreen> {
                 ],
               ),
             ),
+              if (_isSaving) _buildSavingOverlay(),
+              ],
+            ),
       ),
     );
   }
+
+  // Раньше на время сохранения был только крошечный 20x20 спиннер вместо
+  // кнопки "Готово" в AppBar — легко не заметить, что реально идёт обрезка
+  // и сжатие видео (реальная асинхронная работа, не мгновенная). Теперь —
+  // на весь экран, как оверлей загрузки на экране публикации объявления.
+  Widget _buildSavingOverlay() => Positioned.fill(
+    child: AbsorbPointer(
+      absorbing: true,
+      child: Container(
+        color: Colors.black.withValues(alpha: 0.75),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(color: Colors.white),
+              const SizedBox(height: 20),
+              Text(
+                TranslationService.t('savingVideo', Provider.of<AppConfigProvider>(context, listen: false).language),
+                style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w700),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
 
   Widget _buildThumbnailTimeline() {
     return LayoutBuilder(

@@ -24,12 +24,32 @@ class PostAdImageItem extends StatelessWidget {
     return Container(
       width: 100,
       margin: const EdgeInsets.only(right: 12),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
-        image: DecorationImage(image: FileImage(file), fit: BoxFit.cover),
+        color: const Color(0xFFE9EEF6),
       ),
       child: Stack(
+        fit: StackFit.expand,
         children: [
+          // frameBuilder: пока локальный файл декодируется в первый кадр —
+          // честный спиннер вместо DecorationImage, у которой нет состояния
+          // "ещё грузится" в принципе (либо картинка есть, либо пусто).
+          // wasSynchronouslyLoaded=true — кадр уже был готов, спиннер не мелькает.
+          Image.file(
+            file,
+            fit: BoxFit.cover,
+            frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+              if (wasSynchronouslyLoaded || frame != null) return child;
+              return const Center(
+                child: SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(strokeWidth: 2.4, color: Color(0xFF4A80F0)),
+                ),
+              );
+            },
+          ),
           if (isFirst)
             Positioned(
               bottom: 0, left: 0, right: 0,
