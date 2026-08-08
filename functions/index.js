@@ -958,7 +958,8 @@ exports.getFullUserInfo = functions.https.onCall(async (data, context) => {
       bidsSentSnap,
       bidsReceivedSnap,
       passengerOrdersSnap,
-      driverOrdersSnap
+      driverOrdersSnap,
+      contactSnap
     ] = await Promise.all([
       db.collection('users').doc(targetUid).get(),
       db.collection('ads').where('userId', '==', targetUid).limit(50).get(),
@@ -970,11 +971,17 @@ exports.getFullUserInfo = functions.https.onCall(async (data, context) => {
       db.collection('taxi_bids').where('senderId', '==', targetUid).limit(50).get(),
       db.collection('taxi_bids').where('receiverId', '==', targetUid).limit(50).get(),
       db.collection('taxi_orders').where('passengerId', '==', targetUid).limit(50).get(),
-      db.collection('taxi_orders').where('driverId', '==', targetUid).limit(50).get()
+      db.collection('taxi_orders').where('driverId', '==', targetUid).limit(50).get(),
+      // Контакты лежат в приватном поддокументе, а не в профиле: правила
+      // запрещают phone/email в users/{uid}. Без этого чтения админ не видел
+      // телефон вообще — в authData.phoneNumber у входа через Телеграм и Google
+      // всегда null, а в профиле поля phone нет и быть не может.
+      db.collection('users').doc(targetUid).collection('private').doc('contact').get()
     ]);
 
     // 6. Формирование структуры ответа
     const profile = userSnap.exists ? userSnap.data() : null;
+    const contact = contactSnap.exists ? contactSnap.data() : {};
 
     const ads = adsSnap.docs.map(doc => {
       const adData = doc.data();
@@ -1091,6 +1098,16 @@ exports.getFullUserInfo = functions.https.onCall(async (data, context) => {
     return {
       auth: authData,
       profile: profile,
+      // Контакты отдельным блоком — админу нужен телефон, чтобы связаться с
+      // пользователем. telegramUsername позволяет написать напрямую в Телеграм.
+      contact: {
+        phone: contact.phone || profile?.verified_phone || null,
+        verifiedPhone: profile?.verified_phone || null,
+        email: contact.email || null,
+        telegramChatId: contact.telegramChatId || contact.telegram_chat_id || profile?.telegramChatId || null,
+        telegramUsername: contact.telegram_username || profile?.telegram_username || null,
+        isTelegramVerified: profile?.isTelegramVerified === true,
+      },
       ads: ads,
       reportsAgainst: reportsAgainst,
       reportsSubmitted: reportsSubmitted,

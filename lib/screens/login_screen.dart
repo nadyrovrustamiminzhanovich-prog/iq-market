@@ -830,7 +830,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
             });
 
             try {
-              final userCred = await AuthService.verifyOtpAndSignIn(
+              final tgResult = await AuthService.verifyOtpAndSignIn(
                 _tgSessionToken!,
                 code,
               ).timeout(const Duration(seconds: 15));
@@ -840,9 +840,14 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                 Navigator.of(ctx, rootNavigator: true).pop();
               }
               await _finalizeLogin(
-                userCred.user?.displayName ?? 'Telegram User',
+                tgResult.credential.user?.displayName ?? 'Telegram User',
                 isVerified: true,
                 accountType: null,
+                // Номер, которым пользователь поделился контактом в боте.
+                // Сервер его проверил (contact.user_id == chat_id), поэтому он
+                // сразу становится подтверждённым и виден в «Личных данных».
+                verifiedPhone: tgResult.verifiedPhone,
+                telegramUsername: tgResult.telegramUsername,
               );
 
             } on TimeoutException {
@@ -1235,18 +1240,39 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   }
 
   // ===================== FINALIZE =====================
-  Future<void> _finalizeLogin(String name, {String? email, String? photoUrl, bool isVerified = false, String? accountType}) async {
+  Future<void> _finalizeLogin(
+    String name, {
+    String? email,
+    String? photoUrl,
+    bool isVerified = false,
+    String? accountType,
+    String verifiedPhone = '',
+    String telegramUsername = '',
+  }) async {
     // 1. Сохраняем в Firebase Firestore
     final bool finalVerified = await UserService.syncUserAfterLogin(
       name: name,
       email: email,
       photoUrl: photoUrl,
+      phone: verifiedPhone.isNotEmpty ? verifiedPhone : null,
       isVerified: isVerified,
       accountType: accountType,
       language: _selectedLang,
       isLanguageManuallyChanged: _languageManuallyChanged,
     );
-    
+
+    // Номер, подтверждённый контактом в Телеграме, помечаем как верифицированный
+    // и кладём в private/contact. Без этого аккаунт, созданный входом через
+    // Телеграм, оставался вообще без телефона — позвонить и написать по нему
+    // было нельзя, и админ не видел, с кем связываться.
+    if (verifiedPhone.isNotEmpty) {
+      await UserService.markPhoneVerifiedViaTelegram(
+        phone: verifiedPhone,
+        telegramUsername: telegramUsername,
+      );
+      await StorageService.setString('user_phone', verifiedPhone);
+    }
+
     // 2. Локальное сохранение
     StorageService.saveProfile(name, photoUrl, false, accountType ?? 'Личный', isVerified: finalVerified);
     if (email != null) StorageService.setString('user_email', email);

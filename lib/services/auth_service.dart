@@ -155,18 +155,43 @@ class AuthService {
     await _auth.currentUser?.delete();
   }
 
-  static Future<UserCredential> verifyOtpAndSignIn(String sessionId, String otp) async {
+  /// Результат входа через Телеграм: сам вход плюс номер, которым пользователь
+  /// поделился контактом в боте. Номер приходит от сервера, а не от клиента —
+  /// custom-token вход не приносит phoneNumber в Firebase Auth, поэтому без
+  /// него аккаунт остался бы вообще без телефона.
+  static Future<TelegramSignInResult> verifyOtpAndSignIn(String sessionId, String otp) async {
     final callable = FirebaseFunctions.instance.httpsCallable('verifyTelegramOtp');
     final result = await callable.call({
       'sessionId': sessionId,
       'otp': otp,
     });
-    
+
     final tokenToUse = result.data['customToken'] as String?;
     if (tokenToUse == null || tokenToUse.split('.').length != 3) {
       throw Exception('Не удалось получить токен авторизации от сервера');
     }
-    
-    return await _auth.signInWithCustomToken(tokenToUse);
+
+    final credential = await _auth.signInWithCustomToken(tokenToUse);
+    return TelegramSignInResult(
+      credential: credential,
+      verifiedPhone: result.data['verifiedPhone'] as String? ?? '',
+      telegramUsername: result.data['telegramUsername'] as String? ?? '',
+    );
   }
+}
+
+class TelegramSignInResult {
+  final UserCredential credential;
+
+  /// Номер в каноническом виде `+7XXXXXXXXXX`, подтверждённый через контакт в
+  /// Телеграме. Пустая строка — старая сессия, созданная до перехода на
+  /// обязательный обмен контактом.
+  final String verifiedPhone;
+  final String telegramUsername;
+
+  const TelegramSignInResult({
+    required this.credential,
+    required this.verifiedPhone,
+    required this.telegramUsername,
+  });
 }

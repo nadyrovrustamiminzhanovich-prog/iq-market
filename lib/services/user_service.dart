@@ -141,6 +141,36 @@ class UserService {
     }
   }
 
+  /// Пометить номер как подтверждённый через контакт в Телеграме.
+  ///
+  /// `verified_phone` живёт в ОСНОВНОМ документе (разрешённое правилами
+  /// исключение) — на нём стоит защита от угона номера (`users where
+  /// verified_phone == ...`) и его видит админ в карточке пользователя.
+  /// Сам телефон дополнительно кладётся в `private/contact` для отображения
+  /// в «Личных данных».
+  ///
+  /// Только цифры: `verified_phone` сравнивается запросами на равенство, поэтому
+  /// формат обязан быть единым (без '+' и символов маски).
+  static Future<void> markPhoneVerifiedViaTelegram({
+    required String phone,
+    String telegramUsername = '',
+  }) async {
+    final uid = currentUid;
+    if (uid == null) return;
+    final digits = phone.replaceAll(RegExp(r'\D'), '');
+    if (digits.isEmpty) return;
+    try {
+      await users.doc(uid).set({
+        'verified_phone': digits,
+        'isTelegramVerified': true,
+        if (telegramUsername.isNotEmpty) 'telegram_username': telegramUsername,
+      }, SetOptions(merge: true));
+      await updateUserProfile({'phone': phone});
+    } catch (e) {
+      debugPrint('[UserService] markPhoneVerifiedViaTelegram failed: $e');
+    }
+  }
+
   /// Update specific fields in user profile
   static Future<void> updateUserProfile(Map<String, dynamic> data) async {
     final uid = currentUid;

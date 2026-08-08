@@ -251,26 +251,33 @@ exports.telegramWebhook = functions.https.onRequest(async (req, res) => {
       const sessionData = sessionDoc.data();
       const sessionPhoneRaw = sessionData.phone || '';
 
-      const sessionPhone = sessionPhoneRaw.replace(/\D/g, '');
-      let stdSessionPhone = sessionPhone;
-      if (sessionPhone.length === 11 && sessionPhone.startsWith('8')) {
-        stdSessionPhone = '7' + sessionPhone.substring(1);
-      } else if (sessionPhone.length === 10) {
-        stdSessionPhone = '7' + sessionPhone;
-      }
+      // Две ситуации, и различает их наличие phone в сессии:
+      //  • сессия С номером — верификация того, что человек уже ввёл в
+      //    приложении: номер контакта обязан совпасть с введённым;
+      //  • сессия БЕЗ номера — вход через Телеграм: сверять не с чем, номер,
+      //    которым поделились, И ЕСТЬ источник истины.
+      if (sessionPhoneRaw) {
+        const sessionPhone = sessionPhoneRaw.replace(/\D/g, '');
+        let stdSessionPhone = sessionPhone;
+        if (sessionPhone.length === 11 && sessionPhone.startsWith('8')) {
+          stdSessionPhone = '7' + sessionPhone.substring(1);
+        } else if (sessionPhone.length === 10) {
+          stdSessionPhone = '7' + sessionPhone;
+        }
 
-      // X10: Robust 10-digit suffix matching (bypasses prefix differences like 7 vs 8 vs +7)
-      const cleanContact = stdContactPhone.slice(-10);
-      const cleanSession = stdSessionPhone.slice(-10);
+        // X10: Robust 10-digit suffix matching (bypasses prefix differences like 7 vs 8 vs +7)
+        const cleanContact = stdContactPhone.slice(-10);
+        const cleanSession = stdSessionPhone.slice(-10);
 
-      if (cleanContact !== cleanSession) {
-        await tgSend(chatId,
-          `❌ <b>Ошибка верификации!</b>\n\n`
-          + `Номер вашего Telegram (<code>+${stdContactPhone}</code>) не совпадает с номером в приложении (<code>+${stdSessionPhone}</code>).\n\n`
-          + `Вернитесь в приложение, укажите правильный номер и попробуйте снова.`,
-          { reply_markup: { remove_keyboard: true } }
-        );
-        return res.sendStatus(200);
+        if (cleanContact !== cleanSession) {
+          await tgSend(chatId,
+            `❌ <b>Ошибка верификации!</b>\n\n`
+            + `Номер вашего Telegram (<code>+${stdContactPhone}</code>) не совпадает с номером в приложении (<code>+${stdSessionPhone}</code>).\n\n`
+            + `Вернитесь в приложение, укажите правильный номер и попробуйте снова.`,
+            { reply_markup: { remove_keyboard: true } }
+          );
+          return res.sendStatus(200);
+        }
       }
 
       console.log(`[contact] Phone match OK for chatId=${chatId}. Generating OTP...`);
@@ -296,9 +303,16 @@ exports.telegramWebhook = functions.https.onRequest(async (req, res) => {
         linked_at          : admin.firestore.FieldValue.serverTimestamp(),
       });
       
+      // Номер кладём ТОЛЬКО в secure-коллекцию: у tg_auth_sessions правило
+      // `allow get: if true`, то есть публичный документ прочитает любой, кто
+      // знает токен сессии. Для входа через Телеграм номер — это новая
+      // приватная информация, светить её в публичном документе нельзя.
+      // У tg_auth_sessions_secure правил нет вовсе → default deny → читает
+      // только Admin SDK.
       await db.collection('tg_auth_sessions_secure').doc(sessionDoc.id).set({
         otp,
         customToken,
+        verified_phone: stdContactPhone,
         created_at: admin.firestore.FieldValue.serverTimestamp(),
       });
       console.log(`[contact] Session ${sessionDoc.id} secure OTP saved. Public doc updated.`);
@@ -362,39 +376,36 @@ exports.telegramWebhook = functions.https.onRequest(async (req, res) => {
               }
             );
           } else {
-            // Direct OTP login flow (standalone Telegram login)
-            const otp = crypto.randomInt(100000, 999999).toString();
-
-            const uid = `telegram_${chatId}`;
-            const customToken = await createCustomTokenWithRetry(uid);
-            if (customToken === 'error_fallback') {
-              console.error(`[start] FAILED to get customToken for chatId=${chatId}`);
-              await tgSend(chatId,
-                '⚠️ <b>Временная ошибка сервера.</b>\n\n'
-                + 'Пожалуйста, вернитесь в приложение и попробуйте снова через 30 секунд.'
-              );
-              return res.sendStatus(200);
-            }
-
+            // Вход через Телеграм. Код НЕ выдаём сразу — сначала просим
+            // поделиться контактом, иначе номера у аккаунта не будет вовсе:
+            // Telegram Bot API не отдаёт телефон, пока пользователь сам не
+            // нажмёт request_contact, а custom-token вход не приносит
+            // phoneNumber в Firebase Auth.
+            //
+            // Код выдаётся в обработчике msg.contact — там же, где идёт
+            // проверка, что человек поделился СВОИМ контактом
+            // (contact.user_id === chatId). Без номера входа нет.
             await ref.update({
               chat_id            : chatId,
               telegram_username  : tgUsername,
               telegram_first_name: tgFirstName,
               telegram_last_name : tgLastName,
-              verified           : true,   // ✅ Direct Telegram login = verified by definition
-              otp                : 'sent',
               linked_at          : admin.firestore.FieldValue.serverTimestamp(),
             });
 
-            await db.collection('tg_auth_sessions_secure').doc(sessionToken).set({
-              otp,
-              customToken,
-              created_at: admin.firestore.FieldValue.serverTimestamp(),
-            });
             await tgSend(chatId,
               `👋 <b>${name}, добро пожаловать в IQ-Market!</b>\n\n`
-              + `🔐 Ваш код подтверждения:\n<code>${otp}</code>\n\n`
-              + `<i>Введите этот код в приложении. Код действителен 5 минут.</i>`
+              + `Для входа подтвердите свой номер телефона — нажмите кнопку ниже.\n\n`
+              + `<i>Номер нужен, чтобы с вами могли связаться по объявлениям. Мы не показываем его никому, кроме тех, кому вы сами позвоните или напишете.</i>`,
+              {
+                reply_markup: {
+                  keyboard: [[
+                    { text: '📱 Поделиться номером телефона', request_contact: true }
+                  ]],
+                  one_time_keyboard: true,
+                  resize_keyboard  : true,
+                },
+              }
             );
           }
         } else {
@@ -695,7 +706,13 @@ exports.verifyTelegramOtp = functions.https.onCall(async (data, context) => {
       const userUid = context.auth.uid;
       const userRef = db.collection('users').doc(userUid);
       
-      const phoneToUse = data.phone || sessionData.phone || '';
+      // verified_phone из secure-документа — номер, которым пользователь
+      // поделился контактом в боте, проверенный сервером. Он приоритетнее
+      // data.phone: то, что прислал клиент, клиент мог и подменить.
+      const phoneToUse = (secureData.verified_phone ? '+' + secureData.verified_phone : '')
+        || data.phone
+        || sessionData.phone
+        || '';
       const tgUsername = sessionData.telegram_username || '';
       const tgFirstName = sessionData.telegram_first_name || '';
       const tgLastName = sessionData.telegram_last_name || '';
@@ -703,6 +720,11 @@ exports.verifyTelegramOtp = functions.https.onCall(async (data, context) => {
       await userRef.set({
         isVerified: true,
         isTelegramVerified: true,
+        // Номер, подтверждённый через контакт в Телеграме. Держится в основном
+        // документе намеренно: на нём стоит защита от угона номера (запрос
+        // users where verified_phone == ...) и его видит админ в карточке
+        // пользователя. Правила разрешают это поле как исключение.
+        ...(secureData.verified_phone ? { verified_phone: secureData.verified_phone } : {}),
         telegramChatId: sessionData.chat_id || '',
         telegram_username: tgUsername,
         telegram_first_name: tgFirstName,
@@ -729,9 +751,17 @@ exports.verifyTelegramOtp = functions.https.onCall(async (data, context) => {
     }
 
     // Case 2: Guest user (Logging in via Telegram)
+    //
+    // Профиля ещё нет — его создаст клиент после входа по customToken, поэтому
+    // номер возвращаем ему, чтобы он положил его в users/{uid}/private/contact
+    // и в verified_phone. Иначе аккаунт остался бы вообще без телефона:
+    // custom-token вход не приносит phoneNumber в Firebase Auth.
     return {
       success: true,
-      customToken: customToken
+      customToken: customToken,
+      verifiedPhone: secureData.verified_phone ? '+' + secureData.verified_phone : '',
+      telegramUsername: sessionData.telegram_username || '',
+      telegramChatId: sessionData.chat_id || '',
     };
   } catch (error) {
     console.error('[verifyTelegramOtp] Error:', error);
