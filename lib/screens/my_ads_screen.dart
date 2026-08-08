@@ -28,7 +28,7 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
     _checkAdminStatus();
   }
 
-  void _checkAdminStatus() async {
+  Future<void> _checkAdminStatus() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid != null) {
       final user = await UserService.getUserById(uid);
@@ -38,6 +38,20 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
         });
       }
     }
+  }
+
+  // Pull-to-refresh: список объявлений и так живёт на Firestore-стриме
+  // (обновляется сам при любом изменении на сервере), но жест "потянуть
+  // вниз" должен явно перепроверить жизненный цикл (истёкшие объявления
+  // уходят в архив) и статус админа — чтобы бейджи/статусы были гарантированно
+  // актуальны сразу после правки, а не только "рано или поздно" со стримом.
+  Future<void> _onRefresh() async {
+    try {
+      await AdService.checkMyAdsLifecycle();
+    } catch (e) {
+      debugPrint('Error refreshing ads lifecycle: $e');
+    }
+    await _checkAdminStatus();
   }
 
   String _t(String key) {
@@ -82,11 +96,11 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
             }
-            if (!snapshot.hasData || snapshot.data!.isEmpty) {
-              return _buildEmptyState();
-            }
 
-            final allAds = snapshot.data!;
+            // Пустой список тоже рендерим через вкладки: у каждой вкладки
+            // свой RefreshIndicator, и жест "потянуть вниз" должен работать
+            // даже когда объявлений пока нет вообще.
+            final allAds = snapshot.data ?? [];
             final activeAds = allAds.where((ad) => ad.active && ad.status == 'active').toList();
             final pendingAds = allAds.where((ad) => ad.status == 'pending').toList();
             // FIX: объявления на модерации (status == 'pending') хранятся с active == false,
@@ -155,13 +169,29 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
   }
 
   Widget _buildAdsList(List<AdModel> ads) {
-    if (ads.isEmpty) return _buildEmptyState();
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: ads.length,
-      itemBuilder: (ctx, idx) {
-        return _buildAdCard(ads[idx]);
-      },
+    return RefreshIndicator(
+      onRefresh: _onRefresh,
+      color: const Color(0xFF4A80F0),
+      child: ads.isEmpty
+          ? ListView(
+              // AlwaysScrollableScrollPhysics: без неё пустой список короче
+              // экрана и жест "потянуть вниз" просто не срабатывает.
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                SizedBox(
+                  height: MediaQuery.of(context).size.height * 0.6,
+                  child: _buildEmptyState(),
+                ),
+              ],
+            )
+          : ListView.builder(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(16),
+              itemCount: ads.length,
+              itemBuilder: (ctx, idx) {
+                return _buildAdCard(ads[idx]);
+              },
+            ),
     );
   }
 

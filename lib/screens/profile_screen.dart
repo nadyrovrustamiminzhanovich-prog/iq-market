@@ -135,6 +135,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
     super.dispose();
   }
 
+  // Pull-to-refresh: _userStream уже сам обновляется в реальном времени
+  // (Firestore .snapshots()), но жест "потянуть вниз" должен быть видимым и
+  // явно перепроверять Auth-профиль (email/verified статус меняются не в
+  // Firestore, а на стороне FirebaseAuth) — иначе "потянуть вниз" крутится
+  // вхолостую и не похож на топовые приложения.
+  Future<void> _onRefresh() async {
+    try {
+      await FirebaseAuth.instance.currentUser?.reload();
+    } catch (e) {
+      debugPrint('Error reloading auth user: $e');
+    }
+    if (mounted) setState(() {});
+  }
+
   bool get _isDark => _currentTheme == 'Dark';
   Color get _bgColor => widget.themes[_currentTheme]?['background'] ?? (_isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC));
   Color get _surfaceColor => widget.themes[_currentTheme]?['surface'] ?? (_isDark ? const Color(0xFF1E293B) : Colors.white);
@@ -187,8 +201,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
           final String displayName = _isGuest ? _t('guest') : (user?.name ?? _localName);
           final String photoUrl = user?.photoUrl ?? '';
 
-          return CustomScrollView(
-            physics: const BouncingScrollPhysics(),
+          return RefreshIndicator(
+            onRefresh: _onRefresh,
+            color: const Color(0xFF2563EB),
+            child: CustomScrollView(
+            // AlwaysScrollableScrollPhysics вложен, чтобы жест
+            // "потянуть вниз" срабатывал даже если контент короче экрана.
+            physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
             slivers: [
               SliverAppBar(
                 expandedHeight: 200,
@@ -368,6 +387,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
             ],
+            ),
           );
         }
       ),

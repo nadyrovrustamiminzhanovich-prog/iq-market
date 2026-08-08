@@ -179,6 +179,15 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     }
   }
 
+  // Pull-to-refresh: в отличие от ProfileScreen, этот экран грузит данные из
+  // Firestore один раз в initState (не через .snapshots()), поэтому если
+  // что-то поменялось на сервере (например верификация телефона через бота
+  // в другом экране), жест "потянуть вниз" должен явно перечитать документ,
+  // а не просто провернуть спиннер вхолостую.
+  Future<void> _onRefresh() async {
+    await _loadFirestoreUserData();
+  }
+
   Future<void> _checkLostData() async {
     try {
       final response = await _picker.retrieveLostData();
@@ -462,11 +471,16 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
           ),
           // Scrollable Content
           SafeArea(
-            child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Column(
-                children: [
+            child: RefreshIndicator(
+              onRefresh: _onRefresh,
+              color: _primaryColor,
+              child: SingleChildScrollView(
+                // AlwaysScrollableScrollPhysics вложен, чтобы жест
+                // "потянуть вниз" срабатывал, даже если контент короче экрана.
+                physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  children: [
                   const SizedBox(height: 24),
                   _buildAvatarSection(),
                   const SizedBox(height: 24),
@@ -636,7 +650,8 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                   const SizedBox(height: 40),
                   _buildDeleteAccountButton(),
                   const SizedBox(height: 60),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
