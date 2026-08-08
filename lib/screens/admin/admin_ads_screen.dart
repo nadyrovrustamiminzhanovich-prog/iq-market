@@ -449,81 +449,90 @@ class _AdminAdsScreenState extends State<AdminAdsScreen> with SingleTickerProvid
           builder: (modalContext, setModalState) {
             return Padding(
               padding: EdgeInsets.only(bottom: MediaQuery.of(modalContext).viewInsets.bottom),
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-                decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Отклонить объявление', style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w900)),
-                    const SizedBox(height: 4),
-                    Text('«${ad.title}»', style: GoogleFonts.inter(fontSize: 13, color: Colors.grey[600]), maxLines: 1, overflow: TextOverflow.ellipsis),
-                    const SizedBox(height: 16),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: _rejectReasonTemplates.map((tpl) {
-                        final bool isSelected = selectedLabel == tpl['label'];
-                        return ChoiceChip(
-                          label: Text(tpl['label']!, style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700)),
-                          selected: isSelected,
-                          selectedColor: const Color(0xFF4A80F0).withValues(alpha: 0.15),
-                          onSelected: (_) {
-                            setModalState(() {
-                              selectedLabel = tpl['label'];
-                              controller.text = tpl['text']!.replaceAll('{title}', ad.title);
-                            });
-                          },
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: controller,
-                      maxLines: 4,
-                      style: GoogleFonts.inter(fontSize: 14),
-                      onChanged: (_) => setModalState(() {}),
-                      decoration: InputDecoration(
-                        hintText: 'Текст сообщения пользователю...',
-                        filled: true,
-                        fillColor: const Color(0xFFF1F5F9),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
-                        contentPadding: const EdgeInsets.all(14),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 50,
-                      child: ElevatedButton(
-                        onPressed: (isSending || controller.text.trim().isEmpty) ? null : () async {
-                          setModalState(() => isSending = true);
-                          try {
-                            await AdService.rejectAd(ad.id, reason: controller.text.trim());
-                            if (modalContext.mounted) Navigator.pop(modalContext);
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Объявление отклонено, пользователь уведомлён ❌'), behavior: SnackBarBehavior.floating));
-                            }
-                          } catch (e) {
-                            if (modalContext.mounted) {
-                              ScaffoldMessenger.of(modalContext).showSnackBar(SnackBar(content: Text('Ошибка: $e'), backgroundColor: Colors.redAccent));
-                            }
-                          } finally {
-                            if (modalContext.mounted) setModalState(() => isSending = false);
-                          }
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.redAccent,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              // Клавиатура + развёрнутые в несколько строк чипы причин легко не
+              // влезают в оставшуюся высоту экрана — без ConstrainedBox+Scroll
+              // Column вылезал за пределы шита (RenderFlex overflow), хотя сама
+              // отправка формы всё равно работала.
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxHeight: MediaQuery.of(modalContext).size.height * 0.9),
+                child: SingleChildScrollView(
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+                    decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Отклонить объявление', style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w900)),
+                        const SizedBox(height: 4),
+                        Text('«${ad.title}»', style: GoogleFonts.inter(fontSize: 13, color: Colors.grey[600]), maxLines: 1, overflow: TextOverflow.ellipsis),
+                        const SizedBox(height: 16),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: _rejectReasonTemplates.map((tpl) {
+                            final bool isSelected = selectedLabel == tpl['label'];
+                            return ChoiceChip(
+                              label: Text(tpl['label']!, style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700)),
+                              selected: isSelected,
+                              selectedColor: const Color(0xFF4A80F0).withValues(alpha: 0.15),
+                              onSelected: (_) {
+                                setModalState(() {
+                                  selectedLabel = tpl['label'];
+                                  controller.text = tpl['text']!.replaceAll('{title}', ad.title);
+                                });
+                              },
+                            );
+                          }).toList(),
                         ),
-                        child: isSending
-                            ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                            : Text('Отклонить и уведомить', style: GoogleFonts.inter(fontWeight: FontWeight.w800)),
-                      ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: controller,
+                          maxLines: 4,
+                          style: GoogleFonts.inter(fontSize: 14),
+                          onChanged: (_) => setModalState(() {}),
+                          decoration: InputDecoration(
+                            hintText: 'Текст сообщения пользователю...',
+                            filled: true,
+                            fillColor: const Color(0xFFF1F5F9),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                            contentPadding: const EdgeInsets.all(14),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 50,
+                          child: ElevatedButton(
+                            onPressed: (isSending || controller.text.trim().isEmpty) ? null : () async {
+                              setModalState(() => isSending = true);
+                              try {
+                                await AdService.rejectAd(ad.id, reason: controller.text.trim());
+                                if (modalContext.mounted) Navigator.pop(modalContext);
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Объявление отклонено, пользователь уведомлён ❌'), behavior: SnackBarBehavior.floating));
+                                }
+                              } catch (e) {
+                                if (modalContext.mounted) {
+                                  ScaffoldMessenger.of(modalContext).showSnackBar(SnackBar(content: Text('Ошибка: $e'), backgroundColor: Colors.redAccent));
+                                }
+                              } finally {
+                                if (modalContext.mounted) setModalState(() => isSending = false);
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.redAccent,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            ),
+                            child: isSending
+                                ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                : Text('Отклонить и уведомить', style: GoogleFonts.inter(fontWeight: FontWeight.w800)),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             );
