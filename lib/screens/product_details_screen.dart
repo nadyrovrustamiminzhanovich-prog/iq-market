@@ -367,7 +367,14 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
 
     // Объявление считается архивным, если status != 'active' или active == false
     final bool isArchived = ad.status != 'active' || !ad.active;
-    final bool isMyAd = _currentUser?.uid == ad.userId;
+    // UserService.currentUid читает FirebaseAuth синхронно, без ожидания
+    // Firestore-запроса _fetchSeller(). Раньше isMyAd держался на _currentUser
+    // (заполняется ТОЛЬКО после await UserService.getUserById), поэтому на
+    // первом кадре _currentUser==null, isMyAd==false — кнопки "позвонить",
+    // "написать", "предложить цену", "оставить отзыв", "пожаловаться" на
+    // СВОЁМ объявлении на миг отрисовывались как для чужого, и пропадали
+    // только когда запрос долетал до сервера.
+    final bool isMyAd = UserService.currentUid == ad.userId;
 
     return PopScope(
       canPop: true,
@@ -393,11 +400,11 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     _circleButton(Icons.share_rounded, _shareAd),
-                    if (_currentUser?.uid != ad.userId) ...[
+                    if (UserService.currentUid != ad.userId) ...[
                       const SizedBox(width: 8),
                       _favoriteButton(),
                     ],
-                    if (_currentUser?.accountType == 'admin' || ad.userId == _currentUser?.uid) ...[
+                    if (_currentUser?.accountType == 'admin' || ad.userId == UserService.currentUid) ...[
                       const SizedBox(width: 8),
                       _circleButton(Icons.edit_outlined, () async {
                         await Navigator.push(context, MaterialPageRoute(builder: (ctx) => PostAdScreen(lang: widget.lang, initialAd: ad)));
@@ -553,7 +560,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                   // ── Архивный баннер (показывается сверху, если объявление в архиве) ──
                   if (isArchived) _buildArchivedBanner(ad: ad, isMyAd: isMyAd),
                   _buildMainInfo(isFree),
-                  if (_currentUser?.uid != ad.userId && !isArchived) _buildBargainSection(),
+                  if (UserService.currentUid != ad.userId && !isArchived) _buildBargainSection(),
                   _buildTags(),
                   const SizedBox(height: 10),
                   if (widget.ad.extraFields != null && widget.ad.extraFields!.isNotEmpty) _buildSpecsSection(),
@@ -565,7 +572,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                   _buildReviewsSection(isArchived: isArchived),
                   const SizedBox(height: 10),
                   // Кнопка «Пожаловаться» — только для активных объявлений
-                  if (_currentUser?.uid != ad.userId && !isArchived) _buildReportButton(),
+                  if (UserService.currentUid != ad.userId && !isArchived) _buildReportButton(),
                   const SizedBox(height: 70),
                 ],
               ),
@@ -743,8 +750,9 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
             if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
             final reviews = snapshot.data ?? [];
 
-            final bool isMyAd = _currentUser?.uid == widget.ad.userId;
-            final bool hasReviewedThisAd = _currentUser != null && reviews.any((r) => r.fromUserId == _currentUser!.uid && r.adId == widget.ad.id);
+            final bool isMyAd = UserService.currentUid == widget.ad.userId;
+            final bool hasReviewedThisAd = UserService.currentUid != null &&
+                reviews.any((r) => r.fromUserId == UserService.currentUid && r.adId == widget.ad.id);
             // Для архивных объявлений кнопка «Оставить отзыв» недоступна
             final bool canLeaveReview = !isMyAd && !hasReviewedThisAd && !isArchived;
 
@@ -1150,7 +1158,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     final ad = _updatedAd ?? widget.ad;
 
     // Своё объявление — без панели
-    if (_currentUser?.uid == ad.userId) return const SizedBox.shrink();
+    if (UserService.currentUid == ad.userId) return const SizedBox.shrink();
 
     // Архивное объявление — показываем информационную плашку вместо кнопок
     final bool isArchived = ad.status != 'active' || !ad.active;
