@@ -63,6 +63,12 @@ class ChatBubble extends StatefulWidget {
 
 class _ChatBubbleState extends State<ChatBubble> {
   bool _isOfferLoading = false;
+  // Какая именно кнопка сейчас крутится — раньше обе кнопки читали один и
+  // тот же _isOfferLoading и для disabled, и для спиннера, поэтому нажатие
+  // «Отклонить» показывало спиннер и на «Принять» тоже. Сама блокировка
+  // ОБЕИХ кнопок на время запроса (см. _isOfferLoading ниже) остаётся —
+  // это защита от двойного/конфликтующего запроса, а не баг.
+  String? _loadingOfferAction; // 'accept' | 'decline' | null
 
   @override
   Widget build(BuildContext context) {
@@ -323,11 +329,11 @@ class _ChatBubbleState extends State<ChatBubble> {
                     height: 48,
                     child: ElevatedButton(
                       onPressed: _isOfferLoading ? null : () async {
-                        setState(() => _isOfferLoading = true);
+                        setState(() { _isOfferLoading = true; _loadingOfferAction = 'decline'; });
                         try {
                           await widget.onDeclineOffer?.call();
                         } finally {
-                          if (mounted) setState(() => _isOfferLoading = false);
+                          if (mounted) setState(() { _isOfferLoading = false; _loadingOfferAction = null; });
                         }
                       },
                       style: ElevatedButton.styleFrom(
@@ -337,7 +343,7 @@ class _ChatBubbleState extends State<ChatBubble> {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                         padding: EdgeInsets.zero,
                       ),
-                      child: _isOfferLoading 
+                      child: _loadingOfferAction == 'decline'
                           ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                           : Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -365,16 +371,17 @@ class _ChatBubbleState extends State<ChatBubble> {
                 // respondToOffer, а не пишет статус сам. _isOfferLoading
                 // блокирует ОБЕ кнопки сразу — иначе двойной тап или
                 // «Отклонить» поверх «Принять» уходили бы двумя запросами.
+                // Спиннер при этом показываем только на нажатой (_loadingOfferAction).
                 Expanded(
                   child: SizedBox(
                     height: 48,
                     child: ElevatedButton(
                       onPressed: _isOfferLoading ? null : () async {
-                        setState(() => _isOfferLoading = true);
+                        setState(() { _isOfferLoading = true; _loadingOfferAction = 'accept'; });
                         try {
                           await widget.onAcceptOffer?.call();
                         } finally {
-                          if (mounted) setState(() => _isOfferLoading = false);
+                          if (mounted) setState(() { _isOfferLoading = false; _loadingOfferAction = null; });
                         }
                       },
                       style: ElevatedButton.styleFrom(
@@ -384,7 +391,7 @@ class _ChatBubbleState extends State<ChatBubble> {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                         padding: EdgeInsets.zero,
                       ),
-                      child: _isOfferLoading
+                      child: _loadingOfferAction == 'accept'
                           ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                           : Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 4),
