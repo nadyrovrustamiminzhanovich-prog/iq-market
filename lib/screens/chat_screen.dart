@@ -1537,16 +1537,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               }
             }
           },
-          onWriteOffer: () {
-            // Кнопка отправить включится сама через _onMessageTextChanged —
-            // раньше здесь вручную выставляли _isTyping, но это тот же флаг,
-            // что и presence-таймер "печатает...", и без вызова
-            // ChatService.updateTypingStatus/перезапуска таймера он всё равно
-            // не давал рабочего индикатора собеседнику, только временно
-            // подделывал кнопку.
-            _msgController.text = TranslationService.t('chat_input_bargain_text', lang);
-            _msgFocusNode.requestFocus();
-          },
           onVoiceOffer: () {
             NotificationService.notify(context, TranslationService.t('voice_reply_title', lang), TranslationService.t('voice_reply_desc', lang), isSuccess: true);
           },

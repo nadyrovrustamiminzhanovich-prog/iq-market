@@ -42,7 +42,6 @@ class ChatBubble extends StatefulWidget {
     this.onRetryUpload,
     this.onAcceptOffer,
     this.onDeclineOffer,
-    this.onWriteOffer,
     this.onVoiceOffer,
     this.onCallOffer,
     this.lang = 'Русский',
@@ -53,7 +52,6 @@ class ChatBubble extends StatefulWidget {
   /// пользователь успевает нажать вторую.
   final Future<void> Function()? onAcceptOffer;
   final Future<void> Function()? onDeclineOffer;
-  final VoidCallback? onWriteOffer;
   final VoidCallback? onVoiceOffer;
   final VoidCallback? onCallOffer;
 
@@ -418,53 +416,27 @@ class _ChatBubbleState extends State<ChatBubble> {
             ),
             const SizedBox(height: 8),
             // Договориться напрямую — по-прежнему доступно рядом с формальным
-            // ответом: часть продавцов предпочитает сначала обсудить.
-            Row(
-              children: [
-                Expanded(
-                  child: SizedBox(
-                    height: 44,
-                    child: OutlinedButton.icon(
-                      onPressed: widget.onWriteOffer,
-                      icon: const Icon(Icons.chat_bubble_rounded, size: 16, color: Color(0xFF10B981)),
-                      label: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text(
-                          TranslationService.t('write_btn_short', widget.lang),
-                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF10B981)),
-                        ),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Color(0xFF10B981), width: 1.4),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                        padding: EdgeInsets.zero,
-                      ),
-                    ),
+            // ответом. "Написать" убран по просьбе: чат и так открыт, кнопка
+            // дублировала то, что пользователь уже видит на экране.
+            SizedBox(
+              width: double.infinity,
+              height: 44,
+              child: OutlinedButton.icon(
+                onPressed: widget.onCallOffer,
+                icon: const Icon(Icons.phone_in_talk_rounded, size: 16, color: Color(0xFF10B981)),
+                label: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    TranslationService.t('call_btn', widget.lang),
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF10B981)),
                   ),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: SizedBox(
-                    height: 44,
-                    child: OutlinedButton.icon(
-                      onPressed: widget.onCallOffer,
-                      icon: const Icon(Icons.phone_in_talk_rounded, size: 16, color: Color(0xFF10B981)),
-                      label: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text(
-                          TranslationService.t('call_btn', widget.lang),
-                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF10B981)),
-                        ),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Color(0xFF10B981), width: 1.4),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                        padding: EdgeInsets.zero,
-                      ),
-                    ),
-                  ),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Color(0xFF10B981), width: 1.4),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  padding: EdgeInsets.zero,
                 ),
-              ],
+              ),
             ),
           ] else ...[
             Container(
