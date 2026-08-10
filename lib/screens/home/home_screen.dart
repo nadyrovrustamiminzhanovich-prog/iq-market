@@ -68,6 +68,37 @@ class _IQMarketHomeState extends State<IQMarketHome> with WidgetsBindingObserver
   static const _pageSize = 20;
   Set<String>? _lastBlockedUserIds;
 
+  // NotificationService.getUnreadNotificationsCountStream() и
+  // ChatService.getUnreadMessagesCountStream() возвращают НОВЫЙ Stream на
+  // каждый вызов (не мемоизированы внутри сервиса) — вызов внутри build()
+  // означает, что каждый rebuild этого экрана (а он завязан на
+  // Provider.of<AppConfigProvider>(listen:true), т.е. перестраивается на
+  // любой избранное/фильтр/язык) гасил и заново открывал ДВА
+  // Firestore-listener'а ради крошечного бейджа с числом. Кэшируем по uid —
+  // пересоздаём стрим только когда реально сменился пользователь (логин/
+  // логаут), а не на каждый rebuild.
+  String? _notifStreamUid;
+  Stream<int>? _notifCountStream;
+  Stream<int> get _unreadNotificationsStream {
+    final uid = UserService.currentUid;
+    if (_notifCountStream == null || _notifStreamUid != uid) {
+      _notifStreamUid = uid;
+      _notifCountStream = NotificationService.getUnreadNotificationsCountStream();
+    }
+    return _notifCountStream!;
+  }
+
+  String? _chatBadgeStreamUid;
+  Stream<int>? _chatBadgeCountStream;
+  Stream<int> get _unreadMessagesStream {
+    final uid = UserService.currentUid;
+    if (_chatBadgeCountStream == null || _chatBadgeStreamUid != uid) {
+      _chatBadgeStreamUid = uid;
+      _chatBadgeCountStream = ChatService.getUnreadMessagesCountStream();
+    }
+    return _chatBadgeCountStream!;
+  }
+
   bool _areSetsEqual(Set<String> a, Set<String> b) {
     if (a.length != b.length) return false;
     return a.containsAll(b);
@@ -723,7 +754,7 @@ class _IQMarketHomeState extends State<IQMarketHome> with WidgetsBindingObserver
 
   Widget _notifBell(AppConfigProvider config) {
     return StreamBuilder<int>(
-      stream: NotificationService.getUnreadNotificationsCountStream(),
+      stream: _unreadNotificationsStream,
       builder: (context, snapshot) {
         final count = snapshot.data ?? 0;
         return IconButton(
@@ -862,7 +893,7 @@ class _IQMarketHomeState extends State<IQMarketHome> with WidgetsBindingObserver
           BottomNavigationBarItem(icon: const Icon(Icons.home_rounded), label: TranslationService.t('home', lang)),
           BottomNavigationBarItem(
             icon: StreamBuilder<int>(
-              stream: ChatService.getUnreadMessagesCountStream(),
+              stream: _unreadMessagesStream,
               builder: (context, snapshot) {
                 final count = snapshot.data ?? 0;
                 return Badge(

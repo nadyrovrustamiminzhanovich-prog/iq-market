@@ -68,6 +68,17 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> with Widget
   UserModel? _currentUser;
   AdModel? _updatedAd;
   bool _didSubscribeRouteObserver = false;
+  // late final, а не вызов ReviewService.getAdReviewsStream() прямо в build():
+  // тот возвращает НОВЫЙ Stream на каждый вызов (не мемоизирован), а этот экран
+  // перестраивается часто (свайп фото/видео в галерее, догрузка продавца,
+  // счётчика просмотров и т.д. — везде setState). StreamBuilder видит смену
+  // ссылки на stream как "переподпишись" и на каждый такой rebuild гасил и
+  // заново открывал Firestore-listener отзывов, дёргая секцию отзывов
+  // спиннером посреди обычного свайпа по фото. late final вычисляется один
+  // раз при первом build и переживает все последующие.
+  late final Stream<List<ReviewModel>> _reviewsStream = widget.isPreview
+      ? Stream.value(<ReviewModel>[])
+      : ReviewService.getAdReviewsStream(widget.ad.id);
   // Открытие СВОЕГО fullscreen-плеера тоже технически "пуш нового экрана
   // поверх" и ловится в didPushNext — но это то же самое видео, его не нужно
   // ставить на паузу при открытии. Флаг гасит ровно один следующий
@@ -796,9 +807,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> with Widget
         ]),
         const SizedBox(height: 16),
         StreamBuilder<List<ReviewModel>>(
-          stream: widget.isPreview
-              ? Stream.value(<ReviewModel>[])
-              : ReviewService.getAdReviewsStream(widget.ad.id),
+          stream: _reviewsStream,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
             final reviews = snapshot.data ?? [];
