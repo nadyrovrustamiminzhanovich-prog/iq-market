@@ -624,7 +624,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> with Widget
                   // ── Архивный баннер (показывается сверху, если объявление в архиве) ──
                   if (isArchived) _buildArchivedBanner(ad: ad, isMyAd: isMyAd),
                   _buildMainInfo(isFree),
-                  if (UserService.currentUid != ad.userId && !isArchived) _buildBargainSection(),
+                  if (UserService.currentUid != ad.userId && !isArchived && !isFree) _buildBargainSection(),
                   _buildTags(),
                   const SizedBox(height: 10),
                   if (widget.ad.extraFields != null && widget.ad.extraFields!.isNotEmpty) _buildSpecsSection(),
