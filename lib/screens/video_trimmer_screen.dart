@@ -186,37 +186,90 @@ class _VideoTrimmerScreenState extends State<VideoTrimmerScreen> {
       // получал на секунду меньше, чем выделил. То же самое теряло секунду и
       // на startTime, сдвигая фрагмент назад.
       final int totalSec = _totalDuration.inMilliseconds ~/ 1000;
-      int durationSec = _selectedSeconds.clamp(1, _maxDurationSec);
-      if (totalSec > 0 && durationSec > totalSec) durationSec = totalSec;
+      int clipSec = _selectedSeconds.clamp(1, _maxDurationSec);
+      if (totalSec > 0 && clipSec > totalSec) clipSec = totalSec;
       // После округления start + duration может выехать за конец исходника —
       // тогда кодек отдал бы фрагмент короче запрошенного. Сдвигаем начало
       // назад, сохраняя полную длину выбранного отрезка.
-      final int maxStartSec = (totalSec - durationSec).clamp(0, totalSec);
+      final int maxStartSec = (totalSec - clipSec).clamp(0, totalSec);
       final int startSec =
           (_startTime.inMilliseconds / 1000).round().clamp(0, maxStartSec);
+
+      // ⚠️ У параметра `duration` РАЗНЫЙ СМЫСЛ на Android и iOS — это баг
+      // самого video_compress 3.1.4, а не наша описка.
+      //   iOS  (SwiftVideoCompressPlugin): CMTimeRange(start, duration) —
+      //        duration это ДЛИНА фрагмента, как и написано в доке плагина.
+      //   Android (VideoCompressPlugin.kt): значение уходит вторым аргументом
+      //        в TrimDataSource(source, trimStartUs, trimEndUs), а у
+      //        transcoder 0.10.5 второй аргумент — сколько отрезать С КОНЦА.
+      //        Итоговая длина = total - startTime - duration.
+      // Из-за этого ролик 21 сек с duration: 20 давал на выходе РОВНО 1 СЕКУНДУ
+      // (21 - 0 - 20), а минутный ролик — 40 секунд вместо 20, то есть лимит не
+      // соблюдался вообще. Поэтому на Android считаем хвост, а не длину.
+      final int durationArg =
+          Platform.isAndroid ? _androidTrimEndSec(startSec, clipSec) : clipSec;
 
       final info = await VideoCompress.compressVideo(
         widget.videoFile.path,
         quality: VideoQuality.Res640x480Quality,
         startTime: needsTrim ? startSec : null,
-        duration: needsTrim ? durationSec : null,
+        duration: needsTrim ? durationArg : null,
         deleteOrigin: false,
       );
 
-      if (info?.file != null && mounted) {
-        widget.onSave(info!.file!.path);
-        Navigator.pop(context);
-      } else if (mounted) {
-        widget.onSave(widget.videoFile.path);
-        Navigator.pop(context);
+      if (info?.file != null) {
+        debugPrint('Video trim: total=${_totalDuration.inMilliseconds}ms '
+            'start=${startSec}s clip=${clipSec}s arg=$durationArg '
+            'result=${info!.duration?.toStringAsFixed(0)}ms');
+        if (mounted) {
+          widget.onSave(info.file!.path);
+          Navigator.pop(context);
+        }
+        return;
       }
+      _useOriginalOrFail();
     } catch (e) {
       debugPrint('Video trim error: $e');
-      if (mounted) {
-        widget.onSave(widget.videoFile.path);
-        Navigator.pop(context);
-      }
+      _useOriginalOrFail();
     }
+  }
+
+  /// Сколько секунд отрезать С КОНЦА, чтобы от точки [startSec] осталось не
+  /// больше [clipSec] секунд (Android-семантика `duration`, см. _saveVideo).
+  int _androidTrimEndSec(int startSec, int clipSec) {
+    final int tailMs = _totalDuration.inMilliseconds - startSec * 1000;
+    final int targetMs = clipSec * 1000;
+    if (tailMs <= targetMs) return 0;
+    // ceil, а не round: остаток обязан быть НЕ БОЛЬШЕ лимита. Лучше отдать на
+    // доли секунды меньше выбранного, чем вылезти за 20 сек.
+    int trimEnd = ((tailMs - targetMs) / 1000).ceil();
+    // TrimDataSource бросает IllegalArgumentException, если start + end
+    // перекрывают весь ролик; плагин глушит исключение и возвращает null —
+    // и мы бы молча отдали НЕОБРЕЗАННЫЙ оригинал мимо лимита.
+    final int maxTrimEnd = (tailMs - 1) ~/ 1000;
+    if (trimEnd > maxTrimEnd) trimEnd = maxTrimEnd;
+    return trimEnd < 0 ? 0 : trimEnd;
+  }
+
+  /// Обрезка не удалась. Оригинал можно взять, только если он и так укладывается
+  /// в лимит: этот экран — единственное место, где лимит вообще проверяется
+  /// (ни в AdService, ни на сервере длительности нет), поэтому «на всякий
+  /// случай отдадим исходник» здесь означало бы дыру в лимите.
+  void _useOriginalOrFail() {
+    if (!mounted) return;
+    if (_totalDuration.inMilliseconds > _maxDurationSec * 1000) {
+      setState(() => _isSaving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(TranslationService.t('errTrimVideo',
+              Provider.of<AppConfigProvider>(context, listen: false).language)),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+    widget.onSave(widget.videoFile.path);
+    Navigator.pop(context);
   }
 
   @override
