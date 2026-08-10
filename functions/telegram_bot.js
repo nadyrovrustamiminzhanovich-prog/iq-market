@@ -662,28 +662,69 @@ exports.sendTelegramOtp = functions.https.onRequest(async (req, res) => {
 });
 
 // ─── VERIFY TELEGRAM OTP CALLABLE ───────────────────────────────────────────
+const OTP_MAX_ATTEMPTS = 5;
+const OTP_TTL_MS = 5 * 60 * 1000; // совпадает с текстом "Код действителен 5 минут" в сообщении бота
+
 exports.verifyTelegramOtp = functions.https.onCall(async (data, context) => {
   const sessionId = data.sessionId || data.sessionToken;
   const otp = data.otp;
-  
+
   if (!sessionId || !otp) {
     throw new functions.https.HttpsError('invalid-argument', 'Missing sessionId or otp');
   }
 
   try {
     const secureDocRef = db.collection('tg_auth_sessions_secure').doc(sessionId);
-    const secureSnap = await secureDocRef.get();
-    if (!secureSnap.exists) {
+
+    // Транзакция: чтение + инкремент счётчика попыток (или удаление сессии)
+    // атомарны, иначе параллельные запросы могли бы обойти лимит попыток
+    // (check-then-act race). Бросать HttpsError ВНУТРИ transaction нельзя —
+    // это отменяет уже поставленные в очередь tx.update/tx.delete, поэтому
+    // здесь только возвращаем статус и решаем, что бросить, уже снаружи.
+    const result = await db.runTransaction(async (tx) => {
+      const secureSnap = await tx.get(secureDocRef);
+      if (!secureSnap.exists) {
+        return { status: 'not_found' };
+      }
+
+      const sData = secureSnap.data();
+      const createdAtMs = sData.created_at ? sData.created_at.toMillis() : 0;
+      if (!createdAtMs || Date.now() - createdAtMs > OTP_TTL_MS) {
+        tx.delete(secureDocRef);
+        return { status: 'expired' };
+      }
+
+      const attempts = sData.attempts || 0;
+      if (attempts >= OTP_MAX_ATTEMPTS) {
+        tx.delete(secureDocRef);
+        return { status: 'locked' };
+      }
+
+      if (otp !== sData.otp) {
+        tx.update(secureDocRef, { attempts: admin.firestore.FieldValue.increment(1) });
+        return { status: 'wrong' };
+      }
+
+      // Single-use cleanup — атомарно с самой проверкой.
+      tx.delete(secureDocRef);
+      return { status: 'ok', data: sData };
+    });
+
+    if (result.status === 'not_found') {
       throw new functions.https.HttpsError('not-found', 'Сессия не найдена или срок ее действия истек.');
     }
-
-    const secureData = secureSnap.data();
-    const realOtp = secureData.otp;
-    const customToken = secureData.customToken;
-
-    if (otp !== realOtp) {
+    if (result.status === 'expired') {
+      throw new functions.https.HttpsError('deadline-exceeded', 'Код истёк. Запросите новый.');
+    }
+    if (result.status === 'locked') {
+      throw new functions.https.HttpsError('resource-exhausted', 'Слишком много неверных попыток. Запросите новый код.');
+    }
+    if (result.status === 'wrong') {
       throw new functions.https.HttpsError('permission-denied', 'Неверный код подтверждения.');
     }
+
+    const secureData = result.data;
+    const customToken = secureData.customToken;
 
     // Get public session info for chat_id or phone if needed
     const sessionRef = db.collection('tg_auth_sessions').doc(sessionId);
@@ -698,8 +739,8 @@ exports.verifyTelegramOtp = functions.https.onCall(async (data, context) => {
       throw new functions.https.HttpsError('permission-denied', 'Попытка верификации чужой сессии');
     }
 
-    // Single-use clean up
-    await secureDocRef.delete();
+    // Single-use clean up уже сделан внутри транзакции выше (атомарно с
+    // проверкой otp/attempts) — здесь второй delete был бы избыточен.
 
     // Case 1: Authenticated user (Linking Telegram/Phone)
     if (context.auth) {
