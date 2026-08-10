@@ -330,6 +330,7 @@ class AdService {
       String finalUserId = user.uid;
       String finalUserName = user.displayName ?? 'Пользователь';
       String finalUserEmail = user.email ?? '';
+      String finalUserPhone = userPhone;
       int existingViews = 0;
       int existingFavorites = 0;
       bool wasAdminRejected = false;
@@ -343,6 +344,18 @@ class AdService {
               if (existingData.containsKey('userId')) finalUserId = existingData['userId'];
               if (existingData.containsKey('userName')) finalUserName = existingData['userName'] ?? finalUserName;
               if (existingData.containsKey('userEmail')) finalUserEmail = existingData['userEmail'] ?? finalUserEmail;
+              // Если правит НЕ настоящий владелец (админ зашёл поправить чужое
+              // объявление), номер телефона из формы — это номер АДМИНА
+              // (PostAdScreen подставляет его из профиля редактирующего, пока
+              // не подгрузится сам ad.userPhone). Без этой проверки объявление
+              // после сохранения админом осталось бы с телефоном админа —
+              // ровно тот "след", которого быть не должно.
+              if (finalUserId != user.uid) {
+                final existingPhone = existingData['userPhone'] as String?;
+                if (existingPhone != null && existingPhone.isNotEmpty) {
+                  finalUserPhone = existingPhone;
+                }
+              }
               existingViews = existingData['views'] ?? 0;
               existingFavorites = existingData['favorites'] ?? 0;
               wasAdminRejected = existingData['status'] == 'rejected';
@@ -395,7 +408,7 @@ class AdService {
         userId: finalUserId,
         userName: finalUserName,
         userEmail: finalUserEmail,
-        userPhone: userPhone,
+        userPhone: finalUserPhone,
         timestamp: DateTime.now(),
         views: existingViews,
         favoritesCount: existingFavorites,
