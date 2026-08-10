@@ -114,7 +114,7 @@ class MainApp extends StatelessWidget {
       },
       home: home,
       debugShowCheckedModeBanner: false,
-      navigatorObservers: [AnalyticsService.observer],
+      navigatorObservers: [AnalyticsService.observer, AnalyticsService.routeObserver],
       theme: AppTheme.lightTheme,
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,

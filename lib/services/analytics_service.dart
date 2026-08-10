@@ -1,11 +1,17 @@
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 
 class AnalyticsService {
   static final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
   static final FirebaseAnalyticsObserver observer = FirebaseAnalyticsObserver(analytics: _analytics);
+  // Отдельный от FirebaseAnalyticsObserver — тот шлёт события в аналитику, но
+  // не даёт экранам подписаться на RouteAware (didPushNext/didPopNext).
+  // Используется в product_details_screen.dart, чтобы ставить видео на паузу,
+  // когда поверх экрана объявления открывают другой экран (чат, профиль и т.д.).
+  static final RouteObserver<PageRoute> routeObserver = RouteObserver<PageRoute>();
 
   static Future<void> init() async {
     // В режиме отладки можно отключить сбор данных

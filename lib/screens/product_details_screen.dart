@@ -58,7 +58,7 @@ class ProductDetailsScreen extends StatefulWidget {
   State<ProductDetailsScreen> createState() => _ProductDetailsScreenState();
 }
 
-class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
+class _ProductDetailsScreenState extends State<ProductDetailsScreen> with WidgetsBindingObserver, RouteAware {
   late PageController _pageController;
   int _currentPage = 0;
   VideoPlayerController? _videoController;
@@ -67,11 +67,20 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   UserModel? _seller;
   UserModel? _currentUser;
   AdModel? _updatedAd;
+  bool _didSubscribeRouteObserver = false;
+  // Открытие СВОЕГО fullscreen-плеера тоже технически "пуш нового экрана
+  // поверх" и ловится в didPushNext — но это то же самое видео, его не нужно
+  // ставить на паузу при открытии. Флаг гасит ровно один следующий
+  // didPushNext сразу после _openFullscreenVideo().
+  bool _suppressNextRouteAwarePause = false;
 
 
   @override
   void initState() {
     super.initState();
+    // Ловим сворачивание/блокировку приложения (didChangeAppLifecycleState) —
+    // видео должно ставиться на паузу, а не играть в фоне.
+    WidgetsBinding.instance.addObserver(this);
     _pageController = PageController();
     if (widget.ad.videoUrl != null && widget.ad.videoUrl!.isNotEmpty) {
       Future.delayed(const Duration(milliseconds: 300), () {
@@ -100,6 +109,45 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       AnalyticsService.logAdView(widget.ad.id, widget.ad.title);
       _incrementViewCount();
     }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Подписка на RouteAware — нужен ModalRoute, доступен только начиная
+    // отсюда (не в initState). Ловим didPushNext: поверх экрана объявления
+    // открыли другой экран (чат, профиль продавца и т.д.) — ставим видео на
+    // паузу, а не даём играть невидимым фоном.
+    final route = ModalRoute.of(context);
+    if (!_didSubscribeRouteObserver && route is PageRoute) {
+      AnalyticsService.routeObserver.subscribe(this, route);
+      _didSubscribeRouteObserver = true;
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Сворачивание приложения / блокировка экрана — паузим видео, чтобы
+    // не играло в фоне, пока пользователь ушёл из приложения.
+    if (state != AppLifecycleState.resumed) {
+      _pauseVideoIfPlaying();
+    }
+  }
+
+  @override
+  void didPushNext() {
+    if (_suppressNextRouteAwarePause) {
+      _suppressNextRouteAwarePause = false;
+      return;
+    }
+    _pauseVideoIfPlaying();
+  }
+
+  void _pauseVideoIfPlaying() {
+    final controller = _videoController;
+    if (controller == null || !controller.value.isInitialized || !controller.value.isPlaying) return;
+    controller.pause();
+    if (mounted) setState(() => _isVideoPlaying = false);
   }
 
   void _incrementViewCount() async {
@@ -292,11 +340,14 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
 
   void _openFullscreenVideo() {
     if (_videoController == null || !_isVideoInitialized) return;
-    
+
     // Воспроизводим видео при переходе на полный экран
     _videoController!.play();
     setState(() { _isVideoPlaying = true; });
 
+    // Этот Navigator.push тоже вызовет didPushNext у RouteObserver — гасим
+    // ЕГО, чтобы не поставить только что запущенное видео на паузу.
+    _suppressNextRouteAwarePause = true;
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -341,6 +392,8 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    AnalyticsService.routeObserver.unsubscribe(this);
     _pageController.dispose();
     _videoController?.dispose();
     super.dispose();
