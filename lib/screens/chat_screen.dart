@@ -58,7 +58,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   final ScrollController _scrollController = ScrollController();
   final FocusNode _msgFocusNode = FocusNode();
   
+  // "Идёт набор" — только для presence-индикатора "печатает..." у собеседника,
+  // сбрасывается таймером через 2.5с паузы (см. _updateMyTyping). Кнопка
+  // отправить/микрофон раньше была завязана на ЭТОТ флаг напрямую — из-за
+  // таймера она откатывалась на микрофон через 2.5с паузы в наборе текста,
+  // даже если текст в поле остался. Кнопка теперь смотрит на _hasText.
   bool _isTyping = false;
+  // Отражает реальное содержимое _msgController (см. _onMessageTextChanged) —
+  // единственный источник истины для кнопки отправить/микрофон в ChatInput.
+  bool _hasText = false;
   bool _isRecording = false;
   bool _isCancelled = false;
   int _recordSeconds = 0;
@@ -120,6 +128,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // Слушаем контроллер напрямую, а не только TextField.onChanged — так
+    // _hasText остаётся верным и при программных изменениях текста (вставка
+    // эмодзи, автоподстановка текста торга через onWriteOffer, _msgController.clear()
+    // при отправке), а не только при наборе с клавиатуры.
+    _msgController.addListener(_onMessageTextChanged);
     _recorder = widget.recorder ?? AudioRecorder();
     _audioPlayer = AudioPlayer();
     _audioPlayer.setReleaseMode(ReleaseMode.release);
@@ -313,6 +326,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _msgController.removeListener(_onMessageTextChanged);
     _recordTimer?.cancel();
     _typingTimer?.cancel();
     // ✅ Явная отмена AudioPlayer-стримов — предотвращает утечку памяти
@@ -334,6 +348,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       ChatService.activeChatId = null;
     }
     super.dispose();
+  }
+
+  void _onMessageTextChanged() {
+    final has = _msgController.text.trim().isNotEmpty;
+    if (has != _hasText && mounted) setState(() => _hasText = has);
   }
 
   void _updateMyTyping(bool isTyping) {
@@ -1348,7 +1367,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               ChatInput(
                 controller: _msgController,
                 focusNode: _msgFocusNode,
-                isTyping: _isTyping,
+                isTyping: _hasText,
                 isRecording: _isRecording,
                 recordSeconds: _recordSeconds,
                 showEmoji: _showEmoji,
@@ -1519,11 +1538,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             }
           },
           onWriteOffer: () {
+            // Кнопка отправить включится сама через _onMessageTextChanged —
+            // раньше здесь вручную выставляли _isTyping, но это тот же флаг,
+            // что и presence-таймер "печатает...", и без вызова
+            // ChatService.updateTypingStatus/перезапуска таймера он всё равно
+            // не давал рабочего индикатора собеседнику, только временно
+            // подделывал кнопку.
             _msgController.text = TranslationService.t('chat_input_bargain_text', lang);
             _msgFocusNode.requestFocus();
-            setState(() {
-              _isTyping = true;
-            });
           },
           onVoiceOffer: () {
             NotificationService.notify(context, TranslationService.t('voice_reply_title', lang), TranslationService.t('voice_reply_desc', lang), isSuccess: true);
