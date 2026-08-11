@@ -1465,13 +1465,14 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   Widget _buildLinkedAccountsSection() {
     final user = FirebaseAuth.instance.currentUser;
     final providers = user?.providerData.map((p) => p.providerId).toList() ?? [];
-    
+
     final isGoogleLinked = providers.contains('google.com');
     final isEmailLinked = providers.contains('password');
+    final isAppleLinked = providers.contains('apple.com');
 
     return _buildSettingsCard([
       _buildLinkedItem(
-        'Google', 
+        'Google',
         isGoogleLinked ? _t('linked_status') : _t('click_to_link'),
         Container(
           padding: const EdgeInsets.all(8),
@@ -1494,7 +1495,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
             await AuthService.linkWithGoogle();
             if (mounted) {
               setState(() {});
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_t('copied_clipboard'))));
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_t('account_linked_success'))));
             }
           } catch (e) {
             if (mounted) {
@@ -1505,7 +1506,11 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
       ),
       _buildDivider(),
       _buildLinkedItem(
-        'Mail.ru', 
+        // Раньше был подписан «Mail.ru» с логотипом mail.ru, хотя по факту это
+        // обычная привязка email+пароль (Firebase 'password' provider) — любой
+        // email, без какого-либо OAuth в Mail.ru. Название вводило в
+        // заблуждение, что нужен именно ящик на mail.ru.
+        'Email',
         isEmailLinked ? user?.email ?? _t('linked_status') : _t('link_email_hint'),
         Container(
           padding: const EdgeInsets.all(8),
@@ -1515,16 +1520,49 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
             boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8)],
             border: Border.all(color: _isDark ? Colors.white10 : Colors.black12),
           ),
-          child: Image.network(
-            'https://img.icons8.com/color/96/mailru.png',
-            width: 20,
-            height: 20,
-            errorBuilder: (context, error, stackTrace) => const Icon(Icons.mail_rounded, color: Color(0xFF005FFC), size: 20),
-          ),
+          // Локальная иконка вместо запроса к icons8.com на каждое открытие
+          // экрана: тот же alternate_email_rounded уже используется для
+          // отображения Email выше по этому же экрану.
+          child: Icon(Icons.alternate_email_rounded, color: const Color(0xFF2563EB), size: 20),
         ),
         isEmailLinked,
         isEmailLinked ? null : () => _showLinkEmailDialog()
       ),
+      // Apple Sign In работает только на iOS (как и на экране входа —
+      // login_screen.dart оборачивает кнопку Apple в Platform.isIOS). Без
+      // этого пункта пользователь, зарегистрировавшийся через Apple, не мог
+      // привязать запасной способ входа отсюда вообще.
+      if (Platform.isIOS) ...[
+        _buildDivider(),
+        _buildLinkedItem(
+          'Apple',
+          isAppleLinked ? _t('linked_status') : _t('click_to_link'),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: _isDark ? const Color(0xFF1E293B) : Colors.white,
+              shape: BoxShape.circle,
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8)],
+              border: Border.all(color: _isDark ? Colors.white10 : Colors.black12),
+            ),
+            child: Icon(Icons.apple_rounded, color: _isDark ? Colors.white : Colors.black, size: 20),
+          ),
+          isAppleLinked,
+          isAppleLinked ? null : () async {
+            try {
+              await AuthService.linkWithApple();
+              if (mounted) {
+                setState(() {});
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_t('account_linked_success'))));
+              }
+            } catch (e) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+              }
+            }
+          }
+        ),
+      ],
     ]);
   }
 

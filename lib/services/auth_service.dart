@@ -138,6 +138,27 @@ class AuthService {
     }
   }
 
+  static Future<UserCredential?> linkWithApple() async {
+    try {
+      final appleCredential = await SignInWithApple.getAppleIDCredential(
+        scopes: [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+      );
+
+      final OAuthCredential credential = OAuthProvider('apple.com').credential(
+        idToken: appleCredential.identityToken,
+        accessToken: appleCredential.authorizationCode,
+      );
+
+      return await _auth.currentUser?.linkWithCredential(credential);
+    } catch (e) {
+      debugPrint('Link Apple Error: $e');
+      rethrow;
+    }
+  }
+
   // ===================== UTILS =====================
 
   static Future<void> signOut() async {
