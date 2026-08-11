@@ -24,6 +24,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
   late TabController _tabController;
   bool _isProcessing = false;
   int _retryCounter = 0;
+  // Список приходит из живого Firestore-стрима (getNotificationsStream). Свайп
+  // (Dismissible) сам убирает виджет из дерева СРАЗУ по завершении анимации —
+  // до того, как асинхронный deleteNotification() успеет дойти до сервера и
+  // стрим переизлучит список без этого элемента. Если за это окно (сетевая
+  // задержка) стрим переизлучится по ДРУГОЙ причине (пришло новое уведомление,
+  // isRead поменялся у соседнего), ListView перестроится со старым списком, где
+  // этот же ключ всё ещё есть — Dismissible кинет
+  // "A dismissed Dismissible widget is still part of the tree". Локально
+  // скрываем id сразу при свайпе (не дожидаясь стрима) и возвращаем обратно,
+  // если удаление на сервере реально не прошло — тогда пользователь видит
+  // объективную картину, а не молча пропавшее (по факту неудалённое) уведомление.
+  final Set<String> _locallyDeletedIds = {};
 
   @override
   void initState() {
@@ -199,7 +211,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
           );
         }
         if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-        final notifications = snapshot.data ?? [];
+        final notifications = (snapshot.data ?? [])
+            .where((n) => !_locallyDeletedIds.contains(n.id))
+            .toList();
         if (notifications.isEmpty) return _buildEmptyState(Icons.notifications_none_rounded, _t('no_notifications'));
 
         return ListView.builder(
@@ -212,9 +226,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
               key: Key(notif.id),
               direction: DismissDirection.endToStart,
               onDismissed: (direction) async {
+                // Скрываем немедленно и локально — не дожидаясь, пока стрим
+                // подтвердит удаление с сервера (см. комментарий у поля выше).
+                setState(() => _locallyDeletedIds.add(notif.id));
                 try {
                   await NotificationService.deleteNotification(notif.id);
                 } catch (e) {
+                  if (mounted) {
+                    // Удаление реально не прошло — возвращаем уведомление в
+                    // список, а не оставляем пользователя думать, что оно
+                    // удалено, пока на сервере оно всё ещё есть.
+                    setState(() => _locallyDeletedIds.remove(notif.id));
+                  }
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text(TranslationService.t('errDeleteNotif', widget.lang).replaceAll('{error}', e.toString())), backgroundColor: Colors.redAccent),
