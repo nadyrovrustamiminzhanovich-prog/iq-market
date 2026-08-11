@@ -33,7 +33,7 @@ import 'package:iqmarket/widgets/auth_gate_bottom_sheet.dart';
 import 'package:iqmarket/services/translation_service.dart';
 import 'package:iqmarket/widgets/phone_required_bottom_sheet.dart';
 import 'package:iqmarket/services/storage_service.dart';
-import 'package:iqmarket/widgets/product_details/fullscreen_video_player.dart';
+import 'package:iqmarket/widgets/product_details/fullscreen_media_gallery.dart';
 
 
 
@@ -79,10 +79,11 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> with Widget
   late final Stream<List<ReviewModel>> _reviewsStream = widget.isPreview
       ? Stream.value(<ReviewModel>[])
       : ReviewService.getAdReviewsStream(widget.ad.id);
-  // Открытие СВОЕГО fullscreen-плеера тоже технически "пуш нового экрана
-  // поверх" и ловится в didPushNext — но это то же самое видео, его не нужно
-  // ставить на паузу при открытии. Флаг гасит ровно один следующий
-  // didPushNext сразу после _openFullscreenVideo().
+  // Открытие СВОЕГО fullscreen-галереи тоже технически "пуш нового экрана
+  // поверх" и ловится в didPushNext — но если это открытие только что само
+  // запустило это же видео (autoplayVideo: true), ставить его на паузу не
+  // нужно. Флаг гасит ровно один следующий didPushNext сразу после
+  // _openFullscreenMedia(..., autoplayVideo: true).
   bool _suppressNextRouteAwarePause = false;
 
 
@@ -318,54 +319,38 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> with Widget
     }
   }
 
-  void _openFullscreenGallery(int initialIndex) {
-    final images = widget.ad.images;
+  /// Единая точка входа в полноэкранный просмотр — и для тапа по фото, и для
+  /// кнопки-разворота на видео-слайде. Раньше это были два независимых
+  /// метода/экрана без свайпа друг в друга; теперь оба ведут в один
+  /// FullscreenMediaGallery, отличается только initialIndex и то, нужно ли
+  /// сразу запускать видео (тап по видео) или нет (тап по фото).
+  void _openFullscreenMedia(int initialIndex, {bool autoplayVideo = false}) {
+    final ad = _updatedAd ?? widget.ad;
+    final images = ad.images;
+    final hasVideo = _videoController != null;
+
+    if (autoplayVideo && hasVideo && _isVideoInitialized) {
+      _videoController!.play();
+      setState(() { _isVideoPlaying = true; });
+    }
+
+    // Этот Navigator.push тоже вызовет didPushNext у RouteObserver — если мы
+    // только что сами запустили видео этим переходом, гасить его не нужно.
+    if (autoplayVideo) _suppressNextRouteAwarePause = true;
+
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => Scaffold(
-          backgroundColor: Colors.black,
-          body: Stack(
-            children: [
-              PageView.builder(
-                itemCount: images.length,
-                controller: PageController(initialPage: initialIndex),
-                itemBuilder: (context, index) => InteractiveViewer(
-                  minScale: 0.5,
-                  maxScale: 4.0,
-                  child: Center(child: _buildImage(images[index], fit: BoxFit.contain)),
-                ),
-              ),
-              // Prominent Back Button
-              Positioned(
-                top: MediaQuery.of(context).padding.top + 10,
-                left: 16,
-                child: _circleButton(Icons.arrow_back_ios_new_rounded, () => Navigator.pop(context)),
-              ),
-            ],
-          ),
+        builder: (context) => FullscreenMediaGallery(
+          images: images,
+          videoController: hasVideo ? _videoController : null,
+          isVideoInitialized: _isVideoInitialized,
+          initialIndex: initialIndex,
+          imageBuilder: (url) => _buildImage(url, fit: BoxFit.contain),
         ),
       ),
-    );
-  }
-
-  void _openFullscreenVideo() {
-    if (_videoController == null || !_isVideoInitialized) return;
-
-    // Воспроизводим видео при переходе на полный экран
-    _videoController!.play();
-    setState(() { _isVideoPlaying = true; });
-
-    // Этот Navigator.push тоже вызовет didPushNext у RouteObserver — гасим
-    // ЕГО, чтобы не поставить только что запущенное видео на паузу.
-    _suppressNextRouteAwarePause = true;
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => FullscreenVideoPlayer(controller: _videoController!),
-      ),
     ).then((_) {
-      if (mounted) {
+      if (mounted && _videoController != null) {
         setState(() {
           _isVideoPlaying = _videoController!.value.isPlaying;
         });
@@ -499,7 +484,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> with Widget
                                 // Video is always last, so it's at index images.length
                                 final isVideoSlide = hasVideo && _currentPage == images.length;
                                 if (!isVideoSlide) {
-                                  _openFullscreenGallery(_currentPage);
+                                  _openFullscreenMedia(_currentPage);
                                 }
                               },
                         child: PageView.builder(
@@ -561,7 +546,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> with Widget
                                     Positioned(
                                       bottom: 16, right: 16,
                                       child: GestureDetector(
-                                        onTap: widget.isPreview ? null : _openFullscreenVideo,
+                                        onTap: widget.isPreview ? null : () => _openFullscreenMedia(images.length, autoplayVideo: true),
                                         child: Container(
                                           padding: const EdgeInsets.all(8),
                                           decoration: BoxDecoration(
