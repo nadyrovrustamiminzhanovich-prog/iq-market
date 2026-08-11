@@ -186,7 +186,11 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
             )
           : ListView.builder(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.all(16),
+              // Нижний отступ больше остальных: плавающая кнопка «Разместить»
+              // не резервирует место в Scaffold.body сама — без запаса снизу
+              // (58 высота кнопки + 12 её margin + 16 стандартный отступ FAB
+              // от края экрана) последняя карточка списка оказывалась под ней.
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 102),
               itemCount: ads.length,
               itemBuilder: (ctx, idx) {
                 return _buildAdCard(ads[idx]);
