@@ -226,33 +226,6 @@ class TaxiComingSoonDialog extends StatelessWidget {
                               ),
                             ),
 
-                            // Floating Rocket (Left)
-                            Positioned(
-                              left: 36,
-                              top: 22,
-                              child: Transform.rotate(
-                                angle: -0.2,
-                                child: Container(
-                                  padding: const EdgeInsets.all(6),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    shape: BoxShape.circle,
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(alpha: 0.06),
-                                        blurRadius: 10,
-                                        offset: const Offset(0, 3),
-                                      ),
-                                    ],
-                                  ),
-                                  child: const Text(
-                                    '🚀',
-                                    style: TextStyle(fontSize: 20),
-                                  ),
-                                ),
-                              ),
-                            ),
-
                             // Floating Location Pin (Right)
                             Positioned(
                               right: 44,
@@ -435,58 +408,10 @@ class TaxiComingSoonDialog extends StatelessWidget {
                                   ),
                                 ),
                                 const Spacer(),
-                                Container(
-                                  width: 32,
-                                  height: 32,
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withValues(alpha: 0.3),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.chevron_right_rounded,
-                                    size: 22,
-                                    color: Colors.white,
-                                  ),
-                                ),
                               ],
                             ),
                           ),
                         ),
-                      ),
-
-                      const SizedBox(height: 18),
-
-                      // Pagination / Indicator Dots
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Container(
-                            width: 8,
-                            height: 8,
-                            decoration: const BoxDecoration(
-                              color: Color(0xFF2563EB),
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Container(
-                            width: 6,
-                            height: 6,
-                            decoration: const BoxDecoration(
-                              color: Color(0xFFBFDBFE),
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Container(
-                            width: 6,
-                            height: 6,
-                            decoration: const BoxDecoration(
-                              color: Color(0xFFBFDBFE),
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                        ],
                       ),
                     ],
                   ),
