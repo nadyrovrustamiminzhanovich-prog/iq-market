@@ -150,10 +150,15 @@ class _ProductCardState extends State<ProductCard> with SingleTickerProviderStat
                             )),
                 ),
 
-                // Если объявление содержит видео, показываем кнопку плей по центру и бейдж "ВИДЕО" на первом слайде
+                // Если объявление содержит видео, показываем кнопку плей по центру и бейдж "ВИДЕО" на первом слайде.
+                // Оба — в IgnorePointer: чисто декоративные значки без своего onTap,
+                // а Stack отдаёт тап только самому верхнему по отрисовке виджету —
+                // без IgnorePointer они перехватывали тап на себя, и он никуда не
+                // долетал (GestureDetector.onTap ниже вообще не срабатывал: тап на
+                // "кнопку плей" с главного экрана ничего не делал).
                 if (ad.videoUrl != null && ad.videoUrl!.isNotEmpty && _currentPage == 0) ...[
                   // Кнопка Play по центру
-                  Center(
+                  IgnorePointer(child: Center(
                     child: Container(
                       width: 48, height: 48,
                       decoration: BoxDecoration(
@@ -170,11 +175,11 @@ class _ProductCardState extends State<ProductCard> with SingleTickerProviderStat
                       ),
                       child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 34),
                     ),
-                  ),
+                  )),
                   // Бейдж "ВИДЕО" в нижнем левом углу
                   Positioned(
                     bottom: 10, left: 10,
-                    child: Container(
+                    child: IgnorePointer(child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: const Color(0xFF6366F1), // Premium indigo theme color
@@ -203,7 +208,7 @@ class _ProductCardState extends State<ProductCard> with SingleTickerProviderStat
                           ),
                         ],
                       ),
-                    ),
+                    )),
                   ),
                 ],
 
@@ -224,19 +229,22 @@ class _ProductCardState extends State<ProductCard> with SingleTickerProviderStat
                   ),
                 ),
 
-                // Полупрозрачное затемнение для архивных объявлений
+                // Полупрозрачное затемнение для архивных объявлений — та же
+                // причина, что у видео-значков выше: декорация поверх
+                // GestureDetector в Stack без IgnorePointer перехватывала бы тап
+                // на архивной карточке, и объявление вообще не открывалось.
                 if (isArchived)
                   Positioned.fill(
-                    child: Container(
+                    child: IgnorePointer(child: Container(
                       color: Colors.black.withValues(alpha: 0.35),
-                    ),
+                    )),
                   ),
 
                 // Бейдж "В АРХИВЕ" или "НОВЫЙ"
                 if (isArchived)
                   Positioned(
                     top: 10, left: 10,
-                    child: Container(
+                    child: IgnorePointer(child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
@@ -267,12 +275,12 @@ class _ProductCardState extends State<ProductCard> with SingleTickerProviderStat
                           ),
                         ],
                       ),
-                    ),
+                    )),
                   )
                 else if (DateTime.now().difference(ad.timestamp).inDays.abs() < 3)
                   Positioned(
                     top: 10, left: 10,
-                    child: Container(
+                    child: IgnorePointer(child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: const Color(0xFF4A80F0), // Our signature blue color
@@ -294,16 +302,16 @@ class _ProductCardState extends State<ProductCard> with SingleTickerProviderStat
                           letterSpacing: 0.5,
                         ),
                       ),
-                    ),
+                    )),
                   ),
 
-                // Индикаторы страниц (точки)
+                // Индикаторы страниц (точки) — тоже декоративные, тоже в IgnorePointer
                 if (hasMultiple)
                   Positioned(
                     bottom: 10,
                     left: 0,
                     right: 0,
-                    child: Row(
+                    child: IgnorePointer(child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Container(
@@ -330,7 +338,7 @@ class _ProductCardState extends State<ProductCard> with SingleTickerProviderStat
                           ),
                         ),
                       ],
-                    ),
+                    )),
                   ),
 
                 Positioned(
