@@ -94,6 +94,33 @@ class CategorySelector extends StatelessWidget {
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
             children: [
+              GestureDetector(
+                onTap: () => _showAllCategoriesBottomSheet(context, categories, selectedCategoryId, lang),
+                child: Container(
+                  margin: const EdgeInsets.only(right: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFFF1F5F9), width: 1.5),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.grid_view_rounded, color: Color(0xFF334155), size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        TranslationService.t('all_categories_title', lang),
+                        style: GoogleFonts.inter(
+                          color: const Color(0xFF334155),
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
               ...categories.map<Widget>((cat) {
                 final isSelected = selectedCategoryId == cat.id;
                 return GestureDetector(
@@ -132,21 +159,6 @@ class CategorySelector extends StatelessWidget {
                   ),
                 );
               }),
-              GestureDetector(
-                onTap: () => _showAllCategoriesBottomSheet(context, categories, selectedCategoryId, lang),
-                child: Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: const Color(0xFFF1F5F9), width: 1.5),
-                  ),
-                  child: const Center(
-                    child: Icon(Icons.grid_view_rounded, color: Color(0xFF334155), size: 20),
-                  ),
-                ),
-              ),
             ],
           ),
         ),

@@ -201,12 +201,23 @@ class CategoryData {
       ],
     ),
     CategoryModel(
-      id: 'Отдам даром', 
-      ru: 'Отдам даром', 
-      kz: 'Тегін беремін', 
-      ug: 'Һәқсиз беримән', 
-      icon: Icons.volunteer_activism_rounded, 
+      id: 'Отдам даром',
+      ru: 'Отдам даром',
+      kz: 'Тегін беремін',
+      ug: 'Һәқсиз беримән',
+      icon: Icons.volunteer_activism_rounded,
       color: const Color(0xFF10B981), // Зеленый для даром
+    ),
+    // Катч-олл для тех, кто не нашёл подходящую категорию среди остальных —
+    // всегда последняя в списке, без подкатегорий (незачем усложнять выбор
+    // тому, кто и так не смог определиться с категорией).
+    CategoryModel(
+      id: 'Другое',
+      ru: 'Другое',
+      kz: 'Басқа',
+      ug: 'Башқа',
+      icon: Icons.more_horiz_rounded,
+      color: const Color(0xFF4A80F0),
     ),
   ];
 }
