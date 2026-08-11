@@ -268,6 +268,26 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
           if (widget.profileImagePath != null && widget.profileImagePath!.startsWith('http')) {
             await FileService.deleteFile(widget.profileImagePath!);
           }
+        } else {
+          // FileService.uploadFile уже сам отработал 3 попытки с backoff и
+          // проглотил все ошибки, вернув null — исключение сюда не долетает.
+          // Раньше это молча игнорировалось: остальные поля (имя/город/
+          // телефон) сохранялись, экран закрывался как при полном успехе, а
+          // аватар нигде не менялся — пользователь думал, что всё сохранено.
+          // Прерываемся здесь, до всех остальных записей, тем же способом,
+          // которым выше по функции уже прерывается невалидный телефон —
+          // чтобы профиль не сохранялся наполовину и юзер понимал, что
+          // именно не получилось.
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(_t('error_avatar_upload')),
+                backgroundColor: Colors.red,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+          return;
         }
       }
 
