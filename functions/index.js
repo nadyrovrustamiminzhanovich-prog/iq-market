@@ -11,6 +11,15 @@ const Jimp      = require('jimp');
 admin.initializeApp();
 const db = admin.firestore();
 
+// Глобальный тумблер «Push-уведомления» в Личных данных клиента
+// (users/{uid}.pushEnabled, profile_settings_screen.dart). У пользователей,
+// которые тумблер никогда не трогали, поля в документе вообще нет — тогда
+// трактуем как «включено» (обратная совместимость), выключаем отправку
+// только при явном pushEnabled === false.
+function isPushEnabled(userData) {
+  return !userData || userData.pushEnabled !== false;
+}
+
 // ─── Ad anti-abuse configuration ─────────────────────────────────────────────
 const MAX_ACTIVE_ADS_PER_USER = 30;         // одновременно активных объявлений на обычный аккаунт
 const MAX_NEW_ADS_PER_DAY_PER_USER = 15;    // новых публикаций (не редактирований) в сутки на аккаунт
@@ -81,6 +90,10 @@ exports.onNewMessage = onDocumentCreated('chats/{chatId}/messages/{msgId}', asyn
     const blockedUsers = receiverData.blockedUserIds || [];
     if (blockedUsers.includes(senderId)) {
       console.log(`[onNewMessage] FCM skipped: sender ${senderId} is blocked by receiver ${receiverId}`);
+      return;
+    }
+    if (!isPushEnabled(receiverData)) {
+      console.log(`[onNewMessage] FCM skipped: push disabled by receiver ${receiverId}`);
       return;
     }
 
@@ -194,7 +207,7 @@ async function runExpiredAdsCheckLogic() {
       sendPromises.push(notifPromise);
 
       const pushPromise = userRef.get().then((userSnap) => {
-        if (userSnap.exists && userSnap.data().fcmToken) {
+        if (userSnap.exists && userSnap.data().fcmToken && isPushEnabled(userSnap.data())) {
           const payload = {
             token: userSnap.data().fcmToken,
             notification: {
@@ -230,7 +243,7 @@ async function runExpiredAdsCheckLogic() {
 
     if (data.userId) {
       const userSnap = await db.collection('users').doc(data.userId).get();
-      if (userSnap.exists && userSnap.data().fcmToken) {
+      if (userSnap.exists && userSnap.data().fcmToken && isPushEnabled(userSnap.data())) {
         const payload = {
           token       : userSnap.data().fcmToken,
           notification: {
@@ -381,8 +394,13 @@ exports.onNewNotification = onDocumentCreated('users/{userId}/notifications/{not
     const userSnap = await db.collection('users').doc(userId).get();
     if (!userSnap.exists) return;
 
-    const token = userSnap.data().fcmToken;
+    const userData = userSnap.data();
+    const token = userData.fcmToken;
     if (!token) return;
+    if (!isPushEnabled(userData)) {
+      console.log(`[onNewNotification] FCM skipped: push disabled by user ${userId}`);
+      return;
+    }
 
     const payload = {
       token,

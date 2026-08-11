@@ -170,6 +170,16 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                   _registrationDate = timestamp.toDate();
                 }
               }
+              // Тумблер push-уведомлений раньше показывал только локальный
+              // SharedPreferences-дефолт (всегда true на новом устройстве),
+              // никогда не подтягивая реальное значение с сервера — на втором
+              // устройстве того же аккаунта переключатель мог врать. Firestore
+              // теперь ещё и реально влияет на отправку (см. isPushEnabled в
+              // functions/index.js), так что отображение обязано быть верным.
+              if (data['pushEnabled'] is bool) {
+                _isNotificationsEnabled = data['pushEnabled'] as bool;
+                StorageService.setBool('push_notifications_enabled', _isNotificationsEnabled);
+              }
             });
           }
         }
