@@ -283,8 +283,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     right: 2,
                                     child: Container(
                                       padding: const EdgeInsets.all(3),
-                                      decoration: const BoxDecoration(
-                                        color: Color(0xFF2563EB),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF2563EB),
                                         shape: BoxShape.circle,
                                         border: Border.all(color: Colors.white, width: 2.5),
                                       ),

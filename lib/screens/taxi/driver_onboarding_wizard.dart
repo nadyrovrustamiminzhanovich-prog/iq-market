@@ -146,6 +146,35 @@ class _DriverOnboardingWizardState extends State<DriverOnboardingWizard>
     _fadeCtrl.forward();
 
     _loadUserProgress();
+    _checkLostPhotoData();
+  }
+
+  // Восстановление фото после того, как Android убил процесс приложения,
+  // пока была открыта системная камера (см. тот же паттерн в
+  // profile_settings_screen.dart для аватарки). Текстовые поля анкеты
+  // (номер, марка/модель) при таком перезапуске всё равно теряются — это
+  // умеет спасти только сам файл фото, если пользователь вернётся на этот шаг.
+  Future<void> _checkLostPhotoData() async {
+    try {
+      final response = await _picker.retrieveLostData();
+      if (response.isEmpty || response.file == null) return;
+
+      final prefs = await SharedPreferences.getInstance();
+      final slot = prefs.getString('lost_picker_driver_wizard');
+      if (slot == null) return;
+
+      if (mounted) {
+        setState(() {
+          switch (slot) {
+            case 'cf': _carFront = File(response.file!.path); break;
+            case 'tf': _techF = File(response.file!.path); break;
+          }
+        });
+      }
+      await prefs.remove('lost_picker_driver_wizard');
+    } catch (e) {
+      debugPrint('Error retrieving lost driver-wizard photo data: $e');
+    }
   }
 
   @override
@@ -533,6 +562,8 @@ class _DriverOnboardingWizardState extends State<DriverOnboardingWizard>
     if (source == null) return;
 
     try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('lost_picker_driver_wizard', slot);
       final f = await _picker.pickImage(source: source, imageQuality: 88);
       if (f != null && mounted) {
         setState(() {
@@ -542,6 +573,7 @@ class _DriverOnboardingWizardState extends State<DriverOnboardingWizard>
           }
         });
       }
+      await prefs.remove('lost_picker_driver_wizard');
     } catch (e) {
       debugPrint('[DriverWizard] Photo pick error: $e');
     }
