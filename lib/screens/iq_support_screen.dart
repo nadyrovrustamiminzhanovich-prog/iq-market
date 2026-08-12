@@ -6,6 +6,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:intl/intl.dart';
 import '../services/support_bot_service.dart';
+import '../services/storage_service.dart';
 
 // ─────────────────────────────────────────────────────────────────
 //  IQ-Поддержка v2 — Offline-first ИИ-ассистент поддержки
@@ -31,6 +32,10 @@ class _IqSupportScreenState extends State<IqSupportScreen>
     with SingleTickerProviderStateMixin {
   late String _mode;
   late String _lang;
+  // Такси закрыт для всех, кроме админа (см. iqmarket-taxi-isolation) —
+  // вкладка "Такси" в боте не должна предлагать помощь по функции, которую
+  // обычный пользователь нигде в приложении не может открыть.
+  late bool _isAdmin;
 
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
@@ -156,7 +161,8 @@ class _IqSupportScreenState extends State<IqSupportScreen>
   @override
   void initState() {
     super.initState();
-    _mode = widget.initialMode;
+    _isAdmin = StorageService.getString('account_type') == 'admin';
+    _mode = _isAdmin ? widget.initialMode : 'market';
     _lang = widget.lang == 'Қазақша'
         ? 'KZ'
         : widget.lang == 'Уйғурчә'
@@ -177,6 +183,7 @@ class _IqSupportScreenState extends State<IqSupportScreen>
 
   void _switchMode(String newMode) {
     if (_mode == newMode) return;
+    if (newMode == 'taxi' && !_isAdmin) return;
     setState(() {
       _mode = newMode;
       _messages.clear();
@@ -410,6 +417,7 @@ class _IqSupportScreenState extends State<IqSupportScreen>
 
   // ── MODE SWITCH ───────────────────────────────────────────────────
   Widget _buildModeSwitch() {
+    if (!_isAdmin) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
       child: Container(
