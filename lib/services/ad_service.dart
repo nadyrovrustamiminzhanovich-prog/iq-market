@@ -235,7 +235,21 @@ class AdService {
       }
 
       // 3. Загрузка оптимизированного видео
+      int? videoDurationSeconds;
       if (video != null) {
+        // Для бейджа длительности на карточке в ленте. Тем же округлением
+        // вверх, что и в video_trimmer_screen.dart (не усекать) — иначе
+        // 14.8с ролик показал бы "0:14" вместо честных "0:15".
+        try {
+          final info = await VideoCompress.getMediaInfo(video.path);
+          final ms = info.duration;
+          if (ms != null && ms > 0) {
+            videoDurationSeconds = (ms / 1000).ceil();
+          }
+        } catch (e) {
+          debugPrint('[AdService] Failed to read video duration: $e');
+        }
+
         if (onStatusUpdate != null) onStatusUpdate('Загрузка видео...');
         videoUrl = await FileService.uploadFile(video, 'ads/$_userId/videos');
         if (videoUrl != null) {
@@ -405,6 +419,7 @@ class AdService {
         category: category,
         images: [...(existingImages ?? []), ...imageUrls],
         videoUrl: videoUrl,
+        videoDurationSeconds: videoDurationSeconds,
         userId: finalUserId,
         userName: finalUserName,
         userEmail: finalUserEmail,

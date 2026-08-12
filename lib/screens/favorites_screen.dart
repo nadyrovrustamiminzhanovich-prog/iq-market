@@ -89,13 +89,23 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
 
               if (ads.isEmpty) return _buildEmptyState();
 
+              // Тот же расчёт высоты ячейки, что и в home_screen.dart:
+              // превью 4:5 + фиксированный инфо-блок, от реальной ширины
+              // карточки (тут padding/spacing другие, поэтому считаем заново).
+              final screenWidth = MediaQuery.of(context).size.width;
+              const double gridPadding = 16 * 2;
+              const double crossAxisSpacing = 12;
+              const double infoBlockHeight = 76;
+              final cellWidth = (screenWidth - gridPadding - crossAxisSpacing) / 2;
+              final mainAxisExtent = cellWidth * 5 / 4 + infoBlockHeight;
+
               return GridView.builder(
                 padding: const EdgeInsets.all(16),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
-                  crossAxisSpacing: 12,
+                  crossAxisSpacing: crossAxisSpacing,
                   mainAxisSpacing: 12,
-                  childAspectRatio: 0.58,
+                  mainAxisExtent: mainAxisExtent,
                 ),
                 itemCount: ads.length,
                 itemBuilder: (context, index) {

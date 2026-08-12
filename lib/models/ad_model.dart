@@ -8,6 +8,7 @@ class AdModel {
   final String category;
   final List<String> images;
   final String? videoUrl;
+  final int? videoDurationSeconds;
   final String userId;
   final String userName;
   final String userEmail;
@@ -38,6 +39,7 @@ class AdModel {
     required this.category,
     required this.images,
     this.videoUrl,
+    this.videoDurationSeconds,
     required this.userId,
     required this.userName,
     required this.userEmail,
@@ -71,6 +73,7 @@ class AdModel {
       category: map['category'] ?? 'Другое',
       images: (map['images'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
       videoUrl: map['video_url'],
+      videoDurationSeconds: map['videoDurationSeconds'] is int ? map['videoDurationSeconds'] as int : null,
       userId: map['userId'] ?? '',
       userName: map['userName'] ?? 'Пользователь',
       userEmail: map['userEmail'] ?? '',
@@ -104,6 +107,7 @@ class AdModel {
       'category': category,
       'images': images,
       'video_url': videoUrl,
+      'videoDurationSeconds': videoDurationSeconds,
       'userId': userId,
       'userName': userName,
       'userEmail': userEmail,

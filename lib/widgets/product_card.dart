@@ -58,485 +58,437 @@ class _ProductCardState extends State<ProductCard> with SingleTickerProviderStat
     final hasMultiple = images.length > 1;
     final isFree = ad.price == 0.0 || ad.category == 'Отдам даром';
     final isArchived = ad.status != 'active' || !ad.active;
+    final hasVideo = ad.videoUrl != null && ad.videoUrl!.isNotEmpty;
 
     return RepaintBoundary(
-      child: Container(
-      width: widget.width,
-      margin: const EdgeInsets.only(bottom: 4),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.grey.withValues(alpha: 0.15), width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ── Фото Блок (Свайп работает здесь) ──
-          Expanded(
-            flex: 62,
-            child: Stack(
-              fit: StackFit.expand,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // Единый шаблон карточки: превью 4:5 (портрет) + инфо-блок под ним.
+          // Высота превью считается от реальной ширины ячейки грида, а не
+          // фиксируется во всём Column — так карточка не переполняется, даже
+          // если childAspectRatio/mainAxisExtent грида чуть разойдётся с этим
+          // расчётом на другом экране.
+          final cardWidth = constraints.maxWidth.isFinite ? constraints.maxWidth : (widget.width ?? 180);
+          final photoHeight = cardWidth * 5 / 4;
+
+          return Container(
+            width: widget.width,
+            margin: const EdgeInsets.only(bottom: 4),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: Colors.grey.withValues(alpha: 0.15), width: 1),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                GestureDetector(
-                  onTap: widget.onTap,
-                  behavior: HitTestBehavior.opaque,
-                  child: images.isEmpty
-                      ? (ad.videoUrl != null && ad.videoUrl!.startsWith('http')
-                          // Video-only ad: show black background with play icon
-                          ? Stack(
-                              fit: StackFit.expand,
-                              children: [
-                                Container(color: const Color(0xFF0F172A)),
-                                Center(
-                                  child: Container(
-                                    width: 50, height: 50,
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withValues(alpha: 0.2),
-                                      shape: BoxShape.circle,
-                                      border: Border.all(color: Colors.white.withValues(alpha: 0.5), width: 2),
-                                    ),
-                                    child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 30),
-                                  ),
-                                ),
-                                Positioned(
-                                  bottom: 10, left: 10,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF4A80F0),
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Icon(Icons.videocam_rounded, color: Colors.white, size: 12),
-                                        const SizedBox(width: 4),
-                                        Text(TranslationService.t('videoBadge', lang), style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w900)),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            )
-                          : _noImage())
-                      : (hasMultiple
-                          ? PageView.builder(
-                              controller: _pageCtrl,
-                              itemCount: images.length,
-                              physics: const BouncingScrollPhysics(),
-                              onPageChanged: (p) => setState(() => _currentPage = p),
-                              itemBuilder: (_, i) {
-                                final img = _buildImage(images[i]);
-                                if (i == 0) {
-                                  return Hero(
+                SizedBox(
+                  height: photoHeight,
+                  width: double.infinity,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      GestureDetector(
+                        onTap: widget.onTap,
+                        behavior: HitTestBehavior.opaque,
+                        child: images.isEmpty
+                            ? (hasVideo ? _videoOnlyFallback() : _noImage())
+                            : (hasMultiple
+                                ? PageView.builder(
+                                    controller: _pageCtrl,
+                                    itemCount: images.length,
+                                    physics: const BouncingScrollPhysics(),
+                                    onPageChanged: (p) => setState(() => _currentPage = p),
+                                    itemBuilder: (_, i) {
+                                      final img = _CoverPhoto(url: images[i]);
+                                      if (i == 0) {
+                                        return Hero(
+                                          tag: '${widget.heroPrefix ?? ''}ad-image-${ad.id}',
+                                          child: img,
+                                        );
+                                      }
+                                      return img;
+                                    },
+                                  )
+                                : Hero(
                                     tag: '${widget.heroPrefix ?? ''}ad-image-${ad.id}',
-                                    child: img,
-                                  );
-                                }
-                                return img;
-                              },
-                            )
-                          : Hero(
-                              tag: '${widget.heroPrefix ?? ''}ad-image-${ad.id}',
-                              child: _buildImage(images.first),
-                            )),
-                ),
+                                    child: _CoverPhoto(url: images.first),
+                                  )),
+                      ),
 
-                // Если объявление содержит видео, показываем кнопку плей по центру и бейдж "ВИДЕО" на первом слайде.
-                // Оба — в IgnorePointer: чисто декоративные значки без своего onTap,
-                // а Stack отдаёт тап только самому верхнему по отрисовке виджету —
-                // без IgnorePointer они перехватывали тап на себя, и он никуда не
-                // долетал (GestureDetector.onTap ниже вообще не срабатывал: тап на
-                // "кнопку плей" с главного экрана ничего не делал).
-                if (ad.videoUrl != null && ad.videoUrl!.isNotEmpty && _currentPage == 0) ...[
-                  // Кнопка Play по центру
-                  IgnorePointer(child: Center(
-                    child: Container(
-                      width: 48, height: 48,
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.45),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white.withValues(alpha: 0.9), width: 2),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.2),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          )
-                        ],
-                      ),
-                      child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 34),
-                    ),
-                  )),
-                  // Бейдж "ВИДЕО" в нижнем левом углу
-                  Positioned(
-                    bottom: 10, left: 10,
-                    child: IgnorePointer(child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF6366F1), // Premium indigo theme color
-                        borderRadius: BorderRadius.circular(8),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFF6366F1).withValues(alpha: 0.3),
-                            blurRadius: 6,
-                            offset: const Offset(0, 2),
-                          )
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.play_circle_fill_rounded, color: Colors.white, size: 12),
-                          const SizedBox(width: 4),
-                          Text(
-                            'ВИДЕО', 
-                            style: GoogleFonts.inter(
-                              color: Colors.white, 
-                              fontSize: 8, 
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 0.5,
-                            )
-                          ),
-                        ],
-                      ),
-                    )),
-                  ),
-                ],
-
-                // Градиент сверху для значков
-                Positioned(
-                  top: 0, left: 0, right: 0,
-                  height: 60,
-                  child: IgnorePointer(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [Colors.black.withValues(alpha: 0.2), Colors.transparent],
+                      // Компактный бейдж видео (плей + длительность) — один
+                      // элемент вместо прежних двух (крупная кнопка по центру
+                      // + широкий цветной лейбл "ВИДЕО"). IgnorePointer: чисто
+                      // декоративный, тап должен уходить на GestureDetector выше.
+                      if (hasVideo && images.isNotEmpty && _currentPage == 0)
+                        Positioned(
+                          bottom: 8,
+                          left: 8,
+                          child: IgnorePointer(child: _videoBadge(ad.videoDurationSeconds)),
                         ),
-                      ),
-                    ),
-                  ),
-                ),
 
-                // Полупрозрачное затемнение для архивных объявлений — та же
-                // причина, что у видео-значков выше: декорация поверх
-                // GestureDetector в Stack без IgnorePointer перехватывала бы тап
-                // на архивной карточке, и объявление вообще не открывалось.
-                if (isArchived)
-                  Positioned.fill(
-                    child: IgnorePointer(child: Container(
-                      color: Colors.black.withValues(alpha: 0.35),
-                    )),
-                  ),
-
-                // Бейдж "В АРХИВЕ" или "НОВЫЙ"
-                if (isArchived)
-                  Positioned(
-                    top: 10, left: 10,
-                    child: IgnorePointer(child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFF97316), Color(0xFFEA580C)],
-                        ),
-                        borderRadius: BorderRadius.circular(8),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFFF97316).withValues(alpha: 0.4),
-                            blurRadius: 6,
-                            offset: const Offset(0, 2),
-                          )
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.archive_rounded, color: Colors.white, size: 11),
-                          const SizedBox(width: 4),
-                          Text(
-                            TranslationService.t('in_archive', lang),
-                            style: GoogleFonts.inter(
-                              color: Colors.white,
-                              fontSize: 8,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 0.5,
+                      // Градиент сверху для читаемости верхних бейджей
+                      Positioned(
+                        top: 0, left: 0, right: 0,
+                        height: 50,
+                        child: IgnorePointer(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [Colors.black.withValues(alpha: 0.18), Colors.transparent],
+                              ),
                             ),
                           ),
-                        ],
-                      ),
-                    )),
-                  )
-                else if (DateTime.now().difference(ad.timestamp).inDays.abs() < 3)
-                  Positioned(
-                    top: 10, left: 10,
-                    child: IgnorePointer(child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF4A80F0), // Our signature blue color
-                        borderRadius: BorderRadius.circular(8),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFF4A80F0).withValues(alpha: 0.3),
-                            blurRadius: 6,
-                            offset: const Offset(0, 2),
-                          )
-                        ],
-                      ),
-                      child: Text(
-                        TranslationService.t('new_badge', lang).toUpperCase(),
-                        style: GoogleFonts.inter(
-                          color: Colors.white,
-                          fontSize: 8,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 0.5,
                         ),
                       ),
-                    )),
-                  ),
 
-                // Индикаторы страниц (точки) — тоже декоративные, тоже в IgnorePointer
-                if (hasMultiple)
-                  Positioned(
-                    bottom: 10,
-                    left: 0,
-                    right: 0,
-                    child: IgnorePointer(child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
+                      // Затемнение архивных объявлений — GestureDetector остаётся
+                      // кликабельным, поэтому декорация тоже в IgnorePointer.
+                      if (isArchived)
+                        Positioned.fill(
+                          child: IgnorePointer(child: Container(
                             color: Colors.black.withValues(alpha: 0.35),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
+                          )),
+                        ),
+
+                      // Бейдж "В АРХИВЕ" / "НОВОЕ" — компактнее, меньше паддинг
+                      if (isArchived)
+                        Positioned(
+                          top: 8, left: 8,
+                          child: IgnorePointer(child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFFF97316), Color(0xFFEA580C)],
+                              ),
+                              borderRadius: BorderRadius.circular(7),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.archive_rounded, color: Colors.white, size: 10),
+                                const SizedBox(width: 3),
+                                Text(
+                                  TranslationService.t('in_archive', lang),
+                                  style: GoogleFonts.inter(color: Colors.white, fontSize: 7, fontWeight: FontWeight.w900, letterSpacing: 0.4),
+                                ),
+                              ],
+                            ),
+                          )),
+                        )
+                      else if (DateTime.now().difference(ad.timestamp).inDays.abs() < 3)
+                        Positioned(
+                          top: 8, left: 8,
+                          child: IgnorePointer(child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF4A80F0),
+                              borderRadius: BorderRadius.circular(7),
+                            ),
+                            child: Text(
+                              TranslationService.t('new_badge', lang).toUpperCase(),
+                              style: GoogleFonts.inter(color: Colors.white, fontSize: 7, fontWeight: FontWeight.w900, letterSpacing: 0.4),
+                            ),
+                          )),
+                        ),
+
+                      // Точки-пагинация — единственный постоянный индикатор
+                      // нескольких медиа. Стрелки листания убраны намеренно:
+                      // свайп по PageView работает и без них, а видимые кнопки
+                      // спорили с фото за внимание (см. задачу на упрощение
+                      // ленты). Сами точки — мельче и прозрачнее, чем раньше.
+                      if (hasMultiple)
+                        Positioned(
+                          bottom: 8,
+                          left: 0,
+                          right: 0,
+                          child: IgnorePointer(child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: List.generate(images.length, (index) {
                               final isSelected = _currentPage == index;
                               return AnimatedContainer(
                                 duration: const Duration(milliseconds: 200),
-                                width: isSelected ? 12 : 5,
-                                height: 5,
-                                margin: const EdgeInsets.symmetric(horizontal: 2.5),
+                                width: isSelected ? 8 : 4,
+                                height: 4,
+                                margin: const EdgeInsets.symmetric(horizontal: 2),
                                 decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(3),
-                                  color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.45),
+                                  borderRadius: BorderRadius.circular(2),
+                                  color: isSelected
+                                      ? Colors.white.withValues(alpha: 0.85)
+                                      : Colors.white.withValues(alpha: 0.4),
                                 ),
                               );
                             }),
+                          )),
+                        ),
+
+                      Positioned(
+                        top: 6, right: 6,
+                        child: GestureDetector(
+                          onTap: () async {
+                            HapticFeedback.mediumImpact();
+                            if (FirebaseAuth.instance.currentUser == null) {
+                              await AuthGateBottomSheet.show(
+                                context,
+                                message: 'Чтобы сохранить это объявление в избранное, необходимо войти в свой профиль. Это займет всего пару секунд!',
+                              );
+                            } else {
+                              widget.onToggleFavorite();
+                            }
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(5),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.9),
+                              shape: BoxShape.circle,
+                              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4)],
+                            ),
+                            child: Icon(
+                              widget.isFavorite ? Icons.favorite_rounded : Icons.favorite_outline_rounded,
+                              color: widget.isFavorite ? const Color(0xFFEF4444) : const Color(0xFF0F172A),
+                              size: 18,
+                            ),
                           ),
                         ),
-                      ],
-                    )),
-                  ),
-
-                Positioned(
-                  top: 8, right: 8,
-                  child: GestureDetector(
-                    onTap: () async {
-                      HapticFeedback.mediumImpact();
-                      if (FirebaseAuth.instance.currentUser == null) {
-                        await AuthGateBottomSheet.show(
-                          context,
-                          message: 'Чтобы сохранить это объявление в избранное, необходимо войти в свой профиль. Это займет всего пару секунд!',
-                        );
-                      } else {
-                        widget.onToggleFavorite();
-                      }
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.9),
-                        shape: BoxShape.circle,
-                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4)],
                       ),
-                      child: Icon(
-                        widget.isFavorite ? Icons.favorite_rounded : Icons.favorite_outline_rounded,
-                        color: widget.isFavorite ? const Color(0xFFEF4444) : const Color(0xFF0F172A),
-                        size: 18,
+                    ],
+                  ),
+                ),
+
+                // ── Инфо-блок: один общий шаблон для всех карточек ──
+                Expanded(
+                  child: GestureDetector(
+                    onTap: widget.onTap,
+                    behavior: HitTestBehavior.opaque,
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      color: Colors.white,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            isFree ? 'Бесплатно' : _formatPrice(ad.price),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.inter(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w900,
+                              color: isFree ? const Color(0xFF10B981) : const Color(0xFF4A80F0),
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            ad.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF1E293B), height: 1.2),
+                          ),
+                          const SizedBox(height: 4),
+                          // Время идёт первым намеренно: если строка не влезает,
+                          // Text с ellipsis обрезает КОНЕЦ строки — обрежется
+                          // длинное название города, а не время (сигнал
+                          // свежести объявления, он важнее и не должен пропадать).
+                          Text(
+                            '${_formatDateTimeShort(ad.timestamp, lang)} · ${ad.location.isEmpty || ad.location == 'Шонжы' ? 'Чунджа' : ad.location}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.inter(fontSize: 10.5, color: const Color(0xFF64748B), fontWeight: FontWeight.w600),
+                          ),
+                        ],
                       ),
                     ),
                   ),
                 ),
-
-                // Стрелки переключения фото
-                if (hasMultiple) ...[
-                  Positioned(
-                    left: 6,
-                    top: 0,
-                    bottom: 0,
-                    child: Center(
-                      child: GestureDetector(
-                        onTap: () {
-                          HapticFeedback.lightImpact();
-                          if (_currentPage > 0) {
-                            _pageCtrl.previousPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
-                          }
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.4),
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white.withValues(alpha: 0.25), width: 1),
-                          ),
-                          child: const Icon(Icons.chevron_left_rounded, color: Colors.white, size: 18),
-                        ),
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    right: 6,
-                    top: 0,
-                    bottom: 0,
-                    child: Center(
-                      child: GestureDetector(
-                        onTap: () {
-                          HapticFeedback.lightImpact();
-                          if (_currentPage < images.length - 1) {
-                            _pageCtrl.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
-                          }
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.4),
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white.withValues(alpha: 0.25), width: 1),
-                          ),
-                          child: const Icon(Icons.chevron_right_rounded, color: Colors.white, size: 18),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
               ],
             ),
-          ),
-
-          // ── Инфо Блок ──────────────────
-          GestureDetector(
-            onTap: widget.onTap,
-            behavior: HitTestBehavior.opaque,
-            child: Container(
-              padding: const EdgeInsets.all(10),
-              decoration: const BoxDecoration(color: Colors.white),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    isFree ? 'Бесплатно' : _formatPrice(ad.price),
-                    style: GoogleFonts.inter(
-                      fontSize: 17, 
-                      fontWeight: FontWeight.w900, 
-                      color: isFree ? const Color(0xFF10B981) : const Color(0xFF4A80F0),
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    ad.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFF1E293B), height: 1.2),
-                  ),
-                  const SizedBox(height: 8),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _metaInfo(ad.location.isEmpty || ad.location == 'Шонжы' ? 'Чунджа' : ad.location, Icons.location_on_rounded, color: const Color(0xFF4A80F0)),
-                      const SizedBox(height: 4),
-                      _metaInfo(_formatRelativeDate(ad.timestamp, lang), Icons.access_time_filled_rounded),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
+          );
+        },
       ),
-    ));
+    );
   }
 
-  Widget _metaInfo(String text, IconData icon, {Color? color}) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+  Widget _videoOnlyFallback() => Stack(
+    fit: StackFit.expand,
+    children: [
+      Container(color: const Color(0xFF0F172A)),
+      const Positioned(
+        bottom: 8, left: 8,
+        child: IgnorePointer(child: _StaticPlayChip()),
+      ),
+    ],
+  );
+
+  Widget _videoBadge(int? durationSeconds) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
     decoration: BoxDecoration(
-      color: (color ?? const Color(0xFF64748B)).withValues(alpha: 0.05),
-      borderRadius: BorderRadius.circular(4),
+      color: Colors.black.withValues(alpha: 0.5),
+      borderRadius: BorderRadius.circular(20),
     ),
     child: Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 8, color: color ?? const Color(0xFF94A3B8)),
-        const SizedBox(width: 3),
-        Flexible(
-          child: Text(
-            text,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.inter(fontSize: 9, color: color?.withValues(alpha: 0.8) ?? const Color(0xFF64748B), fontWeight: FontWeight.w700),
+        const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 14),
+        if (durationSeconds != null && durationSeconds > 0) ...[
+          const SizedBox(width: 2),
+          Text(
+            _formatDuration(durationSeconds),
+            style: GoogleFonts.inter(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800),
           ),
-        ),
+        ],
       ],
     ),
   );
+
+  String _formatDuration(int totalSeconds) {
+    final m = totalSeconds ~/ 60;
+    final s = totalSeconds % 60;
+    return '$m:${s.toString().padLeft(2, '0')}';
+  }
 
   String _formatPrice(double price) {
     return price > 0 ? '${NumberFormat.decimalPattern('ru').format(price.toInt())} ₸' : 'Договорная';
   }
 
-  String _formatRelativeDate(DateTime dt, String lang) {
+  String _formatDateTimeShort(DateTime dt, String lang) {
     final now = DateTime.now();
-    final timeStr = '${dt.hour}:${dt.minute.toString().padLeft(2, '0')}';
-    if (dt.day == now.day && dt.month == now.month && dt.year == now.year) {
-      return TranslationService.t('today_with_time', lang).replaceAll('{time}', timeStr);
+    final timeStr = '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+
+    if (dt.year == now.year && dt.month == now.month && dt.day == now.day) {
+      return timeStr;
     }
+
     final yesterday = now.subtract(const Duration(days: 1));
-    if (dt.day == yesterday.day && dt.month == yesterday.month && dt.year == yesterday.year) {
-      return TranslationService.t('yesterday_with_time', lang).replaceAll('{time}', timeStr);
-    }
-    return '${dt.day} ${['','янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек'][dt.month]}';
-  }
-
-  Widget _buildImage(String url) {
-    if (url.isEmpty) return _noImage();
-    
-    Widget img;
-    if (url.startsWith('/') || url.startsWith('file')) {
-      img = Image.file(File(url), fit: BoxFit.cover);
-    } else if (!url.startsWith('http')) {
-      return _noImage();
-    } else {
-      img = CachedNetworkImage(
-        imageUrl: url, 
-        fit: BoxFit.cover, 
-        memCacheWidth: 400, // Оптимизация памяти (не грузим оригинал в RAM)
-        maxWidthDiskCache: 800, // Оптимизация диска
-        placeholder: (context, url) => Container(color: const Color(0xFFF1F5F9)), 
-        errorWidget: (context, url, error) => _noImage(),
-      );
+    if (dt.year == yesterday.year && dt.month == yesterday.month && dt.day == yesterday.day) {
+      return '${TranslationService.t('yesterday', lang)}, $timeStr';
     }
 
-    return Container(
-      color: const Color(0xFFF1F5F9), // Light grey background to blend nicely
-      width: double.infinity,
-      height: double.infinity,
-      child: img,
-    );
+    const months = ['', 'янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+    final monthStr = months[dt.month];
+    if (dt.year == now.year) {
+      return '${dt.day} $monthStr';
+    }
+    return '${dt.day} $monthStr ${dt.year}';
   }
 
   Widget _noImage() => Container(color: const Color(0xFFF8FAFC), child: const Center(child: Icon(Icons.image_outlined, color: Colors.grey, size: 24)));
+}
+
+/// Компактный play-бейдж без известной длительности — используется, когда у
+/// объявления есть только видео и не удалось сгенерировать обложку.
+class _StaticPlayChip extends StatelessWidget {
+  const _StaticPlayChip();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(6),
+    decoration: BoxDecoration(
+      color: Colors.white.withValues(alpha: 0.15),
+      shape: BoxShape.circle,
+      border: Border.all(color: Colors.white.withValues(alpha: 0.4), width: 1.5),
+    ),
+    child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 16),
+  );
+}
+
+/// Фото/обложка карточки с "умным" кропом: как только реальные размеры
+/// исходника известны, сильно вертикальные кадры (source_ratio < 0.75 —
+/// типично для видео 9:16 с телефона/Telegram) смещают точку фокуса cover-кропа
+/// вверх (~30% от верха, где обычно лицо/объект) вместо центра по умолчанию.
+/// Обычные фото (почти квадратные/альбомные) остаются с центральным кропом.
+class _CoverPhoto extends StatefulWidget {
+  final String url;
+  const _CoverPhoto({required this.url});
+
+  @override
+  State<_CoverPhoto> createState() => _CoverPhotoState();
+}
+
+class _CoverPhotoState extends State<_CoverPhoto> {
+  static const Alignment _topBiasAlignment = Alignment(0, -0.4);
+
+  Alignment _alignment = Alignment.center;
+  ImageStream? _stream;
+  ImageStreamListener? _listener;
+
+  ImageProvider? get _provider {
+    final url = widget.url;
+    if (url.isEmpty) return null;
+    if (url.startsWith('/') || url.startsWith('file')) return FileImage(File(url));
+    if (url.startsWith('http')) return CachedNetworkImageProvider(url, maxWidth: 400);
+    return null;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _resolve();
+  }
+
+  @override
+  void didUpdateWidget(covariant _CoverPhoto oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.url != widget.url) {
+      _alignment = Alignment.center;
+      _resolve();
+    }
+  }
+
+  void _resolve() {
+    final provider = _provider;
+    if (provider == null) return;
+    final newStream = provider.resolve(createLocalImageConfiguration(context));
+    if (_stream?.key == newStream.key) return;
+    if (_stream != null && _listener != null) _stream!.removeListener(_listener!);
+    _listener = ImageStreamListener((info, _) {
+      final w = info.image.width;
+      final h = info.image.height;
+      if (h == 0) return;
+      final ratio = w / h;
+      final target = ratio < 0.75 ? _topBiasAlignment : Alignment.center;
+      if (mounted && target != _alignment) setState(() => _alignment = target);
+    }, onError: (_, __) {});
+    _stream = newStream;
+    _stream!.addListener(_listener!);
+  }
+
+  @override
+  void dispose() {
+    if (_stream != null && _listener != null) _stream!.removeListener(_listener!);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = _provider;
+    return Container(
+      color: const Color(0xFFF1F5F9),
+      width: double.infinity,
+      height: double.infinity,
+      child: provider == null
+          ? Container(color: const Color(0xFFF8FAFC), child: const Center(child: Icon(Icons.image_outlined, color: Colors.grey, size: 24)))
+          : Image(
+              image: provider,
+              fit: BoxFit.cover,
+              alignment: _alignment,
+              errorBuilder: (context, error, stack) => Container(
+                color: const Color(0xFFF8FAFC),
+                child: const Center(child: Icon(Icons.image_outlined, color: Colors.grey, size: 24)),
+              ),
+            ),
+    );
+  }
 }
 
 class ProductCardSkeleton extends StatelessWidget {
@@ -545,53 +497,49 @@ class ProductCardSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: width,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Shimmer.fromColors(
-        baseColor: const Color(0xFFF1F5F9),
-        highlightColor: Colors.white,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              flex: 60,
-              child: Container(
+    return LayoutBuilder(builder: (context, constraints) {
+      final cardWidth = constraints.maxWidth.isFinite ? constraints.maxWidth : (width ?? 180);
+      final photoHeight = cardWidth * 5 / 4;
+      return Container(
+        width: width,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Shimmer.fromColors(
+          baseColor: const Color(0xFFF1F5F9),
+          highlightColor: Colors.white,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                height: photoHeight,
                 width: double.infinity,
                 decoration: const BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
                 ),
               ),
-            ),
-            Expanded(
-              flex: 40,
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(width: 80, height: 18, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4))),
-                    const SizedBox(height: 8),
-                    Container(width: double.infinity, height: 14, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4))),
-                    const Spacer(),
-                    Row(
-                      children: [
-                        Container(width: 50, height: 10, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4))),
-                        const SizedBox(width: 8),
-                        Container(width: 40, height: 10, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4))),
-                      ],
-                    ),
-                  ],
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(width: 80, height: 16, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4))),
+                      const SizedBox(height: 6),
+                      Container(width: double.infinity, height: 12, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4))),
+                      const SizedBox(height: 8),
+                      Container(width: 90, height: 10, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4))),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
-    );
+      );
+    });
   }
 }

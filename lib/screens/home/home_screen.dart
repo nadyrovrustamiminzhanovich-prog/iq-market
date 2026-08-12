@@ -429,6 +429,16 @@ class _IQMarketHomeState extends State<IQMarketHome> with WidgetsBindingObserver
       crossAxisCount = 3;
     }
 
+    // Высота ячейки — не константный childAspectRatio (он "плыл" при смене
+    // crossAxisCount на широких экранах), а честный расчёт от реальной
+    // ширины карточки: превью 4:5 + информационный блок под ним. Совпадает
+    // с тем, как ProductCard сам считает высоту превью через LayoutBuilder.
+    const double gridHorizontalPadding = 12 * 2;
+    const double crossAxisSpacing = 10;
+    const double infoBlockHeight = 76;
+    final cellWidth = (screenWidth - gridHorizontalPadding - crossAxisSpacing * (crossAxisCount - 1)) / crossAxisCount;
+    final mainAxisExtent = cellWidth * 5 / 4 + infoBlockHeight;
+
     return SliverPadding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       sliver: PagedSliverGrid<DocumentSnapshot?, AdModel>(
@@ -436,8 +446,8 @@ class _IQMarketHomeState extends State<IQMarketHome> with WidgetsBindingObserver
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: crossAxisCount,
           mainAxisSpacing: 10,
-          crossAxisSpacing: 10,
-          childAspectRatio: 0.68,
+          crossAxisSpacing: crossAxisSpacing,
+          mainAxisExtent: mainAxisExtent,
         ),
         builderDelegate: PagedChildBuilderDelegate<AdModel>(
           itemBuilder: (context, item, index) => ProductCard(
@@ -944,7 +954,7 @@ class ProductCardSkeleton extends StatelessWidget {
           borderRadius: BorderRadius.circular(20),
         ),
         margin: const EdgeInsets.only(bottom: 16),
-        height: 220,
+        height: 300, // Ориентир под новую высоту карточки (превью 4:5 + инфо-блок)
       ),
     );
   }
