@@ -946,18 +946,18 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                           decoration: BoxDecoration(
-                            color: Colors.orange.withValues(alpha: 0.1),
+                            color: Colors.green.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.timer_outlined, color: Colors.orange, size: 14),
+                              const Icon(Icons.timer_outlined, color: Colors.green, size: 14),
                               const SizedBox(width: 6),
                               Text(
                                 _t('otp_valid_5m'),
                                 style: GoogleFonts.inter(
-                                  color: Colors.orange.shade800,
+                                  color: Colors.green.shade800,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w700,
                                 ),

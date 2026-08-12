@@ -250,29 +250,48 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Container(
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                border: Border.all(color: Colors.white, width: 4),
-                                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 20, offset: const Offset(0, 10))],
-                              ),
-                              child: GestureDetector(
-                                onTap: () => _showFullScreenPhoto(photoUrl),
-                                child: Hero(
-                                  tag: 'avatar_full',
-                                  child: CircleAvatar(
-                                    radius: 54,
-                                    backgroundColor: const Color(0xFFF1F5F9),
-                                    backgroundImage: (photoUrl.isNotEmpty && photoUrl.startsWith('http')) 
-                                      ? NetworkImage(photoUrl) as ImageProvider
-                                      : (_localImage != null ? FileImage(_localImage!) : null),
+                            Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                Container(
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: Colors.white, width: 4),
+                                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 20, offset: const Offset(0, 10))],
+                                  ),
+                                  child: GestureDetector(
+                                    onTap: () => _showFullScreenPhoto(photoUrl),
+                                    child: Hero(
+                                      tag: 'avatar_full',
+                                      child: CircleAvatar(
+                                        radius: 54,
+                                        backgroundColor: const Color(0xFFF1F5F9),
+                                        backgroundImage: (photoUrl.isNotEmpty && photoUrl.startsWith('http'))
+                                          ? NetworkImage(photoUrl) as ImageProvider
+                                          : (_localImage != null ? FileImage(_localImage!) : null),
 
-                                    child: (photoUrl.isEmpty && _localImage == null) 
-                                      ? const Icon(Icons.person_rounded, size: 56, color: Color(0xFF2563EB))
-                                      : null,
+                                        child: (photoUrl.isEmpty && _localImage == null)
+                                          ? const Icon(Icons.person_rounded, size: 56, color: Color(0xFF2563EB))
+                                          : null,
+                                      ),
+                                    ),
                                   ),
                                 ),
-                              ),
+                                if (!_isGuest && _isVerified)
+                                  Positioned(
+                                    bottom: 2,
+                                    right: 2,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(3),
+                                      decoration: const BoxDecoration(
+                                        color: Color(0xFF2563EB),
+                                        shape: BoxShape.circle,
+                                        border: Border.all(color: Colors.white, width: 2.5),
+                                      ),
+                                      child: const Icon(Icons.check_rounded, color: Colors.white, size: 13),
+                                    ),
+                                  ),
+                              ],
                             ),
                           ],
                         ),
@@ -287,12 +306,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     const SizedBox(height: 15),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: Text(
-                        displayName,
-                        maxLines: 2,
-                        textAlign: TextAlign.center,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w800, color: _txtColor, letterSpacing: -0.3),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              displayName,
+                              maxLines: 2,
+                              textAlign: TextAlign.center,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w800, color: _txtColor, letterSpacing: -0.3),
+                            ),
+                          ),
+                          if (!_isGuest && _isVerified) ...[
+                            const SizedBox(width: 6),
+                            const Icon(Icons.verified_rounded, color: Color(0xFF2563EB), size: 20),
+                          ],
+                        ],
                       ),
                     ),
                     if (!_isGuest && currentUid.isNotEmpty) ...[
@@ -338,28 +368,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                           ),
                           if (_isVerified) ...[
-                            const SizedBox(height: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF2563EB).withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: const Color(0xFF2563EB).withValues(alpha: 0.3)),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(Icons.verified_rounded, color: Color(0xFF2563EB), size: 16),
-                                  const SizedBox(width: 5),
-                                  Text(
-                                    _t('badge_verified'),
-                                    style: GoogleFonts.inter(
-                                      color: const Color(0xFF2563EB),
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
+                            const SizedBox(height: 6),
+                            Text(
+                              _t('badge_verified'),
+                              style: GoogleFonts.inter(
+                                color: const Color(0xFF64748B),
+                                fontWeight: FontWeight.w600,
+                                fontSize: 12,
                               ),
                             ),
                           ],

@@ -88,48 +88,78 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   // Аватар пользователя
-                  Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: primaryColor.withValues(alpha: 0.15), width: 3),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.06),
-                          blurRadius: 16,
-                          offset: const Offset(0, 8),
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: primaryColor.withValues(alpha: 0.15), width: 3),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.06),
+                              blurRadius: 16,
+                              offset: const Offset(0, 8),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                    child: CircleAvatar(
-                      radius: 50,
-                      backgroundColor: const Color(0xFFE2E8F0),
-                      backgroundImage: (widget.userPhotoUrl != null && widget.userPhotoUrl!.isNotEmpty)
-                          ? NetworkImage(widget.userPhotoUrl!)
-                          : null,
-                      child: (widget.userPhotoUrl == null || widget.userPhotoUrl!.isEmpty)
-                          ? const Icon(
-                              Icons.person_rounded,
-                              size: 54,
+                        child: CircleAvatar(
+                          radius: 50,
+                          backgroundColor: const Color(0xFFE2E8F0),
+                          backgroundImage: (widget.userPhotoUrl != null && widget.userPhotoUrl!.isNotEmpty)
+                              ? NetworkImage(widget.userPhotoUrl!)
+                              : null,
+                          child: (widget.userPhotoUrl == null || widget.userPhotoUrl!.isEmpty)
+                              ? const Icon(
+                                  Icons.person_rounded,
+                                  size: 54,
+                                  color: primaryColor,
+                                )
+                              : null,
+                        ),
+                      ),
+                      if (widget.isVerified)
+                        Positioned(
+                          bottom: 2,
+                          right: 2,
+                          child: Container(
+                            padding: const EdgeInsets.all(3),
+                            decoration: BoxDecoration(
                               color: primaryColor,
-                            )
-                          : null,
-                    ),
+                              shape: BoxShape.circle,
+                              border: Border.all(color: cardColor, width: 2.5),
+                            ),
+                            child: const Icon(Icons.check_rounded, color: Colors.white, size: 13),
+                          ),
+                        ),
+                    ],
                   ),
 
                   const SizedBox(height: 14),
 
-                  // Имя пользователя (Крупный жирный текст)
-                  Text(
-                    widget.userName,
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.inter(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w900,
-                      color: titleColor,
-                      letterSpacing: -0.4,
-                    ),
+                  // Имя пользователя + бейдж-галочка (как в WhatsApp/Telegram) — крупный жирный текст
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          widget.userName,
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.inter(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w900,
+                            color: titleColor,
+                            letterSpacing: -0.4,
+                          ),
+                        ),
+                      ),
+                      if (widget.isVerified) ...[
+                        const SizedBox(width: 6),
+                        const Icon(Icons.verified_rounded, color: primaryColor, size: 22),
+                      ],
+                    ],
                   ),
 
                   const SizedBox(height: 8),
@@ -167,34 +197,15 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     ),
                   ),
 
-                  // Бейдж верификации (Статус)
+                  // Подпись статуса верификации (без плашки-кнопки — галочка уже на аватаре и у имени)
                   if (widget.isVerified) ...[
-                    const SizedBox(height: 10),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE0F2FE), // Голубой фон
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: const Color(0xFFBAE6FD)),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.verified_rounded,
-                            color: primaryColor, // Голубая галочка
-                            size: 17,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            widget.verificationText,
-                            style: GoogleFonts.inter(
-                              color: primaryColor,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ],
+                    const SizedBox(height: 4),
+                    Text(
+                      widget.verificationText,
+                      style: GoogleFonts.inter(
+                        color: subtitleColor,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
                       ),
                     ),
                   ],
