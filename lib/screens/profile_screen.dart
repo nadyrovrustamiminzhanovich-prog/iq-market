@@ -9,7 +9,6 @@ import 'package:iqmarket/services/user_service.dart';
 import 'package:iqmarket/screens/my_ads_screen.dart';
 import 'package:iqmarket/screens/profile_settings_screen.dart';
 import 'package:iqmarket/screens/help_center_screen.dart';
-import 'package:iqmarket/screens/iq_support_screen.dart';
 import 'package:iqmarket/screens/notifications_screen.dart';
 import 'package:iqmarket/screens/favorites_screen.dart';
 import 'package:iqmarket/models/ad_model.dart';
@@ -1289,10 +1288,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           // GROUP 3: Информация
           _buildMenuSectionTitle(_t('info_title')),
           _buildMenuCard([
-            _buildListItem(Icons.support_agent_rounded, 'IQ-Поддержка', () {
-              Navigator.push(context, MaterialPageRoute(builder: (context) => IqSupportScreen(lang: _localLang)));
-            }),
-            _buildListItemDivider(),
             _buildListItem(Icons.help_outline_rounded, _t('help'), () {
               Navigator.push(context, MaterialPageRoute(builder: (context) => HelpCenterScreen(lang: _localLang)));
             }),
