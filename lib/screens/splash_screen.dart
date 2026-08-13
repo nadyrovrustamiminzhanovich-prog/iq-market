@@ -49,6 +49,15 @@ class _AppBootstrapState extends State<AppBootstrap> {
         StorageService.init(),
       ]);
 
+      // App Check ДО первого запроса к Firestore (было в
+      // _initServicesInBackground, который стартует уже ПОСЛЕ
+      // checkUpdateRequired() ниже — если включить enforcement в консоли,
+      // самый первый запрос уходил бы без токена и ловил бы permission-denied).
+      await FirebaseAppCheck.instance.activate(
+        providerAndroid: kDebugMode ? const AndroidDebugProvider() : const AndroidPlayIntegrityProvider(),
+        providerApple: kDebugMode ? const AppleDebugProvider() : const AppleDeviceCheckProvider(),
+      );
+
       // 2. Set Firestore cache/offline settings
       FirebaseFirestore.instance.settings = const Settings(
         persistenceEnabled: true,
@@ -115,11 +124,7 @@ class _AppBootstrapState extends State<AppBootstrap> {
 
   Future<void> _initServicesInBackground() async {
     try {
-      // Initialize Firebase App Check first to secure Firestore queries before they are sent
-      await FirebaseAppCheck.instance.activate(
-        providerAndroid: kDebugMode ? const AndroidDebugProvider() : const AndroidPlayIntegrityProvider(),
-        providerApple: kDebugMode ? const AppleDebugProvider() : const AppleDeviceCheckProvider(),
-      );
+      // App Check уже активирован в _initApp() до первого запроса к Firestore.
 
       // Initialize other services in parallel
       await Future.wait([
