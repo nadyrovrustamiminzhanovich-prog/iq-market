@@ -329,9 +329,11 @@ class TelegramBotService {
     
     if (isTruncated) {
       escaped += '...';
-      if (isPublished && adId.isNotEmpty) {
-        escaped += '\n🔗 <a href="https://iqmarket.kz/ad/$adId">Полное объявление</a>';
-      }
+      // Ссылка на iqmarket.kz/ad/$adId убрана: домен не зарегистрирован
+      // (NXDOMAIN), а у iq-market-3dc07.web.app нет страницы /ad/ вообще
+      // (404) — ссылка вела в никуда в обоих случаях. Админ видит полный
+      // текст объявления в самом приложении (админ-панель).
+      if (isPublished && adId.isNotEmpty) escaped += ' (adId: $adId)';
     }
     
     return escaped;
