@@ -385,6 +385,28 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> with Widget
     return img;
   }
 
+  // Объявление без фото и без видео (кнопка "Опубликовать без фото" в
+  // постинге это разрешает) — раньше здесь был пустой PageView.builder(itemCount: 0),
+  // который не рисует вообще ничего, и сквозь ClipRRect просвечивал белый фон
+  // SliverAppBar. Выглядело как полностью белый экран без единой подсказки,
+  // что это ожидаемое состояние, а не баг загрузки.
+  Widget _buildNoMediaPlaceholder() => Container(
+    color: const Color(0xFFF1F5F9),
+    child: Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.image_not_supported_rounded, color: Colors.grey.shade400, size: 56),
+          const SizedBox(height: 10),
+          Text(
+            TranslationService.t('no_media_placeholder', widget.lang),
+            style: GoogleFonts.inter(color: Colors.grey.shade500, fontWeight: FontWeight.w700, fontSize: 13),
+          ),
+        ],
+      ),
+    ),
+  );
+
 
   @override
   void dispose() {
@@ -477,7 +499,9 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> with Widget
                   children: [
                     ClipRRect(
                       borderRadius: BorderRadius.circular(24),
-                      child: GestureDetector(
+                      child: itemCount == 0
+                          ? _buildNoMediaPlaceholder()
+                          : GestureDetector(
                         onTap: widget.isPreview
                             ? null
                             : () {
