@@ -9,6 +9,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:iqmarket/services/user_service.dart';
 import 'package:iqmarket/services/storage_service.dart';
+import 'package:iqmarket/widgets/auth_gate_bottom_sheet.dart';
 import 'package:iqmarket/data/category_data.dart';
 import 'package:iqmarket/data/kazakhstan_locations.dart';
 import 'package:iqmarket/screens/product_details_screen.dart';
@@ -692,6 +693,16 @@ class _PostAdScreenState extends State<PostAdScreen> {
   }
 
   Future<void> _handlePublish() async {
+    // Второй рубеж защиты (первый — гейт на кнопке "+" в home_screen.dart):
+    // без него гость, дошедший сюда любым другим путём, заполнял всю форму
+    // и получал необработанное исключение из AdService.uploadAndPublishAd.
+    if (UserService.currentUid == null) {
+      if (mounted) {
+        await AuthGateBottomSheet.show(context, message: TranslationService.t('auth_post_ad_prompt', widget.lang));
+      }
+      return;
+    }
+
     // 🔒 Synchronous Atomic Double-Submit Protection
     if (_isSubmitting || _isLoading) return;
 

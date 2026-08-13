@@ -34,6 +34,7 @@ import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:iqmarket/services/translation_service.dart';
 import 'package:iqmarket/services/storage_service.dart';
+import 'package:iqmarket/widgets/auth_gate_bottom_sheet.dart';
 
 class IQMarketHome extends StatefulWidget {
   const IQMarketHome({super.key});
@@ -869,9 +870,21 @@ class _IQMarketHomeState extends State<IQMarketHome> with WidgetsBindingObserver
       ),
       child: BottomNavigationBar(
         currentIndex: _currentIndex > 4 && !isAdmin ? 0 : (_currentIndex > 5 ? 0 : _currentIndex),
-        onTap: (i) {
+        onTap: (i) async {
           if (i == 2) {
             final config = Provider.of<AppConfigProvider>(context, listen: false);
+            // Гость раньше проходил весь экран публикации (фото, видео, цена,
+            // описание) и только на "Опубликовать" получал необработанное
+            // исключение с русским текстом — AdService.uploadAndPublishAd
+            // требует авторизованного пользователя. Гейт здесь, на входе,
+            // как уже сделано для избранного/чата/звонка.
+            if (UserService.currentUid == null) {
+              await AuthGateBottomSheet.show(
+                context,
+                message: TranslationService.t('auth_post_ad_prompt', config.language),
+              );
+              return;
+            }
             Navigator.push(context, MaterialPageRoute(builder: (_) => PostAdScreen(lang: config.language)));
           } else if (i == 4) {
             final config = Provider.of<AppConfigProvider>(context, listen: false);
