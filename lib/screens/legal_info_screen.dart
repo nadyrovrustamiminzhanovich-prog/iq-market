@@ -157,7 +157,10 @@ class LegalInfoScreen extends StatelessWidget {
                     const SizedBox(height: 30),
                     ElevatedButton.icon(
                       onPressed: () async {
-                        final uri = Uri.parse('https://sites.google.com/view/iqmarket-kz/$webPath');
+                        // Google Site iqmarket-kz не опубликован (редиректит на
+                        // форму входа в Google-аккаунт) — рабочие страницы уже
+                        // есть на хостинге Firebase, проверено вживую.
+                        final uri = Uri.parse('https://iq-market-3dc07.web.app/$webPath/');
                         try {
                           if (await canLaunchUrl(uri)) {
                             await launchUrl(uri, mode: LaunchMode.externalApplication);
