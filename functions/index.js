@@ -1232,6 +1232,58 @@ exports.getFullUserInfo = functions.https.onCall(async (data, context) => {
   }
 });
 
+// ─── HTTPS CALLABLE: deleteUserAccount ────────────────────────────────────────
+// UserService.deleteUserData() (клиент) удаляет объявления и вызывает эту
+// функцию для всего остального — раньше private/contact (телефон+email),
+// notifications и отзывы оставались в базе навсегда после удаления аккаунта,
+// хотя политика конфиденциальности обещает удаление данных. Firestore не
+// удаляет подколлекции вместе с родительским документом сам по себе.
+//
+// Чаты (chats/*) сознательно НЕ трогаем: это общие данные с другим
+// участником, а не только этого пользователя — аккуратная чистка (скрыть
+// вместо удаления) требует того же подхода, что уже есть у отдельных
+// сообщений (deletedFor), а не поспешного решения здесь.
+exports.deleteUserAccount = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Пользователь должен быть авторизован');
+  }
+  const uid = context.auth.uid;
+
+  try {
+    // Отзывы, которые пользователь написал и которые написали о нём —
+    // после удаления профиля они всё равно становятся "про несуществующего
+    // пользователя", смысла оставлять не больше, чем в самом профиле.
+    const [reviewsFrom, reviewsTo] = await Promise.all([
+      db.collection('reviews').where('fromUserId', '==', uid).get(),
+      db.collection('reviews').where('toUserId', '==', uid).get(),
+    ]);
+    const reviewRefs = new Map();
+    reviewsFrom.docs.forEach((d) => reviewRefs.set(d.id, d.ref));
+    reviewsTo.docs.forEach((d) => reviewRefs.set(d.id, d.ref));
+    if (reviewRefs.size > 0) {
+      const batch = db.batch();
+      reviewRefs.forEach((ref) => batch.delete(ref));
+      await batch.commit();
+    }
+
+    // users/{uid} и ВСЕ его подколлекции разом (private/contact,
+    // notifications и любые будущие) — recursiveDelete не требует заранее
+    // знать их список, в отличие от ручного перебора.
+    await db.recursiveDelete(db.collection('users').doc(uid));
+
+    // Auth-аккаунт последним, после того как данные реально удалены —
+    // если этот шаг упадёт, клиент увидит ошибку и не решит, что всё готово.
+    await admin.auth().deleteUser(uid);
+
+    console.log(`[deleteUserAccount] Deleted account and personal data for ${uid}`);
+    return { success: true };
+  } catch (error) {
+    console.error('[deleteUserAccount] Error:', error);
+    if (error instanceof functions.https.HttpsError) throw error;
+    throw new functions.https.HttpsError('internal', error.message || 'Не удалось удалить аккаунт');
+  }
+});
+
 // ─── HELPER: Parse MP4/M4A duration from buffer (pure JS, no external deps) ───
 function parseMp4Duration(buffer) {
   let offset = 0;

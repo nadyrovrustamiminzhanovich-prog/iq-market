@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:iqmarket/models/user_model.dart';
@@ -323,20 +324,31 @@ class UserService {
     }
   }
 
-  /// Delete user data (for compliance/deletion)
+  /// Delete user data (for compliance/deletion).
+  ///
+  /// Ошибки НЕ глушим и пробрасываем вызывающему — раньше здесь был catch,
+  /// который проглатывал любую ошибку и всё равно возвращал управление;
+  /// вызывающий код (profile_settings_screen.dart) шёл дальше и удалял сам
+  /// Auth-аккаунт, даже если данные не удалились. Теперь вызывающий обязан
+  /// сам решить, что делать при ошибке (и не должен ничего удалять после —
+  /// см. ниже, Cloud Function теперь удаляет Auth-аккаунт сама).
   static Future<void> deleteUserData() async {
     final uid = currentUid;
     if (uid == null) return;
-    try {
-      // 1. Delete all ads, images and videos first
-      await AdService.deleteUserAds(uid);
-      
-      // 2. Delete the user profile doc
-      await users.doc(uid).delete();
-      
-      debugPrint('User data and ads deleted for $uid ✅');
-    } catch (e) {
-      debugPrint('Error deleting user data: $e');
-    }
+
+    // 1. Объявления, фото и видео — этим должен заниматься клиент: ему
+    // нужен доступ к Storage для самих файлов, не только к Firestore.
+    await AdService.deleteUserAds(uid);
+
+    // 2. Cloud Function 'deleteUserAccount' рекурсивно чистит users/{uid} со
+    // ВСЕМИ подколлекциями (private/contact — телефон/email, notifications),
+    // отзывы (написанные пользователем и о нём) и в конце сама удаляет
+    // Auth-аккаунт. Клиент этого сделать не может: подколлекции не удаляются
+    // вместе с родительским документом сами по себе, а удалять чужие отзывы
+    // о себе клиенту не положено правилами.
+    final callable = FirebaseFunctions.instance.httpsCallable('deleteUserAccount');
+    await callable.call();
+
+    debugPrint('User data, ads and account deleted for $uid ✅');
   }
 }
