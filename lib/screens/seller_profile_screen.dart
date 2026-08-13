@@ -227,7 +227,19 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
                 ),
                 if (isVerified) ...[
                   const SizedBox(width: 8),
-                  const Icon(Icons.verified_rounded, color: Color(0xFF229ED9), size: 20),
+                  GestureDetector(
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(TranslationService.t('seller_verified_via_telegram', widget.lang)),
+                          backgroundColor: const Color(0xFF229ED9),
+                          behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        ),
+                      );
+                    },
+                    child: const Icon(Icons.verified_rounded, color: Color(0xFF229ED9), size: 20),
+                  ),
                 ],
               ],
             ),
