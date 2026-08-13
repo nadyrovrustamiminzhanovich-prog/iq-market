@@ -312,7 +312,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
                             child: Text(notif.title, style: TextStyle(fontWeight: notif.isRead ? FontWeight.w700 : FontWeight.w900, fontSize: 15, color: const Color(0xFF1A1D1E))),
                           ),
                           const SizedBox(width: 8),
-                          Text(_formatTimestamp(notif.timestamp), style: TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold)),
+                          Text(_formatTimestamp(notif.timestamp), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold)),
                         ],
                       ),
                       const SizedBox(height: 4),
@@ -572,7 +572,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
                         ),
                       ),
                       const SizedBox(width: 8),
-                      Text(time, style: TextStyle(color: unreadCount > 0 ? const Color(0xFF4A80F0) : Colors.grey, fontSize: 11, fontWeight: FontWeight.bold)),
+                      Text(time, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: unreadCount > 0 ? const Color(0xFF4A80F0) : Colors.grey, fontSize: 11, fontWeight: FontWeight.bold)),
                     ],
                   ),
                   const SizedBox(height: 2),
@@ -658,8 +658,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
 
   String _formatTimestamp(DateTime dt) {
     final now = DateTime.now();
+    // Сегодня — время. Иначе просто дата "18.08.26г": было 'EEE' (день
+    // недели) без указания locale — DateFormat брал англ. по умолчанию
+    // ("Mon"/"Tue") независимо от языка приложения.
     if (now.day == dt.day && now.month == dt.month && now.year == dt.year) return DateFormat('HH:mm').format(dt);
-    if (now.difference(dt).inDays < 7) return DateFormat('EEE').format(dt);
-    return DateFormat('dd.MM.yyyy').format(dt);
+    return '${DateFormat('dd.MM.yy').format(dt)}г';
   }
 }
