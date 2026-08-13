@@ -321,16 +321,25 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          GestureDetector(
-            onTap: hasReviews ? _scrollToReviews : null,
-            behavior: HitTestBehavior.opaque,
-            child: _statItem(ratingValue.toStringAsFixed(1), _t('rating'), Icons.star_rounded, Colors.amber),
+          // Expanded — подпись "Отзывы покупателей" на казахском/уйгурском
+          // на треть длиннее русской, а Row(spaceAround) не сужает детей под
+          // контент: без Expanded длинная подпись растягивала весь Row шире
+          // карточки. Внутри Expanded Column получает реальную ширину, и
+          // maxLines+ellipsis на подписи начинают работать.
+          Expanded(
+            child: GestureDetector(
+              onTap: hasReviews ? _scrollToReviews : null,
+              behavior: HitTestBehavior.opaque,
+              child: _statItem(ratingValue.toStringAsFixed(1), _t('rating'), Icons.star_rounded, Colors.amber),
+            ),
           ),
           Container(width: 1, height: 30, color: const Color(0xFFF1F5F9)),
-          GestureDetector(
-            onTap: hasReviews ? _scrollToReviews : null,
-            behavior: HitTestBehavior.opaque,
-            child: _statItem(reviewsCount.toString(), _t('reviews'), Icons.reviews_rounded, const Color(0xFF4A80F0)),
+          Expanded(
+            child: GestureDetector(
+              onTap: hasReviews ? _scrollToReviews : null,
+              behavior: HitTestBehavior.opaque,
+              child: _statItem(reviewsCount.toString(), _t('reviews'), Icons.reviews_rounded, const Color(0xFF4A80F0)),
+            ),
           ),
         ],
       ),
@@ -340,6 +349,7 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
   Widget _statItem(String value, String label, IconData icon, Color color) => Column(
     children: [
       Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, color: color, size: 18),
           const SizedBox(width: 6),
@@ -347,7 +357,13 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
         ],
       ),
       const SizedBox(height: 4),
-      Text(label, style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF64748B))),
+      Text(
+        label,
+        textAlign: TextAlign.center,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF64748B)),
+      ),
     ],
   );
 

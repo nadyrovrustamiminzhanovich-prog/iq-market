@@ -267,13 +267,23 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
                               : const Icon(Icons.image, color: Colors.grey),
                           ),
                         ),
+                        // ConstrainedBox+ellipsis на всех трёх: миниатюра — единственный
+                        // непозиционированный ребёнок Stack, поэтому Stack получает
+                        // размер именно 85×85 и по умолчанию (Clip.hardEdge) молча
+                        // обрезает по пикселям всё, что вылезает за край — не
+                        // переносит и не эллипсирует. badgeRejected на казахском
+                        // ("ҚАБЫЛДАНБАДЫ") на треть длиннее русского и вплотную
+                        // подходит к этой границе.
                         if (isPending)
                           Positioned(
                             top: 4, left: 4,
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(color: Colors.amber, borderRadius: BorderRadius.circular(6)),
-                              child: Text(TranslationService.t('badgeUnderReview', widget.lang), style: GoogleFonts.inter(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(maxWidth: 77),
+                                child: Text(TranslationService.t('badgeUnderReview', widget.lang), maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
+                              ),
                             ),
                           ),
                         if (isRejected)
@@ -282,7 +292,10 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(color: const Color(0xFFEF4444), borderRadius: BorderRadius.circular(6)),
-                              child: Text(TranslationService.t('badgeRejected', widget.lang), style: GoogleFonts.inter(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(maxWidth: 77),
+                                child: Text(TranslationService.t('badgeRejected', widget.lang), maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
+                              ),
                             ),
                           ),
                         if (isArchived && !isRejected)
@@ -291,7 +304,10 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(color: Colors.grey, borderRadius: BorderRadius.circular(6)),
-                              child: Text(TranslationService.t('badgeArchive', widget.lang), style: GoogleFonts.inter(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(maxWidth: 77),
+                                child: Text(TranslationService.t('badgeArchive', widget.lang), maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
+                              ),
                             ),
                           ),
                       ],
