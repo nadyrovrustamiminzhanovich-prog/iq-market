@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 /// Service responsible for managing application updates and version validation.
 class VersionService {
   /// Current app build version code (must be incremented on release matching pubspec.yaml)
-  static const int currentVersionCode = 2;
+  static const int currentVersionCode = 3;
 
   /// Checks if the current version meets the minimum version code requirements set in Firestore.
   /// Returns a [String] containing the store URL if update is required, or `null` if the app is up to date.
