@@ -600,8 +600,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           children: [
                             Row(
                               children: [
-                                Text(r.fromUserName, style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 14, color: _txtColor)),
-                                const Spacer(),
+                                // Expanded вместо Spacer() — имя автора отзыва
+                                // (до 50 символов) без этого выталкивало дату
+                                // за пределы карточки вместо обрезки многоточием.
+                                Expanded(
+                                  child: Text(
+                                    r.fromUserName,
+                                    style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 14, color: _txtColor),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
                                 Text(
                                   '${r.timestamp.day.toString().padLeft(2, '0')}.${r.timestamp.month.toString().padLeft(2, '0')}.${r.timestamp.year}',
                                   style: GoogleFonts.inter(fontSize: 11, color: _subtxtColor),

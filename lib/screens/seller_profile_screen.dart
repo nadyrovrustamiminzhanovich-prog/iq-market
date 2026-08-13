@@ -221,9 +221,16 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(
-                  name,
-                  style: GoogleFonts.inter(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900),
+                // Flexible — имя (до 50 символов) рисуется во всю ширину
+                // экрана без горизонтальных отступов, длинное ФИО выходило за
+                // пределы шапки вместо того, чтобы обрезаться многоточием.
+                Flexible(
+                  child: Text(
+                    name,
+                    style: GoogleFonts.inter(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
                 if (isVerified) ...[
                   const SizedBox(width: 8),
@@ -647,8 +654,18 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
         children: [
           Row(
             children: [
-              Text(r.fromUserName, style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 14)),
-              const Spacer(),
+              // Expanded вместо Spacer() — имя автора отзыва (до 50 символов,
+              // profile_settings_screen.dart) без этого выталкивало дату за
+              // пределы карточки вместо того, чтобы обрезаться многоточием.
+              Expanded(
+                child: Text(
+                  r.fromUserName,
+                  style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 14),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 8),
               Text(DateFormat('dd.MM.yyyy').format(r.timestamp), style: GoogleFonts.inter(fontSize: 11, color: Colors.grey)),
             ],
           ),

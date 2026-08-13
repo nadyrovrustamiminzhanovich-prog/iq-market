@@ -282,9 +282,13 @@ class _AdminTaxiScreenState extends State<AdminTaxiScreen> with SingleTickerProv
                   children: [
                     Icon(PhosphorIcons.car(), size: 14, color: Colors.grey),
                     const SizedBox(width: 6),
-                    Text(
-                      'Авто: ${data['driverCar']} [${data['driverPlate'] ?? 'Б/Н'}]',
-                      style: GoogleFonts.inter(color: Colors.grey[600], fontSize: 11, fontWeight: FontWeight.w600),
+                    Flexible(
+                      child: Text(
+                        'Авто: ${data['driverCar']} [${data['driverPlate'] ?? 'Б/Н'}]',
+                        style: GoogleFonts.inter(color: Colors.grey[600], fontSize: 11, fontWeight: FontWeight.w600),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ],
                 ),

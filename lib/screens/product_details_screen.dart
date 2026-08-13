@@ -1217,7 +1217,24 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> with Widget
 
           return Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Row(children: [Text(key, style: TextStyle(color: Colors.grey[600], fontSize: 14)), const Spacer(), Text(TranslationService.translateSpecValue(e.value.toString(), widget.lang), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14))]),
+            child: Row(children: [
+              Text(key, style: TextStyle(color: Colors.grey[600], fontSize: 14)),
+              const SizedBox(width: 12),
+              // Значение может быть свободным вводом (например malBreed —
+              // порода животного, у поля нет maxLength) — без Expanded+ellipsis
+              // длинный текст выталкивал Row за экран. Expanded (не Flexible) —
+              // чтобы короткие значения по-прежнему прижимались к правому краю,
+              // как раньше это делал Spacer().
+              Expanded(
+                child: Text(
+                  TranslationService.translateSpecValue(e.value.toString(), widget.lang),
+                  textAlign: TextAlign.right,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+              ),
+            ]),
           );
         }),
       ]),

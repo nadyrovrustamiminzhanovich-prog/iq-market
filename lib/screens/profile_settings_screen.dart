@@ -575,11 +575,15 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                   ],
                   if (_userEmail.isNotEmpty)
                     _buildDisplayField(
-                      'Email', 
-                      _userEmail, 
+                      'Email',
+                      _userEmail,
                       Icons.alternate_email_rounded,
                       maxLines: 2,
-                      overflow: TextOverflow.visible,
+                      // ellipsis, не visible: 2 строки покрывают почти любой
+                      // реальный email целиком, а visible давал тексту
+                      // рисоваться поверх соседних элементов, если email всё
+                      // же не влезал (без клиппинга и без обрезки).
+                      overflow: TextOverflow.ellipsis,
                       fontSize: 15.0,
                       onTap: () {
                         Clipboard.setData(ClipboardData(text: _userEmail));
