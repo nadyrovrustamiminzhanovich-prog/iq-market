@@ -18,27 +18,24 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
       'search_hint': 'Поиск по вопросам...',
       'no_results': 'Ничего не найдено',
       'no_results_sub': 'Попробуйте изменить запрос или задайте вопрос IQ-Поддержке ниже',
-      'ai_chat_title': 'IQ-Поддержка — ИИ Ассистент',
-      'ai_chat_sub': 'Задайте вопрос — ответим за секунды. Нужен живой человек — внутри есть WhatsApp и Telegram 🚀',
-      'ai_chat_btn': 'Открыть чат',
+      'ai_chat_title': 'IQ-Поддержка',
+      'ai_chat_sub': 'Написать в чат',
     };
     final kz = {
       'title': 'Көмек орталығы',
       'search_hint': 'Сұрақтар бойынша іздеу...',
       'no_results': 'Ештеңе табылмады',
       'no_results_sub': 'Сұрауды өзгертіп көріңіз немесе төмендегі IQ-Қолдаудан сұраңыз',
-      'ai_chat_title': 'IQ-Қолдау — ЖИ Ассистенті',
-      'ai_chat_sub': 'Сұрақ қойыңыз — секундтар ішінде жауап. Тірі адам керек болса — ішінде WhatsApp пен Telegram бар 🚀',
-      'ai_chat_btn': 'Чатты ашу',
+      'ai_chat_title': 'IQ-Қолдау',
+      'ai_chat_sub': 'Чатқа жазу',
     };
     final uyg = {
       'title': 'Йардәм мәркизи',
       'search_hint': 'Соаллар бойичә издәр...',
       'no_results': 'Һеч немә тепилмиди',
       'no_results_sub': 'Издәшни өзгәртип бақаң яки астидики IQ-Йардәмдин сораң',
-      'ai_chat_title': 'IQ-Йардәм — ЯЗ Йардәмчиси',
-      'ai_chat_sub': 'Соал қойуң — секундларда җавап. Тирик адәм керәк болса — ичидә WhatsApp вә Telegram бар 🚀',
-      'ai_chat_btn': 'Чатни ечиш',
+      'ai_chat_title': 'IQ-Йардәм',
+      'ai_chat_sub': 'Чатқа йезиш',
     };
     final dict = widget.lang == 'Қазақша' ? kz : (widget.lang == 'Уйғурчә' ? uyg : ru);
     return dict[key] ?? ru[key] ?? key;
@@ -177,35 +174,34 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
       ),
       child: Container(
         margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
             colors: [Color(0xFF1E3A8A), Color(0xFF2563EB)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(18),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF2563EB).withValues(alpha: 0.35),
-              blurRadius: 20,
-              offset: const Offset(0, 8),
+              color: const Color(0xFF2563EB).withValues(alpha: 0.3),
+              blurRadius: 14,
+              offset: const Offset(0, 6),
             ),
           ],
         ),
         child: Row(
           children: [
             Container(
-              width: 52,
-              height: 52,
+              width: 40,
+              height: 40,
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 1.5),
+                color: Colors.white.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(13),
               ),
-              child: const Icon(Icons.smart_toy_rounded, color: Colors.white, size: 28),
+              child: const Icon(Icons.smart_toy_rounded, color: Colors.white, size: 21),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -218,44 +214,22 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
                       fontSize: 15,
                     ),
                   ),
-                  const SizedBox(height: 3),
-                  Text(
-                    _t('ai_chat_sub'),
-                    style: GoogleFonts.inter(
-                      color: Colors.white.withValues(alpha: 0.85),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  const SizedBox(height: 2),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _t('ai_chat_sub'),
+                        style: GoogleFonts.inter(
+                          color: Colors.white.withValues(alpha: 0.8),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(width: 3),
+                      Icon(Icons.arrow_forward_rounded, color: Colors.white.withValues(alpha: 0.8), size: 13),
+                    ],
                   ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  Text(
-                    _t('ai_chat_btn'),
-                    style: GoogleFonts.plusJakartaSans(
-                      color: const Color(0xFF1E3A8A),
-                      fontWeight: FontWeight.w900,
-                      fontSize: 12,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  const Icon(Icons.arrow_forward_rounded, color: Color(0xFF1E3A8A), size: 14),
                 ],
               ),
             ),
