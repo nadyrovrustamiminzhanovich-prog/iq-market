@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:iqmarket/services/translation_service.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -87,10 +88,21 @@ class MainApp extends StatelessWidget {
                   const SizedBox(height: 8),
                   Expanded(
                     child: SingleChildScrollView(
-                      child: SelectableText(
-                        '${details.exception}\n\n${details.stack}',
-                        style: GoogleFonts.firaCode(color: Colors.black, fontSize: 10),
-                      ),
+                      // В релизе Flutter по умолчанию рисует нейтральный серый
+                      // блок именно потому, что details.exception/stack могут
+                      // содержать имена классов и внутренние пути — этот
+                      // кастомный ErrorWidget показывал их пользователю
+                      // безусловно, включая релизные сборки.
+                      child: kDebugMode
+                          ? SelectableText(
+                              '${details.exception}\n\n${details.stack}',
+                              style: GoogleFonts.firaCode(color: Colors.black, fontSize: 10),
+                            )
+                          : Text(
+                              TranslationService.t('unexpectedErrorMsg', Provider.of<AppConfigProvider>(context, listen: false).language),
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.inter(color: Colors.black87, fontSize: 14),
+                            ),
                     ),
                   ),
                   const SizedBox(height: 24),
