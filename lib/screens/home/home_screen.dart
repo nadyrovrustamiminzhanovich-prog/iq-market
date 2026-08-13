@@ -435,7 +435,11 @@ class _IQMarketHomeState extends State<IQMarketHome> with WidgetsBindingObserver
     // с тем, как ProductCard сам считает высоту превью через LayoutBuilder.
     const double gridHorizontalPadding = 12 * 2;
     const double crossAxisSpacing = 10;
-    const double infoBlockHeight = 76;
+    // 3 строки (цена/название/время·город) с height:1.2 в стиле + паддинг
+    // 8+8 дают ~70px при textScaleFactor 1.0 и ~80px на клампленном в
+    // ProductCard максимуме масштаба текста 1.2× — 84 оставляет запас,
+    // не задирая карточку выше, чем нужно.
+    const double infoBlockHeight = 84;
     final cellWidth = (screenWidth - gridHorizontalPadding - crossAxisSpacing * (crossAxisCount - 1)) / crossAxisCount;
     final mainAxisExtent = cellWidth * 5 / 4 + infoBlockHeight;
 

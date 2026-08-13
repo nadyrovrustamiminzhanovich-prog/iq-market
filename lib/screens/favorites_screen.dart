@@ -95,7 +95,8 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
               final screenWidth = MediaQuery.of(context).size.width;
               const double gridPadding = 16 * 2;
               const double crossAxisSpacing = 12;
-              const double infoBlockHeight = 76;
+              // Совпадает с home_screen.dart — см. комментарий там.
+              const double infoBlockHeight = 84;
               final cellWidth = (screenWidth - gridPadding - crossAxisSpacing) / 2;
               final mainAxisExtent = cellWidth * 5 / 4 + infoBlockHeight;
 

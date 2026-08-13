@@ -266,47 +266,67 @@ class _ProductCardState extends State<ProductCard> with SingleTickerProviderStat
                 ),
 
                 // ── Инфо-блок: один общий шаблон для всех карточек ──
+                // Высота ячейки фиксирована гридом (mainAxisExtent в
+                // home_screen.dart/favorites_screen.dart), поэтому этот блок
+                // обязан укладываться в свой бюджет всегда. Раньше 2 из 3 Text
+                // не задавали style.height — реальная высота строки бралась из
+                // метрик самого файла шрифта Inter, а она заметно больше
+                // fontSize, и по факту не совпадала с тем, что заложили в
+                // константу infoBlockHeight — отсюда RenderFlex overflow снизу
+                // блока. Явный height:1.2 у всех трёх строк делает высоту
+                // предсказуемой (и совпадающей с тем, что уже стояло у title).
+                // Клампим textScaler сверху: без этого системная настройка
+                // "крупный шрифт" всё равно способна раздуть даже
+                // предсказуемую высоту за бюджет ячейки — при этом сами строки
+                // и так обрублены maxLines:1 + ellipsis, так что доступности
+                // это не вредит, просто не даёт кегль расти дальше 1.2×.
                 Expanded(
-                  child: GestureDetector(
-                    onTap: widget.onTap,
-                    behavior: HitTestBehavior.opaque,
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                      color: Colors.white,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            isFree ? 'Бесплатно' : _formatPrice(ad.price),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.inter(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w900,
-                              color: isFree ? const Color(0xFF10B981) : const Color(0xFF4A80F0),
+                  child: MediaQuery(
+                    data: MediaQuery.of(context).copyWith(
+                      textScaler: MediaQuery.textScalerOf(context).clamp(maxScaleFactor: 1.2),
+                    ),
+                    child: GestureDetector(
+                      onTap: widget.onTap,
+                      behavior: HitTestBehavior.opaque,
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        color: Colors.white,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              isFree ? 'Бесплатно' : _formatPrice(ad.price),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.inter(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w900,
+                                height: 1.2,
+                                color: isFree ? const Color(0xFF10B981) : const Color(0xFF4A80F0),
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            ad.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF1E293B), height: 1.2),
-                          ),
-                          const SizedBox(height: 4),
-                          // Время идёт первым намеренно: если строка не влезает,
-                          // Text с ellipsis обрезает КОНЕЦ строки — обрежется
-                          // длинное название города, а не время (сигнал
-                          // свежести объявления, он важнее и не должен пропадать).
-                          Text(
-                            '${_formatDateTimeShort(ad.timestamp, lang)} · ${ad.location.isEmpty || ad.location == 'Шонжы' ? 'Чунджа' : ad.location}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.inter(fontSize: 10.5, color: const Color(0xFF64748B), fontWeight: FontWeight.w600),
-                          ),
-                        ],
+                            const SizedBox(height: 3),
+                            Text(
+                              ad.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF1E293B), height: 1.2),
+                            ),
+                            const SizedBox(height: 4),
+                            // Время идёт первым намеренно: если строка не влезает,
+                            // Text с ellipsis обрезает КОНЕЦ строки — обрежется
+                            // длинное название города, а не время (сигнал
+                            // свежести объявления, он важнее и не должен пропадать).
+                            Text(
+                              '${_formatDateTimeShort(ad.timestamp, lang)} · ${ad.location.isEmpty || ad.location == 'Шонжы' ? 'Чунджа' : ad.location}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.inter(fontSize: 10.5, color: const Color(0xFF64748B), fontWeight: FontWeight.w600, height: 1.2),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
