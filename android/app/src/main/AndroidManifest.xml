@@ -5,8 +5,11 @@
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <!-- READ_MEDIA_IMAGES/VIDEO не нужны: main.dart включает системный Photo
+         Picker (useAndroidPhotoPicker=true), которому широкий доступ к
+         галерее не требуется — сам Google требует picker вместо этих
+         разрешений. Их наличие заставляет заполнять лишнюю Photo and Video
+         Permissions declaration в Play Console. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <application
         android:label="IQ-Market"
@@ -39,14 +42,16 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
 
-            <!-- App Links (Deep Linking) for iqmarket.kz -->
-            <intent-filter android:autoVerify="true">
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="http" android:host="iqmarket.kz" />
-                <data android:scheme="https" android:host="iqmarket.kz" />
-            </intent-filter>
+            <!-- App Links на iqmarket.kz убраны: домен не зарегистрирован
+                 (NXDOMAIN, проверено 2026-08-13), autoVerify="true" на
+                 несуществующий домен гарантированно проваливал верификацию
+                 при установке — именно это Play Console показывал как "2
+                 ссылки на контент могут не работать". Плюс приложение и не
+                 умело обрабатывать входящие deep-ссылки (нет app_links/
+                 uni_links и парсинга initial link) — фильтр ни на что не
+                 влиял функционально. Если понадобится вернуть: нужен реальный
+                 домен, подключённый как custom domain в Firebase Hosting,
+                 И код обработки входящей ссылки на стороне Flutter. -->
         </activity>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
