@@ -31,15 +31,15 @@ class TaxiComingSoonDialog extends StatelessWidget {
 
     if (lang == 'Уйғурчә') {
       mainTitleLine1 = 'Такси хизмити';
-      mainTitleLine2 = 'йеқин арида ачилиду!';
+      mainTitleLine2 = 'йеқин арида ишқа қошулиду!';
       descTextPart1 = 'Биз ';
       descTextKeyword1 = 'район ичида';
       descTextPart2 = ' вә ';
-      descTextKeyword2 = 'шәһәрләрара';
-      descTextPart3 = ' сәприңизни қолайлиқ вә бихәтәр қилиш үчүн охирқи тәйярлиқларни қиливатимиз.';
-      descLaunchText = 'Ишке қошулуш ';
-      descLaunchHighlight = 'бек йеқин!';
-      btnText = 'Уқтум, күтидим!';
+      descTextKeyword2 = 'шәһәрләр арисида';
+      descTextPart3 = ' сәпириңизни қолайлиқ вә бихәтәр қилиш үчүн ахирқи тәйярлиқларни қиливатимиз.';
+      descLaunchText = 'Ишқа қошулуш ';
+      descLaunchHighlight = 'бәк йеқин!';
+      btnText = 'Уқтум, күтимән!';
     } else if (lang == 'Қазақша') {
       mainTitleLine1 = 'Такси қызметі';
       mainTitleLine2 = 'жақында ашылады!';
