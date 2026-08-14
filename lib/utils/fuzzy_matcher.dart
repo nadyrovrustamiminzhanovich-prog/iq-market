@@ -39,7 +39,7 @@ class FuzzyMatcher {
   static List<String> _splitIntoNormalizedWords(String input) {
     return input
         .toLowerCase()
-        .split(RegExp(r'[^a-z0-9а-яёәғқңөұүһііі]+')) // разбиваем по любым небуквенным символам
+        .split(RegExp(r'[^a-z0-9а-яёәғқңөұүһіҗ]+')) // разбиваем по любым небуквенным символам
         .map((w) => _normalizeAndStem(w))
         .where((w) => w.isNotEmpty)
         .toList();

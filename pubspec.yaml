@@ -81,6 +81,7 @@ flutter:
     - assets/logo.png
     - assets/icon.png
     - assets/images/
+    - assets/data/search_synonyms.json
   fonts:
     - family: ArystapStyle
       fonts:

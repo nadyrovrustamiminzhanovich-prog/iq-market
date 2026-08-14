@@ -145,7 +145,11 @@ class _VoiceSearchBottomSheetState extends State<VoiceSearchBottomSheet> {
               });
             }
           },
-          localeId: widget.lang == 'Қазақша' ? 'kk_KZ' : 'ru_RU',
+          localeId: widget.lang == 'Қазақша'
+              ? 'kk_KZ'
+              : widget.lang == 'Уйғурчә'
+                  ? 'tr_TR'
+                  : 'ru_RU',
         );
       } else {
         debugPrint('[VoiceSearch] speech not available — popping without result');

@@ -19,6 +19,7 @@ import 'package:iqmarket/services/telegram_bot_service.dart';
 import 'package:iqmarket/services/fallback_moderation_keywords.dart';
 import 'package:iqmarket/services/device_identity_service.dart';
 import 'package:iqmarket/utils/fuzzy_matcher.dart';
+import 'package:iqmarket/utils/search_normalizer.dart';
 class AdService {
   static final FirebaseFirestore _db = FirebaseFirestore.instance;
   static final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -524,16 +525,25 @@ class AdService {
   }) {
     final Set<String> tokens = {};
 
+    // Подгружаем словарь синонимов/транслитерации заранее — не блокируем эту
+    // синхронную функцию ожиданием: к моменту, когда пользователь реально
+    // публикует объявление (спустя минуты работы с формой), ассет почти
+    // наверняка уже загрузился. Если нет — просто нет расширения для ЭТОГО
+    // объявления, самоисправляется при следующем сохранении.
+    SearchNormalizer.ensureLoaded();
+
     void extractTokens(String text) {
       if (text.trim().isEmpty) return;
       final clean = text.toLowerCase();
-      final words = clean.split(RegExp(r'[^a-z0-9а-яёәғқңөұүһі]+')).where((w) => w.length >= 2);
+      final words = clean.split(RegExp(r'[^a-z0-9а-яёәғқңөұүһіҗ]+')).where((w) => w.length >= 2);
 
       for (final word in words) {
-        tokens.add(word);
-        // Добавляем префиксы от 2 до 10 символов для быстрого поиска на лету
-        for (int i = 2; i <= word.length && i <= 10; i++) {
-          tokens.add(word.substring(0, i));
+        for (final variant in SearchNormalizer.expandWord(word)) {
+          tokens.add(variant);
+          // Добавляем префиксы от 2 до 10 символов для быстрого поиска на лету
+          for (int i = 2; i <= variant.length && i <= 10; i++) {
+            tokens.add(variant.substring(0, i));
+          }
         }
       }
     }
@@ -545,7 +555,11 @@ class AdService {
       extractTokens(description.length > 250 ? description.substring(0, 250) : description);
     }
 
-    return tokens.take(120).toList();
+    // Расширение через словарь синонимов даёт заметно больше токенов на
+    // слово, чем раньше — поднимаем потолок, чтобы описание не обрезалось
+    // раньше времени (see search_synonyms.json plan). 200 коротких строк
+    // не создаёт риска для лимита размера документа Firestore (1 МиБ).
+    return tokens.take(200).toList();
   }
 
   /// Create a new advertisement in Firestore (supports optional customId)

@@ -7,6 +7,7 @@ import 'package:iqmarket/models/ad_model.dart';
 import 'package:iqmarket/models/user_model.dart';
 import 'package:iqmarket/providers/app_config_provider.dart';
 import 'package:iqmarket/services/ad_service.dart';
+import 'package:iqmarket/services/search_service.dart';
 import 'package:iqmarket/services/notification_service.dart';
 import 'package:iqmarket/services/chat_service.dart';
 import 'package:iqmarket/services/user_service.dart';
@@ -240,6 +241,36 @@ class _IQMarketHomeState extends State<IQMarketHome> with WidgetsBindingObserver
     try {
       final config = Provider.of<AppConfigProvider>(context, listen: false);
       final String? cityFilter = config.city == 'Все' ? null : config.city;
+      final String trimmedQuery = _searchQuery.trim();
+
+      // Кросс-языковой поиск (SearchService) — только на первой "странице" и
+      // только когда есть текст запроса: сервис сам возвращает готовый
+      // ранжированный список без курсорной пагинации, поэтому вся выдача
+      // уходит одной последней страницей. При любой ошибке — проваливаемся
+      // в старый путь ниже (тот же, что используется для обычного просмотра
+      // ленты без поиска), чтобы поиск никогда не блокировал ленту целиком.
+      if (trimmedQuery.isNotEmpty && pageKey == null && SearchService.enabled) {
+        try {
+          final searchResults = await SearchService.search(
+            query: trimmedQuery,
+            category: _selectedCategory == 'Все' ? null : _selectedCategory,
+            city: cityFilter,
+            limit: 100,
+          );
+          final filtered = searchResults.where((ad) {
+            if (config.blockedUserIds.contains(ad.userId)) return false;
+            if (_minPrice != null && ad.price < _minPrice!) return false;
+            if (_maxPrice != null && ad.price > _maxPrice!) return false;
+            if (_selectedCondition != 'Все' && ad.condition != _selectedCondition) return false;
+            return true;
+          }).toList();
+          _pagingController.appendLastPage(filtered);
+          return;
+        } catch (e, stack) {
+          debugPrint('[HomeScreen] SearchService failed, falling back to legacy search: $e');
+          debugPrint(stack.toString());
+        }
+      }
 
       final result = await AdService.getActiveAdsPaginated(
         startAfter: pageKey,
