@@ -116,7 +116,7 @@ class CategoriesHome extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(13),
               decoration: BoxDecoration(
-                color: isSelected ? const Color(0xFF2563EB) : const Color(0xFFEFF6FF),
+                color: isSelected ? const Color(0xFF2563EB) : const Color(0xFFDBEAFE),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Icon(
