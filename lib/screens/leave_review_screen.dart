@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show MaxLengthEnforcement;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
@@ -31,6 +32,7 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
   double? _uploadProgress;
 
   static const int _maxImages = 5;
+  static const int _maxCommentLength = 300;
 
   // ─── Pick images (multi-select) ───────────────────────────────────────────
   Future<void> _pickImages() async {
@@ -116,6 +118,16 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
     if (_commentCtrl.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(TranslationService.t('err_enter_comment', lang))),
+      );
+      return;
+    }
+
+    // Подстраховка сверх maxLength у TextField — тот блокирует ручной ввод
+    // и вставку, но не защищает от текста, попавшего в контроллер в обход
+    // (программно/будущий рефакторинг). Firestore rules — последний рубеж.
+    if (_commentCtrl.text.trim().length > _maxCommentLength) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(TranslationService.t('err_comment_too_long', lang))),
       );
       return;
     }
@@ -355,6 +367,12 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
             TextField(
               controller: _commentCtrl,
               maxLines: 5,
+              maxLength: _maxCommentLength,
+              // По умолчанию enforcement платформозависим (на некоторых iOS-сборках
+              // не блокирует ввод/вставку сверх лимита, только подсвечивает
+              // счётчик) — задаём явно, чтобы 300 символов было жёстким пределом
+              // везде одинаково.
+              maxLengthEnforcement: MaxLengthEnforcement.enforced,
               decoration: InputDecoration(
                 hintText: TranslationService.t('comment_placeholder', lang),
                 filled: true,
