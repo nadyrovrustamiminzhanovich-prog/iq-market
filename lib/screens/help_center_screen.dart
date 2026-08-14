@@ -214,21 +214,31 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
                       fontSize: 16,
                     ),
                   ),
-                  const SizedBox(height: 3),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        _t('ai_chat_sub'),
-                        style: GoogleFonts.inter(
-                          color: Colors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
+                  const SizedBox(height: 8),
+                  // Отдельная белая "пилюля" — юзер попросил выделить
+                  // "Написать в чат" отдельно белым, не просто белым текстом
+                  // инлайн со строкой заголовка.
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _t('ai_chat_sub'),
+                          style: GoogleFonts.inter(
+                            color: const Color(0xFF1E3A8A),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 3),
-                      const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 14),
-                    ],
+                        const SizedBox(width: 3),
+                        const Icon(Icons.arrow_forward_rounded, color: Color(0xFF1E3A8A), size: 14),
+                      ],
+                    ),
                   ),
                 ],
               ),
