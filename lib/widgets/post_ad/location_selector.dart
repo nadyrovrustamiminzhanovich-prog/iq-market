@@ -76,6 +76,30 @@ class LocationSelector extends StatelessWidget {
   }
 
   void _showOptions(BuildContext context, String lang) {
+    showLocationPicker(
+      context,
+      lang: lang,
+      selectedLocation: selectedLocation,
+      displayCities: displayCities,
+      onLocationSelected: onLocationSelected,
+    );
+  }
+
+  /// Плоский, отсортированный по алфавиту список городов без скрытых
+  /// вложенных районов — тот самый "красивый" пикер с этого экрана.
+  /// Переиспользуется на главном экране и в Личных данных (см.
+  /// home_screen.dart/_showLocationDialog, profile_settings_screen.dart/
+  /// _showLocationDialog) вместо их прежней ручной drill-down навигации по
+  /// KazakhstanLocations.hierarchy — юзер попросил единообразия во всех трёх
+  /// местах.
+  static void showLocationPicker(
+    BuildContext context, {
+    required String lang,
+    required String selectedLocation,
+    required List<String> displayCities,
+    required ValueChanged<String> onLocationSelected,
+    String Function(String)? itemLabelBuilder,
+  }) {
     String searchQuery = "";
     showModalBottomSheet(
       context: context,
@@ -109,7 +133,10 @@ class LocationSelector extends StatelessWidget {
                   child: ListView.builder(
                     itemCount: filtered.length,
                     itemBuilder: (context, i) => ListTile(
-                      title: Text(filtered[i], style: GoogleFonts.inter(fontWeight: FontWeight.w500)),
+                      title: Text(
+                        itemLabelBuilder != null ? itemLabelBuilder(filtered[i]) : filtered[i],
+                        style: GoogleFonts.inter(fontWeight: FontWeight.w500),
+                      ),
                       trailing: selectedLocation == filtered[i] ? const Icon(Icons.check_circle, color: Color(0xFF4A80F0)) : null,
                       onTap: () {
                         onLocationSelected(filtered[i]);
