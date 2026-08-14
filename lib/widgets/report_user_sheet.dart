@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show MaxLengthEnforcement;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -85,6 +86,8 @@ class _ReportUserSheetContent extends StatefulWidget {
 }
 
 class _ReportUserSheetContentState extends State<_ReportUserSheetContent> {
+  static const int _maxCommentLength = 300;
+
   late final TextEditingController _commentCtrl;
   String? _selectedType;
   bool _isLoading = false;
@@ -187,6 +190,8 @@ class _ReportUserSheetContentState extends State<_ReportUserSheetContent> {
             TextField(
               controller: _commentCtrl,
               maxLines: 3,
+              maxLength: _maxCommentLength,
+              maxLengthEnforcement: MaxLengthEnforcement.enforced,
               enabled: !_isLoading,
               style: GoogleFonts.inter(fontSize: 15),
               decoration: InputDecoration(

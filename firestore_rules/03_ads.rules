@@ -1,3 +1,12 @@
+    function isValidAdDescription() {
+      // .size() считает UTF-8 байты, не символы (кириллица/уйгурский — по 2
+      // байта на символ) — лимит в приложении 2000 символов
+      // (post_ad_screen.dart), здесь запас x4, это серверный рубеж от
+      // абьюза в обход клиента, а не копия клиентского лимита.
+      return !request.resource.data.keys().hasAny(['description'])
+        || (request.resource.data.description is string && request.resource.data.description.size() <= 8000);
+    }
+
     match /ads/{adId} {
       allow read: if true;
       allow create: if isSignedIn()
@@ -7,8 +16,10 @@
         && request.resource.data.price is number
         && request.resource.data.price >= 0
         && request.resource.data.title is string
-        && request.resource.data.title.size() > 0;
+        && request.resource.data.title.size() > 0
+        && isValidAdDescription();
       allow update: if isSignedIn()
+        && isValidAdDescription()
         && (
           isAdmin() || (
             isOwner(resource.data.userId)

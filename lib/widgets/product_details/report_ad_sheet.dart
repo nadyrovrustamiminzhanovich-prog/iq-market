@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show MaxLengthEnforcement;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -23,6 +24,8 @@ class ReportAdSheetContent extends StatefulWidget {
 }
 
 class _ReportAdSheetContentState extends State<ReportAdSheetContent> {
+  static const int _maxCommentLength = 300;
+
   late final TextEditingController _commentCtrl;
   String? _selectedType;
   bool _isLoading = false;
@@ -109,6 +112,8 @@ class _ReportAdSheetContentState extends State<ReportAdSheetContent> {
             TextField(
               controller: _commentCtrl,
               maxLines: 3,
+              maxLength: _maxCommentLength,
+              maxLengthEnforcement: MaxLengthEnforcement.enforced,
               enabled: !_isLoading,
               decoration: InputDecoration(
                 hintText: TranslationService.t('report_comment_hint', widget.lang),
