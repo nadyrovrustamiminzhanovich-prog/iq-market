@@ -394,14 +394,6 @@ class _IqSupportScreenState extends State<IqSupportScreen>
                             letterSpacing: 0.3,
                           ),
                         ),
-                        Text(
-                          'IQ GPT',
-                          style: GoogleFonts.inter(
-                            color: Colors.white.withValues(alpha: 0.85),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
                       ],
                     ),
                   ),
