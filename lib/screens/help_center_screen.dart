@@ -174,14 +174,14 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
       ),
       child: Container(
         margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
             colors: [Color(0xFF1E3A8A), Color(0xFF2563EB)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
               color: const Color(0xFF2563EB).withValues(alpha: 0.3),
@@ -193,13 +193,13 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
         child: Row(
           children: [
             Container(
-              width: 40,
-              height: 40,
+              width: 44,
+              height: 44,
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(13),
+                borderRadius: BorderRadius.circular(14),
               ),
-              child: const Icon(Icons.smart_toy_rounded, color: Colors.white, size: 21),
+              child: const Icon(Icons.smart_toy_rounded, color: Colors.white, size: 23),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -211,23 +211,23 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
                     style: GoogleFonts.plusJakartaSans(
                       color: Colors.white,
                       fontWeight: FontWeight.w900,
-                      fontSize: 15,
+                      fontSize: 16,
                     ),
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 3),
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
                         _t('ai_chat_sub'),
                         style: GoogleFonts.inter(
-                          color: Colors.white.withValues(alpha: 0.8),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                       const SizedBox(width: 3),
-                      Icon(Icons.arrow_forward_rounded, color: Colors.white.withValues(alpha: 0.8), size: 13),
+                      const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 14),
                     ],
                   ),
                 ],
