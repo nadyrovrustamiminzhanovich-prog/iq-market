@@ -11,29 +11,33 @@ class ImagePickerSection extends StatelessWidget {
   final List<File> imageFiles;
   final List<String> existingImageUrls;
   final File? videoFile;
+  final String? existingVideoUrl;
   final VoidCallback onPickImages;
   final VoidCallback onPickVideo;
   final Function(int index) onRemoveImage;
   final Function(int index)? onRemoveExistingImage;
   final VoidCallback onRemoveVideo;
+  final VoidCallback? onRemoveExistingVideo;
 
   const ImagePickerSection({
     super.key,
     required this.imageFiles,
     this.existingImageUrls = const [],
     this.videoFile,
+    this.existingVideoUrl,
     required this.onPickImages,
     required this.onPickVideo,
     required this.onRemoveImage,
     this.onRemoveExistingImage,
     required this.onRemoveVideo,
+    this.onRemoveExistingVideo,
   });
 
   @override
   Widget build(BuildContext context) {
     final config = Provider.of<AppConfigProvider>(context);
     final lang = config.language;
-    final bool hasMedia = imageFiles.isNotEmpty || existingImageUrls.isNotEmpty || videoFile != null;
+    final bool hasMedia = imageFiles.isNotEmpty || existingImageUrls.isNotEmpty || videoFile != null || existingVideoUrl != null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -55,7 +59,9 @@ class ImagePickerSection extends StatelessWidget {
               physics: const BouncingScrollPhysics(),
               children: [
                 if (videoFile != null)
-                  _videoPreview(),
+                  _videoPreview(onRemoveVideo)
+                else if (existingVideoUrl != null)
+                  _videoPreview(onRemoveExistingVideo ?? onRemoveVideo),
                 // Existing Network Images
                 ...existingImageUrls.asMap().entries.map<Widget>((entry) => Container(
                   width: 100,
@@ -138,7 +144,7 @@ class ImagePickerSection extends StatelessWidget {
     );
   }
 
-  Widget _videoPreview() {
+  Widget _videoPreview(VoidCallback onRemove) {
     return Container(
       width: 100,
       margin: const EdgeInsets.only(right: 12),
@@ -153,7 +159,7 @@ class ImagePickerSection extends StatelessWidget {
           Positioned(
             top: 4, right: 4,
             child: GestureDetector(
-              onTap: onRemoveVideo,
+              onTap: onRemove,
               child: Container(
                 padding: const EdgeInsets.all(4),
                 decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),

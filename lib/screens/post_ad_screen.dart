@@ -92,6 +92,12 @@ class _PostAdScreenState extends State<PostAdScreen> {
   final List<File> _imageFiles = [];
   List<String> _existingImageUrls = [];
   File? _videoFile;
+  // Видео уже загруженного объявления (URL) — отдельно от _videoFile
+  // (локальный файл нового/только что снятого видео). Раньше при
+  // редактировании это поле не заполнялось вообще: форма не показывала
+  // существующее видео и не давала его удалить, а при сохранении
+  // AdService тихо стирал video_url в Firestore, считая, что видео нет.
+  String? _existingVideoUrl;
   final ImagePicker _picker = ImagePicker();
 
   // Car specifics
@@ -173,6 +179,7 @@ class _PostAdScreenState extends State<PostAdScreen> {
     _canExchange = ad.canExchange;
     _hasDelivery = ad.hasDelivery;
     _existingImageUrls = List<String>.from(ad.images);
+    _existingVideoUrl = ad.videoUrl;
     if (ad.userPhone != null && ad.userPhone!.isNotEmpty) {
       final digits = ad.userPhone!.replaceAll(RegExp(r'\D'), '');
       String localDigits = digits;
@@ -272,11 +279,13 @@ class _PostAdScreenState extends State<PostAdScreen> {
                     imageFiles: _imageFiles,
                     existingImageUrls: _existingImageUrls,
                     videoFile: _videoFile,
+                    existingVideoUrl: _existingVideoUrl,
                     onPickImages: _isLoading ? () {} : () => _pickMedia(false),
                     onPickVideo: _isLoading ? () {} : () => _pickMedia(true),
                     onRemoveImage: (i) => setState(() { _imageFiles.removeAt(i); _saveDraft(); }),
                     onRemoveExistingImage: (i) => setState(() { _existingImageUrls.removeAt(i); }),
                     onRemoveVideo: () => setState(() { _videoFile = null; _saveDraft(); }),
+                    onRemoveExistingVideo: () => setState(() { _existingVideoUrl = null; }),
                   ),
                   const SizedBox(height: 30),
                   CategorySelector(
@@ -627,7 +636,7 @@ class _PostAdScreenState extends State<PostAdScreen> {
               videoFile: File(file.path),
               onSave: (path) {
                 if (mounted) {
-                  setState(() { _videoFile = File(path); _saveDraft(); });
+                  setState(() { _videoFile = File(path); _existingVideoUrl = null; _saveDraft(); });
                 }
               }
             )));
@@ -823,6 +832,7 @@ class _PostAdScreenState extends State<PostAdScreen> {
         images: _imageFiles,
         existingImages: _existingImageUrls,
         video: _videoFile,
+        existingVideoUrl: _existingVideoUrl,
         condition: _condition,
         bargain: _bargainAvailable,
         exchange: _canExchange,
@@ -989,7 +999,7 @@ class _PostAdScreenState extends State<PostAdScreen> {
       price: double.tryParse(priceClean) ?? 0.0, 
       category: _selectedCategory, 
       images: _imageFiles.map((f)=>f.path).toList(),
-      videoUrl: _videoFile?.path,
+      videoUrl: _videoFile?.path ?? _existingVideoUrl,
       userId: '__preview_user__', userName: 'Вы', userEmail: '', timestamp: DateTime.now(), location: _selectedLocation,
       userPhone: _phoneController.text,
     );

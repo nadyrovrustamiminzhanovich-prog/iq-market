@@ -36,6 +36,7 @@ class AdService {
     required List<File> images,
     List<String>? existingImages,
     File? video,
+    String? existingVideoUrl,
     String? condition,
     bool bargain = false,
     bool exchange = false,
@@ -276,6 +277,14 @@ class AdService {
             debugPrint('[AdService] Failed to generate video thumbnail: $e');
           }
         }
+      } else {
+        // Редактирование без нового видео: PostAdScreen передаёт
+        // existingVideoUrl = null явно, только если пользователь сам нажал
+        // "удалить видео" — иначе там всегда исходный ad.videoUrl. Без этой
+        // ветки любое редактирование объявления (даже правки одной цены)
+        // молча стирало video_url в Firestore, потому что update() пишет
+        // null как реальное значение поля, а не "не трогать".
+        videoUrl = existingVideoUrl;
       }
 
       // 4. Подготовка данных и вызов Серверной верификации отпечатков
@@ -374,6 +383,15 @@ class AdService {
               existingViews = existingData['views'] ?? 0;
               existingFavorites = existingData['favorites'] ?? 0;
               wasAdminRejected = existingData['status'] == 'rejected';
+              // Длительность видео-бейджа тоже приходит только при новой
+              // загрузке видео — при сохранении без нового видео берём
+              // сохранённое значение, иначе бейдж "0:14" на карточке в ленте
+              // пропал бы вместе с (ошибочно обнуляемым) video_url.
+              if (video == null) {
+                videoDurationSeconds = existingData['videoDurationSeconds'] is int
+                    ? existingData['videoDurationSeconds'] as int
+                    : null;
+              }
             }
           }
         } catch (e) {
