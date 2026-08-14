@@ -357,6 +357,54 @@ class _AdminUserCardScreenState extends State<AdminUserCardScreen> {
     }
   }
 
+  // Открыть карточку другого пользователя (автор/получатель отзыва,
+  // отправитель/нарушитель жалобы) — тем же экраном, обычный push,
+  // рекурсия по клику вглубь предусмотрена намеренно (юзер попросил
+  // прозрачность: от отзыва/жалобы дойти до любого причастного профиля).
+  void _openUserCard(String uid) {
+    final trimmed = uid.trim();
+    if (trimmed.isEmpty || trimmed == 'anonymous' || trimmed == widget.uid) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => AdminUserCardScreen(uid: trimmed)),
+    );
+  }
+
+  Widget _linkChip({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: color.withValues(alpha: 0.25)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: color),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                label,
+                style: GoogleFonts.inter(fontSize: 11.5, fontWeight: FontWeight.bold, color: color),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _editUserPhoneDialog(String currentPhone) {
     final cleanPhone = currentPhone.contains('(') ? currentPhone.split('(')[0].trim() : (currentPhone == 'Не указан' ? '' : currentPhone);
     final phoneController = TextEditingController(text: cleanPhone);
@@ -897,6 +945,8 @@ class _AdminUserCardScreenState extends State<AdminUserCardScreen> {
                   rating: rev['rating'],
                   adId: rev['adId']?.toString(),
                   adTitle: adTitle,
+                  otherUserId: rev['fromUserId']?.toString(),
+                  otherUserLabel: 'Профиль автора отзыва',
                   colorScheme: colorScheme,
                 );
               }).toList(),
@@ -918,6 +968,8 @@ class _AdminUserCardScreenState extends State<AdminUserCardScreen> {
                   rating: rev['rating'],
                   adId: rev['adId']?.toString(),
                   adTitle: adTitle,
+                  otherUserId: rev['toUserId']?.toString(),
+                  otherUserLabel: 'Профиль получателя отзыва',
                   colorScheme: colorScheme,
                 );
               }).toList(),
@@ -935,8 +987,13 @@ class _AdminUserCardScreenState extends State<AdminUserCardScreen> {
     required ColorScheme colorScheme,
     String? adId,
     String? adTitle,
+    String? otherUserId,
+    String otherUserLabel = 'Профиль пользователя',
   }) {
     final validAdId = (adId != null && adId.trim().isNotEmpty) ? adId.trim() : null;
+    final validOtherUserId = (otherUserId != null && otherUserId.trim().isNotEmpty && otherUserId != 'anonymous' && otherUserId != widget.uid)
+        ? otherUserId.trim()
+        : null;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -967,34 +1024,27 @@ class _AdminUserCardScreenState extends State<AdminUserCardScreen> {
             const SizedBox(height: 4),
             Text(comment, style: GoogleFonts.inter(fontSize: 12.5, color: Colors.grey[800], height: 1.3)),
           ],
-          if (validAdId != null) ...[
+          if (validAdId != null || validOtherUserId != null) ...[
             const SizedBox(height: 8),
-            InkWell(
-              onTap: () => _openAdDetails(validAdId),
-              borderRadius: BorderRadius.circular(8),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: colorScheme.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: colorScheme.primary.withValues(alpha: 0.25)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(PhosphorIcons.arrowSquareOut(), size: 14, color: colorScheme.primary),
-                    const SizedBox(width: 6),
-                    Flexible(
-                      child: Text(
-                        'Посмотреть объявление${adTitle != null && adTitle.isNotEmpty ? " «$adTitle»" : ""}',
-                        style: GoogleFonts.inter(fontSize: 11.5, fontWeight: FontWeight.bold, color: colorScheme.primary),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                if (validAdId != null)
+                  _linkChip(
+                    icon: PhosphorIcons.arrowSquareOut(),
+                    label: 'Посмотреть объявление${adTitle != null && adTitle.isNotEmpty ? " «$adTitle»" : ""}',
+                    color: colorScheme.primary,
+                    onTap: () => _openAdDetails(validAdId),
+                  ),
+                if (validOtherUserId != null)
+                  _linkChip(
+                    icon: PhosphorIcons.userCircle(),
+                    label: otherUserLabel,
+                    color: colorScheme.primary,
+                    onTap: () => _openUserCard(validOtherUserId),
+                  ),
+              ],
             ),
           ],
         ],
@@ -1028,6 +1078,8 @@ class _AdminUserCardScreenState extends State<AdminUserCardScreen> {
                   dateIso: rep['timestamp'],
                   adId: rep['adId']?.toString(),
                   subText: 'Отправил (UID): ${rep['reporterUserId']}',
+                  otherUserId: rep['reporterUserId']?.toString(),
+                  otherUserLabel: 'Профиль автора жалобы',
                   colorScheme: colorScheme,
                 );
               }).toList(),
@@ -1047,6 +1099,8 @@ class _AdminUserCardScreenState extends State<AdminUserCardScreen> {
                   dateIso: rep['timestamp'],
                   adId: rep['adId']?.toString(),
                   subText: 'Нарушитель (UID): ${rep['reportedUserId']}',
+                  otherUserId: rep['reportedUserId']?.toString(),
+                  otherUserLabel: 'Профиль нарушителя',
                   colorScheme: colorScheme,
                 );
               }).toList(),
@@ -1064,7 +1118,14 @@ class _AdminUserCardScreenState extends State<AdminUserCardScreen> {
     required String subText,
     required ColorScheme colorScheme,
     String? adId,
+    String? otherUserId,
+    String otherUserLabel = 'Профиль пользователя',
   }) {
+    final validAdId = (adId != null && adId.trim().isNotEmpty) ? adId.trim() : null;
+    final validOtherUserId = (otherUserId != null && otherUserId.trim().isNotEmpty && otherUserId != 'anonymous' && otherUserId != widget.uid)
+        ? otherUserId.trim()
+        : null;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
@@ -1103,30 +1164,27 @@ class _AdminUserCardScreenState extends State<AdminUserCardScreen> {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
-          if (adId != null && adId.trim().isNotEmpty) ...[
+          if (validAdId != null || validOtherUserId != null) ...[
             const SizedBox(height: 8),
-            InkWell(
-              onTap: () => _openAdDetails(adId),
-              borderRadius: BorderRadius.circular(8),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: Colors.red.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.red.withValues(alpha: 0.2)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(PhosphorIcons.arrowSquareOut(), size: 14, color: Colors.red[700]),
-                    const SizedBox(width: 6),
-                    Text(
-                      'Посмотреть объявление',
-                      style: GoogleFonts.inter(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.red[700]),
-                    ),
-                  ],
-                ),
-              ),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                if (validAdId != null)
+                  _linkChip(
+                    icon: PhosphorIcons.arrowSquareOut(),
+                    label: 'Посмотреть объявление',
+                    color: Colors.red[700]!,
+                    onTap: () => _openAdDetails(validAdId),
+                  ),
+                if (validOtherUserId != null)
+                  _linkChip(
+                    icon: PhosphorIcons.userCircle(),
+                    label: otherUserLabel,
+                    color: Colors.red[700]!,
+                    onTap: () => _openUserCard(validOtherUserId),
+                  ),
+              ],
             ),
           ],
         ],
