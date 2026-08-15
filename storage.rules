@@ -34,17 +34,21 @@ service firebase.storage {
 
 
     // Личные голосовые сообщения вне chats
+    // 🔒 contentType обязателен: без него можно было залить файл любого типа
+    // под видом голосового (клиент всегда шлёт .m4a → audio/mp4, см. file_service.dart).
     match /voice_messages/{chatId}/{allPaths=**} {
       allow read: if isSignedIn() && (isChatParticipant(chatId) || isAdmin());
       allow write: if isSignedIn() && isChatParticipant(chatId)
-                   && (request.resource == null || request.resource.size < 5 * 1024 * 1024);
+                   && (request.resource == null || (request.resource.size < 5 * 1024 * 1024 && request.resource.contentType.matches('audio/.*')));
     }
 
     // Чат медиа (если сохраняются вне chats)
+    // 🔒 contentType обязателен: клиент шлёт сюда только фото (.jpg → image/jpeg,
+    // chat_screen.dart _uploadImageWithRetry), видео в чате не отправляются.
     match /chat_media/{chatId}/{allPaths=**} {
       allow read: if isSignedIn() && (isChatParticipant(chatId) || isAdmin());
       allow write: if isSignedIn() && isChatParticipant(chatId)
-                   && (request.resource == null || request.resource.size < 20 * 1024 * 1024);
+                   && (request.resource == null || (request.resource.size < 20 * 1024 * 1024 && request.resource.contentType.matches('image/.*')));
     }
 
     // Верификационные документы водителя

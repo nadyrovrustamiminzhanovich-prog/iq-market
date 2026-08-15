@@ -256,6 +256,15 @@ describe("storage: chat_media/{chatId}/", () => {
     const storageRef = ref(userStorage(uid1), `chat_media/${chatId}/big.jpg`);
     await assertFails(uploadBytes(storageRef, BIG, IMAGE_META));
   });
+
+  // 🔒 Регрессия на находку аудита: contentType раньше вообще не проверялся —
+  // под видом фото в чат можно было залить файл любого типа.
+  test("участник НЕ может загрузить файл не-image/* под видом фото в чат", async () => {
+    const storageRef = ref(userStorage(uid1), `chat_media/${chatId}/fake.jpg`);
+    await assertFails(
+      uploadBytes(storageRef, SMALL_IMAGE, { contentType: "application/octet-stream" })
+    );
+  });
 });
 
 // ──────────────────────────────────────────
@@ -315,6 +324,15 @@ describe("storage: voice_messages/{chatId}/", () => {
   test("участник НЕ может загрузить голосовое сообщение > 5MB", async () => {
     const storageRef = ref(userStorage(uid1), `voice_messages/${chatId}/over_5mb.ogg`);
     await assertFails(uploadBytes(storageRef, LARGE_IMAGE, { contentType: "audio/ogg" }));
+  });
+
+  // 🔒 Регрессия на находку аудита: contentType раньше вообще не проверялся —
+  // под видом голосового сообщения можно было залить файл любого типа.
+  test("участник НЕ может загрузить файл не-audio/* под видом голосового", async () => {
+    const storageRef = ref(userStorage(uid1), `voice_messages/${chatId}/fake.jpg`);
+    await assertFails(
+      uploadBytes(storageRef, SMALL_IMAGE, { contentType: "image/jpeg" })
+    );
   });
 
   test("посторонний НЕ может загрузить голосовое сообщение в чужой чат", async () => {
