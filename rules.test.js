@@ -258,6 +258,44 @@ describe("users", () => {
     );
   });
 
+  // Без этих проверок модифицированный клиент мог родить новый аккаунт сразу
+  // с накрученной репутацией (rating/reviewsCount на create не проверялись).
+  test("создание аккаунта со стартовым рейтингом 5.0/0 отзывов — разрешено", async () => {
+    await assertSucceeds(
+      setDoc(doc(userDb("user_new_signup"), "users", "user_new_signup"), {
+        uid: "user_new_signup",
+        name: "New User",
+        accountType: "user",
+        status: "active",
+        reviewsCount: 0,
+        rating: 5.0,
+      })
+    );
+  });
+
+  test("создание аккаунта с накрученным рейтингом — запрещено", async () => {
+    await assertFails(
+      setDoc(doc(userDb("user_faker"), "users", "user_faker"), {
+        uid: "user_faker",
+        name: "Faker",
+        accountType: "user",
+        status: "active",
+        reviewsCount: 500,
+        rating: 4.9,
+      })
+    );
+  });
+
+  test("создание аккаунта вообще без rating/reviewsCount — разрешено", async () => {
+    await assertSucceeds(
+      setDoc(doc(userDb("user_minimal"), "users", "user_minimal"), {
+        uid: "user_minimal",
+        name: "Minimal User",
+        status: "active",
+      })
+    );
+  });
+
   // ── Где физически живёт телефон ──────────────────────────────────────────
   // Контактные поля закрыты для основного документа и лежат в
   // users/{uid}/private/contact. Пока этого теста не было, экран «Личные
@@ -1727,6 +1765,63 @@ describe("ads stats and viewLogs", () => {
 // ТЕСТЫ: забаненный пользователь (users/{uid}.status == 'banned')
 // не может создавать новый контент — объявления/чаты/сообщения/отзывы
 // ──────────────────────────────────────────
+// ──────────────────────────────────────────
+// ТЕСТЫ: tg_auth_sessions — read доступ
+// ──────────────────────────────────────────
+describe("tg_auth_sessions", () => {
+  test("сессия С initiatorUid — читает только сам инициатор", async () => {
+    await adminSet("tg_auth_sessions/session_linked", {
+      created_at: new Date(),
+      verified: false,
+      chat_id: null,
+      otp: null,
+      initiatorUid: "user_linker",
+    });
+    await assertSucceeds(getDoc(doc(userDb("user_linker"), "tg_auth_sessions", "session_linked")));
+    await assertFails(getDoc(doc(userDb("user_stranger"), "tg_auth_sessions", "session_linked")));
+    await assertFails(getDoc(doc(anonDb(), "tg_auth_sessions", "session_linked")));
+  });
+
+  test("сессия БЕЗ initiatorUid (свежий вход, пользователь ещё не залогинен) — читает кто угодно по id, как раньше", async () => {
+    await adminSet("tg_auth_sessions/session_fresh_login", {
+      created_at: new Date(),
+      verified: false,
+      chat_id: null,
+      otp: null,
+    });
+    await assertSucceeds(getDoc(doc(anonDb(), "tg_auth_sessions", "session_fresh_login")));
+  });
+
+  test("список сессий по-прежнему запрещён", async () => {
+    await assertFails(getDocs(collection(userDb("user_linker"), "tg_auth_sessions")));
+  });
+});
+
+// ──────────────────────────────────────────
+// ТЕСТЫ: reports — анонимные жалобы больше не проходят
+// ──────────────────────────────────────────
+describe("reports", () => {
+  test("анонимная жалоба (reporterUserId: 'anonymous') — запрещена", async () => {
+    await assertFails(
+      setDoc(doc(anonDb(), "reports", "report_anon"), {
+        reporterUserId: "anonymous",
+        userId: "some_seller",
+        reason: "spam",
+      })
+    );
+  });
+
+  test("жалоба от вошедшего пользователя — разрешена", async () => {
+    await assertSucceeds(
+      setDoc(doc(userDb("user_reporter"), "reports", "report_real"), {
+        reporterUserId: "user_reporter",
+        userId: "some_seller",
+        reason: "spam",
+      })
+    );
+  });
+});
+
 describe("banned users are blocked from creating new content", () => {
   const bannedUid = "user_banned";
   const activeUid = "user_active";
@@ -1749,6 +1844,24 @@ describe("banned users are blocked from creating new content", () => {
     });
     await adminSet(`chats/${chatId}`, { users: [bannedUid, otherUid].sort() });
     await adminSet(`chats/${activeChatId}`, { users: [activeUid, otherUid].sort() });
+    await adminSet(`ads/ad_owned_by_banned`, {
+      title: "Owned by banned",
+      price: 500,
+      userId: bannedUid,
+      status: "active",
+      timestamp: new Date(),
+    });
+    await adminSet(`reviews/review_by_banned_existing`, {
+      fromUserId: bannedUid,
+      toUserId: sellerUid,
+      rating: 4,
+    });
+    await adminSet(`chats/${chatId}/messages/msg_existing_by_banned`, {
+      senderId: bannedUid,
+      text: "old message",
+      type: "text",
+      isRead: false,
+    });
   });
 
   test("забаненный пользователь НЕ может создать объявление", async () => {
@@ -1827,6 +1940,40 @@ describe("banned users are blocked from creating new content", () => {
         text: "Привет",
         type: "text",
         isRead: false,
+      })
+    );
+  });
+
+  // Бан раньше блокировал только create — update этих же коллекций
+  // isBanned() не проверял, нарушитель продолжал редактировать старое.
+  test("забаненный пользователь НЕ может отредактировать своё старое объявление", async () => {
+    await assertFails(
+      updateDoc(doc(userDb(bannedUid), "ads", "ad_owned_by_banned"), {
+        title: "Edited by banned",
+      })
+    );
+  });
+
+  test("забаненный пользователь НЕ может отредактировать свой старый отзыв", async () => {
+    await assertFails(
+      updateDoc(doc(userDb(bannedUid), "reviews", "review_by_banned_existing"), {
+        rating: 1,
+      })
+    );
+  });
+
+  test("забаненный пользователь НЕ может отредактировать своё старое сообщение", async () => {
+    await assertFails(
+      updateDoc(doc(userDb(bannedUid), `chats/${chatId}/messages`, "msg_existing_by_banned"), {
+        text: "edited",
+      })
+    );
+  });
+
+  test("собеседник забаненного всё ещё МОЖЕТ пометить его сообщение прочитанным (ветка read-receipt не задета)", async () => {
+    await assertSucceeds(
+      updateDoc(doc(userDb(otherUid), `chats/${chatId}/messages`, "msg_existing_by_banned"), {
+        isRead: true,
       })
     );
   });

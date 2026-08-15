@@ -9,8 +9,12 @@
     match /reports/{reportId} {
       allow get: if isSignedIn() && (resource == null || resource.data.reporterUserId == request.auth.uid || resource.data.userId == request.auth.uid || isAdmin());
       allow list: if isSignedIn() && isAdmin();
-      allow create: if ((isSignedIn() && (request.resource.data.reporterUserId == request.auth.uid || request.resource.data.userId == request.auth.uid))
-        || (!isSignedIn() && (request.resource.data.reporterUserId == 'anonymous' || request.resource.data.userId == 'anonymous')))
+      // Анонимная ветка убрана: UI (report_ad_sheet.dart/report_user_sheet.dart)
+      // всегда показывает auth-гейт перед открытием шторки жалобы — 'anonymous'
+      // в reporterUserId/userId там только defensive-фолбэк на случай null
+      // currentUser, который на практике недостижим. Правило было шире, чем
+      // нужно реальному клиенту.
+      allow create: if isSignedIn() && (request.resource.data.reporterUserId == request.auth.uid || request.resource.data.userId == request.auth.uid)
         && isValidReportComment();
       allow update, delete: if isSignedIn() && isAdmin();
     }

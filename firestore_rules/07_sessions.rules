@@ -1,7 +1,17 @@
     // Правила для Telegram Auth Сессий (X10 Security)
     match /tg_auth_sessions/{sessionId} {
       allow create: if request.resource.data.keys().hasOnly(['created_at', 'verified', 'chat_id', 'otp', 'phone', 'initiatorUid']) && request.resource.data.verified == false && request.resource.data.otp == null;
-      allow get: if true; 
+      // Публичный get изначально был "if true" целиком — сессия попутно несёт
+      // otp/chat_id (сервер дописывает их Admin SDK уже после create, где
+      // otp==null форсирован; update:false этого не ловит). Токен-id сам по
+      // себе криптослучаен (24 alnum-символа) и list:false запрещён — но там,
+      // где известен initiatorUid (пользователь уже был залогинен и линкует
+      // Телеграм из настроек/анкеты водителя — 3 из 4 мест старта сессии),
+      // сужаем чтение до самого инициатора. Свежий вход через Телеграм
+      // (login_screen.dart, пользователь ещё НЕ залогинен) initiatorUid не
+      // пишет вообще — для него get остаётся открытым, т.к. проверять
+      // read-доступ по auth.uid тут физически не по чему.
+      allow get: if !resource.data.keys().hasAny(['initiatorUid']) || (isSignedIn() && request.auth.uid == resource.data.initiatorUid);
       allow list: if false; 
       allow update: if false; 
       allow delete: if isSignedIn() && (request.auth.uid == resource.data.initiatorUid || isAdmin());
