@@ -128,6 +128,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _cleanupOrphanedVoiceTempFiles();
     // Слушаем контроллер напрямую, а не только TextField.onChanged — так
     // _hasText остаётся верным и при программных изменениях текста (вставка
     // эмодзи, автоподстановка текста торга через onWriteOffer, _msgController.clear()
@@ -667,6 +668,37 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       }
     }
     return false;
+  }
+
+  /// Best-effort уборка временных голосовых файлов прошлых сессий.
+  /// voice_*.m4a пишутся в getTemporaryDirectory() при записи (см. выше), а
+  /// путь к ним живёт только в _localAudioPaths ЭТОГО экрана — если аплоад
+  /// так и не завершился (например, приложение закрыли/сбоило) и экран
+  /// пересоздался, путь теряется навсегда, а файл остаётся на диске. Метём
+  /// только явно старые файлы (>1ч) — с большим запасом дольше самого
+  /// долгого возможного цикла аплоад+ретраи (90с таймаут + ~10с ретраев
+  /// прикрепления), чтобы не задеть файл, который прямо сейчас легитимно
+  /// ещё грузится в этой же сессии.
+  Future<void> _cleanupOrphanedVoiceTempFiles() async {
+    try {
+      final dir = await getTemporaryDirectory();
+      final cutoff = DateTime.now().subtract(const Duration(hours: 1));
+      await for (final entity in dir.list()) {
+        if (entity is! File) continue;
+        final name = entity.path.split(Platform.pathSeparator).last;
+        if (!name.startsWith('voice_') || !name.endsWith('.m4a')) continue;
+        try {
+          final stat = await entity.stat();
+          if (stat.modified.isBefore(cutoff)) {
+            await entity.delete();
+          }
+        } catch (e) {
+          debugPrint('[CHAT_SCREEN] Could not remove stale voice temp file ${entity.path}: $e');
+        }
+      }
+    } catch (e) {
+      debugPrint('[CHAT_SCREEN] Voice temp cleanup skipped: $e');
+    }
   }
 
   /// Best-effort персистентная отметка о провале аплоада — если и эта запись
