@@ -240,7 +240,7 @@ class _ProductCardState extends State<ProductCard> with SingleTickerProviderStat
                             if (FirebaseAuth.instance.currentUser == null) {
                               await AuthGateBottomSheet.show(
                                 context,
-                                message: 'Чтобы сохранить это объявление в избранное, необходимо войти в свой профиль. Это займет всего пару секунд!',
+                                message: TranslationService.t('auth_favorites_prompt', lang),
                               );
                             } else {
                               widget.onToggleFavorite();
