@@ -23,6 +23,9 @@
         && (
           isAdmin() || (
             isOwner(resource.data.userId)
+            // Бан блокировал только create — забаненный владелец мог по-прежнему
+            // редактировать/переиздавать/архивировать уже существующие объявления.
+            && !isBanned()
             && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['userId', 'views', 'favorites'])
             // 'pending' обязан быть в списке: ad_service.dart переиздаёт
             // РЕДАКТИРОВАНИЕ существующего объявления через update(), а не

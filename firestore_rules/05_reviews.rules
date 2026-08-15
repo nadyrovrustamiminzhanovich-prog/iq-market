@@ -19,7 +19,9 @@
         && request.resource.data.rating >= 1
         && request.resource.data.rating <= 5
         && isValidReviewComment();
-      allow update: if isSignedIn() && isOwner(resource.data.fromUserId) && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['fromUserId', 'toUserId']))
+      // !isBanned() — тот же класс бага, что и в 03_ads.rules: бан блокировал
+      // только create нового отзыва, не редактирование уже оставленного.
+      allow update: if isSignedIn() && isOwner(resource.data.fromUserId) && !isBanned() && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['fromUserId', 'toUserId']))
         && isValidReviewComment();
       allow delete: if isSignedIn() && (isOwner(resource.data.fromUserId) || isAdmin());
     }

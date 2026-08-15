@@ -62,6 +62,12 @@
           //    фото (вечный спиннер без единого шанса на повтор).
           (
             request.auth.uid == resource.data.senderId
+            // Бан блокировал только create нового сообщения — забаненный
+            // отправитель мог по-прежнему редактировать уже отправленные
+            // (например, дописать mediaUrl/текст). Остальные 3 ветки update
+            // (отмена своего оффера, чужие read-receipt, «удалить у меня»)
+            // сознательно НЕ гейтятся банном — это не публикация контента.
+            && !isBanned()
             && resource.data.get('type', 'text') != 'offer'
             && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['senderId', 'timestamp', 'type', 'deletedFor', 'isRead', 'isDelivered', 'readAt'])
           ) ||
