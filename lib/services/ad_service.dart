@@ -368,6 +368,8 @@ class AdService {
       int existingViews = 0;
       int existingFavorites = 0;
       bool wasAdminRejected = false;
+      List<String> oldImageUrlsForCleanup = [];
+      String? oldVideoUrlForCleanup;
 
       if (initialAdId != null) {
         try {
@@ -375,6 +377,11 @@ class AdService {
           if (existingAdDoc.exists) {
             final existingData = existingAdDoc.data() as Map<String, dynamic>?;
             if (existingData != null) {
+              final rawOldImages = existingData['images'];
+              if (rawOldImages is List) {
+                oldImageUrlsForCleanup = rawOldImages.whereType<String>().toList();
+              }
+              oldVideoUrlForCleanup = existingData['videoUrl'] as String?;
               if (existingData.containsKey('userId')) finalUserId = existingData['userId'];
               if (existingData.containsKey('userName')) finalUserName = existingData['userName'] ?? finalUserName;
               if (existingData.containsKey('userEmail')) finalUserEmail = existingData['userEmail'] ?? finalUserEmail;
@@ -472,6 +479,25 @@ class AdService {
       if (onStatusUpdate != null) onStatusUpdate('Сохранение...');
       if (initialAdId != null) {
         await updateAd(initialAdId, adModel.toMap());
+        // Best-effort уборка файлов, которые реально ушли из объявления при
+        // этой правке (убрали фото / заменили или удалили видео) — раньше
+        // очистка была только при полном удалении объявления (deleteAd), а
+        // при обычном редактировании старые файлы просто оставались в
+        // Storage навсегда. Обязательно ПОСЛЕ успешного updateAd(): если
+        // сначала удалить файлы, а потом запись в Firestore упадёт,
+        // объявление осталось бы ссылаться на уже несуществующие файлы —
+        // тот же класс риска, что и в eb85596/6ce8801, только в обратную
+        // сторону (там рано теряли ссылку, тут рано потеряли бы сам файл).
+        final keptImages = adModel.images.toSet();
+        final orphanedImages = oldImageUrlsForCleanup.where((u) => !keptImages.contains(u)).toList();
+        if (orphanedImages.isNotEmpty) {
+          FileService.deleteMultipleFiles(orphanedImages);
+        }
+        if (oldVideoUrlForCleanup != null &&
+            oldVideoUrlForCleanup.isNotEmpty &&
+            oldVideoUrlForCleanup != adModel.videoUrl) {
+          FileService.deleteFile(oldVideoUrlForCleanup);
+        }
       } else {
         await createAd(adModel, customId: savedAdId);
       }
