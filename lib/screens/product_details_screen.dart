@@ -67,6 +67,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> with Widget
   UserModel? _seller;
   UserModel? _currentUser;
   AdModel? _updatedAd;
+  bool _isDeleted = false;
   bool _didSubscribeRouteObserver = false;
   // late final, а не вызов ReviewService.getAdReviewsStream() прямо в build():
   // тот возвращает НОВЫЙ Stream на каждый вызов (не мемоизирован), а этот экран
@@ -260,6 +261,14 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> with Widget
       }
       setState(() {
         _updatedAd = freshAd;
+      });
+    } else if (freshAd == null && mounted) {
+      // Документ объявления больше не существует (например, удалено
+      // админом, пока владелец был на экране редактирования) — раньше это
+      // молча игнорировалось: экран оставался на устаревших данных с
+      // рабочими на вид кнопками/иконками редактирования.
+      setState(() {
+        _isDeleted = true;
       });
     }
   }
@@ -475,7 +484,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> with Widget
                       const SizedBox(width: 8),
                       _favoriteButton(),
                     ],
-                    if (_currentUser?.accountType == 'admin' || ad.userId == UserService.currentUid) ...[
+                    if ((_currentUser?.accountType == 'admin' || ad.userId == UserService.currentUid) && !_isDeleted) ...[
                       const SizedBox(width: 8),
                       _circleButton(Icons.edit_outlined, () async {
                         await Navigator.push(context, MaterialPageRoute(builder: (ctx) => PostAdScreen(lang: widget.lang, initialAd: ad)));
@@ -1244,6 +1253,57 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> with Widget
   Widget _tagChip({required String label}) => Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(10)), child: Text(label, style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: const Color(0xFF475569))));
   Widget _buildBottomBar() {
     final ad = _updatedAd ?? widget.ad;
+
+    // Объявление удалено (см. _refreshAd) — показываем это явно вместо того,
+    // чтобы молча оставлять на экране устаревшие данные с рабочими на вид
+    // кнопками. Показываем даже владельцу — обычная панель для него и так
+    // скрыта, но здесь ему важно узнать, что объявления больше нет.
+    if (_isDeleted) {
+      final removedLabel = widget.lang == 'Қазақша'
+          ? 'Хабарландыру жойылған'
+          : widget.lang == 'Уйғурчә'
+              ? 'Елан өчүрүлгән'
+              : 'Объявление удалено';
+      final removedDesc = widget.lang == 'Қазақша'
+          ? 'Бұл хабарландыру енді қолжетімді емес'
+          : widget.lang == 'Уйғурчә'
+              ? 'Бу елан әнди мәвҗут әмәс'
+              : 'Оно больше недоступно';
+      return Container(
+        padding: EdgeInsets.fromLTRB(
+          16, 12, 16,
+          MediaQuery.of(context).padding.bottom > 0 ? MediaQuery.of(context).padding.bottom : 12,
+        ),
+        decoration: const BoxDecoration(
+          color: Color(0xFFFEF2F2),
+          boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 20, offset: Offset(0, -5))],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: const Color(0xFFEF4444).withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.delete_outline_rounded, color: Color(0xFFEF4444), size: 22),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(removedLabel, style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w800, color: const Color(0xFFB91C1C))),
+                  Text(removedDesc, style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500, color: const Color(0xFFDC2626))),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
     // Своё объявление — без панели
     if (UserService.currentUid == ad.userId) return const SizedBox.shrink();
