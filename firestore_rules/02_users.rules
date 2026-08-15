@@ -4,6 +4,13 @@
       allow create: if isSignedIn() && request.auth.uid == userId
         && !request.resource.data.keys().hasAny(['phone', 'email', 'telegram_chat_id', 'telegramChatId'])
         && (!request.resource.data.keys().hasAny(['accountType']) || request.resource.data.accountType in ['user', 'driver'])
+        // 🔒 rating/reviewsCount на создании — без этого модифицированный
+        // клиент мог родить аккаунт сразу с накрученной репутацией
+        // (например rating: 4.9, reviewsCount: 500). Разрешены только
+        // стартовые значения, которыми UserService.syncUserAfterLogin и так
+        // всегда создаёт новый профиль (rating: 5.0, reviewsCount: 0).
+        && (!request.resource.data.keys().hasAny(['rating']) || request.resource.data.rating == 5.0)
+        && (!request.resource.data.keys().hasAny(['reviewsCount']) || request.resource.data.reviewsCount == 0)
         && (!request.resource.data.keys().hasAny(['isVerified']) || request.resource.data.isVerified == false || (request.auth.uid.size() >= 9 && request.auth.uid[0:9] == 'telegram_'))
         // 🔒 isTelegramVerified/verified_phone на создании — тот же принцип, что
         // и isVerified выше: без этого ЛЮБОЙ новый аккаунт мог сразу родиться
