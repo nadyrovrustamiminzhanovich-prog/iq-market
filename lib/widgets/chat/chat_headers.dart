@@ -15,7 +15,7 @@ import 'package:iqmarket/widgets/report_user_sheet.dart';
 import 'package:iqmarket/providers/taxi_provider.dart';
 import 'package:iqmarket/features/taxi/presentation/widgets/ui/call_agreement_dialog.dart';
 
-class ChatGlassHeader extends StatelessWidget {
+class ChatGlassHeader extends StatefulWidget {
   final AdModel ad;
   final String? sellerAvatarUrl;
   final bool isTyping;
@@ -36,6 +36,22 @@ class ChatGlassHeader extends StatelessWidget {
   });
 
   @override
+  State<ChatGlassHeader> createState() => _ChatGlassHeaderState();
+}
+
+class _ChatGlassHeaderState extends State<ChatGlassHeader> {
+  // Мемоизировано на весь жизненный цикл виджета. ChatService.
+  // getTypingStatusStream() создаёт НОВЫЙ Firestore-listener + Timer.periodic
+  // при каждом вызове (см. chat_service.dart, там своего кэша нет) — раньше
+  // вызов стоял прямо в stream: StreamBuilder внутри build(), а build() этого
+  // заголовка перестраивался на каждый setState родителя ChatScreen (тик
+  // таймера записи голосового, позиция аудио, обновление _activeUploads и
+  // т.д. — за время активного чата таких setState множество). Каждый такой
+  // rebuild гасил и открывал заново listener+таймер — лишняя нагрузка,
+  // особенно заметная на слабых устройствах.
+  late final Stream<bool> _typingStream = ChatService.getTypingStatusStream(widget.ad.userId);
+
+  @override
   Widget build(BuildContext context) {
     return ClipRRect(
       child: BackdropFilter(
@@ -47,31 +63,31 @@ class ChatGlassHeader extends StatelessWidget {
             border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
           ),
           child: Row(children: [
-            IconButton(icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: Color(0xFF0F172A)), onPressed: onBack),
+            IconButton(icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: Color(0xFF0F172A)), onPressed: widget.onBack),
             Expanded(
               child: GestureDetector(
-                onTap: onProfileTap,
+                onTap: widget.onProfileTap,
                 child: Row(children: [
                   CircleAvatar(
-                    radius: 18, 
-                    backgroundColor: const Color(0xFFF1F5F9), 
-                    backgroundImage: sellerAvatarUrl != null ? CachedNetworkImageProvider(sellerAvatarUrl!) : null,
-                    child: sellerAvatarUrl == null ? const Icon(Icons.person, size: 20, color: Color(0xFF94A3B8)) : null,
+                    radius: 18,
+                    backgroundColor: const Color(0xFFF1F5F9),
+                    backgroundImage: widget.sellerAvatarUrl != null ? CachedNetworkImageProvider(widget.sellerAvatarUrl!) : null,
+                    child: widget.sellerAvatarUrl == null ? const Icon(Icons.person, size: 20, color: Color(0xFF94A3B8)) : null,
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                      Text(ad.userName, maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 16, color: const Color(0xFF0F172A))),
+                      Text(widget.ad.userName, maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 16, color: const Color(0xFF0F172A))),
                       StreamBuilder<bool>(
-                        stream: ChatService.getTypingStatusStream(ad.userId),
+                        stream: _typingStream,
                         builder: (context, snapshot) {
                           final streamTyping = snapshot.data == true;
                           final lang = Provider.of<AppConfigProvider>(context, listen: false).language;
-                          if (streamTyping || isTyping) {
+                          if (streamTyping || widget.isTyping) {
                             return Text(TranslationService.t('typing', lang), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: const Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold));
                           }
                           return StreamBuilder<DocumentSnapshot>(
-                            stream: (firestore ?? FirebaseFirestore.instance).collection('users').doc(ad.userId).snapshots(),
+                            stream: (widget.firestore ?? FirebaseFirestore.instance).collection('users').doc(widget.ad.userId).snapshots(),
                             builder: (context, userSnap) {
                               if (userSnap.hasData && userSnap.data!.exists) {
                                 final data = userSnap.data!.data() as Map<String, dynamic>? ?? {};
@@ -118,33 +134,33 @@ class ChatGlassHeader extends StatelessWidget {
                 ]),
               ),
             ),
-            IconButton(icon: const Icon(Icons.call_rounded, color: Color(0xFF334155)), onPressed: onCall),
+            IconButton(icon: const Icon(Icons.call_rounded, color: Color(0xFF334155)), onPressed: widget.onCall),
             PopupMenuButton<String>(
               icon: const Icon(Icons.more_vert_rounded, color: Color(0xFF334155)),
               onSelected: (val) {
                 final config = Provider.of<AppConfigProvider>(context, listen: false);
                 if (val == 'block') {
-                  config.blockUser(ad.userId);
+                  config.blockUser(widget.ad.userId);
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text(TranslationService.t('block_success', config.language))),
                   );
                 } else if (val == 'unblock') {
-                  config.unblockUser(ad.userId);
+                  config.unblockUser(widget.ad.userId);
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text(TranslationService.t('unblock_success', config.language))),
                   );
                 } else if (val == 'report') {
                   ReportUserSheet.show(
                     context,
-                    reportedUserId: ad.userId,
-                    reportedUserName: ad.userName,
+                    reportedUserId: widget.ad.userId,
+                    reportedUserName: widget.ad.userName,
                     lang: config.language,
                   );
                 }
               },
               itemBuilder: (context) {
                 final config = Provider.of<AppConfigProvider>(context, listen: false);
-                final isBlocked = config.isUserBlocked(ad.userId);
+                final isBlocked = config.isUserBlocked(widget.ad.userId);
                 return [
                   PopupMenuItem(
                     value: isBlocked ? 'unblock' : 'block',
