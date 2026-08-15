@@ -1542,6 +1542,41 @@ describe("sendOffer — полная цепочка как в приложени
     await assertSucceeds(writeOffer(db, msgId));
     await assertSucceeds(writeOfferMessage(db, msgId));
   });
+
+  // 🔒 Продавец заблокировал покупателя ПОСЛЕ того, как чат уже существовал
+  // (переписка была раньше): шаги 3 (оффер) и 4 (карточка в чате) теперь
+  // корректно падают. ⚠️ ИЗВЕСТНЫЙ ОСТАТОЧНЫЙ ПРОБЕЛ, не в скоупе сегодняшнего
+  // фикса: шаг 1 (сводка чата, writeChatSummary) всё ещё УСПЕШЕН, потому что
+  // allow UPDATE для chats/{chatId} в 04_chats.rules не проверяет
+  // isBlockedByUsersList (проверяет только allow CREATE — если бы чата ещё не
+  // было, шаг 1 тоже упал бы, см. тест ниже). Значит превью
+  // "Предложение цены: X ₸" технически долетает до lastMessage чата
+  // продавца, но только когда переписка началась ДО блокировки. Общий баг,
+  // шире офферов (та же дыра у sendMessage для обычного текста) — не трогал.
+  test("продавец заблокировал покупателя ПОСЛЕ прошлой переписки — оффер и карточка падают, сводка чата ещё нет", async () => {
+    await adminSet(`users/${sellerId}`, { name: "Продавец", status: "active", blockedUserIds: [buyerId] });
+    await adminSet(`users/${buyerId}`, { name: "Покупатель", status: "active" });
+    await adminSet(`chats/${chatId}`, {
+      users: [buyerId, sellerId].sort(),
+      lastMessage: "Здравствуйте",
+      lastSenderId: sellerId,
+      adId,
+    });
+    const db = userDb(buyerId);
+    await assertSucceeds(writeChatSummary(db)); // см. комментарий выше — известный пробел
+    await assertFails(writeOffer(db, msgId));
+    await assertFails(writeOfferMessage(db, msgId));
+  });
+
+  // Контрольный случай: если переписки ДО блокировки не было, allow CREATE
+  // для chats/{chatId} уже проверяет isBlockedByUsersList — гэп из теста выше
+  // здесь не проявляется, падает уже первый шаг.
+  test("продавец заблокировал покупателя ДО первого контакта — падает уже сводка чата", async () => {
+    await adminSet(`users/${sellerId}`, { name: "Продавец", status: "active", blockedUserIds: [buyerId] });
+    await adminSet(`users/${buyerId}`, { name: "Покупатель", status: "active" });
+    const db = userDb(buyerId);
+    await assertFails(writeChatSummary(db));
+  });
 });
 
 // ──────────────────────────────────────────
@@ -1855,6 +1890,90 @@ describe("personal block (blockedUserIds) prevents contact from the blocked side
         type: "text",
         isRead: false,
       })
+    );
+  });
+
+  // 🔒 Регрессия на находку аудита: офферы были единственным каналом,
+  // где личная блокировка вообще не проверялась — заблокированный покупатель
+  // мог слать предложения цены в обход блока (10b_offers.rules).
+  test("заблокированный НЕ может отправить оффер тому, кто его заблокировал", async () => {
+    const adId = "ad_blocked_offer_001";
+    await adminSet(`ads/${adId}`, {
+      userId: blockerUid,
+      price: 100000,
+      status: "active",
+      title: "Товар блокировщика",
+    });
+    await assertFails(
+      setDoc(doc(userDb(blockedUid), "offers", `${adId}_${blockedUid}`), {
+        adId,
+        adTitle: "Товар блокировщика",
+        price: 90000,
+        sellerId: blockerUid,
+        buyerId: blockedUid,
+        chatId: existingChatId,
+        messageId: "msg_offer_blocked",
+        status: "pending",
+      })
+    );
+  });
+
+  test("заблокированный НЕ может перебить цену своего оффера, пока блокировка активна", async () => {
+    const adId = "ad_blocked_offer_002";
+    const offerId = `${adId}_${blockedUid}`;
+    await adminSet(`ads/${adId}`, {
+      userId: blockerUid,
+      price: 100000,
+      status: "active",
+      title: "Товар блокировщика 2",
+    });
+    await adminSet(`offers/${offerId}`, {
+      adId,
+      adTitle: "Товар блокировщика 2",
+      price: 90000,
+      sellerId: blockerUid,
+      buyerId: blockedUid,
+      chatId: existingChatId,
+      messageId: "msg_offer_blocked_2",
+      status: "pending",
+    });
+    await assertFails(
+      setDoc(doc(userDb(blockedUid), "offers", offerId), {
+        adId,
+        adTitle: "Товар блокировщика 2",
+        price: 95000,
+        sellerId: blockerUid,
+        buyerId: blockedUid,
+        chatId: existingChatId,
+        messageId: "msg_offer_blocked_2",
+        status: "pending",
+      })
+    );
+  });
+
+  // Отзыв — не новая попытка связаться, а её противоположность. Блокировка
+  // не должна навечно замораживать чужой pending-оффер без возможности снять.
+  test("заблокированный всё ещё МОЖЕТ отозвать оффер, отправленный ДО блокировки", async () => {
+    const adId = "ad_blocked_offer_003";
+    const offerId = `${adId}_${blockedUid}`;
+    await adminSet(`ads/${adId}`, {
+      userId: blockerUid,
+      price: 100000,
+      status: "active",
+      title: "Товар блокировщика 3",
+    });
+    await adminSet(`offers/${offerId}`, {
+      adId,
+      adTitle: "Товар блокировщика 3",
+      price: 90000,
+      sellerId: blockerUid,
+      buyerId: blockedUid,
+      chatId: existingChatId,
+      messageId: "msg_offer_blocked_3",
+      status: "pending",
+    });
+    await assertSucceeds(
+      updateDoc(doc(userDb(blockedUid), "offers", offerId), { status: "cancelled" })
     );
   });
 });

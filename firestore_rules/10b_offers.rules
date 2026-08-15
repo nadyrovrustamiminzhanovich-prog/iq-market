@@ -53,7 +53,12 @@
         && exists(/databases/$(database)/documents/ads/$(offerData().adId))
         && offerData().sellerId == get(/databases/$(database)/documents/ads/$(offerData().adId)).data.userId
         && get(/databases/$(database)/documents/ads/$(offerData().adId)).data.status == 'active'
-        && offerData().price >= get(/databases/$(database)/documents/ads/$(offerData().adId)).data.price * 0.7;
+        && offerData().price >= get(/databases/$(database)/documents/ads/$(offerData().adId)).data.price * 0.7
+        // 🔒 Раньше офферы были единственным каналом в приложении, где
+        // блокировка не проверялась вообще — покупатель, которого продавец
+        // заблокировал, всё равно мог слать предложения (тот же helper,
+        // что уже стоит на chats/messages в 04_chats.rules).
+        && !isBlockedByUsersList([offerData().buyerId, offerData().sellerId]);
 
       // Покупатель может только перебить собственное предложение новой ценой
       // (pending → pending) либо отозвать его (pending → cancelled).
@@ -74,6 +79,11 @@
             && offerData().price > 0
             && offerData().price >= get(/databases/$(database)/documents/ads/$(resource.data.adId)).data.price * 0.7
             && get(/databases/$(database)/documents/ads/$(resource.data.adId)).data.status == 'active'
+            // Перебить цену — та же "новая попытка связаться", что и create,
+            // блокируем по той же причине. Отозвать оффер (ветка выше,
+            // pending → cancelled) НЕ блокируем — отзыв не создаёт нового
+            // контакта с заблокировавшим, наоборот, убирает существующий.
+            && !isBlockedByUsersList([offerData().buyerId, offerData().sellerId])
           )
         );
 
