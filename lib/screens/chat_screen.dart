@@ -808,9 +808,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         final delayMs = delays[attempt - 1];
         debugPrint('[CHAT_SCREEN] Voice upload failed (retryable). Retrying attempt $attempt in ${delayMs}ms. Error: $e');
         await Future.delayed(Duration(milliseconds: delayMs));
-        if (mounted) {
-          _uploadVoiceMessageWithRetry(msgId, path, chatId, attempt: attempt + 1);
-        }
+        // Без mounted-гейта здесь: если пользователь ушёл с экрана в это окно
+        // ожидания, обрыв цепочки раньше означал, что _markUploadFailed (в
+        // else-ветке ниже) вообще не вызывался — сообщение оставалось вечным
+        // нетапаемым спиннером даже после перезапуска приложения. Сама
+        // загрузка — фоновая Storage-задача, не привязанная к дереву
+        // виджетов, а весь код ниже по цепочке уже сам гейтит setState/
+        // context через mounted — продолжать retry-цепочку после ухода с
+        // экрана безопасно.
+        _uploadVoiceMessageWithRetry(msgId, path, chatId, attempt: attempt + 1);
       } else {
         final String cid = ChatService.getChatId(_otherUserId);
         AnalyticsService.logStoragePermissionError(e, stack, 'voice_messages/$cid');
@@ -889,9 +895,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         final delayMs = delays[attempt - 1];
         debugPrint('[CHAT_SCREEN] Photo upload failed (retryable). Retrying attempt $attempt in ${delayMs}ms. Error: $e');
         await Future.delayed(Duration(milliseconds: delayMs));
-        if (mounted) {
-          _uploadImageWithRetry(msgId, path, chatId, attempt: attempt + 1);
-        }
+        // Без mounted-гейта здесь — та же причина, что и в
+        // _uploadVoiceMessageWithRetry выше: обрыв цепочки на уходе с экрана
+        // раньше оставлял сообщение вечным спиннером, потому что
+        // _markUploadFailed (else-ветка ниже) не вызывался.
+        _uploadImageWithRetry(msgId, path, chatId, attempt: attempt + 1);
       } else {
         final String cid = ChatService.getChatId(_otherUserId);
         AnalyticsService.logStoragePermissionError(e, stack, 'chat_media/$cid');
