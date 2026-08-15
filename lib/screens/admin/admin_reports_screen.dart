@@ -601,21 +601,6 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
     );
   }
 
-  Future<void> _viewAd(BuildContext context, String? adId) async {
-    if (adId == null) return;
-    try {
-      final ad = await AdService.getAdById(adId);
-      if (ad != null && context.mounted) {
-        final lang = Provider.of<AppConfigProvider>(context, listen: false).language;
-        Navigator.push(context, MaterialPageRoute(builder: (c) => ProductDetailsScreen(ad: ad, onReport: (_){}, lang: lang, heroPrefix: null)));
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Объявление не найдено или удалено: $e')));
-      }
-    }
-  }
-
   Future<void> _deleteReport(String id) async {
     await FirebaseFirestore.instance.collection('reports').doc(id).delete();
   }

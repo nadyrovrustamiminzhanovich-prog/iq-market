@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:iqmarket/providers/app_config_provider.dart';
 import 'package:iqmarket/services/ad_service.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'package:iqmarket/models/ad_model.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -164,7 +163,7 @@ class _AdminAdsScreenState extends State<AdminAdsScreen> with SingleTickerProvid
               ad.title.toLowerCase().contains(q) || 
               ad.description.toLowerCase().contains(q) ||
               ad.userName.toLowerCase().contains(q) ||
-              (ad.userEmail != null && ad.userEmail!.toLowerCase().contains(q)) ||
+              ad.userEmail.toLowerCase().contains(q) ||
               (ad.userPhone != null && ad.userPhone!.contains(q)) ||
               ad.location.toLowerCase().contains(q);
           final matchesCity = _selectedCity == null || ad.location == _selectedCity;

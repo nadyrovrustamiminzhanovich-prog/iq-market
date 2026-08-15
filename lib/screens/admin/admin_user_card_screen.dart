@@ -6,8 +6,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
-import 'package:iqmarket/providers/app_config_provider.dart';
 import 'package:iqmarket/models/ad_model.dart';
 import 'package:iqmarket/screens/product_details_screen.dart';
 import 'package:iqmarket/screens/chat_screen.dart';
@@ -1200,8 +1198,6 @@ class _AdminUserCardScreenState extends State<AdminUserCardScreen> {
     List<Map<String, dynamic>> ordersPassenger,
     List<Map<String, dynamic>> ordersDriver,
   ) {
-    final int chatsCount = chats?['count'] ?? 0;
-
     return _buildSectionContainer(
       colorScheme,
       title: 'Чаты и Такси',

@@ -586,7 +586,7 @@ class _TaxiDriverRideConfirmationSheetContentState
                       ),
                       child: Center(
                         child: Text(
-                          'СОЗДАТЬ ПОЕЗДКУ',
+                          btnText,
                           style: GoogleFonts.inter(
                             color: Colors.white,
                             fontWeight: FontWeight.w900,

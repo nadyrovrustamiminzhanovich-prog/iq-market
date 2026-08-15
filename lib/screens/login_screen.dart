@@ -52,7 +52,6 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  String _generatedCode = "";
   bool _isLoading = false;
   bool _showPassword = false;
   bool _showConfirmPassword = false;
@@ -94,88 +93,6 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   // ===================== TRANSLATIONS =====================
   String _t(String key) {
     return loginStrings[key]?[_selectedLang] ?? loginStrings[key]?['Русский'] ?? key;
-  }
-
-  void _changeLanguage(String newLang) {
-    setState(() {
-      _languageManuallyChanged = true;
-    });
-    try {
-      final config = Provider.of<AppConfigProvider>(context, listen: false);
-      config.setLanguage(newLang);
-    } catch (e) {
-      debugPrint('AppConfigProvider error: $e');
-    }
-  }
-
-  Widget _buildLanguageSelector() {
-    return Theme(
-      data: Theme.of(context).copyWith(
-        cardColor: Colors.white,
-      ),
-      child: PopupMenuButton<String>(
-        icon: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.black.withValues(alpha: 0.1)),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.translate_rounded, color: Color(0xFF4A80F0), size: 16),
-              const SizedBox(width: 4),
-              Text(
-                _selectedLang == 'Русский' 
-                    ? 'RU' 
-                    : (_selectedLang == 'Қазақша' ? 'KZ' : 'UG'),
-                style: GoogleFonts.inter(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-              ),
-              const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.black54, size: 14),
-            ],
-          ),
-        ),
-        onSelected: _changeLanguage,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        itemBuilder: (context) => [
-          PopupMenuItem(
-            value: 'Русский',
-            child: Row(
-              children: [
-                const Text('🇷🇺', style: TextStyle(fontSize: 16)),
-                const SizedBox(width: 8),
-                Text('Русский', style: GoogleFonts.inter(fontWeight: _selectedLang == 'Русский' ? FontWeight.bold : FontWeight.normal)),
-              ],
-            ),
-          ),
-          PopupMenuItem(
-            value: 'Қазақша',
-            child: Row(
-              children: [
-                const Text('🇰🇿', style: TextStyle(fontSize: 16)),
-                const SizedBox(width: 8),
-                Text('Қазақша', style: GoogleFonts.inter(fontWeight: _selectedLang == 'Қазақша' ? FontWeight.bold : FontWeight.normal)),
-              ],
-            ),
-          ),
-          PopupMenuItem(
-            value: 'Уйғурчә',
-            child: Row(
-              children: [
-                const Text('🌙', style: TextStyle(fontSize: 16)),
-                const SizedBox(width: 8),
-                Text('Уйғурчә', style: GoogleFonts.inter(fontWeight: _selectedLang == 'Уйғурчә' ? FontWeight.bold : FontWeight.normal)),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   @override
@@ -485,7 +402,6 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
             Navigator.pop(context);
           }
 
-          _generatedCode = otp;
           _showOtpDialog(chatId, customToken);
         }
       }, onError: (err) {
@@ -540,7 +456,6 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
 
         if (Navigator.canPop(context)) Navigator.pop(context);
 
-        _generatedCode = otp;
         _showOtpDialog(chatId, customToken);
       } else {
         if (!isAutoCheck) {

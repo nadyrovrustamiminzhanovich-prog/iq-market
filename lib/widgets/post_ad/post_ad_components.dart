@@ -157,7 +157,7 @@ class PostAdOptionSwitch extends StatelessWidget {
           Switch(
             value: value,
             onChanged: onChanged,
-            activeColor: Colors.white,
+            activeThumbColor: Colors.white,
             activeTrackColor: const Color(0xFF1A73E8),
             inactiveThumbColor: Colors.white,
             inactiveTrackColor: const Color(0xFFE2E8F0),

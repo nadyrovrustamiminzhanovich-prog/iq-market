@@ -126,7 +126,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
               }
             },
             localeId: _currentLang == 'KZ' ? 'kk-KZ' : _currentLang == 'UG' ? 'tr-TR' : 'ru-RU',
-            listenMode: stt.ListenMode.confirmation,
+            listenOptions: stt.SpeechListenOptions(listenMode: stt.ListenMode.confirmation),
           );
         } else {
           if (mounted) {

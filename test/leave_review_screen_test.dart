@@ -6,7 +6,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_core_platform_interface/test.dart';
 import 'package:provider/provider.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:iqmarket/models/ad_model.dart';
 import 'package:iqmarket/models/review_model.dart';
 import 'package:iqmarket/screens/leave_review_screen.dart';
@@ -14,7 +13,6 @@ import 'package:iqmarket/providers/app_config_provider.dart';
 import 'package:iqmarket/services/review_service.dart';
 import 'package:iqmarket/services/file_service.dart';
 import 'package:iqmarket/services/storage_service.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 void setupTestMocks() {
   TestWidgetsFlutterBinding.ensureInitialized();

@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -8,7 +7,6 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_core_platform_interface/test.dart';
 import 'package:record/record.dart';
 import 'package:provider/provider.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:iqmarket/widgets/chat/chat_input.dart';
 import 'package:iqmarket/screens/chat_screen.dart';
 import 'package:iqmarket/models/ad_model.dart';
@@ -182,6 +180,7 @@ class FakeAudioRecorder extends Fake implements AudioRecorder {
   Future<void> dispose() async {}
 }
 
+// ignore: subtype_of_sealed_class
 class FakeDocumentSnapshot extends Fake implements DocumentSnapshot<Map<String, dynamic>> {
   final Map<String, dynamic> _data;
   final bool _exists;
@@ -195,6 +194,7 @@ class FakeDocumentSnapshot extends Fake implements DocumentSnapshot<Map<String, 
   Map<String, dynamic>? data() => _data;
 }
 
+// ignore: subtype_of_sealed_class
 class FakeDocumentReference extends Fake implements DocumentReference<Map<String, dynamic>> {
   final Stream<DocumentSnapshot<Map<String, dynamic>>> _snapshotsStream;
 
@@ -208,7 +208,7 @@ class FakeDocumentReference extends Fake implements DocumentReference<Map<String
 
   @override
   CollectionReference<Map<String, dynamic>> collection(String collectionPath) {
-    return FakeCollectionReference(collectionPath, _snapshotsStream);
+    return FakeCollectionReference(_snapshotsStream);
   }
 
   @override
@@ -220,11 +220,11 @@ class FakeDocumentReference extends Fake implements DocumentReference<Map<String
   }
 }
 
+// ignore: subtype_of_sealed_class
 class FakeCollectionReference extends Fake implements CollectionReference<Map<String, dynamic>> {
-  final String _collectionName;
   final Stream<DocumentSnapshot<Map<String, dynamic>>> _snapshotsStream;
 
-  FakeCollectionReference(this._collectionName, this._snapshotsStream);
+  FakeCollectionReference(this._snapshotsStream);
 
   @override
   DocumentReference<Map<String, dynamic>> doc([String? path]) {
@@ -244,7 +244,7 @@ class FakeFirebaseFirestore extends Fake implements FirebaseFirestore {
 
   @override
   CollectionReference<Map<String, dynamic>> collection(String collectionPath) {
-    return FakeCollectionReference(collectionPath, _snapshotsStream);
+    return FakeCollectionReference(_snapshotsStream);
   }
 }
 
@@ -318,9 +318,15 @@ void main() {
       await tester.pump();
 
       expect(cancelTriggered, isTrue);
+      // startTriggered/endTriggered были объявлены, но никогда не
+      // проверялись, хотя реально проставляются колбэками выше — добавлена
+      // проверка вместо удаления "неиспользуемых" переменных.
+      expect(startTriggered, isTrue);
 
       await gesture.up();
       await tester.pump();
+
+      expect(endTriggered, isTrue);
     });
 
     testWidgets('Drag left less than threshold does not trigger onRecordingCancelled', (WidgetTester tester) async {

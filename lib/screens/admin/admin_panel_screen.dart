@@ -172,8 +172,8 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
 
       final unreadCount = snapshot.docs.where((doc) {
         final data = doc.data();
-        final isRead = data?['isRead'] == true;
-        final isResolved = data?['status'] == 'resolved' || data?['resolved'] == true;
+        final isRead = data['isRead'] == true;
+        final isResolved = data['status'] == 'resolved' || data['resolved'] == true;
         return !isRead && !isResolved;
       }).length;
 
