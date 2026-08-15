@@ -169,8 +169,26 @@ class AuthService {
     // доставки/прочтения от имени того, кто вошёл после.
     await NotificationService.clearTokenOnSignOut();
 
+    // Точечно чистим только ключи завершившейся СЕССИИ/аккаунта, а не весь
+    // SharedPreferences: blanket prefs.clear() стирал заодно device-level
+    // настройки (язык интерфейса, тема, пуш-тумблер, installId для
+    // антифрод-эвристики multiAccountSuspected в DeviceIdentityService) —
+    // после выхода + полного перезапуска приложения язык откатывался на
+    // русский по умолчанию, самоисправляясь только повторным входом.
     final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
+    const sessionKeys = [
+      // Кэш профиля вошедшего аккаунта (не namespaced по uid)
+      'user_phone', 'user_email', 'user_name', 'user_image',
+      'account_type', 'is_bio_enabled', 'is_verified', 'taxi_logged_in',
+      // Кэш водителя такси, привязанный к аккаунту
+      'taxi_verified', 'taxi_verif_status', 'taxi_tg_chat_id', 'taxi_phone',
+      'taxi_car', 'taxi_plate', 'taxi_notif',
+      // Незавершённые пользовательские флоу текущей сессии
+      'ad_draft', 'lost_picker_driver_wizard', 'lost_picker_profile',
+    ];
+    for (final key in sessionKeys) {
+      await prefs.remove(key);
+    }
 
     await _auth.signOut();
     try {
