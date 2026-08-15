@@ -27,10 +27,18 @@ import 'package:url_launcher/url_launcher.dart';
 class LoginScreen extends StatefulWidget {
   final String lang;
   final bool autoStartTelegramLogin;
+  // Экран входа открывается из 7 разных мест приложения — обычно как
+  // самостоятельный пункт меню, где после успешного входа правильно уйти на
+  // главную. Но AuthGateBottomSheet открывает его как "заглушку" поверх
+  // экрана, где пользователь что-то уже делал (товар/чат/жалоба) — раньше
+  // pushReplacement на главную в любом случае терял это место, пользователь
+  // терялся и терял начатое действие. Флаг включён ТОЛЬКО там.
+  final bool returnToCallerOnSuccess;
   const LoginScreen({
     super.key,
     this.lang = 'Русский',
     this.autoStartTelegramLogin = false,
+    this.returnToCallerOnSuccess = false,
   });
 
   @override
@@ -1243,7 +1251,17 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
       }
       Provider.of<TaxiProvider>(context, listen: false).setLoginStatus(true);
       Provider.of<TaxiProvider>(context, listen: false).loadPreferences();
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => IQMarketHome()));
+      // Пришли из AuthGateBottomSheet поверх чужого экрана (товар/чат/
+      // жалоба и т.п.) — возвращаем туда же, а не на главную, чтобы не
+      // терять место, откуда пользователь начинал. Саму попытку действия
+      // (офер/избранное) он повторяет сам одним лишним тапом — экран, на
+      // который он вернулся, сам перепроверяет статус входа при следующем
+      // нажатии той же кнопки.
+      if (widget.returnToCallerOnSuccess && Navigator.canPop(context)) {
+        Navigator.pop(context);
+      } else {
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => IQMarketHome()));
+      }
     }
   }
 

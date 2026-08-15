@@ -242,7 +242,10 @@ class _AuthGateBottomSheetState extends State<AuthGateBottomSheet> with SingleTi
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => LoginScreen(lang: language),
+                    builder: (context) => LoginScreen(
+                      lang: language,
+                      returnToCallerOnSuccess: true,
+                    ),
                   ),
                 );
               },
