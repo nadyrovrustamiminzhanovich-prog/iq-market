@@ -1241,7 +1241,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  _isWrongAccount ? 'Другой аккаунт' : 'Чат недоступен',
+                  _isWrongAccount
+                      ? TranslationService.t('chatUnavailableWrongAccountTitle', lang)
+                      : TranslationService.t('chatUnavailableTitle', lang),
                   style: GoogleFonts.inter(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -1251,8 +1253,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 const SizedBox(height: 8),
                 Text(
                   _isWrongAccount
-                      ? 'Похоже, вы входили другим способом. Привяжите аккаунты в настройках, чтобы получить доступ к своим чатам.'
-                      : 'У вас нет доступа к этому чату или он был удален.',
+                      ? TranslationService.t('chatUnavailableWrongAccountDesc', lang)
+                      : TranslationService.t('chatUnavailableDesc', lang),
                   textAlign: TextAlign.center,
                   style: GoogleFonts.inter(fontSize: 14, color: Colors.grey[600]),
                 ),
@@ -1286,7 +1288,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                       ),
                     ),
                     icon: const Icon(Icons.link_rounded, size: 18),
-                    label: const Text('Привязать аккаунты'),
+                    label: Text(TranslationService.t('chatUnavailableLinkAccountsBtn', lang)),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF4A80F0),
                       foregroundColor: Colors.white,
