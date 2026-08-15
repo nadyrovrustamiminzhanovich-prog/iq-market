@@ -428,10 +428,12 @@ class _DriverOnboardingWizardState extends State<DriverOnboardingWizard>
         // запись всех полей разом отклонялась ЦЕЛИКОМ: вместе с ними не
         // сохранялся и driverOnboardingStep, то есть водитель не мог пройти
         // дальше второго шага. telegramChatId и private-контакт уже проставил
-        // сервер (verifyTelegramOtp) через Admin SDK.
+        // сервер (verifyTelegramOtp) через Admin SDK — а теперь так же
+        // verified_phone/isTelegramVerified (02_users.rules запрещает их
+        // клиенту для не-telegram_*-аккаунтов): если оставить их здесь,
+        // отклонялась бы вся запись целиком, включая driverOnboardingStep,
+        // и водитель снова застревал бы на втором шаге.
         await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-          'verified_phone': cleanPhone,
-          'isTelegramVerified': true,
           'driverOnboardingStep': 2,
           if (returnedTgUser != null && returnedTgUser.isNotEmpty) 'telegram_username': returnedTgUser,
           if (returnedTgFirst != null && returnedTgFirst.isNotEmpty) 'telegram_first_name': returnedTgFirst,

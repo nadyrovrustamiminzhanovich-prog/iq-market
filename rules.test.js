@@ -322,10 +322,49 @@ describe("users", () => {
       );
     });
 
-    test("verified_phone в основном документе разрешён (телеграм-верификация)", async () => {
-      await assertSucceeds(
+    test("владелец-НЕ-telegram_* НЕ может сам записать verified_phone", async () => {
+      // ДО фикса 2026-08-15 это ПРОХОДИЛО — verified_phone вообще не был в
+      // списке защищённых полей 02_users.rules. Ровно уязвимость из аудита:
+      // любой авторизованный (в т.ч. обычный email/Google) аккаунт мог
+      // подставить себе чужой реальный номер телефона, который потом виден
+      // в контактах объявления — вектор докса.
+      await assertFails(
         updateDoc(doc(userDb(userId), "users", userId), {
           verified_phone: "77001234567",
+        })
+      );
+    });
+
+    test("владелец-НЕ-telegram_* НЕ может сам выставить isTelegramVerified", async () => {
+      // Та же уязвимость с другой стороны: обход OTP-верификации водителя
+      // такси без единого реального сообщения боту.
+      await assertFails(
+        updateDoc(doc(userDb(userId), "users", userId), {
+          isTelegramVerified: true,
+        })
+      );
+    });
+
+    test("telegram_*-аккаунт МОЖЕТ обновить себе verified_phone/isTelegramVerified", async () => {
+      // Единственный легитимный путь на этот код: UserService.
+      // markPhoneVerifiedViaTelegram сразу после входа через Телеграм
+      // (login_screen.dart _finalizeLogin) — единственный случай, когда
+      // сервер сам НЕ пишет эти поля (аккаунта ещё не было в момент вызова
+      // verifyTelegramOtp, писать было некуда). uid вида telegram_* подделать
+      // нельзя — его минтит только доверенная Cloud Function verifyTelegramOtp
+      // после реальной проверки OTP в боте.
+      const telegramUid = "telegram_789";
+      await adminSet(`users/${telegramUid}`, {
+        displayName: "Telegram User",
+        accountType: "user",
+        rating: 5.0,
+        reviewsCount: 0,
+        status: "active",
+      });
+      await assertSucceeds(
+        updateDoc(doc(userDb(telegramUid), "users", telegramUid), {
+          verified_phone: "77001234567",
+          isTelegramVerified: true,
         })
       );
     });
@@ -338,10 +377,13 @@ describe("users", () => {
       );
     });
 
-    // Ровно та полезная нагрузка, которую пишет telegram_verification_dialog
-    // после успешной серверной проверки контакта. Правила её отклоняют целиком
-    // (из-за 'phone' и 'isVerified'), поэтому verified_phone и
-    // isTelegramVerified в прод никогда не попадают.
+    // Ровно та полезная нагрузка, которую telegram_verification_dialog писал
+    // ДО фикса 2026-08-15. Правила её отклоняют целиком — из-за 'phone' и
+    // 'isVerified' (как и раньше), а теперь дополнительно ещё и из-за
+    // verified_phone/isTelegramVerified для не-telegram_*-аккаунта. После
+    // фикса клиент эти 2 поля в этой связке больше не отправляет вообще (см.
+    // telegram_verification_dialog.dart) — сервер (verifyTelegramOtp) уже
+    // проставил их сам через Admin SDK для уже авторизованного пользователя.
     test("полная нагрузка телеграм-верификации с клиента отклоняется", async () => {
       await assertFails(
         setDoc(
@@ -368,8 +410,13 @@ describe("users", () => {
       );
     });
 
-    test("нагрузка без запрещённых ключей проходит", async () => {
-      await assertSucceeds(
+    test("та же нагрузка для НЕ-telegram_* аккаунта отклоняется", async () => {
+      // ДО фикса 2026-08-15 это было ровно то состояние уязвимости: ни
+      // verified_phone, ни isTelegramVerified не входили в защищённый список,
+      // поэтому запись без 'phone'/'isVerified'/'telegramChatId' проходила
+      // целиком. Теперь оба поля защищены отдельно (см. тесты выше) — запись
+      // отклоняется целиком, как и остальные защищённые поля.
+      await assertFails(
         setDoc(
           doc(userDb(userId), "users", userId),
           {
@@ -378,6 +425,19 @@ describe("users", () => {
           },
           { merge: true }
         )
+      );
+    });
+
+    test("владелец-НЕ-telegram_* НЕ может создать документ с isTelegramVerified/verified_phone", async () => {
+      // Симметрично isVerified-тестам ниже: новый аккаунт не должен уметь
+      // родиться сразу "телеграм-подтверждённым" с произвольным номером.
+      await assertFails(
+        setDoc(doc(userDb("user_003"), "users", "user_003"), {
+          uid: "user_003",
+          displayName: "New User",
+          isTelegramVerified: true,
+          verified_phone: "77009998877",
+        })
       );
     });
   });

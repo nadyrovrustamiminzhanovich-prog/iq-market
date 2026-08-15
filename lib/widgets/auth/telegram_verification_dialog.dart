@@ -220,12 +220,14 @@ class _TelegramVerificationDialogState extends State<TelegramVerificationDialog>
           // прошла успешно и OTP был уже потрачен. Повторная попытка тоже
           // падала, и весь путь выглядел неработающим.
           //
-          // isVerified / isTelegramVerified / telegramChatId и телефон в
-          // private/contact сервер (verifyTelegramOtp) уже проставил сам через
-          // Admin SDK — дублировать их с клиента и не нужно, и нельзя.
+          // isVerified / isTelegramVerified / verified_phone / telegramChatId
+          // и телефон в private/contact сервер (verifyTelegramOtp) уже
+          // проставил сам через Admin SDK для этого (уже авторизованного)
+          // пользователя — 02_users.rules теперь тоже это явно запрещает
+          // клиенту (кроме telegram_*-аккаунтов), так что дублировать
+          // verified_phone/isTelegramVerified здесь не нужно и нельзя: запись
+          // была бы отклонена целиком, как раньше было с isVerified.
           await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-            'verified_phone': cleanPhone,
-            'isTelegramVerified': true,
             if (returnedTgUser != null && returnedTgUser.isNotEmpty) 'telegram_username': returnedTgUser,
             if (returnedTgFirst != null && returnedTgFirst.isNotEmpty) 'telegram_first_name': returnedTgFirst,
             if (returnedTgLast != null && returnedTgLast.isNotEmpty) 'telegram_last_name': returnedTgLast,
