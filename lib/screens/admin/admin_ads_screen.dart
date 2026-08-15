@@ -54,12 +54,6 @@ class _AdminAdsScreenState extends State<AdminAdsScreen> with SingleTickerProvid
         title: Text('МОДЕРАЦИЯ И АРХИВ', style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: const Color(0xFF0F172A), letterSpacing: 0.5, fontSize: 16)),
         leading: IconButton(icon: const Icon(Icons.arrow_back_ios_new, color: Color(0xFF0F172A), size: 20), onPressed: () => Navigator.pop(context)),
         actions: [
-          if (_isSelectionMode)
-            IconButton(
-              icon: Icon(PhosphorIcons.checkSquare(PhosphorIconsStyle.bold), color: const Color(0xFF6366F1)),
-              onPressed: () {},
-              tooltip: 'Выбрать все',
-            ),
           if (_selectedAdIds.isNotEmpty)
             IconButton(icon: const Icon(Icons.close, color: Color(0xFF0F172A)), onPressed: () => setState(() { _selectedAdIds.clear(); _isSelectionMode = false; }))
           else
