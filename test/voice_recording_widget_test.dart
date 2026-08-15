@@ -529,17 +529,32 @@ void main() {
         // Stop recording
         await tester.runAsync(() async {
           await gesture.up();
-          await Future.delayed(const Duration(milliseconds: 500));
+          // _attachUploadedMediaWithRetry (chat_screen.dart) делает до 4
+          // попыток getDownloadURL с реальными задержками 1с/3с/6с между
+          // ними прежде чем сдаться и показать предупреждение — ждём
+          // реальное время дольше суммы задержек (иначе assert ниже ловит
+          // экран посреди ретраев, до появления SnackBar).
+          await Future.delayed(const Duration(milliseconds: 10500));
         });
 
+        // Тот же паттерн из нескольких pump'ов, что и в соседнем тесте выше
+        // ("Short recording...") — один-два pump'а недостаточно, чтобы
+        // SnackBar успел доанимироваться до состояния, где find.text() его
+        // видит.
         await tester.pump();
-        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pump(const Duration(milliseconds: 100));
+        await tester.pump(const Duration(milliseconds: 300));
+        await tester.pump(const Duration(milliseconds: 100));
+        await tester.pump(const Duration(milliseconds: 200));
 
         // Verify that upload was called exactly once (no retries)
         expect(uploadCalls, equals(1));
 
-        // Verify the warning SnackBar is shown
-        expect(find.text('Файл загружен, но не удалось прикрепить сообщение.'), findsOneWidget);
+        // Verify the warning SnackBar is shown. textContaining, не text: реальный
+        // errVoiceAttachFailed длиннее ("...сообщение. Нажмите на сообщение,
+        // чтобы повторить.") — точное совпадение никогда не находило виджет,
+        // тот же паттерн уже используется для 'слишком короткая' в тесте выше.
+        expect(find.textContaining('Файл загружен, но не удалось прикрепить сообщение.'), findsOneWidget);
 
         // Dismiss the SnackBar
         await tester.pump(const Duration(seconds: 4));
@@ -566,6 +581,11 @@ class FakeUploadTask extends Fake implements UploadTask {
   @override
   Future<TaskSnapshot> catchError(Function onError, {bool Function(Object error)? test}) {
     return _future.catchError(onError, test: test);
+  }
+
+  @override
+  Future<TaskSnapshot> timeout(Duration timeLimit, {FutureOr<TaskSnapshot> Function()? onTimeout}) {
+    return _future.timeout(timeLimit, onTimeout: onTimeout);
   }
 }
 
