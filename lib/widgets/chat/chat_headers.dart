@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:iqmarket/models/ad_model.dart';
 import 'package:iqmarket/providers/app_config_provider.dart';
+import 'package:iqmarket/services/ad_service.dart';
 import 'package:iqmarket/services/chat_service.dart';
 import 'package:iqmarket/services/translation_service.dart';
 import 'package:iqmarket/screens/product_details_screen.dart';
@@ -299,11 +300,38 @@ class ChatAdInfoBar extends StatelessWidget {
           const SizedBox(width: 8),
         ],
         ElevatedButton(
-          onPressed: () {
-            if (ad.category == 'Taxi') {
-              _showTaxiDetails(context);
-            } else {
-              Navigator.push(context, MaterialPageRoute(builder: (context) => ProductDetailsScreen(ad: ad, onReport: (_) {}, lang: lang, heroPrefix: 'chat_')));
+          onPressed: () async {
+            // ad здесь — облегчённая заглушка из списка чатов (только id/title/image,
+            // price всегда 0.0), иначе экран объявления показывал "Бесплатно" вместо
+            // реальной цены. Подгружаем настоящее объявление по id перед показом.
+            try {
+              final freshAd = await AdService.getAdById(ad.id);
+              if (!context.mounted) return;
+              if (freshAd == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(lang == 'Қазақша'
+                      ? 'Хабарландыру табылмады немесе өшірілген'
+                      : lang == 'Уйғурчә'
+                          ? 'Елан тепильмиди йаки өчүрүлгән'
+                          : 'Объявление не найдено или удалено')),
+                );
+                return;
+              }
+              if (freshAd.category == 'Taxi') {
+                _showTaxiDetails(context);
+              } else {
+                Navigator.push(context, MaterialPageRoute(builder: (context) => ProductDetailsScreen(ad: freshAd, onReport: (_) {}, lang: lang, heroPrefix: 'chat_')));
+              }
+            } catch (e) {
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(lang == 'Қазақша'
+                      ? 'Қате шықты'
+                      : lang == 'Уйғурчә'
+                          ? 'Хата йүз бәрди'
+                          : 'Произошла ошибка')),
+                );
+              }
             }
           },
           style: ElevatedButton.styleFrom(
