@@ -48,7 +48,13 @@ android {
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("release")
+            // В CI key.properties отсутствует (в .gitignore) — падаем на debug-подпись,
+            // чтобы CI мог собрать тестовый APK. Локально key.properties есть, поведение не меняется.
+            signingConfig = if (rootProject.file("key.properties").exists()) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
