@@ -1607,7 +1607,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(controller: emailC, decoration: const InputDecoration(hintText: 'Email')),
+            TextField(controller: emailC, maxLength: 100, decoration: const InputDecoration(hintText: 'Email')),
             TextField(controller: passC, obscureText: true, decoration: const InputDecoration(hintText: 'Password')),
           ],
         ),
