@@ -274,7 +274,7 @@ class _ChatsListScreenState extends State<ChatsListScreen> {
                   }
 
                   final ad = AdModel(
-                    id: chat['adId'] ?? '', title: adTitle, description: '', price: 0.0, category: '',
+                    id: adId, title: adTitle, description: '', price: 0.0, category: '',
                     images: adImage.isNotEmpty ? [adImage] : [], userId: sellerId, userName: displaySellerName,
                     userEmail: '', timestamp: DateTime.now(), location: '',
                   );
