@@ -312,7 +312,10 @@ class _ChatsListScreenState extends State<ChatsListScreen> {
                                     ),
                                     child: ClipOval(
                                       child: Hero(
-                                        tag: 'chat_ad-image-$adId',
+                                        // Тег завязан на id чата, а не объявления: если по одному
+                                        // объявлению открыто несколько чатов, одинаковый adId-тег
+                                        // давал коллизию нескольких Hero в одном списке одновременно.
+                                        tag: 'chat_ad-image-${chat['id']}',
                                         child: adImage.isNotEmpty 
                                           ? CachedNetworkImage(
                                               imageUrl: adImage,
