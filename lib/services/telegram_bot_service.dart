@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:iqmarket/services/api_keys.dart';
+import 'package:iqmarket/services/cloud_function_endpoints.dart';
 
 class TelegramBotService {
   // ─── BOT CONFIG ─────────────────────────────────────────────────────────────
@@ -266,7 +266,7 @@ class TelegramBotService {
       final token = user != null ? await user.getIdToken() : '';
 
       final r = await http.post(
-        Uri.parse(ApiKeys.telegramProxyUrl),
+        Uri.parse(CloudFunctionEndpoints.telegramProxyUrl),
         headers: {
           'Content-Type': 'application/json',
           if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
@@ -294,7 +294,7 @@ class TelegramBotService {
       final token = user != null ? await user.getIdToken() : '';
 
       await http.post(
-        Uri.parse(ApiKeys.telegramProxyUrl),
+        Uri.parse(CloudFunctionEndpoints.telegramProxyUrl),
         headers: {
           'Content-Type': 'application/json',
           if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',

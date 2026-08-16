@@ -5,7 +5,7 @@ import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:iqmarket/data/ai_prompts.dart';
-import 'package:iqmarket/services/api_keys.dart';
+import 'package:iqmarket/services/cloud_function_endpoints.dart';
 
 // 🔒 X10 SECURITY: Custom HTTP Client that intercepts outgoing Gemini calls,
 // injects the Firebase Auth ID Token, and redirects them securely to our
@@ -23,7 +23,7 @@ class SecureHttpClient extends http.BaseClient {
     final newUrl = Uri.parse(
       originalUrl.replaceFirst(
         'https://generativelanguage.googleapis.com',
-        ApiKeys.geminiProxyUrl,
+        CloudFunctionEndpoints.geminiProxyUrl,
       ),
     );
 

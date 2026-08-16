@@ -58,7 +58,6 @@ app.*.map.json
 /android/app/release
 
 # 🔥 СЕКРЕТНЫЕ ФАЙЛЫ (НЕ ПУБЛИКОВАТЬ НА GITHUB) 🔥
-/lib/services/api_keys.dart
 /android/app/google-services.json
 /android/app/google-services*.json
 **/*.jks

@@ -2,12 +2,12 @@ import 'package:flutter/foundation.dart';
 import 'dart:math';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:iqmarket/services/api_keys.dart';
+import 'package:iqmarket/services/cloud_function_endpoints.dart';
 
 class TelegramAuthService {
   // Токен бота УДАЛЕН ИЗ ПРИЛОЖЕНИЯ ради безопасности.
   // Запросы теперь должны идти на твой сервер (Firebase Cloud Functions).
-  static const String _backendUrl = ApiKeys.sendOtpUrl;
+  static const String _backendUrl = CloudFunctionEndpoints.sendOtpUrl;
   
   // Метод для генерации случайного 4-значного кода
   static String generateCode() {
