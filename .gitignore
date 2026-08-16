@@ -58,8 +58,6 @@ app.*.map.json
 /android/app/release
 
 # 🔥 СЕКРЕТНЫЕ ФАЙЛЫ (НЕ ПУБЛИКОВАТЬ НА GITHUB) 🔥
-/android/app/google-services.json
-/android/app/google-services*.json
 **/*.jks
 **/*.keystore
 .env

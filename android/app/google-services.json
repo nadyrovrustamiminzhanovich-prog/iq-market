@@ -1,0 +1,63 @@
+{
+  "project_info": {
+    "project_number": "984873146578",
+    "project_id": "iq-market-3dc07",
+    "storage_bucket": "iq-market-3dc07.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:984873146578:android:1e782e5c1807d0ad2d750b",
+        "android_client_info": {
+          "package_name": "com.iqmarket.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "984873146578-1abn1jur1ej96a3uqoa8an9d9q8rvif3.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.iqmarket.app",
+            "certificate_hash": "e75cc2a77e625aa0cf4e7171ee710d50d24ee4c5"
+          }
+        },
+        {
+          "client_id": "984873146578-6un270434hemrubfrib3o232i2t9inld.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.iqmarket.app",
+            "certificate_hash": "ad6f308fd219136c13e483765134fb6862941272"
+          }
+        },
+        {
+          "client_id": "984873146578-da4vkmf6ufs316d7d5aak30ocb18su82.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.iqmarket.app",
+            "certificate_hash": "21d500e56b0e3d64d724f2cc34ced0024a71c3a1"
+          }
+        },
+        {
+          "client_id": "984873146578-ers7tbn7972bk4g0qoufq28kq3ttsgbn.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAo3TqGfeJQ-u4O8AztdjsuAignLI04R6E"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "984873146578-ers7tbn7972bk4g0qoufq28kq3ttsgbn.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
