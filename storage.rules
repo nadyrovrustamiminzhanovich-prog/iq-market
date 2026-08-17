@@ -74,10 +74,15 @@ service firebase.storage {
     }
 
     // Вложения чатов (chats)
+    // 🔒 contentType обязателен, как у соседних voice_messages/chat_media —
+    // путь сейчас не используется клиентом (FileService.uploadChatFile нигде
+    // не вызывается), но правило было задеплоено и достижимо напрямую через
+    // Storage SDK без ограничения типа файла.
     match /chats/{chatId}/{allPaths=**} {
       allow read: if isSignedIn() && (isChatParticipant(chatId) || isAdmin());
       allow write: if isSignedIn() && isChatParticipant(chatId)
-                    && (request.resource == null || request.resource.size < 20 * 1024 * 1024);
+                    && (request.resource == null || (request.resource.size < 20 * 1024 * 1024
+                        && (request.resource.contentType.matches('image/.*') || request.resource.contentType.matches('audio/.*'))));
     }
 
     // Фото к отзывам (reviews/{uid}/...)

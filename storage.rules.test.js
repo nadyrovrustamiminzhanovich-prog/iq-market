@@ -499,4 +499,19 @@ describe("storage: chats/{chatId}/", () => {
     const storageRef = ref(adminStorage(adminId), `chats/${chatId}/attachment.jpg`);
     await assertSucceeds(getDownloadURL(storageRef));
   });
+
+  // 🔒 Регрессия на находку аудита: contentType раньше вообще не проверялся —
+  // в отличие от соседних chat_media/voice_messages, сюда можно было залить
+  // файл любого типа до 20MB.
+  test("участник НЕ может загрузить файл не-image/не-audio в чат", async () => {
+    const storageRef = ref(userStorage(user1), `chats/${chatId}/fake.jpg`);
+    await assertFails(
+      uploadBytes(storageRef, SMALL_IMAGE, { contentType: "application/octet-stream" })
+    );
+  });
+
+  test("участник по-прежнему может загрузить audio/* вложение в чат", async () => {
+    const storageRef = ref(userStorage(user1), `chats/${chatId}/voice.ogg`);
+    await assertSucceeds(uploadBytes(storageRef, SMALL_IMAGE, { contentType: "audio/ogg" }));
+  });
 });
