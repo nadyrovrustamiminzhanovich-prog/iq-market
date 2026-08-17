@@ -106,7 +106,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Timer? _modalTimer;
 
   // ✅ Кэш стрима: создается один раз в initState, а не новый watcher при каждом setState()
-  late final Stream<UserModel?> _userStream;
+  late Stream<UserModel?> _userStream;
   
   void _startTimer() {
     setState(() {
@@ -1725,9 +1725,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
                 final currentLang = Provider.of<AppConfigProvider>(context, listen: false).language;
-                Navigator.push(context, MaterialPageRoute(builder: (_) => LoginScreen(lang: currentLang)));
+                await Navigator.push(context, MaterialPageRoute(builder: (_) => LoginScreen(lang: currentLang, returnToCallerOnSuccess: true)));
+                // Стрим был закэширован на момент, когда юзер ещё был гостем (см. initState) —
+                // без этого пересоздания экран навсегда остался бы в гостевом виде после входа.
+                if (mounted) setState(() => _userStream = UserService.getUserStream());
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: _primaryColor,
