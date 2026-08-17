@@ -71,6 +71,9 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   String? _tgBotUrl;
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _tgSessionSub;
   Timer? _tgCountdownTimer;
+  // Общий на оба пути проверки (фоновая слушалка + ручная кнопка "Проверить") —
+  // без этого оба могут почти одновременно показать OTP-диалог дважды.
+  bool _tgHasNavigated = false;
   int _tgCountdown = 4;
   StateSetter? _tgSheetStateSetter;
 
@@ -225,8 +228,25 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
       
       final user = userCred.user;
       if (user != null && !user.emailVerified) {
-        _showError(_t('email_not_verified'));
+        final unverifiedEmail = _emailController.text.trim();
+        final unverifiedPassword = _passwordController.text;
         await AuthService.signOut();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(_t('email_not_verified')),
+              backgroundColor: Colors.redAccent,
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 6),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              action: SnackBarAction(
+                label: _t('resend_email_btn'),
+                textColor: Colors.white,
+                onPressed: () => _resendVerificationEmail(unverifiedEmail, unverifiedPassword),
+              ),
+            ),
+          );
+        }
         return; // Жёстко блокируем вход!
       }
 
@@ -236,6 +256,29 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
         photoUrl: user?.photoURL,
         isVerified: false,
       );
+    } on TimeoutException {
+      _showError(_t('err_timeout'));
+    } on FirebaseAuthException catch (e) {
+      _showError(_firebaseError(e));
+    } catch (e) {
+      _showError(_t('err_general') + ': $e');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  // Письмо при регистрации шлётся один раз (AuthService.registerWithEmail) —
+  // если оно потерялось/ушло в спам, до этого фикса подтвердить почту было
+  // физически невозможно. Логинимся заново теми же данными только чтобы
+  // получить свежий User и вызвать sendEmailVerification ещё раз.
+  Future<void> _resendVerificationEmail(String email, String password) async {
+    if (_isLoading) return;
+    setState(() => _isLoading = true);
+    try {
+      final cred = await AuthService.loginWithEmail(email, password).timeout(const Duration(seconds: 15));
+      await cred.user?.sendEmailVerification();
+      await AuthService.signOut();
+      _showSuccess(_t('resend_email_sent'));
     } on TimeoutException {
       _showError(_t('err_timeout'));
     } on FirebaseAuthException catch (e) {
@@ -410,7 +453,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
 
       if (!mounted) return;
 
-      bool hasNavigated = false;
+      _tgHasNavigated = false;
 
       // Show waiting sheet with countdown
       showModalBottomSheet(
@@ -425,10 +468,10 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
       // Listen to the session stream
       _tgSessionSub?.cancel();
       _tgSessionSub = AuthService.watchTelegramSession(_tgSessionToken!).listen((snap) {
-        if (!hasNavigated && !snap.exists) {
+        if (!_tgHasNavigated && !snap.exists) {
           // Сервер чистит сессию через cleanupExpiredSessions примерно через
           // 10 минут — без этой ветки шторка виснет со спиннером навсегда.
-          hasNavigated = true;
+          _tgHasNavigated = true;
           _tgSessionSub?.cancel();
           _tgCountdownTimer?.cancel();
           if (Navigator.canPop(context)) Navigator.pop(context);
@@ -445,8 +488,8 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
         final String? customToken = data['customToken'];
 
         // Chat ID and OTP are set — show OTP dialog
-        if (chatId != null && otp != null && otp.isNotEmpty && !hasNavigated) {
-          hasNavigated = true;
+        if (chatId != null && otp != null && otp.isNotEmpty && !_tgHasNavigated) {
+          _tgHasNavigated = true;
           _tgSessionSub?.cancel();
           _tgCountdownTimer?.cancel();
 
@@ -477,6 +520,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
 
   Future<void> _checkTelegramSessionManually({bool isAutoCheck = false}) async {
     if (_tgSessionToken == null) return;
+    if (_tgHasNavigated) return;
 
     if (!isAutoCheck) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -494,11 +538,12 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
           .get()
           .timeout(const Duration(seconds: 10));
 
-      if (!mounted) return;
+      if (!mounted || _tgHasNavigated) return;
       if (!snap.exists) {
         // Сессия уже удалена сервером (истекла) — раньше здесь молча ничего
         // не происходило, и шторка висела вечно даже после явного тапа
         // "Проверить".
+        _tgHasNavigated = true;
         _tgSessionSub?.cancel();
         _tgCountdownTimer?.cancel();
         if (Navigator.canPop(context)) Navigator.pop(context);
@@ -516,6 +561,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
       final String? customToken = data['customToken'];
 
       if (chatId != null && otp != null && otp.isNotEmpty) {
+        _tgHasNavigated = true;
         _tgSessionSub?.cancel();
         _tgCountdownTimer?.cancel();
 
