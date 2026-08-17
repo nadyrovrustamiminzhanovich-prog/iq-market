@@ -3,7 +3,7 @@ const {
   assertSucceeds,
   assertFails,
 } = require("@firebase/rules-unit-testing");
-const { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, arrayUnion, increment } = require("firebase/firestore");
+const { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, query, where, arrayUnion, increment } = require("firebase/firestore");
 const fs = require("fs");
 
 jest.setTimeout(30000);
@@ -308,6 +308,7 @@ describe("taxi_rides / taxi_orders — только админ", () => {
 describe("users", () => {
   const userId = "user_001";
   const otherId = "user_002";
+  const adminId = "user_admin_phone_check_001";
 
   beforeEach(async () => {
     await adminSet(`users/${userId}`, {
@@ -536,6 +537,25 @@ describe("users", () => {
           },
           { merge: true }
         )
+      );
+    });
+
+    // Гипотеза (найдена в x10-аудите 17.08, не проверялась вживую): проверка
+    // "номер уже занят другим аккаунтом" при линковке Telegram из настроек/
+    // анкеты водителя (telegram_verification_dialog.dart, driver_onboarding_
+    // wizard.dart) делает `.where('verified_phone', isEqualTo: ...).get()` —
+    // это COLLECTION QUERY ("list"), а allow list в users.rules требует
+    // isAdmin(). Для обычного пользователя запрос должен упасть.
+    test("обычный пользователь НЕ может искать по verified_phone (list) — подтверждает найденный баг проверки на угон номера", async () => {
+      await assertFails(
+        getDocs(query(collection(userDb(userId), "users"), where("verified_phone", "==", "77001234567")))
+      );
+    });
+
+    test("админ МОЖЕТ искать по verified_phone (list) — тот же запрос, но с правами", async () => {
+      await adminSet(`users/${adminId}`, { accountType: "admin" });
+      await assertSucceeds(
+        getDocs(query(collection(userDb(adminId), "users"), where("verified_phone", "==", "77001234567")))
       );
     });
 

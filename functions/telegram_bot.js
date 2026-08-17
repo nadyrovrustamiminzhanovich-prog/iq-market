@@ -693,7 +693,26 @@ exports.verifyTelegramOtp = functions.https.onCall(async (data, context) => {
     if (context.auth) {
       const userUid = context.auth.uid;
       const userRef = db.collection('users').doc(userUid);
-      
+
+      // Защита от угона номера. Раньше эту проверку делал КЛИЕНТ
+      // (`.where('verified_phone', ...)`) уже ПОСЛЕ того, как этот же вызов
+      // успешно записывал verified_phone текущему пользователю — то есть
+      // даже сработай она, было поздно (запись уже ушла), а сработать она
+      // и не могла: allow list в 02_users.rules требует isAdmin(), обычный
+      // пользователь получал permission-denied и видел невнятную ошибку
+      // вместо реальной причины. Здесь, через Admin SDK, правила не мешают
+      // и проверка идёт ДО записи, а не после.
+      if (secureData.verified_phone) {
+        const collision = await db.collection('users')
+          .where('verified_phone', '==', secureData.verified_phone)
+          .limit(2)
+          .get();
+        const takenByOther = collision.docs.some(d => d.id !== userUid);
+        if (takenByOther) {
+          throw new functions.https.HttpsError('already-exists', 'Этот номер уже привязан к другому аккаунту.');
+        }
+      }
+
       // verified_phone из secure-документа — номер, которым пользователь
       // поделился контактом в боте, проверенный сервером. Он приоритетнее
       // data.phone: то, что прислал клиент, клиент мог и подменить.

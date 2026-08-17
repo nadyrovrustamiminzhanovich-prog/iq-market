@@ -193,18 +193,14 @@ class _TelegramVerificationDialogState extends State<TelegramVerificationDialog>
 
         if (result.data['success'] == true) {
           final cleanPhone = _phoneCtrl.text.replaceAll(RegExp(r'\D'), '');
-          
-          // Security Check: Phone Hijacking Protection
-          final existingQuery = await FirebaseFirestore.instance
-              .collection('users')
-              .where('verified_phone', isEqualTo: cleanPhone)
-              .get();
 
-          for (var doc in existingQuery.docs) {
-            if (doc.id != user.uid) {
-              throw Exception('Этот номер уже привязан к другому аккаунту.');
-            }
-          }
+          // Защита от угона номера теперь делается СЕРВЕРОМ, внутри самой
+          // verifyTelegramOtp, до записи (functions/telegram_bot.js) — успех
+          // здесь уже означает, что номер свободен. Раньше этот же запрос
+          // делал клиент через `.where('verified_phone', ...)` уже ПОСЛЕ
+          // записи (поздно) и падал с permission-denied для не-админов
+          // (allow list в 02_users.rules требует isAdmin()) — обычный
+          // пользователь просто видел невнятную ошибку вместо результата.
 
           final tgData = result.data;
           final String? returnedChatId = tgData is Map ? (tgData['chatId']?.toString() ?? _chatId) : _chatId;
@@ -275,8 +271,11 @@ class _TelegramVerificationDialogState extends State<TelegramVerificationDialog>
       final bool isWrongCode = e is FirebaseFunctionsException
           ? (e.code == 'permission-denied' || e.code == 'invalid-argument')
           : raw.contains('Неверный код');
+      final bool isPhoneTaken = e is FirebaseFunctionsException && e.code == 'already-exists';
       setState(() {
-        if (isWrongCode) {
+        if (isPhoneTaken) {
+          _errorText = 'Этот номер уже привязан к другому аккаунту.';
+        } else if (isWrongCode) {
           _codeCtrl.clear();
           _errorText = 'Неверный код! Проверьте и попробуйте еще раз. ❌';
         } else {
