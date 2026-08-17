@@ -520,13 +520,13 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                   if (_isPhoneVerified) ...[
                     _buildDisplayField(
                       _t('phone_label'),
-                      _phoneController.text.trim().isNotEmpty ? _phoneController.text.trim() : 'Номер не указан',
+                      _phoneController.text.trim().isNotEmpty ? _phoneController.text.trim() : _t('phone_not_provided'),
                       Icons.verified_user_rounded,
                       trailingIcon: Icons.verified_rounded,
                       onTap: () {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('🛡️ Номер верифицирован через Telegram. Смена производится через Модератора.'),
+                            content: Text(_t('phone_verified_tg_notice')),
                             backgroundColor: const Color(0xFF10B981),
                             behavior: SnackBarBehavior.floating,
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -556,7 +556,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                             const SizedBox(width: 10),
                             Expanded(
                               child: Text(
-                                'Хотите сменить номер? Напишите модератору (+7 708 900 70 30)',
+                                _t('phone_change_moderator_hint'),
                                 style: GoogleFonts.inter(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
@@ -596,7 +596,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
-                                    'Email скопирован: $_userEmail',
+                                    _t('email_copied_with_value').replaceAll('{email}', _userEmail),
                                     style: GoogleFonts.inter(fontWeight: FontWeight.w600),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,

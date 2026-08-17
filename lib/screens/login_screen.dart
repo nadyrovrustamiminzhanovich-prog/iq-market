@@ -7,6 +7,8 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 import 'package:iqmarket/data/legal_texts.dart';
 
@@ -317,24 +319,51 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
       }
     } on TimeoutException {
       _showError(_t('err_timeout'));
+    } on GoogleSignInException catch (e) {
+      // google_sign_in v7 всегда бросает типизированный GoogleSignInException
+      // с конкретным .code — раньше ошибки распознавались через
+      // e.toString().contains('canceled'), что ловило "canceled" в описании
+      // СОВСЕМ других сбоев. В частности, Android Credential Manager сам
+      // закрывает окно выбора аккаунта кодом canceled не только по тапу
+      // пользователя (например, если нет доступного аккаунта для выбора) —
+      // поэтому нельзя утверждать, что это сделал именно пользователь.
+      debugPrint('Google Sign-In Error: ${e.code} ${e.description} ${e.details}');
+      final detail = '${e.description ?? ''} ${e.details ?? ''}'.toLowerCase();
+      switch (e.code) {
+        case GoogleSignInExceptionCode.canceled:
+        case GoogleSignInExceptionCode.interrupted:
+        case GoogleSignInExceptionCode.uiUnavailable:
+          _showError(_t('google_err_closed'));
+          break;
+        case GoogleSignInExceptionCode.clientConfigurationError:
+        case GoogleSignInExceptionCode.providerConfigurationError:
+          if (detail.contains('10') || detail.contains('developer')) {
+            _showError(_t('google_err_dev'));
+          } else {
+            _showError(_t('google_err_config'));
+          }
+          break;
+        case GoogleSignInExceptionCode.userMismatch:
+          _showError(_t('google_err_mismatch'));
+          break;
+        case GoogleSignInExceptionCode.unknownError:
+          _showError('${_t('err_google_failed')}: ${e.description ?? e.code}');
+          break;
+      }
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'account-exists-with-different-credential' || e.code == 'invalid-credential') {
+        _showError(_t('social_err_account_exists'));
+      } else {
+        _showError(_firebaseError(e));
+      }
     } catch (e) {
       debugPrint('Google Sign-In Error: $e');
-      String errMsg = 'Ошибка входа через Google';
       final errStr = e.toString();
-      
-      if (errStr.contains('ApiException: 10') || errStr.contains('status code 10')) {
-        errMsg = 'Ошибка 10 (Developer Error):\n\nSHA-1 отпечаток этого телефона/компьютера не зарегистрирован в консоли Firebase.\n\nПожалуйста, воспользуйтесь входом через Telegram — он полностью настроен и готов!';
-      } else if (errStr.contains('ApiException: 7') || errStr.contains('status code 7') || errStr.contains('network_error')) {
-        errMsg = 'Ошибка сети (code 7):\n\nПроверьте соединение с интернетом или подключение к VPN.';
-      } else if (errStr.contains('12500')) {
-        errMsg = 'Ошибка 12500:\n\nНесоответствие конфигурации сервисов Google Play на этом устройстве.';
-      } else if (errStr.contains('sign_in_canceled') || errStr.contains('canceled')) {
-        errMsg = 'Вход через Google отменен пользователем.';
+      if (errStr.contains('network_error') || errStr.contains('SocketException')) {
+        _showError(_t('err_network_failed'));
       } else {
-        errMsg = 'Ошибка Google Sign-In: ${errStr.replaceAll('PlatformException', '')}';
+        _showError('${_t('err_google_failed')}: ${errStr.replaceAll('PlatformException', '')}');
       }
-      
-      _showError(errMsg);
     } finally { if (mounted) setState(() => _isLoading = false); }
   }
 
@@ -351,9 +380,21 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
           isVerified: false,
         );
       }
+    } on SignInWithAppleAuthorizationException catch (e) {
+      // Apple, в отличие от Android Credential Manager, ставит code:.canceled
+      // только по реальному действию пользователя — здесь это можно
+      // утверждать безопасно.
+      debugPrint('Apple Sign-In Error: ${e.code} ${e.message}');
+      _showError(e.code == AuthorizationErrorCode.canceled ? _t('apple_err_canceled') : _t('apple_err_generic'));
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'account-exists-with-different-credential' || e.code == 'invalid-credential') {
+        _showError(_t('social_err_account_exists'));
+      } else {
+        _showError(_firebaseError(e));
+      }
     } catch (e) {
       debugPrint('Apple: $e');
-      _showError('Ошибка Apple Sign-In');
+      _showError(_t('apple_err_generic'));
     } finally { if (mounted) setState(() => _isLoading = false); }
   }
 
@@ -384,6 +425,17 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
       // Listen to the session stream
       _tgSessionSub?.cancel();
       _tgSessionSub = AuthService.watchTelegramSession(_tgSessionToken!).listen((snap) {
+        if (!hasNavigated && !snap.exists) {
+          // Сервер чистит сессию через cleanupExpiredSessions примерно через
+          // 10 минут — без этой ветки шторка виснет со спиннером навсегда.
+          hasNavigated = true;
+          _tgSessionSub?.cancel();
+          _tgCountdownTimer?.cancel();
+          if (Navigator.canPop(context)) Navigator.pop(context);
+          if (mounted) _showError(_t('tg_session_expired'));
+          _tgSessionToken = null;
+          return;
+        }
         if (!snap.exists) return;
         final data = snap.data();
         if (data == null) return;
@@ -416,7 +468,8 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     } on TimeoutException {
       _showError(_t('err_timeout'));
     } catch (e) {
-      _showError('Ошибка: $e');
+      debugPrint('Telegram Login Error: $e');
+      _showError(_t('tg_err_general'));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -442,7 +495,19 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
           .timeout(const Duration(seconds: 10));
 
       if (!mounted) return;
-      if (!snap.exists) return;
+      if (!snap.exists) {
+        // Сессия уже удалена сервером (истекла) — раньше здесь молча ничего
+        // не происходило, и шторка висела вечно даже после явного тапа
+        // "Проверить".
+        _tgSessionSub?.cancel();
+        _tgCountdownTimer?.cancel();
+        if (Navigator.canPop(context)) Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(_t('tg_session_expired')), backgroundColor: Colors.redAccent, behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+        );
+        _tgSessionToken = null;
+        return;
+      }
       final data = snap.data();
       if (data == null) return;
 
@@ -787,6 +852,20 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                 final bool isWrongCode = rawErr.contains('Неверный') ||
                     rawErr.contains('permission-denied') ||
                     rawErr.contains('invalid-argument');
+                final bool isRateLimited = rawErr.contains('resource-exhausted');
+
+                if (isRateLimited) {
+                  // При превышении лимита в 5 попыток сервер сам удаляет
+                  // сессию — повторный тап "Подтвердить" с этим токеном
+                  // гарантированно провалится, поэтому сразу закрываем диалог
+                  // вместо того, чтобы оставлять его висеть без объяснений.
+                  if (Navigator.of(ctx, rootNavigator: true).canPop()) {
+                    Navigator.of(ctx, rootNavigator: true).pop();
+                  }
+                  _tgSessionToken = null;
+                  if (mounted) _showError(_t('tg_otp_rate_limited'));
+                  return;
+                }
 
                 ss(() {
                   isDialogLoading = false;
@@ -1129,16 +1208,27 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     String telegramUsername = '',
   }) async {
     // 1. Сохраняем в Firebase Firestore
-    final bool finalVerified = await UserService.syncUserAfterLogin(
-      name: name,
-      email: email,
-      photoUrl: photoUrl,
-      phone: verifiedPhone.isNotEmpty ? verifiedPhone : null,
-      isVerified: isVerified,
-      accountType: accountType,
-      language: _selectedLang,
-      isLanguageManuallyChanged: _languageManuallyChanged,
-    );
+    final bool finalVerified;
+    try {
+      finalVerified = await UserService.syncUserAfterLogin(
+        name: name,
+        email: email,
+        photoUrl: photoUrl,
+        phone: verifiedPhone.isNotEmpty ? verifiedPhone : null,
+        isVerified: isVerified,
+        accountType: accountType,
+        language: _selectedLang,
+        isLanguageManuallyChanged: _languageManuallyChanged,
+      );
+    } catch (e) {
+      // Раньше эта ошибка проглатывалась внутри syncUserAfterLogin, и вход
+      // тихо продолжался без документа профиля в Firestore. Теперь явно
+      // останавливаем вход здесь — пользователь уже залогинен в Firebase
+      // Auth, но НЕ пускаем его дальше на главный экран с битым профилем.
+      debugPrint('_finalizeLogin: profile sync failed: $e');
+      if (mounted) _showError(_t('profile_sync_failed'));
+      return;
+    }
 
     // Номер, подтверждённый контактом в Телеграме, помечаем как верифицированный
     // и кладём в private/contact. Без этого аккаунт, созданный входом через

@@ -86,8 +86,13 @@ class UserService {
         return existingVerified || isVerified;
       }
     } catch (e) {
+      // Раньше ошибка тут проглатывалась и функция как ни в чём не бывало
+      // возвращала isVerified — пользователь оставался залогинен в Firebase
+      // Auth, но БЕЗ документа профиля в Firestore, а приложение спокойно
+      // вело его на главный экран. Пробрасываем дальше, чтобы вызывающий
+      // код (_finalizeLogin) мог остановить вход и показать ошибку.
       debugPrint('Error syncing user after login: $e');
-      return isVerified;
+      rethrow;
     }
   }
 

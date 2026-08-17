@@ -36,7 +36,9 @@ import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:iqmarket/services/translation_service.dart';
 import 'package:iqmarket/services/storage_service.dart';
+import 'package:iqmarket/services/version_service.dart';
 import 'package:iqmarket/widgets/auth_gate_bottom_sheet.dart';
+import 'package:iqmarket/widgets/update_available_sheet.dart';
 
 class IQMarketHome extends StatefulWidget {
   const IQMarketHome({super.key});
@@ -175,6 +177,19 @@ class _IQMarketHomeState extends State<IQMarketHome> with WidgetsBindingObserver
     WidgetsBinding.instance.addPostFrameCallback((_) {
       NotificationService.handlePendingNavigation();
     });
+
+    // Мягкое (не блокирующее) напоминание об обновлении. Сплэш уже нашёл его
+    // через VersionService.checkVersion() одним запросом вместе с проверкой
+    // принудительного апдейта — здесь просто показываем один раз за холодный
+    // старт и сразу обнуляем pendingOptionalUpdate, чтобы навигация внутри
+    // той же сессии (открыл/закрыл экран) не показывала шторку повторно.
+    final pendingUpdate = VersionService.pendingOptionalUpdate;
+    if (pendingUpdate != null) {
+      VersionService.pendingOptionalUpdate = null;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) UpdateAvailableSheet.show(context, pendingUpdate);
+      });
+    }
   }
 
   Future<void> _loadCachedUser() async {

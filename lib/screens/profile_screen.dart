@@ -1546,6 +1546,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
 
   void _showSecurityDialog() {
+    final currentPasswordController = TextEditingController();
     final passwordController = TextEditingController();
     final confirmController = TextEditingController();
     bool isLoading = false;
@@ -1571,6 +1572,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 const SizedBox(height: 10),
                 Text(_t('enter_new_password_desc'), textAlign: TextAlign.center, style: TextStyle(color: _subtxtColor, fontSize: 13)),
                 const SizedBox(height: 25),
+                _buildSecurityField(_t('current_password'), currentPasswordController, true),
+                const SizedBox(height: 15),
                 _buildSecurityField(_t('new_password'), passwordController, true),
                 const SizedBox(height: 15),
                 _buildSecurityField(_t('confirm_password'), confirmController, true),
@@ -1580,6 +1583,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   height: 56,
                   child: ElevatedButton(
                     onPressed: isLoading ? null : () async {
+                      if (currentPasswordController.text.isEmpty) {
+                        _showLocalError(_t('current_password_required'));
+                        return;
+                      }
                       if (passwordController.text.length < 6) {
                         _showLocalError(_t('min_6_chars'));
                         return;
@@ -1588,13 +1595,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         _showLocalError(_t('passwords_dont_match'));
                         return;
                       }
+                      if (passwordController.text == currentPasswordController.text) {
+                        _showLocalError(_t('same_as_current_password'));
+                        return;
+                      }
 
                       setModalState(() => isLoading = true);
                       try {
+                        // Смена пароля — чувствительная операция Firebase: без
+                        // реаутентификации она падает с requires-recent-login
+                        // у любого, кто зашёл в аккаунт не прямо сейчас.
+                        await AuthService.reauthenticateWithPassword(currentPasswordController.text);
                         await AuthService.updatePassword(passwordController.text);
                         if (mounted) {
                           Navigator.pop(ctx);
                           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_t('password_changed_success')), backgroundColor: Colors.green));
+                        }
+                      } on FirebaseAuthException catch (e) {
+                        switch (e.code) {
+                          case 'wrong-password':
+                          case 'invalid-credential':
+                            _showLocalError(_t('wrong_current_password'));
+                            break;
+                          case 'too-many-requests':
+                            _showLocalError(_t('too_many_requests_pwd'));
+                            break;
+                          case 'network-request-failed':
+                            _showLocalError(_t('network_error_pwd'));
+                            break;
+                          case 'weak-password':
+                            _showLocalError(_t('min_6_chars'));
+                            break;
+                          default:
+                            _showLocalError('${_t('error')}: ${e.message ?? e.code}');
                         }
                       } catch (e) {
                         _showLocalError('${_t('error')}: $e');
@@ -1603,7 +1636,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       }
                     },
                     style: ElevatedButton.styleFrom(backgroundColor: _primaryColor, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
-                    child: isLoading 
+                    child: isLoading
                       ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                       : Text(_t('updatePasswordBtn'), style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.white)),
                   ),
@@ -1615,6 +1648,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       ),
     ).then((_) {
+      currentPasswordController.dispose();
       passwordController.dispose();
       confirmController.dispose();
     });
@@ -1804,7 +1838,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             const SizedBox(height: 24),
             Text(
-              'О РАЗРАБОТЧИКЕ',
+              _t('about_title'),
               style: GoogleFonts.inter(
                 fontSize: 12,
                 fontWeight: FontWeight.w800,
@@ -1825,7 +1859,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Надыров Рустам Иминжанович',
+                    _t('dev_name'),
                     style: GoogleFonts.inter(
                       fontSize: 19,
                       fontWeight: FontWeight.w900,
@@ -1835,22 +1869,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   const SizedBox(height: 14),
                   Text(
-                    'Основатель и главный разработчик платформы IQ-Market.',
+                    _t('dev_desc'),
                     style: GoogleFonts.inter(
                       fontSize: 14,
                       height: 1.45,
                       color: textDark,
                       fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Вся интеллектуальная собственность, исходный код, дизайн и бренд приложения строго защищены и принадлежат автору.',
-                    style: GoogleFonts.inter(
-                      fontSize: 14,
-                      height: 1.45,
-                      color: textDark,
-                      fontWeight: FontWeight.w400,
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -1863,7 +1887,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        'Официальные права © 2026',
+                        _t('rights'),
                         style: GoogleFonts.inter(
                           fontSize: 14,
                           fontWeight: FontWeight.w800,
@@ -1877,7 +1901,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             const SizedBox(height: 24),
             Text(
-              'Версия приложения: 1.1.0',
+              _t('version'),
               style: GoogleFonts.inter(
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
@@ -1886,7 +1910,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Сервис предназначен для удобного и безопасного размещения объявлений. Любое использование материалов без согласия автора запрещено.',
+              _t('copyright_note'),
               style: GoogleFonts.inter(
                 fontSize: 13,
                 height: 1.4,

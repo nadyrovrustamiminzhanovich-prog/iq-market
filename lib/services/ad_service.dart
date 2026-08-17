@@ -18,8 +18,22 @@ import 'package:iqmarket/services/network_service.dart';
 import 'package:iqmarket/services/telegram_bot_service.dart';
 import 'package:iqmarket/services/fallback_moderation_keywords.dart';
 import 'package:iqmarket/services/device_identity_service.dart';
+import 'package:iqmarket/services/translation_service.dart';
 import 'package:iqmarket/utils/fuzzy_matcher.dart';
 import 'package:iqmarket/utils/search_normalizer.dart';
+
+// Отдельный тип вместо обычного Exception с текстом: ниже по стеку код
+// различает "это дубликат объявления" от прочих сбоев checkAdFingerprint по
+// ТИПУ, а не по подстроке в e.toString() — раньше сравнивался жёстко русский
+// текст сообщения, и проверка тихо переставала бы работать для
+// казахского/уйгурского интерфейса после локализации этого сообщения.
+class _DuplicateAdException implements Exception {
+  final String message;
+  _DuplicateAdException(this.message);
+  @override
+  String toString() => message;
+}
+
 class AdService {
   static final FirebaseFirestore _db = FirebaseFirestore.instance;
   static final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -48,7 +62,7 @@ class AdService {
     required String userPhone,
   }) async {
     final user = _auth.currentUser;
-    if (user == null) throw Exception('Пользователь не авторизован');
+    if (user == null) throw Exception(TranslationService.t('ad_err_not_authenticated', lang));
 
     // 0. Rate-limit: только для НОВЫХ объявлений (не редактирования), до сжатия
     // фото и загрузки — чтобы не тратить впустую ресурсы, если лимит исчерпан.
@@ -58,7 +72,7 @@ class AdService {
         await rateLimitCallable.call();
       } on FirebaseFunctionsException catch (e) {
         if (e.code == 'resource-exhausted') {
-          throw Exception(e.message ?? 'Достигнут лимит на публикацию объявлений');
+          throw Exception(e.message ?? TranslationService.t('ad_err_rate_limit', lang));
         }
         debugPrint('[AdService] checkAdRateLimit error (fail-open): ${e.message}');
       } catch (e) {
@@ -215,7 +229,8 @@ class AdService {
         debugPrint('[AdService] Failed to notify admin of rejected ad: $tgEx');
       }
 
-      throw Exception('Объявление отклонено ИИ за нарушение правил.\nПричина: ${reason.isEmpty ? "Нарушение политики контента" : reason}');
+      final localizedReason = reason.isEmpty ? TranslationService.t('ad_err_ai_rejected_generic_reason', lang) : reason;
+      throw Exception('${TranslationService.t('ad_err_ai_rejected_prefix', lang)}$localizedReason');
     }
 
     // 3. Загрузка pre-compressed фото в Firebase Storage
@@ -232,7 +247,7 @@ class AdService {
           imageUrls.add(url);
           newlyUploadedUrls.add(url);
         } else {
-          throw Exception('Не удалось загрузить фото ${i + 1}');
+          throw Exception('${TranslationService.t('ad_err_photo_upload', lang)} ${i + 1}');
         }
       }
 
@@ -265,7 +280,7 @@ class AdService {
           // на пути явной замены видео на плохой сети. Бросаем исключение,
           // чтобы вся публикация упала (как для фото) и попала в общий catch
           // ниже с очисткой уже загруженных файлов — вместо тихой потери видео.
-          throw Exception('Не удалось загрузить видео');
+          throw Exception(TranslationService.t('ad_err_video_upload', lang));
         }
 
         // Если нет фотографий, сгенерируем обложку из видео
@@ -333,7 +348,7 @@ class AdService {
           }
         } on FirebaseFunctionsException catch (e, stack) {
           if (e.code == 'already-exists') {
-            throw Exception('Вы уже опубликовали точно такое же объявление');
+            throw _DuplicateAdException(TranslationService.t('ad_err_duplicate', lang));
           }
           // Fail-open логирование сбоя проверки на дубликаты
           AnalyticsService.logFingerprintCheckFailure(
@@ -345,7 +360,7 @@ class AdService {
           );
           debugPrint('[AdService] checkAdFingerprint error (fail-open): ${e.message}');
         } catch (e, stack) {
-          if (e.toString().contains('Вы уже опубликовали точно такое же объявление')) {
+          if (e is _DuplicateAdException) {
             rethrow;
           }
           // Fail-open логирование общего сбоя

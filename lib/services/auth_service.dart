@@ -56,6 +56,21 @@ class AuthService {
     await _auth.currentUser?.updatePassword(newPassword);
   }
 
+  // Firebase считает смену пароля чувствительной операцией и требует "свежий"
+  // вход (обычно последние несколько минут). Без явной реаутентификации перед
+  // updatePassword() запрос почти всегда падает с requires-recent-login у
+  // любого, кто открыл экран не сразу после логина — то есть у подавляющего
+  // большинства пользователей.
+  static Future<void> reauthenticateWithPassword(String currentPassword) async {
+    final user = _auth.currentUser;
+    final email = user?.email;
+    if (user == null || email == null) {
+      throw FirebaseAuthException(code: 'no-current-user', message: 'Нет активного email-аккаунта');
+    }
+    final credential = EmailAuthProvider.credential(email: email, password: currentPassword);
+    await user.reauthenticateWithCredential(credential);
+  }
+
   // ===================== GOOGLE SIGN IN =====================
 
   static Future<UserCredential?> signInWithGoogle() async {

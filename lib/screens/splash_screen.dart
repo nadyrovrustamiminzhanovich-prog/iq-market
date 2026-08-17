@@ -51,7 +51,7 @@ class _AppBootstrapState extends State<AppBootstrap> {
 
       // App Check ДО первого запроса к Firestore (было в
       // _initServicesInBackground, который стартует уже ПОСЛЕ
-      // checkUpdateRequired() ниже — если включить enforcement в консоли,
+      // checkVersion() ниже — если включить enforcement в консоли,
       // самый первый запрос уходил бы без токена и ловил бы permission-denied).
       await FirebaseAppCheck.instance.activate(
         providerAndroid: kDebugMode ? const AndroidDebugProvider() : const AndroidPlayIntegrityProvider(),
@@ -64,8 +64,8 @@ class _AppBootstrapState extends State<AppBootstrap> {
         cacheSizeBytes: 104857600, // 100 MB cache limit
       );
 
-      // Check if update is required from Firestore config
-      final updateUrl = await VersionService.checkUpdateRequired();
+      // Check if update is required (or merely available) from Firestore config
+      final versionResult = await VersionService.checkVersion();
 
       // Initialize lightweight providers only after dependencies are ready
       _taxiProvider = TaxiProvider();
@@ -83,14 +83,20 @@ class _AppBootstrapState extends State<AppBootstrap> {
       // 3. Configure the already instantiated providers with language / locale
       _appConfigProvider.setLocale(initialLocale);
 
-      if (updateUrl != null) {
+      if (versionResult.forceUpdateStoreUrl != null) {
         if (mounted) {
           setState(() {
-            _updateStoreUrl = updateUrl;
+            _updateStoreUrl = versionResult.forceUpdateStoreUrl;
             _initialized = true;
           });
         }
         return; // Stop further initialization and display ForceUpdateScreen
+      }
+
+      // Необязательное обновление — не блокирует запуск, IQMarketHome покажет
+      // мягкое напоминание один раз после первого кадра.
+      if (versionResult.optionalUpdate != null) {
+        VersionService.pendingOptionalUpdate = versionResult.optionalUpdate;
       }
 
       // 4. Bind language synchronization events
