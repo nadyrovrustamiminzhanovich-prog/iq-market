@@ -926,8 +926,8 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> with Widget
                 margin: const EdgeInsets.only(right: 8), 
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12), 
-                  image: (review.images[i].isNotEmpty && review.images[i].startsWith('http')) 
-                    ? DecorationImage(image: CachedNetworkImageProvider(review.images[i]), fit: BoxFit.cover)
+                  image: (review.images[i].isNotEmpty && review.images[i].startsWith('http'))
+                    ? DecorationImage(image: ResizeImage(CachedNetworkImageProvider(review.images[i]), width: 200), fit: BoxFit.cover)
                     : null,
                   color: Colors.grey[200],
                 ),
@@ -1150,9 +1150,9 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> with Widget
         CircleAvatar(
           radius: 28, 
           backgroundColor: const Color(0xFFF1F5F9), 
-          backgroundImage: (_seller != null && _seller!.photoUrl.isNotEmpty && _seller!.photoUrl.startsWith('http')) 
-            ? CachedNetworkImageProvider(_seller!.photoUrl) 
-            : null, 
+          backgroundImage: (_seller != null && _seller!.photoUrl.isNotEmpty && _seller!.photoUrl.startsWith('http'))
+            ? ResizeImage(CachedNetworkImageProvider(_seller!.photoUrl), width: 150)
+            : null,
           child: (_seller == null || _seller!.photoUrl.isEmpty || !_seller!.photoUrl.startsWith('http')) 
             ? const Icon(Icons.person) 
             : null

@@ -387,11 +387,14 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
 
             const SizedBox(height: 24),
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  TranslationService.t('photos_optional', lang),
-                  style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w700),
+                Expanded(
+                  child: Text(
+                    TranslationService.t('photos_optional', lang),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w700),
+                  ),
                 ),
                 if (_images.isNotEmpty)
                   Text(
@@ -516,7 +519,7 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'Загрузка фото...',
+                        TranslationService.t('uploading_photo', lang),
                         style: GoogleFonts.inter(fontSize: 13, color: Colors.grey),
                       ),
                       Text(

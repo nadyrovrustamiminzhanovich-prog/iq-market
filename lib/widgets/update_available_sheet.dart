@@ -121,6 +121,8 @@ class UpdateAvailableSheet extends StatelessWidget {
                   ),
                   child: Text(
                     TranslationService.t('update_btn', lang),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w800, color: Colors.white),
                   ),
                 ),

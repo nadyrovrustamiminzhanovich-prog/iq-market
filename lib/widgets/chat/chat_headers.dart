@@ -219,7 +219,7 @@ class ChatAdInfoBar extends StatelessWidget {
             child: Hero(
               tag: 'chat_ad-image-${ad.id}',
               child: ad.images.isNotEmpty 
-                ? CachedNetworkImage(imageUrl: ad.images.isNotEmpty ? ad.images.first : '', fit: BoxFit.cover, errorWidget: (context, url, error) => const Icon(Icons.image, color: Color(0xFF94A3B8)))
+                ? CachedNetworkImage(imageUrl: ad.images.isNotEmpty ? ad.images.first : '', fit: BoxFit.cover, memCacheWidth: 100, errorWidget: (context, url, error) => const Icon(Icons.image, color: Color(0xFF94A3B8)))
                 : const Icon(Icons.shopping_bag_outlined, color: Color(0xFF94A3B8), size: 20),
             ),
           ),

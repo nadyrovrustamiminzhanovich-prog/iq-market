@@ -157,6 +157,7 @@ class _ChatBubbleState extends State<ChatBubble> {
                                       ? CachedNetworkImage(
                                           imageUrl: widget.msg.mediaUrl!,
                                           fit: BoxFit.cover,
+                                          memCacheWidth: 400,
                                           errorWidget: (context, url, error) => const Icon(Icons.broken_image_rounded, color: Colors.grey),
                                         )
                                       : (widget.localImagePath != null && widget.localImagePath!.isNotEmpty)
