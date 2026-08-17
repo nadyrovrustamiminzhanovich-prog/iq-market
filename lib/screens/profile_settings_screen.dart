@@ -8,6 +8,7 @@ import 'package:iqmarket/services/storage_service.dart';
 import 'package:iqmarket/data/kazakhstan_locations.dart';
 import 'package:iqmarket/screens/legal_info_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import 'package:provider/provider.dart';
@@ -219,6 +220,22 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
 
   String _t(String key) {
     return TranslationService.t(key, _selectedLanguage);
+  }
+
+  // Привязка второго способа входа кидала сырой "Error: $e" в SnackBar.
+  // linkWithCredential (Google/Apple/Email) реалистично падает с
+  // credential-already-in-use/email-already-in-use/provider-already-linked,
+  // когда этот способ входа уже занят другим аккаунтом — это единственный
+  // код, для которого стоит отдельный текст, всё остальное — общая ошибка.
+  String _friendlyLinkError(FirebaseAuthException e) {
+    switch (e.code) {
+      case 'credential-already-in-use':
+      case 'email-already-in-use':
+      case 'provider-already-linked':
+        return _t('link_err_already_used');
+      default:
+        return _t('link_err_generic');
+    }
   }
 
   @override
@@ -1477,14 +1494,22 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
         isGoogleLinked,
         isGoogleLinked ? null : () async {
           try {
-            await AuthService.linkWithGoogle();
+            final cred = await AuthService.linkWithGoogle();
+            // linkWithGoogle возвращает null, если юзер закрыл выбор аккаунта
+            // не выбрав ничего — раньше это молча падало в тот же "успех".
+            if (cred == null) return;
             if (mounted) {
               setState(() {});
               ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_t('account_linked_success'))));
             }
-          } catch (e) {
+          } on FirebaseAuthException catch (e) {
             if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_friendlyLinkError(e))));
+            }
+          } catch (e) {
+            debugPrint('Link Google Error: $e');
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_t('link_err_generic'))));
             }
           }
         }
@@ -1540,9 +1565,20 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                 setState(() {});
                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_t('account_linked_success'))));
               }
-            } catch (e) {
+            } on SignInWithAppleAuthorizationException catch (e) {
+              // Юзер сам закрыл системную шторку Apple — это не ошибка, ничего не показываем.
+              if (e.code == AuthorizationErrorCode.canceled) return;
               if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_t('link_err_generic'))));
+              }
+            } on FirebaseAuthException catch (e) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_friendlyLinkError(e))));
+              }
+            } catch (e) {
+              debugPrint('Link Apple Error: $e');
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_t('link_err_generic'))));
               }
             }
           }
@@ -1627,8 +1663,11 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                 Navigator.pop(context);
                 setState(() {});
                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_t('link_email_success'))));
+              } on FirebaseAuthException catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_friendlyLinkError(e))));
               } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                debugPrint('Link Email Error: $e');
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_t('link_err_generic'))));
               }
             },
             child: Text(_t('link_action')),
