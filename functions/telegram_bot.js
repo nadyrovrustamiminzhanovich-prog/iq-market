@@ -600,66 +600,13 @@ exports.secureSendTelegramMessage = functions.https.onRequest(async (req, res) =
   }
 });
 
-// ─── SEND TELEGRAM OTP ────────────────────────────────────────────────────────
-exports.sendTelegramOtp = functions.https.onRequest(async (req, res) => {
-  res.set('Access-Control-Allow-Origin', 'https://iqmarket.kz');
-  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  if (req.method === 'OPTIONS') return res.status(204).send('');
-
-  const ipRaw = req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.ip || '';
-  const ip = ipRaw.split(',')[0].trim();
-  const { chat_id, phone, code } = req.body;
-  if (!chat_id || !code) return res.status(400).send('Missing chat_id or code');
-
-  // Rate Limiting: max 3 requests per phone or IP in 10 minutes
-  const now = Date.now();
-  const tenMinutesAgo = admin.firestore.Timestamp.fromMillis(now - 10 * 60 * 1000);
-
-  try {
-    if (phone) {
-      const cleanPhone = phone.replace(/\D/g, '');
-      if (cleanPhone) {
-        const phoneSnap = await db.collection('otp_requests')
-          .where('phone', '==', cleanPhone)
-          .where('timestamp', '>', tenMinutesAgo)
-          .get();
-        if (phoneSnap.size >= 3) {
-          return res.status(429).json({ success: false, error: 'Too many requests for this phone number. Please wait 10 minutes.' });
-        }
-      }
-    }
-
-    if (ip) {
-      const ipSnap = await db.collection('otp_requests')
-        .where('ip', '==', ip)
-        .where('timestamp', '>', tenMinutesAgo)
-        .get();
-      if (ipSnap.size >= 3) {
-        return res.status(429).json({ success: false, error: 'Too many requests from this IP. Please wait 10 minutes.' });
-      }
-    }
-
-    // Save request for rate-limiting verification
-    await db.collection('otp_requests').add({
-      phone: phone ? phone.replace(/\D/g, '') : '',
-      ip: ip,
-      timestamp: admin.firestore.FieldValue.serverTimestamp()
-    });
-
-    const text = `🔐 <b>Ваш код для входа в IQ-Market:</b>\n\n<code>${code}</code>\n\n<i>Код действителен 5 минут. Никому не сообщайте!</i>`;
-
-    const response = await tgSend(chat_id, text);
-    if (response && response.ok) {
-      return res.status(200).json({ success: true });
-    } else {
-      const errText = response ? await response.text() : 'Unknown error';
-      return res.status(500).json({ success: false, error: errText });
-    }
-  } catch (error) {
-    return res.status(500).send(error.toString());
-  }
-});
+// sendTelegramOtp удалена (2026-08-17, x10-аудит): открытый неаутентифицированный
+// HTTP-эндпоинт — chat_id/code приходили от вызывающего без проверки сессии и без
+// экранирования, вставлялись в HTML-текст сообщения официального бота. Единственный
+// клиентский вызывающий (TelegramAuthService.sendOtp, telegram_service.dart) нигде
+// не вызывался в UI — реальный вход идёт через verifyTelegramOtp ниже (сервер сам
+// генерирует и проверяет код в рамках настоящей сессии). Удалён вместе с мёртвым
+// клиентским классом и sendOtpUrl (cloud_function_endpoints.dart).
 
 // ─── VERIFY TELEGRAM OTP CALLABLE ───────────────────────────────────────────
 const OTP_MAX_ATTEMPTS = 5;
@@ -766,7 +713,12 @@ exports.verifyTelegramOtp = functions.https.onCall(async (data, context) => {
         // users where verified_phone == ...) и его видит админ в карточке
         // пользователя. Правила разрешают это поле как исключение.
         ...(secureData.verified_phone ? { verified_phone: secureData.verified_phone } : {}),
-        telegramChatId: sessionData.chat_id || '',
+        // telegramChatId НЕ пишем сюда — users/{uid} читается через
+        // "allow get: if isSignedIn()" (02_users.rules), т.е. ЛЮБОЙ
+        // авторизованный аккаунт может прочитать чужой telegramChatId по
+        // известному uid и использовать его для фишинга. Значение уже
+        // сохраняется в users/{uid}/private/contact ниже (owner+admin only) —
+        // единственное защищённое место для этого поля.
         telegram_username: tgUsername,
         telegram_first_name: tgFirstName,
         telegram_last_name: tgLastName,

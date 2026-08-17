@@ -58,7 +58,6 @@ const telegramBot = require('./telegram_bot');
 
 exports.registerWebhook = telegramBot.registerWebhook;
 exports.telegramWebhook = telegramBot.telegramWebhook;
-exports.sendTelegramOtp = telegramBot.sendTelegramOtp;
 exports.secureSendTelegramMessage = telegramBot.secureSendTelegramMessage;
 exports.onVerificationUpdate = telegramBot.onVerificationUpdate;
 exports.verifyTelegramOtp = telegramBot.verifyTelegramOtp;

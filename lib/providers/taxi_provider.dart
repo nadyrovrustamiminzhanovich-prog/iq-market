@@ -11,6 +11,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:intl/intl.dart';
 import 'package:iqmarket/services/storage_service.dart';
+import 'package:iqmarket/services/user_service.dart';
 
 class TaxiProvider extends ChangeNotifier {
   late final TaxiPrefsService _prefs;
@@ -308,7 +309,18 @@ class TaxiProvider extends ChangeNotifier {
         _telegramFirstName = data?['telegram_first_name'] ?? _telegramFirstName;
         _telegramLastName = data?['telegram_last_name'] ?? _telegramLastName;
         _telegramChatId = data?['telegramChatId'] ?? data?['telegram_chat_id'] ?? _telegramChatId;
-        
+        // telegramChatId больше не пишется в основной документ (утечка через
+        // users.rules allow get: если бы он там был, любой авторизованный
+        // мог прочитать чужой Telegram — см. 02_users.rules) — сервер кладёт
+        // его только в приватный контакт, читать нужно оттуда.
+        if (_telegramChatId == null || _telegramChatId!.isEmpty) {
+          final contact = await UserService.getPrivateContact(uid: user.uid);
+          final fromContact = contact['telegramChatId'] ?? contact['telegram_chat_id'];
+          if (fromContact != null && fromContact.toString().isNotEmpty) {
+            _telegramChatId = fromContact.toString();
+          }
+        }
+
         if (verified != _isTelegramVerified) {
           _isTelegramVerified = verified;
           notifyListeners();

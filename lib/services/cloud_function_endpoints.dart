@@ -4,5 +4,4 @@ class CloudFunctionEndpoints {
 
   static const String geminiProxyUrl = 'https://us-central1-iq-market-3dc07.cloudfunctions.net/secureGeminiCall';
   static const String telegramProxyUrl = 'https://us-central1-iq-market-3dc07.cloudfunctions.net/secureSendTelegramMessage';
-  static const String sendOtpUrl = 'https://us-central1-iq-market-3dc07.cloudfunctions.net/sendTelegramOtp';
 }
