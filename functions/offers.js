@@ -246,6 +246,23 @@ exports.respondToOffer = functions.https.onCall(async (data, context) => {
       throw new functions.https.HttpsError('failed-precondition', 'Предложение уже обработано');
     }
 
+    // Принять оффер на удалённое/снятое объявление раньше проходило молча —
+    // покупатель получал уведомление "оффер принят" на несуществующий товар.
+    // Отклонить оффер на мёртвом объявлении по-прежнему можно (это просто
+    // уборка, без вводящего в заблуждение уведомления покупателю).
+    if (accepted) {
+      const adSnap = await tx.get(db.collection('ads').doc(current.adId));
+      if (!adSnap.exists) {
+        throw new functions.https.HttpsError('failed-precondition', 'Объявление удалено, оффер больше нельзя принять');
+      }
+      const adData = adSnap.data();
+      const isActive = adData.active === undefined ? true : adData.active;
+      const status = adData.status === undefined ? 'active' : adData.status;
+      if (isActive !== true || status !== 'active') {
+        throw new functions.https.HttpsError('failed-precondition', `Объявление не активно (статус: ${status}), оффер больше нельзя принять`);
+      }
+    }
+
     tx.update(offerRef, {
       status    : accepted ? OFFER_ACCEPTED : OFFER_REJECTED,
       updatedAt : admin.firestore.FieldValue.serverTimestamp(),
