@@ -38,6 +38,11 @@ class ChatService {
         .doc(chatId)
         .collection('messages')
         .orderBy('timestamp', descending: true)
+        // 🔒 Раньше без лимита: весь чат целиком перекачивался и
+        // пересобирался при КАЖДОМ открытии и КАЖДОМ новом сообщении —
+        // тяжело на слабых устройствах/долгой переписке. Тот же порог, что
+        // уже используется в getNotificationsStream.
+        .limit(100)
         .snapshots()
         .map((snapshot) {
           // uid читаем на каждом снапшоте, а не при создании стрима: после
