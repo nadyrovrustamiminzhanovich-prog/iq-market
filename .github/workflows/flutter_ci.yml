@@ -5,6 +5,7 @@ on:
     branches: [ "main", "master" ]
   pull_request:
     branches: [ "main", "master" ]
+  workflow_dispatch: {}
 
 jobs:
   build:
@@ -86,3 +87,62 @@ jobs:
 
       - name: 🔐 Run Firestore/Storage rules & functions tests
         run: firebase emulators:exec --only firestore,storage "npm run test:all"
+
+  # Собирает НАСТОЯЩИЙ подписанный .aab для загрузки в Google Play.
+  # Локальная сборка релиза на машине разработчика физически не влезает в
+  # RAM (5.7ГБ) — дважды роняла компьютер намертво (см. память
+  # iqmarket-low-ram-machine/iqmarket-release-ci-pipeline-2026-08-16).
+  # Здесь собирается на раннере GitHub — там памяти достаточно.
+  # Запускается ТОЛЬКО вручную (workflow_dispatch), не на каждый push —
+  # это шаг публикации релиза, а не обычная проверка кода.
+  # Требует 4 секрета репозитория (Settings → Secrets and variables →
+  # Actions), значения нужно завести самому — ассистент их не видит и не
+  # трогает:
+  #   ANDROID_KEYSTORE_BASE64        — base64 содержимого upload-keystore.jks
+  #   ANDROID_KEYSTORE_STORE_PASSWORD
+  #   ANDROID_KEYSTORE_KEY_PASSWORD
+  #   ANDROID_KEYSTORE_KEY_ALIAS
+  build-signed-release:
+    name: Build REAL signed .aab for Google Play
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: 📦 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: 🐦 Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.x'
+          channel: 'stable'
+          cache: true
+
+      - name: 📥 Install dependencies
+        run: flutter pub get
+
+      - name: 🔑 Restore real signing keystore from secrets
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/app/upload-keystore.jks
+          cat > android/key.properties <<EOF
+          storeFile=upload-keystore.jks
+          storePassword=${{ secrets.ANDROID_KEYSTORE_STORE_PASSWORD }}
+          keyPassword=${{ secrets.ANDROID_KEYSTORE_KEY_PASSWORD }}
+          keyAlias=${{ secrets.ANDROID_KEYSTORE_KEY_ALIAS }}
+          EOF
+
+      - name: 🏗️ Build App Bundle (REAL signature — ready for Google Play)
+        run: flutter build appbundle --release
+
+      - name: 🚀 Upload real signed .aab
+        uses: actions/upload-artifact@v4
+        with:
+          name: IQ-Market-SIGNED-ReadyForPlayStore
+          path: build/app/outputs/bundle/release/app-release.aab
+          retention-days: 14
