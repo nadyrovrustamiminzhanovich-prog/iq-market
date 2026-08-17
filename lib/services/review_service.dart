@@ -16,7 +16,10 @@ class ReviewService {
       await mockAddReview!(review);
       return;
     }
-    await _db.collection('reviews').add(review.toMap());
+    // Детерминированный id (fromUserId_adId) — так же, как offers/{offerId} —
+    // защищает от накрутки отзывов в обход клиентской проверки
+    // hasUserReviewedAd; сервер (Firestore rules) требует ровно этот id.
+    await _db.collection('reviews').doc('${review.fromUserId}_${review.adId}').set(review.toMap());
     
     // Notify the seller
     NotificationService.saveNotificationToFirestore(

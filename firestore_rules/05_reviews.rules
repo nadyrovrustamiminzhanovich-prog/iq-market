@@ -10,14 +10,28 @@
 
     match /reviews/{reviewId} {
       allow read: if true;
+      // 🔒 reviewId детерминирован (fromUserId_adId, тот же паттерн, что у
+      // офферов в 10b_offers.rules) — раньше id генерировался автоматически
+      // (.add()), и ничто не мешало вызвать create в цикле в обход клиентской
+      // проверки hasUserReviewedAd, накручивая/обваливая чужой рейтинг сколько
+      // угодно раз. adId должен указывать на реально существующее объявление
+      // с ЭТИМ toUserId владельцем — иначе один и тот же лимит "1 отзыв на
+      // объявление" обходился бы придумыванием нового фиктивного adId на
+      // каждый вызов.
       allow create: if isSignedIn()
         && !isBanned()
+        && resource == null
         && request.resource.data.fromUserId == request.auth.uid
         && request.resource.data.fromUserId != request.resource.data.toUserId
-        && request.resource.data.keys().hasAll(['fromUserId', 'toUserId', 'rating'])
+        && request.resource.data.keys().hasAll(['fromUserId', 'toUserId', 'rating', 'adId'])
         && request.resource.data.rating is number
         && request.resource.data.rating >= 1
         && request.resource.data.rating <= 5
+        && request.resource.data.adId is string
+        && request.resource.data.adId.size() > 0
+        && reviewId == request.resource.data.fromUserId + '_' + request.resource.data.adId
+        && exists(/databases/$(database)/documents/ads/$(request.resource.data.adId))
+        && request.resource.data.toUserId == get(/databases/$(database)/documents/ads/$(request.resource.data.adId)).data.userId
         && isValidReviewComment();
       // !isBanned() — тот же класс бага, что и в 03_ads.rules: бан блокировал
       // только create нового отзыва, не редактирование уже оставленного.

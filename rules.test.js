@@ -2072,9 +2072,10 @@ describe("banned users are blocked from creating new content", () => {
 
   test("забаненный пользователь НЕ может оставить отзыв", async () => {
     await assertFails(
-      setDoc(doc(userDb(bannedUid), "reviews", "review_by_banned"), {
+      setDoc(doc(userDb(bannedUid), "reviews", `${bannedUid}_${adId}`), {
         fromUserId: bannedUid,
         toUserId: sellerUid,
+        adId,
         rating: 5,
       })
     );
@@ -2082,9 +2083,10 @@ describe("banned users are blocked from creating new content", () => {
 
   test("обычный пользователь МОЖЕТ оставить отзыв (не сломали основной путь)", async () => {
     await assertSucceeds(
-      setDoc(doc(userDb(activeUid), "reviews", "review_by_active"), {
+      setDoc(doc(userDb(activeUid), "reviews", `${activeUid}_${adId}`), {
         fromUserId: activeUid,
         toUserId: sellerUid,
+        adId,
         rating: 5,
       })
     );
@@ -2305,6 +2307,115 @@ describe("personal block (blockedUserIds) prevents contact from the blocked side
     });
     await assertSucceeds(
       updateDoc(doc(userDb(blockedUid), "offers", offerId), { status: "cancelled" })
+    );
+  });
+});
+
+// ──────────────────────────────────────────
+// ТЕСТЫ: reviews — детерминированный id (fromUserId_adId)
+// 🔒 Регрессия на находку аудита: раньше id генерировался через .add(),
+// ничто не мешало вызвать create в цикле в обход клиентской проверки
+// hasUserReviewedAd и накрутить/обвалить чужой рейтинг.
+// ──────────────────────────────────────────
+describe("reviews", () => {
+  const fromUserId = "review_author_1";
+  const toUserId = "review_seller_1";
+  const strangerId = "review_stranger_1";
+  const adId = "ad_review_1";
+  const reviewId = `${fromUserId}_${adId}`;
+
+  const validReview = {
+    fromUserId,
+    toUserId,
+    adId,
+    rating: 5,
+    comment: "Отличный продавец",
+  };
+
+  beforeEach(async () => {
+    await adminSet(`ads/${adId}`, {
+      userId: toUserId,
+      title: "Диван",
+      price: 100000,
+      status: "active",
+      active: true,
+    });
+  });
+
+  test("автор создаёт отзыв с детерминированным id fromUserId_adId", async () => {
+    await assertSucceeds(
+      setDoc(doc(userDb(fromUserId), "reviews", reviewId), validReview)
+    );
+  });
+
+  test("id обязан быть fromUserId_adId — произвольный id отклоняется", async () => {
+    await assertFails(
+      setDoc(doc(userDb(fromUserId), "reviews", "random_id"), validReview)
+    );
+  });
+
+  // Повторная запись на тот же id (тот же автор+объявление) — это update,
+  // не create (Firestore классифицирует запись по наличию resource ДО неё,
+  // а не по вызванному методу SDK): защита от дублей — это сам детерминизм
+  // id (fromUserId_adId физически не даёт получить второй документ на ту же
+  // пару), а не отдельная проверка в create. Разрешённость такой правки уже
+  // покрыта тестом "автор может отредактировать свой существующий отзыв" ниже.
+
+  test("нельзя создать отзыв, назвавшись чужим fromUserId", async () => {
+    // Аутентифицирован как strangerId, но в данных выдаёт себя за fromUserId.
+    await assertFails(
+      setDoc(doc(userDb(strangerId), "reviews", reviewId), {
+        ...validReview,
+        fromUserId,
+      })
+    );
+  });
+
+  test("adId обязан указывать на реально существующее объявление", async () => {
+    const fakeAdId = "ad_does_not_exist";
+    await assertFails(
+      setDoc(doc(userDb(fromUserId), "reviews", `${fromUserId}_${fakeAdId}`), {
+        ...validReview,
+        adId: fakeAdId,
+      })
+    );
+  });
+
+  test("toUserId обязан совпадать с реальным владельцем объявления", async () => {
+    await assertFails(
+      setDoc(doc(userDb(fromUserId), "reviews", reviewId), {
+        ...validReview,
+        toUserId: strangerId,
+      })
+    );
+  });
+
+  test("нельзя оставить отзыв самому себе", async () => {
+    await assertFails(
+      setDoc(doc(userDb(toUserId), "reviews", `${toUserId}_${adId}`), {
+        ...validReview,
+        fromUserId: toUserId,
+      })
+    );
+  });
+
+  test("рейтинг вне диапазона 1-5 отклоняется", async () => {
+    await assertFails(
+      setDoc(doc(userDb(fromUserId), "reviews", reviewId), { ...validReview, rating: 6 })
+    );
+  });
+
+  test("автор по-прежнему может отредактировать свой существующий отзыв", async () => {
+    await adminSet(`reviews/${reviewId}`, validReview);
+    await assertSucceeds(
+      updateDoc(doc(userDb(fromUserId), "reviews", reviewId), { rating: 3, comment: "Передумал" })
+    );
+  });
+
+  test("чужой отзыв редактировать нельзя", async () => {
+    await adminSet(`reviews/${reviewId}`, validReview);
+    await assertFails(
+      updateDoc(doc(userDb(strangerId), "reviews", reviewId), { rating: 1 })
     );
   });
 });
