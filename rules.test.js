@@ -202,6 +202,107 @@ describe("taxi_bids", () => {
 });
 
 // ──────────────────────────────────────────
+// ТЕСТЫ: taxi_rides / taxi_orders — модуль закрыт для всех кроме админа.
+// Раньше read:true отдавал настоящие телефон/имя/фото/маршрут пассажира и
+// водителя без входа в аккаунт вообще, а create:isSignedIn() (без isAdmin())
+// пускал любого обычного юзера маркетплейса писать заказы в обход заглушки
+// "Скоро запуск" напрямую через SDK.
+// ──────────────────────────────────────────
+describe("taxi_rides / taxi_orders — только админ", () => {
+  const rideId = "ride_001";
+  const orderId = "order_001";
+  const adminId = "taxi_admin_001";
+  const driverId = "taxi_driver_001";
+  const passengerId = "taxi_passenger_001";
+  const strangerId = "taxi_stranger_001";
+
+  beforeEach(async () => {
+    await adminSet(`users/${adminId}`, { accountType: "admin" });
+    await adminSet(`taxi_rides/${rideId}`, {
+      driverId,
+      from: "A",
+      to: "B",
+      status: "active",
+      price: 1000,
+      createdAt: new Date(),
+      driverPhone: "+77001234567",
+      driverName: "Тестовый водитель",
+    });
+    await adminSet(`taxi_orders/${orderId}`, {
+      passengerId,
+      from: "A",
+      to: "B",
+      status: "active",
+      price: 1000,
+      createdAt: new Date(),
+      passengerPhone: "+77007654321",
+      passengerName: "Тестовый пассажир",
+    });
+  });
+
+  test("анонимный НЕ может прочитать ride/order (была публичная утечка телефона/маршрута)", async () => {
+    await assertFails(getDoc(doc(anonDb(), "taxi_rides", rideId)));
+    await assertFails(getDoc(doc(anonDb(), "taxi_orders", orderId)));
+  });
+
+  test("обычный залогиненный (не админ) НЕ может прочитать ride/order", async () => {
+    await assertFails(getDoc(doc(userDb(strangerId), "taxi_rides", rideId)));
+    await assertFails(getDoc(doc(userDb(strangerId), "taxi_orders", orderId)));
+  });
+
+  test("админ может прочитать ride/order", async () => {
+    await assertSucceeds(getDoc(doc(userDb(adminId), "taxi_rides", rideId)));
+    await assertSucceeds(getDoc(doc(userDb(adminId), "taxi_orders", orderId)));
+  });
+
+  test("обычный залогиненный (не админ) НЕ может создать ride/order в обход заглушки", async () => {
+    await assertFails(
+      setDoc(doc(userDb(driverId), "taxi_rides", "ride_bypass"), {
+        driverId,
+        from: "A",
+        to: "B",
+        status: "active",
+        price: 500,
+        createdAt: new Date(),
+      })
+    );
+    await assertFails(
+      setDoc(doc(userDb(passengerId), "taxi_orders", "order_bypass"), {
+        passengerId,
+        from: "A",
+        to: "B",
+        status: "active",
+        price: 500,
+        createdAt: new Date(),
+      })
+    );
+  });
+
+  test("админ может создать ride/order сам за себя", async () => {
+    await assertSucceeds(
+      setDoc(doc(userDb(adminId), "taxi_rides", "ride_admin_new"), {
+        driverId: adminId,
+        from: "A",
+        to: "B",
+        status: "active",
+        price: 500,
+        createdAt: new Date(),
+      })
+    );
+    await assertSucceeds(
+      setDoc(doc(userDb(adminId), "taxi_orders", "order_admin_new"), {
+        passengerId: adminId,
+        from: "A",
+        to: "B",
+        status: "active",
+        price: 500,
+        createdAt: new Date(),
+      })
+    );
+  });
+});
+
+// ──────────────────────────────────────────
 // ТЕСТЫ: users
 // ──────────────────────────────────────────
 describe("users", () => {
@@ -1699,6 +1800,69 @@ describe("ads — переходы статуса владельцем", () => {
         rejectionReason: "Тестовая причина",
       })
     );
+  });
+});
+
+describe("ads — редактирование не бесплатно продлевает объявление", () => {
+  const adId = "ad_edit_bump_001";
+  const ownerId = "ad_edit_owner_001";
+  const strangerId = "ad_edit_stranger_001";
+  const oldExpiresAt = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000); // истекает через 5 дней
+
+  beforeEach(async () => {
+    await adminSet(`ads/${adId}`, {
+      title: "Тестовый товар",
+      price: 10000,
+      userId: ownerId,
+      timestamp: new Date(2026, 0, 1),
+      status: "active",
+      active: true,
+      expiresAt: oldExpiresAt,
+      notifiedExpiry: true,
+    });
+  });
+
+  test("владелец НЕ может сам себе бесплатно продлить объявление, редактируя контент", async () => {
+    await assertFails(
+      updateDoc(doc(userDb(ownerId), "ads", adId), {
+        price: 12000,
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        notifiedExpiry: false,
+      })
+    );
+  });
+
+  test("владелец НЕ может поднять объявление в ленте через timestamp при обычной правке", async () => {
+    await assertFails(
+      updateDoc(doc(userDb(ownerId), "ads", adId), {
+        price: 12000,
+        timestamp: new Date(),
+      })
+    );
+  });
+
+  test("владелец МОЖЕТ редактировать контент, если не трогает timestamp/expiresAt/notifiedExpiry", async () => {
+    await assertSucceeds(
+      updateDoc(doc(userDb(ownerId), "ads", adId), {
+        price: 12000,
+        title: "Тестовый товар (обновлено)",
+      })
+    );
+  });
+
+  test("владелец МОЖЕТ продлить объявление отдельным вызовом (как настоящая кнопка «Продлить»)", async () => {
+    await assertSucceeds(
+      updateDoc(doc(userDb(ownerId), "ads", adId), {
+        active: true,
+        status: "active",
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        notifiedExpiry: false,
+      })
+    );
+  });
+
+  test("посторонний не может редактировать чужое объявление ни в каком виде", async () => {
+    await assertFails(updateDoc(doc(userDb(strangerId), "ads", adId), { price: 1 }));
   });
 });
 

@@ -1,8 +1,20 @@
     // Правила для Такси
+    //
+    // 🔒 read/create заперты на isAdmin() — модуль сейчас закрыт для всех
+    // кроме админа (см. iqmarket_taxi_isolation), но раньше это было гейтом
+    // только в UI (home_screen.dart/notification_service.dart), а сама база
+    // была открыта: read:true отдавал настоящие телефон/имя/фото/маршрут
+    // пассажира и водителя вообще без входа в аккаунт (публичный Firebase
+    // config достаётся из APK за минуты), а create:isSignedIn() позволял
+    // любому обычному юзеру маркетплейса писать заказы в обход заглушки
+    // "Скоро запуск" напрямую через SDK. update/delete не трогаем — они уже
+    // требуют быть driverId/passengerId существующего документа или админом,
+    // а раз создать документ теперь может только админ, обычный пользователь
+    // физически не может стать driverId/passengerId ни одного документа.
     match /taxi_rides/{rideId} {
-      allow read: if true;
-      allow create: if isSignedIn() 
-        && request.resource.data.driverId == request.auth.uid 
+      allow read: if isSignedIn() && isAdmin();
+      allow create: if isSignedIn() && isAdmin()
+        && request.resource.data.driverId == request.auth.uid
         && request.resource.data.keys().hasAll(['driverId', 'from', 'to', 'status', 'createdAt'])
         && request.resource.data.price is number
         && request.resource.data.price >= 0
@@ -19,9 +31,9 @@
     }
 
     match /taxi_orders/{orderId} {
-      allow read: if true;
-      allow create: if isSignedIn() 
-        && request.resource.data.passengerId == request.auth.uid 
+      allow read: if isSignedIn() && isAdmin();
+      allow create: if isSignedIn() && isAdmin()
+        && request.resource.data.passengerId == request.auth.uid
         && request.resource.data.keys().hasAll(['passengerId', 'from', 'to', 'status', 'createdAt'])
         && request.resource.data.price is number
         && request.resource.data.price >= 0

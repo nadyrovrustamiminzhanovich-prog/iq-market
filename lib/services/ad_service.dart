@@ -382,6 +382,8 @@ class AdService {
       String finalUserPhone = userPhone;
       int existingViews = 0;
       int existingFavorites = 0;
+      DateTime? existingExpiresAt;
+      bool existingNotifiedExpiry = false;
       bool wasAdminRejected = false;
       List<String> oldImageUrlsForCleanup = [];
       String? oldVideoUrlForCleanup;
@@ -414,6 +416,12 @@ class AdService {
               }
               existingViews = existingData['views'] ?? 0;
               existingFavorites = existingData['favorites'] ?? 0;
+              // Правка объявления — не публикация нового: срок действия и
+              // флаг "уже предупредили о скором истечении" обязаны пережить
+              // редактирование как есть, иначе обычная правка цены бесплатно
+              // продлевает объявление ещё на 30 дней при каждом сохранении.
+              existingExpiresAt = (existingData['expiresAt'] as Timestamp?)?.toDate();
+              existingNotifiedExpiry = existingData['notifiedExpiry'] ?? false;
               wasAdminRejected = existingData['status'] == 'rejected';
               // Длительность видео-бейджа тоже приходит только при новой
               // загрузке видео — при сохранении без нового видео берём
@@ -486,7 +494,8 @@ class AdService {
         active: finalActive,
         status: finalStatus,
         extraFields: extraFields,
-        expiresAt: DateTime.now().add(const Duration(days: 30)),
+        expiresAt: existingExpiresAt ?? DateTime.now().add(const Duration(days: 30)),
+        notifiedExpiry: initialAdId != null ? existingNotifiedExpiry : false,
         multiAccountSuspected: multiAccountSuspected,
       );
 
@@ -848,6 +857,16 @@ class AdService {
         updates.remove('favorites');
         updates.remove('userId');
       }
+
+      // 🔒 updateAd() has exactly one caller — the edit path in
+      // uploadAndPublishAd(), which always submits a freshly-built
+      // AdModel.toMap(). That map's 'timestamp' is always
+      // FieldValue.serverTimestamp() (correct for NEW ads, wrong for edits —
+      // it would bump an edited ad's feed position for free on every save,
+      // bypassing the daily posting rate limit entirely since that limit
+      // only runs on create). Stripping it here means Firestore leaves the
+      // existing value untouched. Only createAd() should ever set timestamp.
+      updates.remove('timestamp');
 
       // 3. Авто-обновление поисковых токенов при изменении текста
       final String title = updates['title'] ?? oldAd.title;

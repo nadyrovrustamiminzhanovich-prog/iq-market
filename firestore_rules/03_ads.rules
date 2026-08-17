@@ -26,7 +26,17 @@
             // Бан блокировал только create — забаненный владелец мог по-прежнему
             // редактировать/переиздавать/архивировать уже существующие объявления.
             && !isBanned()
-            && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['userId', 'views', 'favorites'])
+            && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['userId', 'views', 'favorites', 'timestamp'])
+            // expiresAt/notifiedExpiry разрешено менять ТОЛЬКО отдельным вызовом
+            // "Продлить"/реактивации (extendAd/toggleAdStatus — никогда не трогают
+            // контентные поля), не вместе с обычной правкой контента. Без этого
+            // условия обычное редактирование объявления бесплатно сбрасывало 30-
+            // дневный таймер при каждом сохранении, полностью в обход суточного
+            // лимита публикаций (checkAdRateLimit проверяется только при СОЗДАНИИ).
+            && (
+              !request.resource.data.diff(resource.data).affectedKeys().hasAny(['expiresAt', 'notifiedExpiry'])
+              || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['title', 'description', 'price', 'category', 'images', 'video_url', 'videoDurationSeconds', 'location', 'condition', 'extraFields'])
+            )
             // 'pending' обязан быть в списке: ad_service.dart переиздаёт
             // РЕДАКТИРОВАНИЕ существующего объявления через update(), а не
             // create() (create ничего не проверяет по status — им пишутся
