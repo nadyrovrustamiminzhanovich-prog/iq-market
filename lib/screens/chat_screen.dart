@@ -393,11 +393,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final text = _msgController.text.trim();
     if (text.isEmpty) return;
 
-    final currentUserUid = UserService.currentUid;
-    final currentUserModel = currentUserUid != null ? await UserService.getUserById(currentUserUid) : null;
-    final userPhone = (currentUserModel?.phone.isNotEmpty == true)
-        ? currentUserModel!.phone
-        : (StorageService.getString('user_phone') ?? '');
+    String userPhone = StorageService.getString('user_phone') ?? '';
+    if (userPhone.trim().isEmpty) {
+      final currentUserUid = UserService.currentUid;
+      final currentUserModel = currentUserUid != null ? await UserService.getUserById(currentUserUid) : null;
+      if (currentUserModel?.phone.isNotEmpty == true) {
+        userPhone = currentUserModel!.phone;
+        StorageService.setString('user_phone', userPhone);
+      }
+    }
 
     if (userPhone.trim().isEmpty) {
       final saved = await PhoneRequiredBottomSheet.showInput(
@@ -1196,14 +1200,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _sendOnePickedImage(XFile file, String chatId, String lang) async {
-    // Раньше фото в чат грузились почти в оригинальном разрешении (только
-    // imageQuality:70 при пикинге — это просто пережатие JPEG, без ресайза).
-    // Сжимаем так же, как остальные фото в приложении (отзывы, аватар,
-    // документы водителя) — быстрее отправка, меньше трафика.
-    File uploadFile = File(file.path);
-    final compressed = await FileService.compressImage(File(file.path));
-    if (compressed != null) uploadFile = compressed;
-
     _updateMyTyping(false);
     final msgId = await ChatService.sendMessage(
       ad: widget.ad,
@@ -1217,18 +1213,30 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (msgId != null) {
       if (mounted) {
         setState(() {
-          _localImagePaths[msgId] = uploadFile.path;
+          _localImagePaths[msgId] = file.path;
         });
       }
       _playSentSound();
       _scrollToBottom();
-      _uploadImageWithRetry(msgId, uploadFile.path, chatId);
+      _uploadCompressedImageInBackground(msgId, file.path, chatId);
     } else {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(TranslationService.t('errSendPhoto', lang)), backgroundColor: Colors.redAccent, behavior: SnackBarBehavior.floating),
         );
       }
+    }
+  }
+
+  void _uploadCompressedImageInBackground(String msgId, String sourcePath, String chatId) async {
+    try {
+      File uploadFile = File(sourcePath);
+      final compressed = await FileService.compressImage(File(sourcePath));
+      if (compressed != null) uploadFile = compressed;
+      _uploadImageWithRetry(msgId, uploadFile.path, chatId);
+    } catch (e) {
+      debugPrint('[CHAT_SCREEN] Error in background photo compress: $e');
+      _uploadImageWithRetry(msgId, sourcePath, chatId);
     }
   }
 

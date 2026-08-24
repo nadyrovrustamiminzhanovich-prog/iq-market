@@ -138,31 +138,103 @@ class _ChatGlassHeaderState extends State<ChatGlassHeader> {
             IconButton(icon: const Icon(Icons.call_rounded, color: Color(0xFF334155)), onPressed: widget.onCall),
             PopupMenuButton<String>(
               icon: const Icon(Icons.more_vert_rounded, color: Color(0xFF334155)),
-              onSelected: (val) {
+              onSelected: (val) async {
                 final config = Provider.of<AppConfigProvider>(context, listen: false);
+                final lang = config.language;
+                final chatId = ChatService.activeChatId ?? ChatService.getChatId(widget.ad.userId);
+
                 if (val == 'block') {
                   config.blockUser(widget.ad.userId);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(TranslationService.t('block_success', config.language))),
+                    SnackBar(content: Text(TranslationService.t('block_success', lang))),
                   );
                 } else if (val == 'unblock') {
                   config.unblockUser(widget.ad.userId);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(TranslationService.t('unblock_success', config.language))),
+                    SnackBar(content: Text(TranslationService.t('unblock_success', lang))),
                   );
                 } else if (val == 'report') {
                   ReportUserSheet.show(
                     context,
                     reportedUserId: widget.ad.userId,
                     reportedUserName: widget.ad.userName,
-                    lang: config.language,
+                    lang: lang,
                   );
+                } else if (val == 'clear_chat') {
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (dCtx) => AlertDialog(
+                      title: Text(TranslationService.t('clear_chat', lang), style: GoogleFonts.inter(fontWeight: FontWeight.w900)),
+                      content: Text(TranslationService.t('clear_chat_confirm', lang)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.pop(dCtx, false), child: Text(TranslationService.t('cancel', lang), style: const TextStyle(color: Colors.grey))),
+                        TextButton(onPressed: () => Navigator.pop(dCtx, true), child: Text(TranslationService.t('delete_confirm_action', lang), style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold))),
+                      ],
+                    ),
+                  );
+                  if (confirm == true && context.mounted) {
+                    final success = await ChatService.clearChatHistory(chatId: chatId, otherUserId: widget.ad.userId);
+                    if (success && context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(TranslationService.t('chat_cleared_success', lang)), backgroundColor: const Color(0xFF10B981), behavior: SnackBarBehavior.floating),
+                      );
+                    }
+                  }
+                } else if (val == 'delete_chat') {
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (dCtx) => AlertDialog(
+                      title: Text(TranslationService.t('delete_chat_title', lang), style: GoogleFonts.inter(fontWeight: FontWeight.w900)),
+                      content: Text(TranslationService.t('delete_chat_confirm_desc', lang)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.pop(dCtx, false), child: Text(TranslationService.t('cancel', lang), style: const TextStyle(color: Colors.grey))),
+                        TextButton(
+                          onPressed: () => Navigator.pop(dCtx, true),
+                          child: Text(TranslationService.t('delete_confirm_action', lang), style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (confirm == true && context.mounted) {
+                    final success = await ChatService.deleteChatForUser(chatId: chatId, otherUserId: widget.ad.userId);
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                      if (success) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(TranslationService.t('chat_deleted_success', lang)), backgroundColor: const Color(0xFF10B981), behavior: SnackBarBehavior.floating),
+                        );
+                      }
+                    }
+                  }
                 }
               },
               itemBuilder: (context) {
                 final config = Provider.of<AppConfigProvider>(context, listen: false);
                 final isBlocked = config.isUserBlocked(widget.ad.userId);
                 return [
+                  PopupMenuItem(
+                    value: 'clear_chat',
+                    child: Row(
+                      children: [
+                        const Icon(Icons.cleaning_services_rounded, color: Color(0xFF64748B), size: 20),
+                        const SizedBox(width: 8),
+                        Text(TranslationService.t('clear_chat', config.language)),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'delete_chat',
+                    child: Row(
+                      children: [
+                        const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 20),
+                        const SizedBox(width: 8),
+                        Text(TranslationService.t('delete_chat', config.language), style: const TextStyle(color: Colors.redAccent)),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuDivider(),
                   PopupMenuItem(
                     value: isBlocked ? 'unblock' : 'block',
                     child: Text(

@@ -33,6 +33,7 @@ import 'package:iqmarket/widgets/auth_gate_bottom_sheet.dart';
 import 'package:iqmarket/services/translation_service.dart';
 import 'package:iqmarket/widgets/phone_required_bottom_sheet.dart';
 import 'package:iqmarket/services/storage_service.dart';
+import 'package:iqmarket/services/deep_link_service.dart';
 import 'package:iqmarket/widgets/product_details/fullscreen_media_gallery.dart';
 
 
@@ -69,6 +70,9 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> with Widget
   AdModel? _updatedAd;
   bool _isDeleted = false;
   bool _didSubscribeRouteObserver = false;
+  StreamSubscription<DocumentSnapshot>? _adSubscription;
+
+  bool get _isAdmin => StorageService.getString('account_type') == 'admin' || _currentUser?.accountType == 'admin';
   // late final, а не вызов ReviewService.getAdReviewsStream() прямо в build():
   // тот возвращает НОВЫЙ Stream на каждый вызов (не мемоизирован), а этот экран
   // перестраивается часто (свайп фото/видео в галерее, догрузка продавца,
@@ -121,6 +125,21 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> with Widget
       _fetchSeller();
       AnalyticsService.logAdView(widget.ad.id, widget.ad.title);
       _incrementViewCount();
+
+      // Слушаем изменения документа объявления в реальном времени (просмотры сразу обновляются у админа)
+      _adSubscription = FirebaseFirestore.instance.collection('ads').doc(widget.ad.id).snapshots().listen((snap) {
+        if (snap.exists && mounted) {
+          final data = snap.data();
+          if (data != null) {
+            final int freshViews = (data['views'] as num?)?.toInt() ?? 0;
+            if (_updatedAd == null || _updatedAd!.views != freshViews) {
+              setState(() {
+                _updatedAd = AdModel.fromMap(data, snap.id);
+              });
+            }
+          }
+        }
+      });
     }
   }
 
@@ -164,44 +183,45 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> with Widget
   }
 
   void _incrementViewCount() async {
-    if (FirebaseAuth.instance.currentUser == null) return;
     try {
       final res = await FirebaseFunctions.instance
           .httpsCallable('incrementViewCount')
           .call({'listingId': widget.ad.id});
       
-      if (res.data != null && res.data['success'] == true && mounted) {
-        final currentViews = _updatedAd?.views ?? widget.ad.views;
+      if (res.data != null && res.data['views'] != null && mounted) {
+        final int freshViews = (res.data['views'] as num).toInt();
         final baseAd = _updatedAd ?? widget.ad;
-        setState(() {
-          _updatedAd = AdModel(
-            id: baseAd.id,
-            title: baseAd.title,
-            description: baseAd.description,
-            price: baseAd.price,
-            category: baseAd.category,
-            images: baseAd.images,
-            videoUrl: baseAd.videoUrl,
-            userId: baseAd.userId,
-            userName: baseAd.userName,
-            userEmail: baseAd.userEmail,
-            userPhone: baseAd.userPhone,
-            timestamp: baseAd.timestamp,
-            views: currentViews + 1,
-            favoritesCount: baseAd.favoritesCount,
-            status: baseAd.status,
-            active: baseAd.active,
-            location: baseAd.location,
-            isBargainAllowed: baseAd.isBargainAllowed,
-            condition: baseAd.condition,
-            canExchange: baseAd.canExchange,
-            hasDelivery: baseAd.hasDelivery,
-            extraFields: baseAd.extraFields,
-            expiresAt: baseAd.expiresAt,
-            notifiedExpiry: baseAd.notifiedExpiry,
-            oldPrice: baseAd.oldPrice,
-          );
-        });
+        if (baseAd.views != freshViews) {
+          setState(() {
+            _updatedAd = AdModel(
+              id: baseAd.id,
+              title: baseAd.title,
+              description: baseAd.description,
+              price: baseAd.price,
+              category: baseAd.category,
+              images: baseAd.images,
+              videoUrl: baseAd.videoUrl,
+              userId: baseAd.userId,
+              userName: baseAd.userName,
+              userEmail: baseAd.userEmail,
+              userPhone: baseAd.userPhone,
+              timestamp: baseAd.timestamp,
+              views: freshViews,
+              favoritesCount: baseAd.favoritesCount,
+              status: baseAd.status,
+              active: baseAd.active,
+              location: baseAd.location,
+              isBargainAllowed: baseAd.isBargainAllowed,
+              condition: baseAd.condition,
+              canExchange: baseAd.canExchange,
+              hasDelivery: baseAd.hasDelivery,
+              extraFields: baseAd.extraFields,
+              expiresAt: baseAd.expiresAt,
+              notifiedExpiry: baseAd.notifiedExpiry,
+              oldPrice: baseAd.oldPrice,
+            );
+          });
+        }
       }
     } catch (e) {
       debugPrint('Error incrementing view count: $e');
@@ -419,6 +439,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> with Widget
 
   @override
   void dispose() {
+    _adSubscription?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     AnalyticsService.routeObserver.unsubscribe(this);
     _pageController.dispose();
@@ -427,11 +448,8 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> with Widget
   }
 
   void _shareAd() {
-    final String text = widget.lang == 'Уйғурчә' 
-      ? 'IQ-Market: ${widget.ad.title}\nБаһаси: ${_formatPrice(widget.ad.price)}\nШәһәр: ${widget.ad.location}\n\nБу еланни IQ-Market программисида көрүң! 🔥'
-      : (widget.lang == 'Қазақша' 
-        ? 'IQ-Market: ${widget.ad.title}\nБағасы: ${_formatPrice(widget.ad.price)}\nҚала: ${widget.ad.location}\n\nБұл хабарландыруды IQ-Market қосымшасында көріңіз! 🔥'
-        : 'IQ-Market: ${widget.ad.title}\nЦена: ${_formatPrice(widget.ad.price)}\nГород: ${widget.ad.location}\n\nПосмотри это объявление в приложении IQ-Market! 🔥');
+    final ad = _updatedAd ?? widget.ad;
+    final String text = DeepLinkService.formatShareMessage(ad: ad, lang: widget.lang);
     SharePlus.instance.share(ShareParams(text: text));
   }
 
@@ -484,7 +502,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> with Widget
                       const SizedBox(width: 8),
                       _favoriteButton(),
                     ],
-                    if ((_currentUser?.accountType == 'admin' || ad.userId == UserService.currentUid) && !_isDeleted) ...[
+                    if ((_isAdmin || ad.userId == UserService.currentUid) && !_isDeleted) ...[
                       const SizedBox(width: 8),
                       _circleButton(Icons.edit_outlined, () async {
                         await Navigator.push(context, MaterialPageRoute(builder: (ctx) => PostAdScreen(lang: widget.lang, initialAd: ad)));
@@ -771,7 +789,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> with Widget
         ),
         const SizedBox(width: 8),
         Text(_formatFullDate(widget.ad.timestamp), style: GoogleFonts.inter(fontSize: 14, color: const Color(0xFF94A3B8))),
-        if (_currentUser?.accountType == 'admin') ...[
+        if (_isAdmin) ...[
           const SizedBox(width: 12),
           const Icon(Icons.remove_red_eye_outlined, size: 16, color: Color(0xFF94A3B8)),
           const SizedBox(width: 4),
@@ -821,7 +839,11 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> with Widget
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
           Text(TranslationService.t('reviews', widget.lang), style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w800)),
-          if (_seller != null && _seller!.rating > 0) Row(children: [const Icon(Icons.star_rounded, color: Colors.orange, size: 20), const SizedBox(width: 4), Text(_seller!.rating.toStringAsFixed(1), style: GoogleFonts.inter(fontWeight: FontWeight.w900))]),
+          if (_seller != null) Row(children: [
+            const Icon(Icons.star_rounded, color: Colors.orange, size: 20),
+            const SizedBox(width: 4),
+            Text((_seller!.reviewsCount < 5 ? 5.0 : _seller!.rating).toStringAsFixed(1), style: GoogleFonts.inter(fontWeight: FontWeight.w900))
+          ]),
         ]),
         const SizedBox(height: 16),
         StreamBuilder<List<ReviewModel>>(
@@ -889,7 +911,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> with Widget
             ),
           ),
           const SizedBox(width: 8),
-          if (_currentUser?.accountType == 'admin') ...[
+          if (_isAdmin) ...[
             IconButton(
               icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Colors.redAccent),
               onPressed: () => _confirmDeleteReview(review),

@@ -69,3 +69,5 @@ android/key.properties
 .gradle_home/
 .vscode/
 .metadata
+.kotlin/
+android/.kotlin/

@@ -65,6 +65,7 @@ dependencies:
   firebase_performance: ^0.11.4
   fl_chart: ^1.2.0
   cloud_functions: ^6.3.3
+  app_links: ^6.3.2
 
 
 dev_dependencies:

@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title id="page-title">Объявление — IQ-Market</title>
+  
+  <!-- Open Graph / Social Sharing Meta Tags -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="IQ-Market">
+  <meta property="og:title" content="Объявление на IQ-Market">
+  <meta property="og:description" content="Смотрите подробности объявления и связывайтесь с продавцом в приложении IQ-Market.">
+  <meta property="og:image" content="https://iq-market-3dc07.web.app/assets/logo.png">
+  <meta name="theme-color" content="#4A80F0">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --primary: #4A80F0;
+      --primary-dark: #3665cc;
+      --bg: #F8FAFC;
+      --card-bg: #FFFFFF;
+      --text: #0F172A;
+      --text-muted: #64748B;
+      --border: #E2E8F0;
+      --radius: 20px;
+    }
+    
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px;
+    }
+
+    .header-bar {
+      width: 100%;
+      max-width: 520px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 4px 20px 4px;
+    }
+
+    .brand-logo {
+      font-size: 24px;
+      font-weight: 900;
+      color: var(--primary);
+      text-decoration: none;
+      letter-spacing: -0.5px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card {
+      width: 100%;
+      max-width: 520px;
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.02);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .image-container {
+      width: 100%;
+      height: 340px;
+      background: #0F172A;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .image-container img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .badge-price {
+      position: absolute;
+      bottom: 16px;
+      left: 16px;
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(8px);
+      color: #FFFFFF;
+      padding: 8px 16px;
+      border-radius: 12px;
+      font-size: 20px;
+      font-weight: 900;
+      letter-spacing: -0.3px;
+    }
+
+    .badge-city {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      background: rgba(255, 255, 255, 0.9);
+      backdrop-filter: blur(8px);
+      color: #0F172A;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .content {
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .ad-title {
+      font-size: 20px;
+      font-weight: 800;
+      line-height: 1.3;
+      color: var(--text);
+    }
+
+    .ad-desc {
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--text-muted);
+      white-space: pre-line;
+      max-height: 140px;
+      overflow-y: auto;
+    }
+
+    .seller-box {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: #F1F5F9;
+      border-radius: 14px;
+      margin-top: 4px;
+    }
+
+    .seller-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .seller-avatar {
+      width: 36px;
+      height: 36px;
+      background: var(--primary);
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 14px;
+    }
+
+    .seller-name {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .action-container {
+      margin-top: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .btn-open-app {
+      background: var(--primary);
+      color: white;
+      text-decoration: none;
+      padding: 16px;
+      border-radius: 16px;
+      font-size: 16px;
+      font-weight: 800;
+      text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 4px 14px 0 rgba(74, 128, 240, 0.39);
+      transition: background 0.2s, transform 0.1s;
+    }
+
+    .btn-open-app:hover {
+      background: var(--primary-dark);
+      transform: translateY(-1px);
+    }
+
+    .btn-play-store {
+      background: #FFFFFF;
+      color: var(--text);
+      text-decoration: none;
+      padding: 14px;
+      border-radius: 16px;
+      font-size: 14px;
+      font-weight: 700;
+      text-align: center;
+      border: 1.5px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .loader {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 20px;
+      gap: 16px;
+    }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3.5px solid rgba(74, 128, 240, 0.15);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .footer {
+      margin-top: 32px;
+      text-align: center;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header-bar">
+    <a href="/" class="brand-logo">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="24" height="24" rx="6" fill="#4A80F0"/>
+        <path d="M7 7H17V10H7V7Z" fill="white"/>
+        <path d="M7 12H14V15H7V12Z" fill="white"/>
+        <path d="M7 17H11V20H7V17Z" fill="white"/>
+      </svg>
+      IQ-Market
+    </a>
+  </div>
+
+  <div class="card" id="card">
+    <div class="loader" id="loader">
+      <div class="spinner"></div>
+      <p style="font-weight: 600; color: var(--text-muted);">Загрузка объявления...</p>
+    </div>
+
+    <div id="content-container" style="display: none;">
+      <div class="image-container">
+        <img id="ad-image" src="" alt="Фото товара">
+        <span class="badge-city" id="ad-city">Казахстан</span>
+        <span class="badge-price" id="ad-price">0 ₸</span>
+      </div>
+
+      <div class="content">
+        <h1 class="ad-title" id="ad-title">Заголовок объявления</h1>
+        <p class="ad-desc" id="ad-description"></p>
+
+        <div class="seller-box">
+          <div class="seller-info">
+            <div class="seller-avatar" id="seller-avatar">U</div>
+            <div>
+              <div class="seller-name" id="seller-name">Продавец</div>
+              <div style="font-size: 11px; color: var(--text-muted);">На IQ-Market</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="action-container">
+          <a href="#" id="btn-app-open" class="btn-open-app">
+            🚀 Открыть в приложении
+          </a>
+          <a href="https://play.google.com/store/apps/details?id=com.iqmarket.app" class="btn-play-store">
+            📥 Установить IQ-Market на телефон
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    &copy; 2026 IQ-Market — Маркетплейс и сервис поездок
+  </div>
+
+  <script>
+    (function() {
+      // 1. Извлекаем adId из параметров или пути
+      const params = new URLSearchParams(window.location.search);
+      let adId = params.get('id');
+
+      if (!adId) {
+        const parts = window.location.pathname.split('/').filter(Boolean);
+        if (parts.length >= 2 && parts[0] === 'ad') {
+          adId = parts[1];
+        }
+      }
+
+      if (!adId) {
+        document.getElementById('loader').innerHTML = '<p style="color: #EF4444; font-weight:700;">Объявление не указано</p><a href="/" class="btn-play-store" style="margin-top:12px;">На главную</a>';
+        return;
+      }
+
+      const appSchemeUrl = `iqmarket://ad?id=${adId}`;
+      const playStoreUrl = 'https://play.google.com/store/apps/details?id=com.iqmarket.app';
+
+      // 2. Настраиваем кнопку открытия приложения
+      const btnAppOpen = document.getElementById('btn-app-open');
+      btnAppOpen.href = appSchemeUrl;
+
+      // Автоматическая попытка открыть приложение (если установлено)
+      setTimeout(() => {
+        window.location.href = appSchemeUrl;
+      }, 300);
+
+      // 3. Загружаем данные объявления из Firestore REST API
+      const firestoreUrl = `https://firestore.googleapis.com/v1/projects/iq-market-3dc07/databases/(default)/documents/ads/${adId}`;
+
+      fetch(firestoreUrl)
+        .then(res => {
+          if (!res.ok) throw new Error('Not found');
+          return res.json();
+        })
+        .then(data => {
+          const fields = data.fields || {};
+          const title = fields.title?.stringValue || 'Без названия';
+          const priceNum = fields.price?.doubleValue || fields.price?.integerValue || 0;
+          const location = fields.location?.stringValue || 'Чунджа';
+          const description = fields.description?.stringValue || '';
+          const userName = fields.userName?.stringValue || 'Пользователь';
+
+          let image = '';
+          if (fields.images?.arrayValue?.values?.length > 0) {
+            image = fields.images.arrayValue.values[0].stringValue || '';
+          }
+
+          // Обновляем страницу
+          document.getElementById('page-title').innerText = `${title} — IQ-Market`;
+          document.getElementById('ad-title').innerText = title;
+          document.getElementById('ad-description').innerText = description;
+          document.getElementById('ad-city').innerText = location === 'Шонжы' ? 'Чунджа' : location;
+          document.getElementById('seller-name').innerText = userName;
+          document.getElementById('seller-avatar').innerText = (userName[0] || 'U').toUpperCase();
+
+          const priceFormatted = priceNum > 0 ? new Intl.NumberFormat('ru-RU').format(priceNum) + ' ₸' : 'Договорная';
+          document.getElementById('ad-price').innerText = priceFormatted;
+
+          const imgElem = document.getElementById('ad-image');
+          if (image) {
+            imgElem.src = image;
+          } else {
+            imgElem.style.display = 'none';
+          }
+
+          document.getElementById('loader').style.display = 'none';
+          document.getElementById('content-container').style.display = 'block';
+        })
+        .catch(err => {
+          console.log('Error loading ad:', err);
+          document.getElementById('loader').innerHTML = `
+            <h3 style="font-weight:800; color: #1E293B;">Объявление в приложении IQ-Market</h3>
+            <p style="color: var(--text-muted); font-size: 13px; text-align: center;">Нажмите кнопку ниже, чтобы открыть его на телефоне</p>
+            <div style="width: 100%; display: flex; flex-direction: column; gap: 8px; margin-top: 16px;">
+              <a href="${appSchemeUrl}" class="btn-open-app">🚀 Открыть в приложении</a>
+              <a href="${playStoreUrl}" class="btn-play-store">📥 Скачать IQ-Market</a>
+            </div>
+          `;
+        });
+    })();
+  </script>
+</body>
+</html>

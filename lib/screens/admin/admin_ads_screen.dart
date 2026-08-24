@@ -319,6 +319,18 @@ class _AdminAdsScreenState extends State<AdminAdsScreen> with SingleTickerProvid
                               ],
                             ),
                           ],
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Icon(PhosphorIcons.eye(), size: 13, color: const Color(0xFF4A80F0)),
+                              const SizedBox(width: 4),
+                              Text('Просмотры: ${ad.views}', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: const Color(0xFF4A80F0))),
+                              const SizedBox(width: 12),
+                              Icon(PhosphorIcons.mapPin(), size: 13, color: Colors.grey[500]),
+                              const SizedBox(width: 4),
+                              Text(ad.location, style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.grey[600])),
+                            ],
+                          ),
                         ],
                       ),
                     ),

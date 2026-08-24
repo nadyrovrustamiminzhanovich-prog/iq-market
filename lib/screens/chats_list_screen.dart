@@ -9,6 +9,7 @@ import 'package:iqmarket/services/chat_service.dart';
 import 'package:iqmarket/providers/app_config_provider.dart';
 import 'package:iqmarket/services/translation_service.dart';
 import 'package:iqmarket/screens/login_screen.dart';
+import 'package:iqmarket/widgets/chat/chat_list_context_menu.dart';
 
 class ChatsListScreen extends StatefulWidget {
   const ChatsListScreen({super.key});
@@ -376,6 +377,16 @@ class _ChatListTileState extends State<_ChatListTile> {
             child: InkWell(
               borderRadius: BorderRadius.circular(24),
               onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ChatScreen(ad: ad))),
+              onLongPress: () {
+                ChatListContextMenu.show(
+                  context: context,
+                  chatId: widget.chatId,
+                  sellerId: widget.sellerId,
+                  sellerName: displaySellerName,
+                  adTitle: widget.adTitle,
+                  adImage: widget.adImage,
+                );
+              },
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Row(

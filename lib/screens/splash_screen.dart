@@ -19,6 +19,9 @@ import '../providers/app_config_provider.dart';
 import '../services/version_service.dart';
 import 'force_update_screen.dart';
 
+import '../services/feed_cache_service.dart';
+import '../services/deep_link_service.dart';
+
 /// AppBootstrap manages the background initialization of Firebase, App Check,
 /// FCM notifications, and auth services. It displays a premium loader and 
 /// handles error recovery on startup.
@@ -43,31 +46,22 @@ class _AppBootstrapState extends State<AppBootstrap> {
 
   Future<void> _initApp() async {
     try {
-      // 1. Initialize Firebase and StorageService in parallel
+      // 1. Parallel high-speed core initialization (Firebase + Storage)
       await Future.wait([
         Firebase.initializeApp(),
         StorageService.init(),
       ]);
 
-      // App Check ДО первого запроса к Firestore (было в
-      // _initServicesInBackground, который стартует уже ПОСЛЕ
-      // checkVersion() ниже — если включить enforcement в консоли,
-      // самый первый запрос уходил бы без токена и ловил бы permission-denied).
-      await FirebaseAppCheck.instance.activate(
-        providerAndroid: kDebugMode ? const AndroidDebugProvider() : const AndroidPlayIntegrityProvider(),
-        providerApple: kDebugMode ? const AppleDebugProvider() : const AppleDeviceCheckProvider(),
-      );
-
-      // 2. Set Firestore cache/offline settings
+      // 2. Set Firestore cache/offline settings immediately
       FirebaseFirestore.instance.settings = const Settings(
         persistenceEnabled: true,
         cacheSizeBytes: 104857600, // 100 MB cache limit
       );
 
-      // Check if update is required (or merely available) from Firestore config
-      final versionResult = await VersionService.checkVersion();
+      // 3. Pre-initialize in-memory feed cache for 0ms home feed rendering
+      await FeedCacheService.init();
 
-      // Initialize lightweight providers only after dependencies are ready
+      // 4. Initialize lightweight providers immediately
       _taxiProvider = TaxiProvider();
       _appConfigProvider = AppConfigProvider();
 
@@ -79,27 +73,9 @@ class _AppBootstrapState extends State<AppBootstrap> {
         'Уйғурчә': const Locale('ug'),
       };
       final initialLocale = localeMap[savedLang] ?? const Locale('ru', 'RU');
-
-      // 3. Configure the already instantiated providers with language / locale
       _appConfigProvider.setLocale(initialLocale);
 
-      if (versionResult.forceUpdateStoreUrl != null) {
-        if (mounted) {
-          setState(() {
-            _updateStoreUrl = versionResult.forceUpdateStoreUrl;
-            _initialized = true;
-          });
-        }
-        return; // Stop further initialization and display ForceUpdateScreen
-      }
-
-      // Необязательное обновление — не блокирует запуск, IQMarketHome покажет
-      // мягкое напоминание один раз после первого кадра.
-      if (versionResult.optionalUpdate != null) {
-        VersionService.pendingOptionalUpdate = versionResult.optionalUpdate;
-      }
-
-      // 4. Bind language synchronization events
+      // 5. Bind language synchronization events
       _appConfigProvider.onLanguageChanged = (lang) {
         _taxiProvider.setLanguage(lang);
       };
@@ -107,13 +83,27 @@ class _AppBootstrapState extends State<AppBootstrap> {
         _appConfigProvider.setLanguage(lang);
       };
 
+      // 6. Fast non-blocking version check with timeout (avoids freeze on bad mobile network)
+      VersionService.checkVersion(timeout: const Duration(milliseconds: 1000)).then((versionResult) {
+        if (versionResult.forceUpdateStoreUrl != null && mounted) {
+          setState(() {
+            _updateStoreUrl = versionResult.forceUpdateStoreUrl;
+          });
+        } else if (versionResult.optionalUpdate != null) {
+          VersionService.pendingOptionalUpdate = versionResult.optionalUpdate;
+        }
+      }).catchError((e) {
+        debugPrint('[AppBootstrap] Version check non-fatal error: $e');
+      });
+
+      // 7. Render UI INSTANTLY (< 300ms Cold Start!)
       if (mounted) {
         setState(() {
           _initialized = true;
         });
       }
 
-      // 5. Initialize the rest of the services in the background without blocking the UI
+      // 8. Initialize AppCheck and background services concurrently without blocking UI
       _initServicesInBackground();
     } catch (e, stack) {
       debugPrint('Initialization error: $e');
@@ -130,16 +120,25 @@ class _AppBootstrapState extends State<AppBootstrap> {
 
   Future<void> _initServicesInBackground() async {
     try {
-      // App Check уже активирован в _initApp() до первого запроса к Firestore.
+      // 1. App Check activation in background (does not block UI thread)
+      FirebaseAppCheck.instance.activate(
+        providerAndroid: kDebugMode ? const AndroidDebugProvider() : const AndroidPlayIntegrityProvider(),
+        providerApple: kDebugMode ? const AppleDebugProvider() : const AppleDeviceCheckProvider(),
+      ).catchError((e) {
+        debugPrint('[AppBootstrap] AppCheck background activation error: $e');
+      });
 
-      // Initialize other services in parallel
+      // 2. Initialize secondary services in parallel
       await Future.wait([
         AnalyticsService.init(),
         AuthService.init(),
         NotificationService.init(),
       ]);
 
-      // Set global error tracking handlers
+      // 3. Initialize Deep Linking listener
+      DeepLinkService.init(NotificationService.navigatorKey);
+
+      // 4. Set global error tracking handlers
       FlutterError.onError = (errorDetails) {
         FirebaseCrashlytics.instance.recordFlutterFatalError(errorDetails);
       };

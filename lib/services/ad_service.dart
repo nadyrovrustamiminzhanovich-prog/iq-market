@@ -19,6 +19,7 @@ import 'package:iqmarket/services/telegram_bot_service.dart';
 import 'package:iqmarket/services/fallback_moderation_keywords.dart';
 import 'package:iqmarket/services/device_identity_service.dart';
 import 'package:iqmarket/services/translation_service.dart';
+import 'package:iqmarket/services/feed_cache_service.dart';
 import 'package:iqmarket/utils/fuzzy_matcher.dart';
 import 'package:iqmarket/utils/search_normalizer.dart';
 
@@ -754,6 +755,20 @@ class AdService {
       if (ads.length > limit) {
         ads = ads.sublist(0, limit);
       }
+
+      // Сохраняем свежие объявления первой страницы ленты по умолчанию в кэш
+      final bool isDefaultHomeFeed = startAfter == null &&
+          (category == null || category == 'Все') &&
+          (city == null || city == 'Все') &&
+          (searchQuery == null || searchQuery.isEmpty) &&
+          minPrice == null &&
+          maxPrice == null &&
+          (condition == null || condition == 'Все') &&
+          (sortBy == null || sortBy == 'newest');
+
+      if (isDefaultHomeFeed && ads.isNotEmpty) {
+        FeedCacheService.saveFeed(ads);
+      }
       
       return {
         'ads': ads,
@@ -761,6 +776,16 @@ class AdService {
       };
     } catch (e) {
       debugPrint('Error fetching paginated ads: $e');
+      if (startAfter == null) {
+        final cached = FeedCacheService.getCachedFeed();
+        if (cached != null && cached.isNotEmpty) {
+          debugPrint('[AdService] Returning ${cached.length} cached ads on fetch failure fallback.');
+          return {
+            'ads': cached,
+            'lastDocument': null,
+          };
+        }
+      }
       rethrow;
     }
   }
@@ -946,6 +971,7 @@ class AdService {
         }
       }
       await _adsCollection.doc(adId).delete();
+      FeedCacheService.removeAdFromCache(adId);
     } catch (e) {
       debugPrint('Error deleting ad: $e');
       rethrow;
@@ -959,6 +985,9 @@ class AdService {
         'active': isActive,
         'status': isActive ? 'active' : 'archived',
       });
+      if (!isActive) {
+        FeedCacheService.removeAdFromCache(adId);
+      }
     } catch (e) {
       debugPrint('Error toggling ad status: $e');
       rethrow;

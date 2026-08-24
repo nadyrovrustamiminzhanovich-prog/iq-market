@@ -16,6 +16,7 @@ class ChatContextMenu {
     required String otherUserId,
     VoidCallback? onDeleted,
   }) {
+    HapticFeedback.heavyImpact();
     final lang = Provider.of<AppConfigProvider>(context, listen: false).language;
     final bool isMyMessage = msg.senderId == UserService.currentUid;
 

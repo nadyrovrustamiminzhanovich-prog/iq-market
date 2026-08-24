@@ -30,6 +30,19 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
   Color get _txtColor => widget.themes[widget.currentTheme]?['text'] ?? Theme.of(context).colorScheme.onSurface;
   Color get _subtxtColor => widget.themes[widget.currentTheme]?['subtext'] ?? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6);
 
+  List<String>? _cachedIds;
+  Future<List<AdModel>>? _cachedFuture;
+  List<AdModel>? _cachedAds;
+
+  bool _areListsEqual(List<String>? a, List<String>? b) {
+    if (a == null || b == null) return a == b;
+    if (a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+
   String _t(String key) {
     final translations = {
       'title': { 'Русский': 'Избранное', 'Қазақша': 'Таңдаулы', 'Уйғурчә': 'Талланған' },
@@ -46,6 +59,16 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
   @override
   Widget build(BuildContext context) {
     final favoriteIds = context.watch<AppConfigProvider>().favoriteIds.toList();
+
+    if (!_areListsEqual(_cachedIds, favoriteIds)) {
+      _cachedIds = List<String>.from(favoriteIds);
+      if (favoriteIds.isNotEmpty) {
+        _cachedFuture = AdService.getAdsByIds(favoriteIds);
+      } else {
+        _cachedFuture = null;
+        _cachedAds = null;
+      }
+    }
 
     return Scaffold(
       backgroundColor: _bgColor,
@@ -65,13 +88,18 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
       body: favoriteIds.isEmpty 
         ? _buildEmptyState()
         : FutureBuilder<List<AdModel>>(
-            future: AdService.getAdsByIds(favoriteIds),
+            future: _cachedFuture,
             builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
+              if (snapshot.hasData) {
+                _cachedAds = snapshot.data;
+              }
+
+              final ads = _cachedAds ?? snapshot.data ?? [];
+
+              if (snapshot.connectionState == ConnectionState.waiting && _cachedAds == null) {
                 return const Center(child: CircularProgressIndicator());
               }
               
-              final ads = snapshot.data ?? [];
               if (snapshot.hasData && ads.length < favoriteIds.length) {
                 final existingIds = ads.map((e) => e.id).toSet();
                 final deadIds = favoriteIds.where((id) => !existingIds.contains(id)).toList();
@@ -117,9 +145,6 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                     onTap: () => widget.onShowDetails(ad),
                     onToggleFavorite: () {
                       context.read<AppConfigProvider>().toggleFavorite(ad.id);
-                      if (mounted) {
-                        setState(() {}); // Refresh future
-                      }
                     },
                     isFavorite: true,
                   );

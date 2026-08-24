@@ -418,21 +418,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
     // которые тут же меняются на настоящие.
     final bool isLoadingStats = user == null;
     final int reviewsCount = user?.reviewsCount ?? 0;
-    final double rawRating = user?.rating ?? 5.0;
+    // Стартовый рейтинг 5.0 у всех пользователей, пока не набрано минимум 5 отзывов
+    final bool isNewcomer = reviewsCount < 5;
+    final double rawRating = isNewcomer ? 5.0 : (user?.rating ?? 5.0);
     final String rating = rawRating.toStringAsFixed(1);
     final String reviews = reviewsCount.toString();
-    // Стартовый рейтинг 5.0 у всех аккаунтов без отзывов — само число всегда видно,
-    // подпись лишь поясняет, что это ещё не подтверждено реальными отзывами.
-    final bool isNewcomer = reviewsCount == 0;
 
     String ratingDesc = _t('rating_stat').toUpperCase();
     if (isNewcomer) {
       if (_localLang == 'Қазақша') {
-        ratingDesc = 'Бастапқы рейтинг';
+        ratingDesc = reviewsCount > 0 ? 'Бастапқы рейтинг ($reviewsCount/5)' : 'Бастапқы рейтинг';
       } else if (_localLang == 'Уйғурчә') {
-        ratingDesc = 'Дәсләпки рейтинг';
+        ratingDesc = reviewsCount > 0 ? 'Дәсләпки рейтинг ($reviewsCount/5)' : 'Дәсләпки рейтинг';
       } else {
-        ratingDesc = 'Стартовый рейтинг';
+        ratingDesc = reviewsCount > 0 ? 'Стартовый рейтинг ($reviewsCount/5)' : 'Стартовый рейтинг';
       }
     }
 

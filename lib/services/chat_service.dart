@@ -134,6 +134,9 @@ class ChatService {
     final String senderPhone = StorageService.getString('user_phone') ?? '';
 
     try {
+      final chatRef = _db.collection('chats').doc(chatId);
+      final messageRef = chatRef.collection('messages').doc();
+
       // Update last message in chat summary (creates chat doc first to satisfy rules)
       final summaryData = {
         'lastMessage': text,
@@ -154,7 +157,6 @@ class ChatService {
         'adTitle': ad.title,
         'adImage': ad.images.isNotEmpty ? ad.images.first : '',
       };
-      await _db.collection('chats').doc(chatId).set(summaryData, SetOptions(merge: true));
 
       final messageData = {
         'senderId': uid,
@@ -166,11 +168,11 @@ class ChatService {
         'duration': duration,
       };
 
-      final docRef = await _db
-          .collection('chats')
-          .doc(chatId)
-          .collection('messages')
-          .add(messageData);
+      // Атомарный пакетный запрос: создание сообщения и обновление чата за 1 сетевой раундтрип
+      final batch = _db.batch();
+      batch.set(chatRef, summaryData, SetOptions(merge: true));
+      batch.set(messageRef, messageData);
+      await batch.commit();
 
       // ad.userId в ChatScreen всегда = «другой пользователь» → он же recipient
       NotificationService.saveNotificationToFirestore(
@@ -191,7 +193,7 @@ class ChatService {
         debugPrint('[CHAT_SERVICE] Notification sending failed (non-blocking): $e');
       });
 
-      return docRef.id;
+      return messageRef.id;
     } catch (e, stack) {
       debugPrint('[CHAT_SERVICE] sendMessage ERROR: $e');
       AnalyticsService.logFirestorePermissionError(e, stack, chatId, 'write', 'messages');
@@ -950,7 +952,7 @@ class ChatService {
     return controller.stream;
   }
 
-  /// Get list of chats for the current user
+  /// Get list of chats for the current user (filters out deleted/hidden chats)
   static Stream<List<Map<String, dynamic>>> getChatListStream() {
     final uid = UserService.currentUid;
     if (uid == null) return Stream.value([]);
@@ -960,11 +962,28 @@ class ChatService {
         .where('users', arrayContains: uid)
         .snapshots()
         .map((snapshot) {
-          final chats = snapshot.docs.map((doc) {
-            final data = doc.data();
-            data['id'] = doc.id;
-            return data;
-          }).toList();
+          final currentUid = UserService.currentUid;
+          final chats = snapshot.docs
+              .map((doc) {
+                final data = doc.data();
+                data['id'] = doc.id;
+                return data;
+              })
+              .where((chat) {
+                // Если чат скрыт/удален для текущего пользователя:
+                final List hiddenFor = chat['hiddenFor'] ?? chat['deletedFor'] ?? [];
+                if (currentUid != null && hiddenFor.contains(currentUid)) {
+                  // Если пришло новое сообщение после момента скрытия, чат снова всплывает
+                  final Timestamp? hideTs = chat['hiddenAt_$currentUid'] as Timestamp?;
+                  final Timestamp? lastTs = chat['lastTimestamp'] as Timestamp?;
+                  if (hideTs != null && lastTs != null && lastTs.compareTo(hideTs) > 0) {
+                    return true;
+                  }
+                  return false;
+                }
+                return true;
+              })
+              .toList();
           
           // Сортируем по времени последнего сообщения
           chats.sort((a, b) {
@@ -978,6 +997,134 @@ class ChatService {
           
           return chats;
         });
+  }
+
+  /// Полное удаление чата для текущего пользователя (скрывает чат из списка и все сообщения)
+  static Future<bool> deleteChatForUser({
+    required String chatId,
+    required String otherUserId,
+  }) async {
+    final uid = UserService.currentUid;
+    if (uid == null) return false;
+
+    try {
+      final chatRef = _db.collection('chats').doc(chatId);
+      final messagesRef = chatRef.collection('messages');
+
+      // 1. Помечаем чат как скрытый/удаленный для текущего пользователя
+      await chatRef.set({
+        'hiddenFor': FieldValue.arrayUnion([uid]),
+        'deletedFor': FieldValue.arrayUnion([uid]),
+        'hiddenAt_$uid': FieldValue.serverTimestamp(),
+        'unreadCount_$uid': 0,
+      }, SetOptions(merge: true));
+
+      // 2. Пакетно скрываем все существующие сообщения чата для uid
+      final messagesSnap = await messagesRef.limit(100).get();
+      if (messagesSnap.docs.isNotEmpty) {
+        final batch = _db.batch();
+        for (final doc in messagesSnap.docs) {
+          batch.update(doc.reference, {
+            'deletedFor': FieldValue.arrayUnion([uid]),
+          });
+        }
+        await batch.commit();
+      }
+
+      return true;
+    } catch (e, stack) {
+      debugPrint('[CHAT_SERVICE] deleteChatForUser ERROR: $e');
+      AnalyticsService.logFirestorePermissionError(e, stack, chatId, 'write', 'chats');
+      return false;
+    }
+  }
+
+  /// Полное удаление чата "для всех" (удаляет отправленные сообщения автора и скрывает чат)
+  static Future<bool> deleteChatForBoth({
+    required String chatId,
+    required String otherUserId,
+  }) async {
+    final uid = UserService.currentUid;
+    if (uid == null) return false;
+
+    try {
+      final chatRef = _db.collection('chats').doc(chatId);
+      final messagesRef = chatRef.collection('messages');
+
+      // 1. Находим и удаляем все сообщения автора
+      final messagesSnap = await messagesRef.limit(100).get();
+      if (messagesSnap.docs.isNotEmpty) {
+        final myMessageIds = messagesSnap.docs
+            .where((d) => d.data()['senderId'] == uid)
+            .map((d) => d.id)
+            .toList();
+
+        if (myMessageIds.isNotEmpty) {
+          await deleteMessages(otherUserId, myMessageIds);
+        }
+
+        // Скрываем чужие сообщения у себя
+        final otherMessageIds = messagesSnap.docs
+            .where((d) => d.data()['senderId'] != uid)
+            .map((d) => d.id)
+            .toList();
+
+        if (otherMessageIds.isNotEmpty) {
+          await hideMessagesForMe(otherUserId, otherMessageIds);
+        }
+      }
+
+      // 2. Помечаем чат как скрытый у себя и сбрасываем превью
+      await chatRef.set({
+        'hiddenFor': FieldValue.arrayUnion([uid]),
+        'deletedFor': FieldValue.arrayUnion([uid]),
+        'hiddenAt_$uid': FieldValue.serverTimestamp(),
+        'unreadCount_$uid': 0,
+      }, SetOptions(merge: true));
+
+      return true;
+    } catch (e, stack) {
+      debugPrint('[CHAT_SERVICE] deleteChatForBoth ERROR: $e');
+      AnalyticsService.logFirestorePermissionError(e, stack, chatId, 'write', 'chats');
+      return false;
+    }
+  }
+
+  /// Очистить переписку чата у себя
+  static Future<bool> clearChatHistory({
+    required String chatId,
+    required String otherUserId,
+  }) async {
+    final uid = UserService.currentUid;
+    if (uid == null) return false;
+
+    try {
+      final chatRef = _db.collection('chats').doc(chatId);
+      final messagesRef = chatRef.collection('messages');
+
+      final messagesSnap = await messagesRef.limit(100).get();
+      if (messagesSnap.docs.isNotEmpty) {
+        final batch = _db.batch();
+        for (final doc in messagesSnap.docs) {
+          batch.update(doc.reference, {
+            'deletedFor': FieldValue.arrayUnion([uid]),
+          });
+        }
+        await batch.commit();
+      }
+
+      // Сбрасываем непрочитанные у себя
+      await chatRef.set({
+        'unreadCount_$uid': 0,
+        'clearedAt_$uid': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      return true;
+    } catch (e, stack) {
+      debugPrint('[CHAT_SERVICE] clearChatHistory ERROR: $e');
+      AnalyticsService.logFirestorePermissionError(e, stack, chatId, 'write', 'messages');
+      return false;
+    }
   }
 
   static Stream<int> getUnreadMessagesCountStream() {

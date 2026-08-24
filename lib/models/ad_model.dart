@@ -128,6 +128,75 @@ class AdModel {
       'oldPrice': oldPrice,
       'multiAccountSuspected': multiAccountSuspected,
     };
+  }
 
+  /// Сериализация в чистый JSON Map для локального кэширования (диск/память)
+  Map<String, dynamic> toJsonMap() {
+    return {
+      'id': id,
+      'title': title,
+      'description': description,
+      'price': price,
+      'category': category,
+      'images': images,
+      'video_url': videoUrl,
+      'videoDurationSeconds': videoDurationSeconds,
+      'userId': userId,
+      'userName': userName,
+      'userEmail': userEmail,
+      'userPhone': userPhone,
+      'timestamp': timestamp.toIso8601String(),
+      'views': views,
+      'favorites': favoritesCount,
+      'status': status,
+      'active': active,
+      'location': location,
+      'isBargainAllowed': isBargainAllowed,
+      'condition': condition,
+      'canExchange': canExchange,
+      'hasDelivery': hasDelivery,
+      'extraFields': extraFields,
+      'expiresAt': expiresAt?.toIso8601String(),
+      'notifiedExpiry': notifiedExpiry,
+      'oldPrice': oldPrice,
+      'multiAccountSuspected': multiAccountSuspected,
+      'rejectionReason': rejectionReason,
+    };
+  }
+
+  /// Десериализация из чистого JSON Map локального кэша
+  factory AdModel.fromJsonMap(Map<String, dynamic> json) {
+    return AdModel(
+      id: json['id'] ?? '',
+      title: json['title'] ?? 'Без названия',
+      description: json['description'] ?? '',
+      price: (json['price'] as num?)?.toDouble() ?? 0.0,
+      category: json['category'] ?? 'Другое',
+      images: (json['images'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+      videoUrl: json['video_url'],
+      videoDurationSeconds: json['videoDurationSeconds'] is int ? json['videoDurationSeconds'] as int : null,
+      userId: json['userId'] ?? '',
+      userName: json['userName'] ?? 'Пользователь',
+      userEmail: json['userEmail'] ?? '',
+      userPhone: json['userPhone'],
+      timestamp: json['timestamp'] != null
+          ? (DateTime.tryParse(json['timestamp'].toString()) ?? DateTime.now())
+          : DateTime.now(),
+      views: (json['views'] as num?)?.toInt() ?? 0,
+      favoritesCount: (json['favorites'] as num?)?.toInt() ?? 0,
+      status: json['status'] ?? 'active',
+      active: json['active'] ?? true,
+      location: json['location'] ?? '',
+      isBargainAllowed: json['isBargainAllowed'] ?? false,
+      condition: json['condition'],
+      canExchange: json['canExchange'] ?? false,
+      hasDelivery: json['hasDelivery'] ?? false,
+      extraFields: json['extraFields'] != null ? Map<String, dynamic>.from(json['extraFields'] as Map) : null,
+      expiresAt: json['expiresAt'] != null ? DateTime.tryParse(json['expiresAt'].toString()) : null,
+      notifiedExpiry: json['notifiedExpiry'] ?? false,
+      oldPrice: json['oldPrice'],
+      multiAccountSuspected: json['multiAccountSuspected'] ?? false,
+      rejectionReason: json['rejectionReason'],
+    );
   }
 }

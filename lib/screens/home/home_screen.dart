@@ -36,6 +36,7 @@ import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:iqmarket/services/translation_service.dart';
 import 'package:iqmarket/services/storage_service.dart';
+import 'package:iqmarket/services/feed_cache_service.dart';
 import 'package:iqmarket/services/version_service.dart';
 import 'package:iqmarket/widgets/auth_gate_bottom_sheet.dart';
 import 'package:iqmarket/widgets/update_available_sheet.dart';
@@ -119,6 +120,17 @@ class _IQMarketHomeState extends State<IQMarketHome> with WidgetsBindingObserver
     WidgetsBinding.instance.addObserver(this);
     _startHeartbeat();
     _speech = stt.SpeechToText();
+
+    // ⚡ 0ms Stale-While-Revalidate: Мгновенное наполнение ленты из кэша (0 миллисекунд!)
+    final cached = FeedCacheService.getCachedFeed();
+    if (cached != null && cached.isNotEmpty) {
+      final config = Provider.of<AppConfigProvider>(context, listen: false);
+      final filteredCached = cached.where((ad) => !config.blockedUserIds.contains(ad.userId)).toList();
+      if (filteredCached.isNotEmpty) {
+        _pagingController.itemList = filteredCached;
+      }
+    }
+
     _pagingController.addPageRequestListener((pageKey) {
       _fetchPage(pageKey);
     });
@@ -304,12 +316,21 @@ class _IQMarketHomeState extends State<IQMarketHome> with WidgetsBindingObserver
         return !config.blockedUserIds.contains(ad.userId);
       }).toList();
       final isLastPage = newItems.length < _pageSize;
+      final nextPageKey = isLastPage ? null : (result['lastDocument'] as DocumentSnapshot?);
       
-      if (isLastPage) {
-        _pagingController.appendLastPage(newItems);
+      if (pageKey == null) {
+        // Первая страница: обновляем PagingState плавно, без сброса или дерганий интерфейса
+        _pagingController.value = PagingState<DocumentSnapshot?, AdModel>(
+          itemList: newItems,
+          nextPageKey: nextPageKey,
+          error: null,
+        );
       } else {
-        final nextPageKey = result['lastDocument'] as DocumentSnapshot?;
-        _pagingController.appendPage(newItems, nextPageKey);
+        if (isLastPage) {
+          _pagingController.appendLastPage(newItems);
+        } else {
+          _pagingController.appendPage(newItems, nextPageKey);
+        }
       }
     } catch (error, stack) {
       debugPrint('Error fetching home page ads: $error');
@@ -368,6 +389,9 @@ class _IQMarketHomeState extends State<IQMarketHome> with WidgetsBindingObserver
 
   @override
   Widget build(BuildContext context) {
+    final config = Provider.of<AppConfigProvider>(context);
+    final int safeIndex = _currentIndex > 4 && !_isAdmin ? 0 : (_currentIndex > 5 ? 0 : _currentIndex);
+
     return PopScope(
       canPop: _currentIndex == 0,
       onPopInvokedWithResult: (didPop, _) {
@@ -375,7 +399,24 @@ class _IQMarketHomeState extends State<IQMarketHome> with WidgetsBindingObserver
       },
       child: Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        body: SafeArea(child: _currentIndex == 0 ? _buildHomePage() : _buildOtherPage()),
+        body: SafeArea(
+          child: IndexedStack(
+            index: safeIndex,
+            children: [
+              _buildHomePage(),
+              const ChatsListScreen(),
+              const SizedBox.shrink(), // Index 2 (Post Ad) - открывается через Navigator
+              FavoritesScreen(
+                lang: config.language,
+                themes: AppTheme.homeThemes,
+                currentTheme: 'Light',
+                onShowDetails: _showDetails,
+              ),
+              const SizedBox.shrink(), // Index 4 (Profile) - открывается через Navigator
+              if (_isAdmin) const AdminPanelScreen() else const SizedBox.shrink(),
+            ],
+          ),
+        ),
         bottomNavigationBar: _buildBottomNav(),
       ),
     );
@@ -895,18 +936,6 @@ class _IQMarketHomeState extends State<IQMarketHome> with WidgetsBindingObserver
         ],
       ),
     );
-  }
-
-  Widget _buildOtherPage() {
-    final config = Provider.of<AppConfigProvider>(context);
-    switch (_currentIndex) {
-      case 1: return const ChatsListScreen(); // вкладка "Чаты"
-      case 2: return const SizedBox.shrink(); // Moved to Navigator.push
-      case 3: return FavoritesScreen(lang: config.language, themes: AppTheme.homeThemes, currentTheme: 'Light', onShowDetails: _showDetails);
-      case 4: return const SizedBox.shrink(); // Moved to Navigator.push
-      case 5: return const AdminPanelScreen();
-      default: return const SizedBox.shrink();
-    }
   }
 }
 

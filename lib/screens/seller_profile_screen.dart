@@ -298,14 +298,16 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
 
 
   Widget _buildStatsSection(AsyncSnapshot<DocumentSnapshot> snapshot) {
-    double ratingValue = 0.0;
+    double ratingValue = 5.0;
     int reviewsCount = 0;
     
     if (snapshot.hasData && snapshot.data!.exists) {
       final data = snapshot.data!.data() as Map<String, dynamic>?;
       if (data != null) {
-        ratingValue = (data['rating'] as num?)?.toDouble() ?? 0.0;
         reviewsCount = data['reviewsCount'] ?? 0;
+        final rawRating = (data['rating'] as num?)?.toDouble() ?? 5.0;
+        // До 5 отзывов рейтинг 5.0 (стартовый), после 5 отзывов — честное среднее
+        ratingValue = reviewsCount < 5 ? 5.0 : rawRating;
       }
     }
     

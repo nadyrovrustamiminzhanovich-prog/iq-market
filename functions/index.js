@@ -1470,43 +1470,36 @@ exports.incrementViewCount = functions.https.onCall(async (data, context) => {
     }
 
     const adData = adSnap.data();
-    // Смягчаем проверку: если active или status отсутствуют в документе, считаем их активными по умолчанию
-    const isActive = adData.active === undefined ? true : adData.active;
-    const status = adData.status === undefined ? 'active' : adData.status;
 
-    if (isActive !== true || status !== 'active') {
-      throw new functions.https.HttpsError(
-        'failed-precondition',
-        `Объявление не активно (статус: ${status}, активность: ${isActive})`
-      );
-    }
-
-    // 2. Чтение лога вечной дедупликации (1 Уникальный Пользователь = 1 Просмотр НАВСЕГДА)
+    // 2. Чтение лога уникального просмотра
     const logSnap = await transaction.get(logRef);
 
     if (logSnap.exists) {
-      // Пользователь уже просматривал это объявление ранее -> блокируем повторный инкремент
-      return { success: false, reason: 'duplicate' };
+      // Пользователь уже просматривал это объявление ранее
+      return { success: true, reason: 'duplicate', views: adData.views || 0 };
     }
 
-    // 3. Запись бессрочного лога уникального просмотра
+    // 3. Запись лога уникального просмотра
     transaction.set(logRef, {
       firstViewedAt: admin.firestore.FieldValue.serverTimestamp(),
       userId: userId,
       listingId: listingId
     });
 
+    const currentViews = (adData.views || 0);
+    const newViews = currentViews + 1;
+
     // 4. Атомарный инкремент счетчика просмотров прямо в документе объявления ads/{listingId}
-    transaction.update(adRef, {
+    transaction.set(adRef, {
       views: admin.firestore.FieldValue.increment(1)
-    });
+    }, { merge: true });
 
     // 5. Инкремент счетчика в ads/{listingId}/stats/counters (для аналитики)
     transaction.set(statsRef, {
       viewsCount: admin.firestore.FieldValue.increment(1)
     }, { merge: true });
 
-    return { success: true };
+    return { success: true, views: newViews };
   });
 });
 
@@ -1578,10 +1571,10 @@ async function updateUserRatingTransaction(userId, ratingChange, countChange) {
     
     const newSum = Math.max(0, currentSum + ratingChange);
     const newCount = Math.max(0, currentCount + countChange);
-    // Стартовый рейтинг 5.0 у всех новых аккаунтов (см. user_service.dart) — как только
-    // появляется хотя бы один реальный отзыв, рейтинг сразу отражает фактическое среднее
-    // (держится или снижается), без ожидания минимального числа отзывов.
-    const avgRating = newCount > 0 ? (newSum / newCount) : 5.0;
+    // БИЗНЕС-ПРАВИЛО IQ-MARKET:
+    // Стартовый рейтинг у всех пользователей равен 5.0 (пока отзывов меньше 5).
+    // Начиная с 5 отзывов (newCount >= 5) рейтинг рассчитывается как честное среднее (newSum / newCount).
+    const avgRating = newCount >= 5 ? Number((newSum / newCount).toFixed(1)) : 5.0;
     
     transaction.set(userRef, {
       ratingSum: newSum,

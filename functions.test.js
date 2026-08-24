@@ -619,7 +619,7 @@ describe('Review triggers Cloud Function Tests', () => {
       {
         ratingSum: 5,
         reviewsCount: 1,
-        rating: 0.0 // рейтинг 0.0, так как отзывов меньше 5
+        rating: 5.0 // рейтинг 5.0 (стартовый), так как отзывов меньше 5
       },
       { merge: true }
     );
@@ -713,7 +713,7 @@ describe('Review triggers Cloud Function Tests', () => {
       {
         ratingSum: 20.0,
         reviewsCount: 4,
-        rating: 0.0 // Счетчик стал меньше 5, рейтинг сбрасывается в 0.0
+        rating: 5.0 // Счетчик стал меньше 5, рейтинг возвращается в 5.0
       },
       { merge: true }
     );

@@ -52,13 +52,14 @@ class VersionService {
 
   /// Читает единственный документ конфигурации версий и определяет,
   /// требуется ли принудительное обновление (min_version_code) или доступно
-  /// необязательное (latest_version_code) — одним запросом к Firestore.
-  static Future<VersionCheckResult> checkVersion() async {
+  /// необязательное (latest_version_code) — одним запросом к Firestore с защитным таймаутом.
+  static Future<VersionCheckResult> checkVersion({Duration timeout = const Duration(milliseconds: 1200)}) async {
     try {
       final doc = await FirebaseFirestore.instance
           .collection('app_config')
           .doc('version_info')
-          .get();
+          .get()
+          .timeout(timeout);
 
       if (!doc.exists || doc.data() == null) return const VersionCheckResult();
       final data = doc.data()!;

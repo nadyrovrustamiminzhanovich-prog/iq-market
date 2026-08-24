@@ -29,6 +29,12 @@
       "**/.*",
       "**/node_modules/**",
       "!.well-known/**"
+    ],
+    "rewrites": [
+      {
+        "source": "/ad/**",
+        "destination": "/ad/index.html"
+      }
     ]
   },
   "emulators": {
