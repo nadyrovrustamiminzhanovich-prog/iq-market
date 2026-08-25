@@ -907,6 +907,10 @@ class _IQMarketHomeState extends State<IQMarketHome> with WidgetsBindingObserver
           }
         },
         type: BottomNavigationBarType.fixed,
+        selectedFontSize: 11,
+        unselectedFontSize: 11,
+        selectedLabelStyle: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 11),
+        unselectedLabelStyle: GoogleFonts.inter(fontWeight: FontWeight.w500, fontSize: 11),
         selectedItemColor: navTheme.colorScheme.primary,
         unselectedItemColor: navTheme.colorScheme.onSurface.withValues(alpha: 0.4),
         elevation: 0,

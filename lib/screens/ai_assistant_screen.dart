@@ -597,7 +597,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
             ]
           : _currentLang == 'UG'
               ? [
-                  {"icon": "✍️", "title": "Текст йезиш", "desc": "Мал үшін сипатлима"},
+                  {"icon": "✍️", "title": "Текст йезиш", "desc": "Мал үчүн сипатлима"},
                   {"icon": "⚖️", "title": "Баһани содилаш", "desc": "Базар билән тәкшүрүң"},
                   {"icon": "🤝", "title": "Арзанрақ сураш", "desc": "Содилашқини йардәм"},
                 ]
@@ -616,7 +616,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
           : _currentLang == 'UG'
               ? [
                   {"icon": "💰", "title": "Баһалаш", "desc": "Төвән баһани билиң"},
-                  {"icon": "✍️", "title": "Текст йезиш", "desc": "Сетиш үшін текст"},
+                  {"icon": "✍️", "title": "Текст йезиш", "desc": "Сетиш үчүн текст"},
                   {"icon": "🔍", "title": "Мал тепиш", "desc": "Охшаш мал издәш"},
                 ]
               : [

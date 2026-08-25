@@ -179,12 +179,12 @@ class CategoryData {
       id: 'Сельхоз и Корма', 
       ru: 'Корма/Сельхоз', 
       kz: 'Ауыл шаруашылығы', 
-      ug: 'Деһқанчилик', 
+      ug: 'Деханчилик', 
       icon: Icons.grass_rounded, 
       color: const Color(0xFF10B981),
       subCategories: [
         SubCategoryModel(id: 'feed', ru: 'Корма (Сено/Зерно)', kz: 'Жем-шөп', ug: 'Йәм-шөп'),
-        SubCategoryModel(id: 'machinery', ru: 'Сельхозтехника', kz: 'Ауыл шаруашылық техникасы', ug: 'Деһқанчилик техникаси'),
+        SubCategoryModel(id: 'machinery', ru: 'Сельхозтехника', kz: 'Ауыл шаруашылық техникасы', ug: 'Деханчилик техникаси'),
       ],
     ),
     CategoryModel(

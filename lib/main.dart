@@ -70,6 +70,14 @@ class MainApp extends StatelessWidget {
       title: 'IQ-Market',
       navigatorKey: NotificationService.navigatorKey,
       builder: (context, child) {
+        final mediaQuery = MediaQuery.of(context);
+        // Защищаем верстку от разваливания при увеличенных системных шрифтах пользователя,
+        // сохраняя идеальные пропорции интерфейса на любых смартфонах
+        final clampedScaler = mediaQuery.textScaler.clamp(
+          minScaleFactor: 0.85,
+          maxScaleFactor: 1.10,
+        );
+
         // Global Error Boundary - World Class Professional approach
         ErrorWidget.builder = (FlutterErrorDetails details) {
           return Material(
@@ -88,11 +96,6 @@ class MainApp extends StatelessWidget {
                   const SizedBox(height: 8),
                   Expanded(
                     child: SingleChildScrollView(
-                      // В релизе Flutter по умолчанию рисует нейтральный серый
-                      // блок именно потому, что details.exception/stack могут
-                      // содержать имена классов и внутренние пути — этот
-                      // кастомный ErrorWidget показывал их пользователю
-                      // безусловно, включая релизные сборки.
                       child: kDebugMode
                           ? SelectableText(
                               '${details.exception}\n\n${details.stack}',
@@ -122,7 +125,10 @@ class MainApp extends StatelessWidget {
             ),
           );
         };
-        return OfflineWrapper(child: child!);
+        return MediaQuery(
+          data: mediaQuery.copyWith(textScaler: clampedScaler),
+          child: OfflineWrapper(child: child!),
+        );
       },
       home: home,
       debugShowCheckedModeBanner: false,

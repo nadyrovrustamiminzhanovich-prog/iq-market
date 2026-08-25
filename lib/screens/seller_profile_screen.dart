@@ -565,7 +565,7 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
                                       widget.lang == 'Қазақша'
                                           ? 'Хабарландыру табылмады немесе өшірілген'
                                           : widget.lang == 'Уйғурчә'
-                                              ? 'Елан тепильмиди йаки өчүрүлгән'
+                                              ? 'Елан тепилмиди йаки өчүрүлгән'
                                               : 'Объявление не найдено или удалено',
                                     ),
                                   ),
@@ -717,7 +717,7 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
                           widget.lang == 'Қазақша'
                               ? 'Хабарландыру табылмады немесе өшірілген'
                               : widget.lang == 'Уйғурчә'
-                                  ? 'Елан тепильмиди йаки өчүрүлгән'
+                                  ? 'Елан тепилмиди йаки өчүрүлгән'
                                   : 'Объявление не найдено или удалено',
                         ),
                       ),

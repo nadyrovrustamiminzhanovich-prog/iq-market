@@ -237,9 +237,9 @@ class CategorySelector extends StatelessWidget {
                   shrinkWrap: true,
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 3,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                    childAspectRatio: 1.1,
+                    crossAxisSpacing: 10,
+                    mainAxisSpacing: 10,
+                    childAspectRatio: 0.95,
                   ),
                   itemCount: categories.length,
                   itemBuilder: (context, index) {
@@ -251,7 +251,7 @@ class CategorySelector extends StatelessWidget {
                         Navigator.pop(ctx);
                       },
                       child: Container(
-                        padding: const EdgeInsets.all(8),
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
                         decoration: BoxDecoration(
                           color: isSelected ? const Color(0xFFEBF3FF) : const Color(0xFFF8FAFC),
                           borderRadius: BorderRadius.circular(16),
@@ -268,13 +268,16 @@ class CategorySelector extends StatelessWidget {
                               color: isSelected ? const Color(0xFF1A73E8) : const Color(0xFF475569),
                               size: 24,
                             ),
-                            const SizedBox(height: 6),
+                            const SizedBox(height: 5),
                             Flexible(
                               child: Text(
                                 _getCatName(cat, lang),
                                 textAlign: TextAlign.center,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
                                 style: GoogleFonts.inter(
-                                  fontSize: 11,
+                                  fontSize: 10.5,
+                                  height: 1.15,
                                   fontWeight: FontWeight.w600,
                                   color: isSelected ? const Color(0xFF1A73E8) : const Color(0xFF475569),
                                 ),

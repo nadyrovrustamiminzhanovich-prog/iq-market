@@ -100,13 +100,13 @@ class TaxiCardHome extends StatelessWidget {
 
               // ── Изображение автомобиля ─────────────────────────
               Positioned(
-                right: 0,
+                right: -5,
                 bottom: 8,
                 child: Transform.flip(
                   flipX: true, // Флипаем машину как просил юзер
                   child: Image.asset(
                     'assets/images/taxi_car.png',
-                    width: 175,
+                    width: 165,
                     fit: BoxFit.contain,
                     errorBuilder: (context, error, stackTrace) => 
                         const Icon(Icons.directions_car_rounded, size: 100, color: Colors.white24),
@@ -116,65 +116,83 @@ class TaxiCardHome extends StatelessWidget {
 
               // ── Контент ──────────────────────────────
               Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      titleText,
-                      style: GoogleFonts.inter(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.white,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitleText,
-                      style: GoogleFonts.inter(
-                        fontSize: 13,
-                        color: Colors.white.withValues(alpha: 0.9),
-                        fontWeight: FontWeight.w500,
-                        height: 1.3,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    // Преимущества
-                    Row(
+                padding: const EdgeInsets.all(18),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final contentWidth = constraints.maxWidth * 0.62;
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildFeatureItem(Icons.check_rounded, fastText),
-                        const SizedBox(width: 12),
-                        _buildFeatureItem(Icons.check_rounded, profitableText),
-                      ],
-                    ),
-
-                    const Spacer(),
-                    // Кнопка
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.1),
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
+                        SizedBox(
+                          width: constraints.maxWidth,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              titleText,
+                              maxLines: 1,
+                              style: GoogleFonts.inter(
+                                fontSize: 21,
+                                fontWeight: FontWeight.w900,
+                                color: Colors.white,
+                                letterSpacing: -0.4,
+                              ),
+                            ),
                           ),
-                        ],
-                      ),
-                      child: Text(
-                        goText,
-                        style: GoogleFonts.inter(
-                          color: const Color(0xFF2563EB),
-                          fontWeight: FontWeight.w900,
-                          fontSize: 13,
-                          letterSpacing: 1.2,
                         ),
-                      ),
-                    ),
-                  ],
+                        const SizedBox(height: 4),
+                        SizedBox(
+                          width: contentWidth,
+                          child: Text(
+                            subtitleText,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.inter(
+                              fontSize: 12.5,
+                              color: Colors.white.withValues(alpha: 0.92),
+                              fontWeight: FontWeight.w500,
+                              height: 1.25,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        // Преимущества
+                        Row(
+                          children: [
+                            _buildFeatureItem(Icons.check_rounded, fastText),
+                            const SizedBox(width: 10),
+                            _buildFeatureItem(Icons.check_rounded, profitableText),
+                          ],
+                        ),
+
+                        const Spacer(),
+                        // Кнопка
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.1),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Text(
+                            goText,
+                            style: GoogleFonts.inter(
+                              color: const Color(0xFF2563EB),
+                              fontWeight: FontWeight.w900,
+                              fontSize: 12.5,
+                              letterSpacing: 1.1,
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ),
             ],

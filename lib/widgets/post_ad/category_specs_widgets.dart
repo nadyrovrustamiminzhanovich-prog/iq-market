@@ -318,7 +318,7 @@ class _SelectorField extends StatelessWidget {
                     itemBuilder: (context, index) {
                       String itemText = filtered[index];
                       if (itemText == 'Сначала выберите марку') {
-                        itemText = lang == 'Уйғурчә' ? 'Аввал маркини таллаң' : (lang == 'Қазақша' ? 'Алдымен марканы таңдаңыз' : itemText);
+                        itemText = lang == 'Уйғурчә' ? 'Авал маркини таллаң' : (lang == 'Қазақша' ? 'Алдымен марканы таңдаңыз' : itemText);
                       } else {
                         itemText = TranslationService.translateSpecValue(itemText, lang);
                       }

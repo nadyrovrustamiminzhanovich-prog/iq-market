@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:iqmarket/models/message_model.dart';
 import 'package:iqmarket/providers/app_config_provider.dart';
@@ -8,116 +9,190 @@ import 'package:iqmarket/services/user_service.dart';
 import 'package:iqmarket/services/chat_service.dart';
 
 class ChatContextMenu {
-  static const Color _sheetColor = Color(0xFF1C2B3A);
-
   static void show({
     required BuildContext context,
     required MessageModel msg,
     required String otherUserId,
     VoidCallback? onDeleted,
   }) {
-    HapticFeedback.heavyImpact();
+    HapticFeedback.mediumImpact();
     final lang = Provider.of<AppConfigProvider>(context, listen: false).language;
     final bool isMyMessage = msg.senderId == UserService.currentUid;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final bgSheet = isDark ? const Color(0xFF1E293B) : Colors.white;
+    final textDark = isDark ? const Color(0xFFF8FAFC) : const Color(0xFF0F172A);
+    final cardBg = isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC);
+    final cardBorder = isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
 
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (sheetContext) => Container(
-        decoration: const BoxDecoration(
-          color: _sheetColor,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        decoration: BoxDecoration(
+          color: bgSheet,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.15),
+              blurRadius: 25,
+              offset: const Offset(0, -5),
+            ),
+          ],
         ),
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
         child: SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                margin: const EdgeInsets.only(top: 12, bottom: 8),
                 width: 36,
                 height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
                 decoration: BoxDecoration(
-                  color: Colors.white24,
-                  borderRadius: BorderRadius.circular(2),
+                  color: isDark ? Colors.white24 : Colors.black12,
+                  borderRadius: BorderRadius.circular(10),
                 ),
               ),
-              if (msg.type == 'text')
-                ListTile(
-                  leading: const Icon(Icons.copy_rounded, color: Colors.white70),
-                  title: Text(
-                    TranslationService.t('copy_text', lang),
-                    style: const TextStyle(color: Colors.white),
-                  ),
-                  onTap: () {
-                    Clipboard.setData(ClipboardData(text: msg.text));
-                    Navigator.pop(sheetContext);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(TranslationService.t('copied', lang)),
-                        behavior: SnackBarBehavior.floating,
-                        duration: const Duration(seconds: 1),
+
+              Container(
+                decoration: BoxDecoration(
+                  color: cardBg,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: cardBorder, width: 1.2),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: Column(
+                    children: [
+                      if (msg.type == 'text') ...[
+                        _buildMenuItem(
+                          icon: Icons.copy_rounded,
+                          iconColor: const Color(0xFF3B82F6),
+                          title: TranslationService.t('copy_text', lang),
+                          textDark: textDark,
+                          isDark: isDark,
+                          onTap: () {
+                            Clipboard.setData(ClipboardData(text: msg.text));
+                            Navigator.pop(sheetContext);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(TranslationService.t('copied', lang)),
+                                behavior: SnackBarBehavior.floating,
+                                duration: const Duration(seconds: 1),
+                              ),
+                            );
+                          },
+                        ),
+                        Divider(height: 1, thickness: 1, color: cardBorder),
+                      ],
+                      _buildMenuItem(
+                        icon: Icons.visibility_off_outlined,
+                        iconColor: const Color(0xFF64748B),
+                        title: TranslationService.t('delete_for_me', lang),
+                        textDark: textDark,
+                        isDark: isDark,
+                        onTap: () async {
+                          Navigator.pop(sheetContext);
+                          final confirmed = await _confirm(
+                            context: context,
+                            lang: lang,
+                            body: TranslationService.t('delete_for_me_confirm', lang),
+                            destructive: false,
+                            isDark: isDark,
+                          );
+                          if (!confirmed) return;
+                          final count = await ChatService.hideMessagesForMe(otherUserId, [msg.id]);
+                          if (count == 0) {
+                            _showError(context, TranslationService.t('errDeleteMsg', lang));
+                          } else {
+                            onDeleted?.call();
+                          }
+                        },
                       ),
-                    );
-                  },
-                ),
-              // «Удалить у меня» доступно для ЛЮБОГО сообщения, включая чужое:
-              // до этого получатель не мог убрать из своей переписки вообще
-              // ничего — оскорбление или мерзкое фото оставались навсегда,
-              // единственным выходом была блокировка собеседника.
-              ListTile(
-                leading: const Icon(Icons.visibility_off_rounded, color: Colors.white70),
-                title: Text(
-                  TranslationService.t('delete_for_me', lang),
-                  style: const TextStyle(color: Colors.white),
-                ),
-                onTap: () async {
-                  Navigator.pop(sheetContext);
-                  final confirmed = await _confirm(
-                    context: context,
-                    lang: lang,
-                    body: TranslationService.t('delete_for_me_confirm', lang),
-                    destructive: false,
-                  );
-                  if (!confirmed) return;
-                  final count =
-                      await ChatService.hideMessagesForMe(otherUserId, [msg.id]);
-                  if (count == 0) {
-                    _showError(context, TranslationService.t('errDeleteMsg', lang));
-                  } else {
-                    onDeleted?.call();
-                  }
-                },
-              ),
-              if (isMyMessage)
-                ListTile(
-                  leading: const Icon(Icons.delete_forever_rounded, color: Colors.redAccent),
-                  title: Text(
-                    TranslationService.t('delete_for_all', lang),
-                    style: const TextStyle(
-                      color: Colors.redAccent,
-                      fontWeight: FontWeight.bold,
-                    ),
+                      if (isMyMessage) ...[
+                        Divider(height: 1, thickness: 1, color: cardBorder),
+                        _buildMenuItem(
+                          icon: Icons.delete_forever_rounded,
+                          iconColor: const Color(0xFFEF4444),
+                          title: TranslationService.t('delete_for_all', lang),
+                          textDark: const Color(0xFFEF4444),
+                          isDark: isDark,
+                          onTap: () async {
+                            Navigator.pop(sheetContext);
+                            final confirmed = await _confirm(
+                              context: context,
+                              lang: lang,
+                              body: TranslationService.t('delete_for_all_confirm', lang),
+                              destructive: true,
+                              isDark: isDark,
+                            );
+                            if (!confirmed) return;
+                            final count = await ChatService.deleteMessages(otherUserId, [msg.id]);
+                            if (count == 0) {
+                              _showError(context, TranslationService.t('errDeleteMsg', lang));
+                            } else {
+                              onDeleted?.call();
+                            }
+                          },
+                        ),
+                      ],
+                    ],
                   ),
-                  onTap: () async {
-                    Navigator.pop(sheetContext);
-                    // Удаление у всех необратимо, поэтому одного нажатия по
-                    // пункту меню для него недостаточно.
-                    final confirmed = await _confirm(
-                      context: context,
-                      lang: lang,
-                      body: TranslationService.t('delete_for_all_confirm', lang),
-                      destructive: true,
-                    );
-                    if (!confirmed) return;
-                    final count =
-                        await ChatService.deleteMessages(otherUserId, [msg.id]);
-                    if (count == 0) {
-                      _showError(context, TranslationService.t('errDeleteMsg', lang));
-                    } else {
-                      onDeleted?.call();
-                    }
-                  },
                 ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  static Widget _buildMenuItem({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required Color textDark,
+    required bool isDark,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          HapticFeedback.lightImpact();
+          onTap();
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: iconColor.withValues(alpha: isDark ? 0.2 : 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: iconColor, size: 20),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  title,
+                  style: GoogleFonts.inter(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                    color: textDark,
+                  ),
+                ),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: isDark ? Colors.white24 : const Color(0xFFCBD5E1),
+                size: 20,
+              ),
             ],
           ),
         ),
@@ -130,33 +205,54 @@ class ChatContextMenu {
     required String lang,
     required String body,
     required bool destructive,
+    required bool isDark,
   }) async {
     if (!context.mounted) return false;
     final result = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: _sheetColor,
+        backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: Text(
           TranslationService.t('delete_msg_title', lang),
-          style: const TextStyle(color: Colors.white),
+          style: GoogleFonts.inter(
+            fontWeight: FontWeight.w900,
+            fontSize: 18,
+            color: isDark ? Colors.white : const Color(0xFF0F172A),
+          ),
         ),
-        content: Text(body, style: const TextStyle(color: Colors.white70)),
+        content: Text(
+          body,
+          style: GoogleFonts.inter(
+            fontSize: 14,
+            height: 1.4,
+            color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+          ),
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
             child: Text(
               TranslationService.t('cancel', lang),
-              style: const TextStyle(color: Colors.white70),
+              style: GoogleFonts.inter(
+                fontWeight: FontWeight.w600,
+                color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+              ),
             ),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () => Navigator.pop(dialogContext, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: destructive ? const Color(0xFFEF4444) : const Color(0xFF3B82F6),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
             child: Text(
               TranslationService.t('delete_confirm_action', lang),
-              style: TextStyle(
-                color: destructive ? Colors.redAccent : Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
+              style: GoogleFonts.inter(fontWeight: FontWeight.w700),
             ),
           ),
         ],
@@ -170,7 +266,7 @@ class ChatContextMenu {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(text),
-        backgroundColor: Colors.redAccent,
+        backgroundColor: const Color(0xFFEF4444),
         behavior: SnackBarBehavior.floating,
       ),
     );

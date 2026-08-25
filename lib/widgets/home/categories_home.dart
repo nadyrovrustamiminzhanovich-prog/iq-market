@@ -46,7 +46,7 @@ class CategoriesHome extends StatelessWidget {
       malBazarName = 'Малбазар';
       electroName = 'Техника';
       reName = 'Мүлүк';
-      allCatsName = 'Категориялар';
+      allCatsName = 'Санатлар';
     }
 
     final bool isTransportSelected = selectedCategoryId == 'Авто';
@@ -126,15 +126,20 @@ class CategoriesHome extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-            Text(
-              name,
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.inter(
-                fontSize: 11,
-                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                color: isSelected ? const Color(0xFF2563EB) : const Color(0xFF1E293B),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 2),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  name,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                    color: isSelected ? const Color(0xFF2563EB) : const Color(0xFF1E293B),
+                  ),
+                ),
               ),
             ),
           ],
@@ -162,16 +167,24 @@ class CategoriesHome extends StatelessWidget {
               size: 26,
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            name,
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.inter(
-              fontSize: 12,
-              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-              color: isSelected ? const Color(0xFF2563EB) : const Color(0xFF1E293B),
+          const SizedBox(height: 6),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 2),
+              child: Center(
+                child: Text(
+                  name,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    height: 1.15,
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                    color: isSelected ? const Color(0xFF2563EB) : const Color(0xFF1E293B),
+                  ),
+                ),
+              ),
             ),
           ),
         ],
@@ -186,17 +199,20 @@ class CategoriesHome extends StatelessWidget {
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(32))),
       builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.75,
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        height: MediaQuery.of(context).size.height * 0.78,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  TranslationService.t('all_categories_title', lang), 
-                  style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A)),
+                Expanded(
+                  child: Text(
+                    TranslationService.t('all_categories_title', lang), 
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.inter(fontSize: 21, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A)),
+                  ),
                 ),
                 IconButton(
                   onPressed: () => Navigator.pop(context), 
@@ -204,14 +220,14 @@ class CategoriesHome extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
             Expanded(
               child: GridView.builder(
                 gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                  maxCrossAxisExtent: 110,
-                  mainAxisSpacing: 20,
-                  crossAxisSpacing: 12,
-                  childAspectRatio: 0.8,
+                  maxCrossAxisExtent: 115,
+                  mainAxisSpacing: 14,
+                  crossAxisSpacing: 8,
+                  childAspectRatio: 0.72,
                 ),
                 itemCount: CategoryData.categories.length + 1,
                 itemBuilder: (context, index) {
