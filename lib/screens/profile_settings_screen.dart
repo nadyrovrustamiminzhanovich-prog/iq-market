@@ -1842,7 +1842,9 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
       builder: (ctx) => StatefulBuilder(builder: (context, setS) => Padding(
         padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom, top: 24, left: 28, right: 28),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
           Container(width: 40, height: 4, decoration: BoxDecoration(color: _subtxtColor.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(10))),
           const SizedBox(height: 24),
           Icon(Icons.phone_android_rounded, color: _primaryColor, size: 40),
@@ -1945,7 +1947,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
           ],
           const SizedBox(height: 30),
         ]),
-      )),
+      ))),
     ).then((_) {
       phoneC.dispose();
       codeC.dispose();

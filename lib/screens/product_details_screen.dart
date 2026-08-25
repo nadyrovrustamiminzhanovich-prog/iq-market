@@ -1558,8 +1558,14 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> with Widget
                     children: [
                       Icon(Icons.info_outline_rounded, size: 14, color: Colors.grey[400]),
                       const SizedBox(width: 6),
-                      Text('${TranslationService.t('min_price', widget.lang)} ${_formatPrice(currentPrice * 0.7)}', 
-                        style: TextStyle(color: Colors.grey[400], fontSize: 12)),
+                      Expanded(
+                        child: Text(
+                          '${TranslationService.t('min_price', widget.lang)} ${_formatPrice(currentPrice * 0.7)}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 32),

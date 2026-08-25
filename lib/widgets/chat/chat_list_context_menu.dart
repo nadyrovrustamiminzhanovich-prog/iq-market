@@ -33,6 +33,9 @@ class ChatListContextMenu {
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (sheetContext) => Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(sheetContext).size.height * 0.85,
+        ),
         decoration: BoxDecoration(
           color: bgSheet,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
@@ -44,174 +47,179 @@ class ChatListContextMenu {
             ),
           ],
         ),
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
         child: SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Pull bar
-              Container(
-                width: 36,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.white24 : Colors.black12,
-                  borderRadius: BorderRadius.circular(10),
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Pull bar
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white24 : Colors.black12,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
                 ),
-              ),
 
-              // Chat Header Preview
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: cardBg,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: cardBorder, width: 1.2),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 46,
-                      height: 46,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: const Color(0xFF3B82F6), width: 1.5),
-                      ),
-                      child: ClipOval(
-                        child: adImage.isNotEmpty
-                            ? CachedNetworkImage(
-                                imageUrl: adImage,
-                                fit: BoxFit.cover,
-                                memCacheWidth: 120,
-                                errorWidget: (_, __, ___) => Icon(
+                // Chat Header Preview
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: cardBg,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: cardBorder, width: 1.2),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 46,
+                        height: 46,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: const Color(0xFF3B82F6), width: 1.5),
+                        ),
+                        child: ClipOval(
+                          child: adImage.isNotEmpty
+                              ? CachedNetworkImage(
+                                  imageUrl: adImage,
+                                  fit: BoxFit.cover,
+                                  memCacheWidth: 120,
+                                  errorWidget: (_, __, ___) => Icon(
+                                    Icons.person_outline_rounded,
+                                    color: subText,
+                                  ),
+                                )
+                              : Icon(
                                   Icons.person_outline_rounded,
                                   color: subText,
                                 ),
-                              )
-                            : Icon(
-                                Icons.person_outline_rounded,
-                                color: subText,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              sellerName,
+                              style: GoogleFonts.inter(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
+                                color: textDark,
                               ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            sellerName,
-                            style: GoogleFonts.inter(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
-                              color: textDark,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            adTitle,
-                            style: GoogleFonts.inter(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: const Color(0xFF3B82F6),
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Action list in unified grouped design
-              Container(
-                decoration: BoxDecoration(
-                  color: cardBg,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: cardBorder, width: 1.2),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(20),
-                  child: Column(
-                    children: [
-                      // Очистить историю
-                      _buildMenuItem(
-                        icon: Icons.cleaning_services_outlined,
-                        iconColor: const Color(0xFF3B82F6),
-                        title: TranslationService.t('clear_chat', lang),
-                        subtitle: TranslationService.t('clear_chat_confirm', lang),
-                        textDark: textDark,
-                        subText: subText,
-                        isDark: isDark,
-                        onTap: () async {
-                          Navigator.pop(sheetContext);
-                          await _showClearChatConfirm(context, chatId, sellerId, lang, isDark);
-                        },
-                      ),
-                      Divider(height: 1, thickness: 1, color: cardBorder),
-
-                      // Заблокировать / Разблокировать
-                      _buildMenuItem(
-                        icon: isBlocked ? Icons.lock_open_rounded : Icons.block_outlined,
-                        iconColor: isBlocked ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
-                        title: isBlocked
-                            ? TranslationService.t('unblock_user', lang)
-                            : TranslationService.t('block_user', lang),
-                        subtitle: isBlocked
-                            ? 'Разблокировать пользователя'
-                            : 'Заблокировать входящие сообщения',
-                        textDark: textDark,
-                        subText: subText,
-                        isDark: isDark,
-                        onTap: () async {
-                          Navigator.pop(sheetContext);
-                          if (isBlocked) {
-                            config.unblockUser(sellerId);
-                          } else {
-                            config.blockUser(sellerId);
-                          }
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                isBlocked
-                                    ? 'Пользователь разблокирован'
-                                    : 'Пользователь заблокирован',
+                            const SizedBox(height: 2),
+                            Text(
+                              adTitle,
+                              style: GoogleFonts.inter(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xFF3B82F6),
                               ),
-                              behavior: SnackBarBehavior.floating,
-                              backgroundColor: isBlocked
-                                  ? const Color(0xFF10B981)
-                                  : const Color(0xFFF59E0B),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                          );
-                        },
-                      ),
-                      Divider(height: 1, thickness: 1, color: cardBorder),
-
-                      // Удалить чат (Деструктивное действие с элегантным красным акцентом)
-                      _buildMenuItem(
-                        icon: Icons.delete_outline_rounded,
-                        iconColor: const Color(0xFFEF4444),
-                        title: TranslationService.t('delete_chat', lang),
-                        subtitle: TranslationService.t('delete_chat_title', lang),
-                        textDark: const Color(0xFFEF4444),
-                        subText: subText,
-                        isDark: isDark,
-                        isDestructive: true,
-                        onTap: () async {
-                          Navigator.pop(sheetContext);
-                          await _showDeleteChatOptions(context, chatId, sellerId, lang, isDark);
-                        },
+                          ],
+                        ),
                       ),
                     ],
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 16),
+
+                // Action list in unified grouped design
+                Container(
+                  decoration: BoxDecoration(
+                    color: cardBg,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: cardBorder, width: 1.2),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: Column(
+                      children: [
+                        // Очистить историю
+                        _buildMenuItem(
+                          icon: Icons.cleaning_services_outlined,
+                          iconColor: const Color(0xFF3B82F6),
+                          title: TranslationService.t('clear_chat', lang),
+                          subtitle: TranslationService.t('clear_chat_confirm', lang),
+                          textDark: textDark,
+                          subText: subText,
+                          isDark: isDark,
+                          onTap: () async {
+                            Navigator.pop(sheetContext);
+                            await _showClearChatConfirm(context, chatId, sellerId, lang, isDark);
+                          },
+                        ),
+                        Divider(height: 1, thickness: 1, color: cardBorder),
+
+                        // Заблокировать / Разблокировать
+                        _buildMenuItem(
+                          icon: isBlocked ? Icons.lock_open_rounded : Icons.block_outlined,
+                          iconColor: isBlocked ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
+                          title: isBlocked
+                              ? TranslationService.t('unblock_user', lang)
+                              : TranslationService.t('block_user', lang),
+                          subtitle: isBlocked
+                              ? 'Разблокировать пользователя'
+                              : 'Заблокировать входящие сообщения',
+                          textDark: textDark,
+                          subText: subText,
+                          isDark: isDark,
+                          onTap: () async {
+                            Navigator.pop(sheetContext);
+                            if (isBlocked) {
+                              config.unblockUser(sellerId);
+                            } else {
+                              config.blockUser(sellerId);
+                            }
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  isBlocked
+                                      ? 'Пользователь разблокирован'
+                                      : 'Пользователь заблокирован',
+                                ),
+                                behavior: SnackBarBehavior.floating,
+                                backgroundColor: isBlocked
+                                    ? const Color(0xFF10B981)
+                                    : const Color(0xFFF59E0B),
+                              ),
+                            );
+                          },
+                        ),
+                        Divider(height: 1, thickness: 1, color: cardBorder),
+
+                        // Удалить чат (Деструктивное действие с элегантным красным акцентом)
+                        _buildMenuItem(
+                          icon: Icons.delete_outline_rounded,
+                          iconColor: const Color(0xFFEF4444),
+                          title: TranslationService.t('delete_chat', lang),
+                          subtitle: TranslationService.t('delete_chat_title', lang),
+                          textDark: const Color(0xFFEF4444),
+                          subText: subText,
+                          isDark: isDark,
+                          isDestructive: true,
+                          onTap: () async {
+                            Navigator.pop(sheetContext);
+                            await _showDeleteChatOptions(context, chatId, sellerId, lang, isDark);
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -306,6 +314,9 @@ class ChatListContextMenu {
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (ctx) => Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(ctx).size.height * 0.85,
+        ),
         decoration: BoxDecoration(
           color: bgSheet,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
@@ -317,124 +328,127 @@ class ChatListContextMenu {
             ),
           ],
         ),
-        padding: const EdgeInsets.fromLTRB(20, 14, 20, 28),
+        padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
         child: SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 36,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: 16),
-                  decoration: BoxDecoration(
-                    color: isDark ? Colors.white24 : Colors.black12,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-              ),
-              Text(
-                TranslationService.t('delete_chat_title', lang),
-                style: GoogleFonts.inter(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
-                  color: textDark,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                TranslationService.t('delete_chat_confirm_desc', lang),
-                style: GoogleFonts.inter(
-                  fontSize: 13,
-                  color: subText,
-                  height: 1.4,
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // Option 1: Удалить только у меня
-              _buildDeleteOptionCard(
-                icon: Icons.visibility_off_outlined,
-                iconColor: const Color(0xFF3B82F6),
-                title: TranslationService.t('delete_chat_for_me', lang),
-                subtitle: 'Чат исчезнет только из вашего списка',
-                cardBg: cardBg,
-                cardBorder: cardBorder,
-                textDark: textDark,
-                subText: subText,
-                isDark: isDark,
-                onTap: () async {
-                  Navigator.pop(ctx);
-                  final success = await ChatService.deleteChatForUser(
-                    chatId: chatId,
-                    otherUserId: sellerId,
-                  );
-                  if (success && context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(TranslationService.t('chat_deleted_success', lang)),
-                        behavior: SnackBarBehavior.floating,
-                        backgroundColor: const Color(0xFF10B981),
-                      ),
-                    );
-                  }
-                },
-              ),
-              const SizedBox(height: 10),
-
-              // Option 2: Удалить для обоих
-              _buildDeleteOptionCard(
-                icon: Icons.delete_forever_rounded,
-                iconColor: const Color(0xFFEF4444),
-                title: TranslationService.t('delete_chat_for_both', lang),
-                subtitle: 'Удалит отправленные сообщения у обоих участников',
-                cardBg: cardBg,
-                cardBorder: cardBorder,
-                textDark: const Color(0xFFEF4444),
-                subText: subText,
-                isDark: isDark,
-                onTap: () async {
-                  Navigator.pop(ctx);
-                  final success = await ChatService.deleteChatForBoth(
-                    chatId: chatId,
-                    otherUserId: sellerId,
-                  );
-                  if (success && context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(TranslationService.t('chat_deleted_success', lang)),
-                        behavior: SnackBarBehavior.floating,
-                        backgroundColor: const Color(0xFF10B981),
-                      ),
-                    );
-                  }
-                },
-              ),
-              const SizedBox(height: 14),
-
-              // Кнопка Отмена
-              SizedBox(
-                width: double.infinity,
-                child: TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                  child: Text(
-                    TranslationService.t('cancel', lang),
-                    style: GoogleFonts.inter(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14,
-                      color: subText,
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white24 : Colors.black12,
+                      borderRadius: BorderRadius.circular(10),
                     ),
                   ),
                 ),
-              ),
-            ],
+                Text(
+                  TranslationService.t('delete_chat_title', lang),
+                  style: GoogleFonts.inter(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    color: textDark,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  TranslationService.t('delete_chat_confirm_desc', lang),
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    color: subText,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // Option 1: Удалить только у меня
+                _buildDeleteOptionCard(
+                  icon: Icons.visibility_off_outlined,
+                  iconColor: const Color(0xFF3B82F6),
+                  title: TranslationService.t('delete_chat_for_me', lang),
+                  subtitle: 'Чат исчезнет только из вашего списка',
+                  cardBg: cardBg,
+                  cardBorder: cardBorder,
+                  textDark: textDark,
+                  subText: subText,
+                  isDark: isDark,
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    final success = await ChatService.deleteChatForUser(
+                      chatId: chatId,
+                      otherUserId: sellerId,
+                    );
+                    if (success && context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(TranslationService.t('chat_deleted_success', lang)),
+                          behavior: SnackBarBehavior.floating,
+                          backgroundColor: const Color(0xFF10B981),
+                        ),
+                      );
+                    }
+                  },
+                ),
+                const SizedBox(height: 10),
+
+                // Option 2: Удалить для обоих
+                _buildDeleteOptionCard(
+                  icon: Icons.delete_forever_rounded,
+                  iconColor: const Color(0xFFEF4444),
+                  title: TranslationService.t('delete_chat_for_both', lang),
+                  subtitle: 'Удалит отправленные сообщения у обоих участников',
+                  cardBg: cardBg,
+                  cardBorder: cardBorder,
+                  textDark: const Color(0xFFEF4444),
+                  subText: subText,
+                  isDark: isDark,
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    final success = await ChatService.deleteChatForBoth(
+                      chatId: chatId,
+                      otherUserId: sellerId,
+                    );
+                    if (success && context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(TranslationService.t('chat_deleted_success', lang)),
+                          behavior: SnackBarBehavior.floating,
+                          backgroundColor: const Color(0xFF10B981),
+                        ),
+                      );
+                    }
+                  },
+                ),
+                const SizedBox(height: 14),
+
+                // Кнопка Отмена
+                SizedBox(
+                  width: double.infinity,
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: Text(
+                      TranslationService.t('cancel', lang),
+                      style: GoogleFonts.inter(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                        color: subText,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
