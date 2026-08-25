@@ -41,7 +41,7 @@ class VersionCheckResult {
 /// Service responsible for managing application updates and version validation.
 class VersionService {
   /// Current app build version code (must be incremented on release matching pubspec.yaml)
-  static const int currentVersionCode = 4;
+  static const int currentVersionCode = 5;
 
   /// Заполняется checkVersion() при холодном старте, если найдена
   /// необязательная новая версия. IQMarketHome читает и сразу обнуляет это

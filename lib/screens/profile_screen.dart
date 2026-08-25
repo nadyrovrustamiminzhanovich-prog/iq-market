@@ -1836,7 +1836,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             const SizedBox(height: 2),
             Text(
-              'PRO v1.1.0',
+              'PRO v1.0.2',
               style: GoogleFonts.inter(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
