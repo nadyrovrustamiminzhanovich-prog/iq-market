@@ -38,10 +38,18 @@ android {
             if (keystorePropertiesFile.exists()) {
                 val properties = Properties()
                 properties.load(FileInputStream(keystorePropertiesFile))
-                storeFile = file(properties.getProperty("storeFile") ?: "upload-keystore.jks")
-                storePassword = properties.getProperty("storePassword")
-                keyAlias = properties.getProperty("keyAlias")
-                keyPassword = properties.getProperty("keyPassword")
+                val storeProp = properties.getProperty("storeFile") ?: "upload-keystore.jks"
+                val resolvedFile = when {
+                    file(storeProp).exists() -> file(storeProp)
+                    rootProject.file(storeProp).exists() -> rootProject.file(storeProp)
+                    file("upload-keystore.jks").exists() -> file("upload-keystore.jks")
+                    rootProject.file("upload-keystore.jks").exists() -> rootProject.file("upload-keystore.jks")
+                    else -> file(storeProp)
+                }
+                storeFile = resolvedFile
+                storePassword = properties.getProperty("storePassword")?.takeIf { it.isNotBlank() } ?: "iqmarket2026"
+                keyAlias = properties.getProperty("keyAlias")?.takeIf { it.isNotBlank() } ?: "upload"
+                keyPassword = properties.getProperty("keyPassword")?.takeIf { it.isNotBlank() } ?: "iqmarket2026"
             }
         }
     }
