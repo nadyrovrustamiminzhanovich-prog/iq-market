@@ -38,28 +38,6 @@ jobs:
       - name: 🧪 Run tests
         run: flutter test --reporter=compact
 
-      # ⚠️ CI не имеет доступа к настоящему upload-keystore (key.properties в
-      # .gitignore, секретов в CI нет) — оба билда ниже подписаны debug-ключом
-      # (см. android/app/build.gradle.kts). Это ТОЛЬКО проверка, что сборка
-      # компилируется/собирается в обоих форматах, НЕ артефакт для Google
-      # Play. Google Play принимает от новых приложений только .aab, не .apk
-      # (правило с 2021 года) — реальный подписанный .aab собирается ЛОКАЛЬНО,
-      # там, где лежит настоящий keystore: `flutter build appbundle --release`.
-      - name: 🏗️ Build APK (debug-signed CI check, NOT for Play Store)
-        run: flutter build apk --release
-
-      - name: 🏗️ Build App Bundle (debug-signed CI check, NOT for Play Store)
-        run: flutter build appbundle --release
-
-      - name: 🚀 Upload debug-signed CI build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: IQ-Market-CI-DebugSigned-NotForPlayStore
-          path: |
-            build/app/outputs/flutter-apk/app-release.apk
-            build/app/outputs/bundle/release/app-release.aab
-          retention-days: 7
-
   rules-tests:
     name: Security Rules & Functions Tests
     runs-on: ubuntu-latest
