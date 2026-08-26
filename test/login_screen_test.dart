@@ -1,11 +1,94 @@
+import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_core_platform_interface/test.dart';
+import 'package:provider/provider.dart';
+import 'package:iqmarket/providers/app_config_provider.dart';
 import 'package:iqmarket/screens/login_screen.dart';
+import 'package:iqmarket/services/storage_service.dart';
+
+final List<int> _kTransparentImage = [
+  0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D,
+  0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+  0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4, 0x89, 0x00, 0x00, 0x00,
+  0x0A, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9C, 0x63, 0x00, 0x01, 0x00, 0x00,
+  0x05, 0x00, 0x01, 0x0D, 0x0A, 0x2D, 0xB4, 0x00, 0x00, 0x00, 0x00, 0x49,
+  0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82
+];
+
+class _MockHttpOverrides extends HttpOverrides {
+  @override
+  HttpClient createHttpClient(SecurityContext? context) => _MockHttpClient();
+}
+
+class _MockHttpClient extends Fake implements HttpClient {
+  @override
+  bool autoUncompress = false;
+  @override
+  String? userAgent;
+  @override
+  Future<HttpClientRequest> getUrl(Uri url) async => _MockHttpClientRequest();
+}
+
+class _MockHttpHeaders extends Fake implements HttpHeaders {
+  @override
+  void add(String name, Object value, {bool preserveHeaderCase = false}) {}
+  @override
+  void set(String name, Object value, {bool preserveHeaderCase = false}) {}
+}
+
+class _MockHttpClientRequest extends Fake implements HttpClientRequest {
+  @override
+  final HttpHeaders headers = _MockHttpHeaders();
+  @override
+  Future<HttpClientResponse> close() async => _MockHttpClientResponse();
+}
+
+class _MockHttpClientResponse extends Fake implements HttpClientResponse {
+  @override
+  int get statusCode => 200;
+  @override
+  int get contentLength => _kTransparentImage.length;
+  @override
+  HttpClientResponseCompressionState get compressionState =>
+      HttpClientResponseCompressionState.notCompressed;
+  @override
+  StreamSubscription<List<int>> listen(
+    void Function(List<int> event)? onData, {
+    Function? onError,
+    void Function()? onDone,
+    bool? cancelOnError,
+  }) {
+    return Stream<List<int>>.fromIterable([_kTransparentImage]).listen(
+      onData,
+      onError: onError,
+      onDone: onDone,
+      cancelOnError: cancelOnError,
+    );
+  }
+}
 
 void main() {
-  Widget createTestableWidget() {
-    return const MaterialApp(
-      home: LoginScreen(lang: 'Русский'),
+  setUpAll(() async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    GoogleFonts.config.allowRuntimeFetching = false;
+    HttpOverrides.global = _MockHttpOverrides();
+    SharedPreferences.setMockInitialValues({});
+    setupFirebaseCoreMocks();
+    await Firebase.initializeApp();
+    await StorageService.init();
+  });
+
+  Widget createTestableWidget({Widget? child}) {
+    return ChangeNotifierProvider<AppConfigProvider>(
+      create: (_) => AppConfigProvider(),
+      child: MaterialApp(
+        home: child ?? const LoginScreen(lang: 'Русский'),
+      ),
     );
   }
 
@@ -89,20 +172,23 @@ void main() {
     testWidgets('Renders choice screen with back button if navigator can pop, and tapping it pops the screen', (WidgetTester tester) async {
       final key = GlobalKey<NavigatorState>();
       await tester.pumpWidget(
-        MaterialApp(
-          navigatorKey: key,
-          home: Builder(
-            builder: (context) => Scaffold(
-              body: ElevatedButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const LoginScreen(lang: 'Русский'),
-                    ),
-                  );
-                },
-                child: const Text('Go to Login'),
+        ChangeNotifierProvider<AppConfigProvider>(
+          create: (_) => AppConfigProvider(),
+          child: MaterialApp(
+            navigatorKey: key,
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: ElevatedButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const LoginScreen(lang: 'Русский'),
+                      ),
+                    );
+                  },
+                  child: const Text('Go to Login'),
+                ),
               ),
             ),
           ),
@@ -131,15 +217,18 @@ void main() {
 
     testWidgets('System back button flow: pops choice screen, but only transitions form to choice screen first', (WidgetTester tester) async {
       await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: Builder(
-              builder: (context) => ElevatedButton(
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const LoginScreen(lang: 'Русский')),
+        ChangeNotifierProvider<AppConfigProvider>(
+          create: (_) => AppConfigProvider(),
+          child: MaterialApp(
+            home: Scaffold(
+              body: Builder(
+                builder: (context) => ElevatedButton(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const LoginScreen(lang: 'Русский')),
+                  ),
+                  child: const Text('Go to Login'),
                 ),
-                child: const Text('Go to Login'),
               ),
             ),
           ),

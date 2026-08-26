@@ -105,9 +105,9 @@ describe("storage: avatars/{userId}/", () => {
     await assertSucceeds(getDownloadURL(storageRef));
   });
 
-  test("анонимный пользователь НЕ может читать аватар (требуется вход)", async () => {
+  test("анонимный пользователь может читать аватар (публичный профиль маркета)", async () => {
     const storageRef = ref(anonStorage(), `avatars/${userId}/avatar.jpg`);
-    await assertFails(getDownloadURL(storageRef));
+    await assertSucceeds(getDownloadURL(storageRef));
   });
 
   test("владелец может загрузить свой аватар", async () => {

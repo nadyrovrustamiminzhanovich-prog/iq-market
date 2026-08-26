@@ -207,6 +207,9 @@ class FakeDocumentReference extends Fake implements DocumentReference<Map<String
   Future<void> set(Map<String, dynamic> data, [SetOptions? options]) async {}
 
   @override
+  Future<void> update(Map<Object, Object?> data) async {}
+
+  @override
   CollectionReference<Map<String, dynamic>> collection(String collectionPath) {
     return FakeCollectionReference(_snapshotsStream);
   }
@@ -237,6 +240,18 @@ class FakeCollectionReference extends Fake implements CollectionReference<Map<St
   }
 }
 
+// ignore: subtype_of_sealed_class
+class FakeWriteBatch extends Fake implements WriteBatch {
+  @override
+  void set<T>(DocumentReference<T> document, T data, [SetOptions? options]) {}
+  @override
+  void update(DocumentReference document, Map<Object, Object?> data) {}
+  @override
+  void delete(DocumentReference document) {}
+  @override
+  Future<void> commit() async {}
+}
+
 class FakeFirebaseFirestore extends Fake implements FirebaseFirestore {
   final Stream<DocumentSnapshot<Map<String, dynamic>>> _snapshotsStream;
 
@@ -246,6 +261,9 @@ class FakeFirebaseFirestore extends Fake implements FirebaseFirestore {
   CollectionReference<Map<String, dynamic>> collection(String collectionPath) {
     return FakeCollectionReference(_snapshotsStream);
   }
+
+  @override
+  WriteBatch batch() => FakeWriteBatch();
 }
 
 void main() {
