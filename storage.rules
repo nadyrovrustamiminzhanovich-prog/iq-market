@@ -18,7 +18,7 @@ service firebase.storage {
       return request.auth != null && (
         chatId.matches('^' + request.auth.uid + '_.*') ||
         chatId.matches('.*_' + request.auth.uid + '$') ||
-        (firestore.exists(/databases/(default)/documents/chats/$(chatId)) &&
+        (firestore.get(/databases/(default)/documents/chats/$(chatId)) != null &&
          'users' in firestore.get(/databases/(default)/documents/chats/$(chatId)).data &&
          request.auth.uid in firestore.get(/databases/(default)/documents/chats/$(chatId)).data.users)
       );
