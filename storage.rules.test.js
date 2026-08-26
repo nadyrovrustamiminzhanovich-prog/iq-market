@@ -31,7 +31,7 @@ const LARGE_IMAGE = Buffer.alloc(6 * 1024 * 1024);
 
 beforeAll(async () => {
   testEnv = await initializeTestEnvironment({
-    projectId: "iq-market-3dc07",
+    projectId: "iq-market-storage",
     firestore: {
       rules: fs.readFileSync("firestore.rules", "utf8"),
       host: "127.0.0.1",

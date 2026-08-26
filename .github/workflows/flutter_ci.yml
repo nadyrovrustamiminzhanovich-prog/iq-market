@@ -129,13 +129,22 @@ jobs:
 
       - name: 🔑 Restore real signing keystore from secrets
         run: |
-          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/app/upload-keystore.jks
+          if [ -z "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
+            echo "::error::ANDROID_KEYSTORE_BASE64 secret is EMPTY or NOT FOUND in repository secrets!"
+            exit 1
+          fi
+          printf '%s' "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode --ignore-garbage > android/app/upload-keystore.jks
+          if [ ! -s android/app/upload-keystore.jks ]; then
+            echo "::error::upload-keystore.jks is empty after base64 decoding!"
+            exit 1
+          fi
           cat > android/key.properties <<EOF
           storeFile=upload-keystore.jks
           storePassword=${{ secrets.ANDROID_KEYSTORE_STORE_PASSWORD }}
           keyPassword=${{ secrets.ANDROID_KEYSTORE_KEY_PASSWORD }}
           keyAlias=${{ secrets.ANDROID_KEYSTORE_KEY_ALIAS }}
           EOF
+          echo "Keystore restored successfully! File size: $(wc -c < android/app/upload-keystore.jks) bytes"
 
       - name: 🏗️ Build App Bundle (REAL signature — ready for Google Play)
         run: flutter build appbundle --release

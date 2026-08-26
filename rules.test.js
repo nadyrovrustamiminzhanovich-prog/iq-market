@@ -15,7 +15,7 @@ let testEnv;
 // ──────────────────────────────────────────
 beforeAll(async () => {
   testEnv = await initializeTestEnvironment({
-    projectId: "iq-market-3dc07",
+    projectId: "iq-market-firestore",
     firestore: {
       rules: fs.readFileSync("firestore.rules", "utf8"),
       host: "127.0.0.1",
