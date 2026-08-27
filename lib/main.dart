@@ -39,6 +39,10 @@ void _enableAndroidPhotoPicker() {
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Оптимизация оперативной памяти для изображений по стандартам Google Play Vitals
+  PaintingBinding.instance.imageCache.maximumSizeBytes = 100 * 1024 * 1024; // 100 MB
+  PaintingBinding.instance.imageCache.maximumSize = 150;
+
   _enableAndroidPhotoPicker();
 
   // Pass all uncaught "fatal" errors from the framework to Crashlytics
