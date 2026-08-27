@@ -165,6 +165,41 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
     });
   }
 
+  Future<void> _refreshAdminData() async {
+    AdService.runGlobalCleanupIfNeeded();
+    try {
+      final reportsSnap = await FirebaseFirestore.instance.collection('reports').get();
+      final unreadCount = reportsSnap.docs.where((doc) {
+        final data = doc.data();
+        final isRead = data['isRead'] == true || data['read'] == true;
+        final isResolved = data['status'] == 'resolved' || data['status'] == 'dismissed' || data['resolved'] == true;
+        return !isRead && !isResolved;
+      }).length;
+
+      final pendingAdsSnap = await FirebaseFirestore.instance
+          .collection('ads')
+          .where('status', isEqualTo: 'pending')
+          .count()
+          .get();
+
+      if (mounted) {
+        setState(() {
+          _reportsCount = unreadCount;
+          _pendingAdsCount = pendingAdsSnap.count ?? 0;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Данные админ-панели успешно обновлены! 🔄'),
+            behavior: SnackBarBehavior.floating,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error refreshing admin data: $e');
+    }
+  }
+
   void _setupRealtimeListeners() {
     // 1. Listen to Unread Reports
     _reportsSub = FirebaseFirestore.instance.collection('reports').snapshots().listen((snapshot) {
@@ -172,8 +207,8 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
 
       final unreadCount = snapshot.docs.where((doc) {
         final data = doc.data();
-        final isRead = data['isRead'] == true;
-        final isResolved = data['status'] == 'resolved' || data['resolved'] == true;
+        final isRead = data['isRead'] == true || data['read'] == true;
+        final isResolved = data['status'] == 'resolved' || data['status'] == 'dismissed' || data['resolved'] == true;
         return !isRead && !isResolved;
       }).length;
 
@@ -188,7 +223,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
       for (final change in snapshot.docChanges) {
         if (change.type == DocumentChangeType.added) {
           final data = change.doc.data();
-          if (data?['isRead'] != true) {
+          if (data?['isRead'] != true && data?['read'] != true) {
             final title = data?['adTitle'] ?? data?['reportedUserName'] ?? 'Жалоба';
             final type = data?['type'] ?? 'другое';
 
@@ -196,12 +231,16 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
               title: '⚠️ Новая жалоба!',
               body: '$title ($type)',
               onTap: () {
-                Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminReportsScreen()));
+                Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminReportsScreen())).then((_) => _refreshAdminData());
               },
             );
           }
         }
       }
+
+      setState(() {
+        _reportsCount = unreadCount;
+      });
     });
 
     // 2. Listen to Pending Ads
@@ -227,7 +266,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
             title: '📦 Новое объявление на модерации!',
             body: title,
             onTap: () {
-              Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminAdsScreen()));
+              Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminAdsScreen())).then((_) => _refreshAdminData());
             },
           );
         }
@@ -258,7 +297,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
             title: '👤 Новый пользователь!',
             body: email,
             onTap: () {
-              Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminUsersScreen()));
+              Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminUsersScreen())).then((_) => _refreshAdminData());
             },
           );
         }
@@ -283,6 +322,11 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
             : null,
         actions: [
           IconButton(
+            icon: Icon(PhosphorIcons.arrowsClockwise(PhosphorIconsStyle.bold), color: const Color(0xFF0F172A), size: 22),
+            onPressed: _refreshAdminData,
+            tooltip: 'Обновить данные',
+          ),
+          IconButton(
             icon: Icon(PhosphorIcons.magnifyingGlass(PhosphorIconsStyle.bold), color: const Color(0xFF0F172A), size: 22),
             onPressed: _showGlobalSearchDialog,
             tooltip: 'Глобальный поиск',
@@ -301,67 +345,72 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
       ),
       body: Stack(
         children: [
-          SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildHeader(),
-                const SizedBox(height: 24),
+          RefreshIndicator(
+            onRefresh: _refreshAdminData,
+            color: const Color(0xFF2563EB),
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildHeader(),
+                  const SizedBox(height: 24),
 
-                // 📊 4 Real-Time Metrics Cards
-                Row(
-                  children: [
-                    _buildQuickStat('ВСЕ ОБЪЯВЛЕНИЯ', FirebaseFirestore.instance.collection('ads').count().get(), PhosphorIcons.package(), const Color(0xFF4A80F0), () {
-                      Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminAdsScreen()));
-                    }),
-                    const SizedBox(width: 12),
-                    _buildQuickStat('ПОЛЬЗОВАТЕЛИ', FirebaseFirestore.instance.collection('users').count().get(), PhosphorIcons.usersThree(), const Color(0xFF8B5CF6), () {
-                      Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminUsersScreen()));
-                    }),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    _buildQuickStat('НА ПРОВЕРКЕ', FirebaseFirestore.instance.collection('ads').where('status', isEqualTo: 'pending').count().get(), PhosphorIcons.shieldCheck(), Colors.orange, () {
-                      Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminAdsScreen()));
-                    }),
-                    const SizedBox(width: 12),
-                    _buildQuickStat('ЖАЛОБЫ', FirebaseFirestore.instance.collection('reports').where('isRead', isEqualTo: false).count().get(), PhosphorIcons.warningCircle(), Colors.redAccent, () {
-                      Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminReportsScreen()));
-                    }),
-                  ],
-                ),
+                  // 📊 4 Real-Time Metrics Cards
+                  Row(
+                    children: [
+                      _buildQuickStat('ВСЕ ОБЪЯВЛЕНИЯ', FirebaseFirestore.instance.collection('ads').count().get(), PhosphorIcons.package(), const Color(0xFF4A80F0), () {
+                        Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminAdsScreen())).then((_) => _refreshAdminData());
+                      }),
+                      const SizedBox(width: 12),
+                      _buildQuickStat('ПОЛЬЗОВАТЕЛИ', FirebaseFirestore.instance.collection('users').count().get(), PhosphorIcons.usersThree(), const Color(0xFF8B5CF6), () {
+                        Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminUsersScreen())).then((_) => _refreshAdminData());
+                      }),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      _buildQuickStat('НА ПРОВЕРКЕ', null, PhosphorIcons.shieldCheck(), Colors.orange, () {
+                        Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminAdsScreen())).then((_) => _refreshAdminData());
+                      }, value: '$_pendingAdsCount'),
+                      const SizedBox(width: 12),
+                      _buildQuickStat('ЖАЛОБЫ', null, PhosphorIcons.warningCircle(), Colors.redAccent, () {
+                        Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminReportsScreen())).then((_) => _refreshAdminData());
+                      }, value: '$_reportsCount'),
+                    ],
+                  ),
 
-                const SizedBox(height: 32),
-                _buildSectionHeader('ИНСТРУМЕНТЫ АДМИНИСТРИРОВАНИЯ'),
-                const SizedBox(height: 16),
+                  const SizedBox(height: 32),
+                  _buildSectionHeader('ИНСТРУМЕНТЫ АДМИНИСТРИРОВАНИЯ'),
+                  const SizedBox(height: 16),
 
-                // Сетка инструментов 2x3
-                GridView.count(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  crossAxisCount: 2,
-                  mainAxisSpacing: 14,
-                  crossAxisSpacing: 14,
-                  childAspectRatio: 0.95,
-                  children: [
-                    _buildToolCard(context, 'Аналитика', 'Обзор и графики', PhosphorIcons.chartPieSlice(), Colors.teal, () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminDashboardScreen()))),
-                    _buildToolCard(context, 'Все объявления', 'Модерация и архив', PhosphorIcons.shieldCheck(), Colors.orange, () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminAdsScreen())), badgeCount: _pendingAdsCount),
-                    _buildToolCard(context, 'Пользователи', 'База и блокировки', PhosphorIcons.userList(), Colors.indigo, () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminUsersScreen()))),
-                    _buildToolCard(context, 'Такси', 'Заказы и поездки', PhosphorIcons.taxi(), Colors.blue, () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminTaxiScreen()))),
-                    _buildToolCard(context, 'Рассылка', 'Push-уведомления', PhosphorIcons.paperPlaneTilt(), Colors.pink, () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminNotificationsScreen()))),
-                    _buildToolCard(context, 'Жалобы', 'Разрешение споров', PhosphorIcons.warningCircle(), Colors.red, () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminReportsScreen())), badgeCount: _reportsCount),
-                  ],
-                ),
+                  // Сетка инструментов 2x3
+                  GridView.count(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    crossAxisCount: 2,
+                    mainAxisSpacing: 14,
+                    crossAxisSpacing: 14,
+                    childAspectRatio: 0.95,
+                    children: [
+                      _buildToolCard(context, 'Аналитика', 'Обзор и графики', PhosphorIcons.chartPieSlice(), Colors.teal, () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminDashboardScreen()))),
+                      _buildToolCard(context, 'Все объявления', 'Модерация и архив', PhosphorIcons.shieldCheck(), Colors.orange, () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminAdsScreen())).then((_) => _refreshAdminData()), badgeCount: _pendingAdsCount),
+                      _buildToolCard(context, 'Пользователи', 'База и блокировки', PhosphorIcons.userList(), Colors.indigo, () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminUsersScreen())).then((_) => _refreshAdminData())),
+                      _buildToolCard(context, 'Такси', 'Заказы и поездки', PhosphorIcons.taxi(), Colors.blue, () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminTaxiScreen()))),
+                      _buildToolCard(context, 'Рассылка', 'Push-уведомления', PhosphorIcons.paperPlaneTilt(), Colors.pink, () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminNotificationsScreen()))),
+                      _buildToolCard(context, 'Жалобы', 'Разрешение споров', PhosphorIcons.warningCircle(), Colors.red, () => Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminReportsScreen())).then((_) => _refreshAdminData()), badgeCount: _reportsCount),
+                    ],
+                  ),
 
-                const SizedBox(height: 32),
-                _buildSectionHeader('ЖИВАЯ ЛЕНТА СОБЫТИЙ'),
-                const SizedBox(height: 14),
-                _buildLiveActivityStream(),
-                const SizedBox(height: 40),
-              ],
+                  const SizedBox(height: 32),
+                  _buildSectionHeader('ЖИВАЯ ЛЕНТА СОБЫТИЙ'),
+                  const SizedBox(height: 14),
+                  _buildLiveActivityStream(),
+                  const SizedBox(height: 40),
+                ],
+              ),
             ),
           ),
 
@@ -433,7 +482,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
     );
   }
 
-  Widget _buildQuickStat(String label, Future<AggregateQuerySnapshot> future, IconData icon, Color color, VoidCallback onTap) {
+  Widget _buildQuickStat(String label, Future<AggregateQuerySnapshot>? future, IconData icon, Color color, VoidCallback onTap, {String? value}) {
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
@@ -460,13 +509,16 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                 ],
               ),
               const SizedBox(height: 14),
-              FutureBuilder<AggregateQuerySnapshot>(
-                future: future,
-                builder: (context, snapshot) {
-                  final val = snapshot.hasData ? snapshot.data!.count.toString() : '...';
-                  return Text(val, style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A)));
-                }
-              ),
+              if (value != null)
+                Text(value, style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A)))
+              else
+                FutureBuilder<AggregateQuerySnapshot>(
+                  future: future,
+                  builder: (context, snapshot) {
+                    final val = snapshot.hasData ? snapshot.data!.count.toString() : '...';
+                    return Text(val, style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A)));
+                  },
+                ),
               const SizedBox(height: 2),
               Text(label, style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.grey[500], letterSpacing: 0.5)),
             ],
