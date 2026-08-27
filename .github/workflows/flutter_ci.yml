@@ -5,7 +5,7 @@ on:
     branches: [ "main", "master" ]
   pull_request:
     branches: [ "main", "master" ]
-  workflow_dispatch: {}
+  workflow_dispatch:
 
 jobs:
   build:
@@ -68,19 +68,6 @@ jobs:
         run: firebase emulators:exec --only firestore,storage "npm run test:all"
 
   # Собирает НАСТОЯЩИЙ подписанный .aab для загрузки в Google Play.
-  # Локальная сборка релиза на машине разработчика физически не влезает в
-  # RAM (5.7ГБ) — дважды роняла компьютер намертво (см. память
-  # iqmarket-low-ram-machine/iqmarket-release-ci-pipeline-2026-08-16).
-  # Здесь собирается на раннере GitHub — там памяти достаточно.
-  # Запускается ТОЛЬКО вручную (workflow_dispatch), не на каждый push —
-  # это шаг публикации релиза, а не обычная проверка кода.
-  # Требует 4 секрета репозитория (Settings → Secrets and variables →
-  # Actions), значения нужно завести самому — ассистент их не видит и не
-  # трогает:
-  #   ANDROID_KEYSTORE_BASE64        — base64 содержимого upload-keystore.jks
-  #   ANDROID_KEYSTORE_STORE_PASSWORD
-  #   ANDROID_KEYSTORE_KEY_PASSWORD
-  #   ANDROID_KEYSTORE_KEY_ALIAS
   build-signed-release:
     name: Build REAL signed .aab for Google Play
     runs-on: ubuntu-latest
@@ -107,9 +94,14 @@ jobs:
         run: flutter pub get
 
       - name: 🔑 Restore real signing keystore
+        env:
+          KEYSTORE_B64_SECRET: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASS_SECRET: ${{ secrets.ANDROID_KEYSTORE_STORE_PASSWORD }}
+          KEY_PASS_SECRET: ${{ secrets.ANDROID_KEYSTORE_KEY_PASSWORD }}
+          KEY_ALIAS_SECRET: ${{ secrets.ANDROID_KEYSTORE_KEY_ALIAS }}
         run: |
-          if [ -n "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
-            printf '%s' "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode --ignore-garbage > android/app/upload-keystore.jks
+          if [ -n "$KEYSTORE_B64_SECRET" ]; then
+            printf '%s' "$KEYSTORE_B64_SECRET" | base64 --decode --ignore-garbage > android/app/upload-keystore.jks
           fi
           if [ ! -s android/app/upload-keystore.jks ] && [ -f android/app/upload-keystore.b64 ]; then
             base64 --decode --ignore-garbage android/app/upload-keystore.b64 > android/app/upload-keystore.jks
@@ -117,11 +109,11 @@ jobs:
 
           cp android/app/upload-keystore.jks android/upload-keystore.jks
 
-          STORE_PASS="${{ secrets.ANDROID_KEYSTORE_STORE_PASSWORD }}"
+          STORE_PASS="$STORE_PASS_SECRET"
           [ -z "$STORE_PASS" ] && STORE_PASS="iqmarket2026"
-          KEY_PASS="${{ secrets.ANDROID_KEYSTORE_KEY_PASSWORD }}"
+          KEY_PASS="$KEY_PASS_SECRET"
           [ -z "$KEY_PASS" ] && KEY_PASS="iqmarket2026"
-          KEY_ALIAS="${{ secrets.ANDROID_KEYSTORE_KEY_ALIAS }}"
+          KEY_ALIAS="$KEY_ALIAS_SECRET"
           [ -z "$KEY_ALIAS" ] && KEY_ALIAS="upload"
 
           cat > android/key.properties <<EOF
