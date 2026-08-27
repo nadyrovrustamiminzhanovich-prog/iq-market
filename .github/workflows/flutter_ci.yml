@@ -124,8 +124,11 @@ jobs:
           EOF
 
           echo "Keystore file size: $(wc -c < android/app/upload-keystore.jks) bytes"
+          sed -i 's/-Xmx1536m/-Xmx4096m/g' android/gradle.properties
 
       - name: 🏗️ Build App Bundle (REAL signature — ready for Google Play)
+        env:
+          GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m -XX:+HeapDumpOnOutOfMemoryError"
         run: flutter build appbundle --release
 
       - name: 🚀 Upload real signed .aab
